@@ -18,6 +18,9 @@ while dispatch_tt <= Time(10,0,0)
     dispatch_tt += Minute(5)
 end
 
-dispatching_time_list
+output_dispatching_time_list = []
+for i in dispatching_time_list
+    push!(output_dispatching_time_list, Dates.format(i, "HH:MM:SS"))
+end
 
-CSV.write("data/02_INTERMEDIATE/dispatching_time.csv",  dispatching_time_list; dateformat=Minute, writeheader=false)
+CSV.write("data/02_INTERMEDIATE/dispatching_time.csv", (; time = output_dispatching_time_list))
