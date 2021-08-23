@@ -3,23 +3,37 @@ import results
 import csv
 import matplotlib.pyplot as plt
 import pickle
+import time
 
-# env = core.SimulationEnv()
-# done = env.reset_simulation()
-# while not done:
-#     done = env.prep()
-# results.write_csv_trajectories(env.trajectories, 'out/text/trip data.dat')
-# results.plot_headway_per_stop(env.recorded_headway, 'out/figs/headways per stop.png')
+path_stops_loc = 'in/gtfs/stops.txt'
 
-# with open('out/vars/trajectories_0816.pkl', 'rb') as tf:
-#     trajectories = pickle.load(tf)
-#
-# with open('out/vars/headway_0816.pkl', 'rb') as tf:
-#     headway = pickle.load(tf)
-#
-# stop_location = results.get_stop_gps('in/gtfs/stops.txt')
-# results.write_link_times(trajectories, stop_location, 'out/vars/link_travel_times_0816.csv')
-# results.write_wait_times(headway, stop_location, 'out/vars/stop_wait_times_0816.csv')
+tstamp_save = time.strftime("%m%d-%H%M")
+path_tr_save = 'out/trajectories_' + tstamp_save + '.pkl'
+path_hw_save = 'out/headway_' + tstamp_save + '.pkl'
 
-# for storing use the same pattern as loading
+tstamp_load = tstamp_save
+path_tr_load = 'out/trajectories_' + tstamp_load + '.pkl'
+path_hw_load = 'out/headway_' + tstamp_load + '.pkl'
+path_lt = 'out/link_times_' + tstamp_load + '.csv'
+path_wt = 'out/stop_wait_times_' + tstamp_load + '.csv'
+path_hw_fig = 'out/headway_' + tstamp_load + '.png'
+path_tr_csv = 'out/trajectories_' + tstamp_load + '.csv'
+
+env = core.SimulationEnv()
+done = env.reset_simulation()
+while not done:
+    done = env.prep()
+
+results.save(path_tr_save, env.trajectories)
+results.save(path_hw_save, env.recorded_headway)
+
+trajectories = results.load(path_tr_load)
+headway = results.load(path_hw_load)
+
+results.write_trajectories(trajectories, path_tr_csv)
+results.plot_stop_headway(headway, path_hw_fig)
+stops_loc = results.get_stop_loc(path_stops_loc)
+results.write_link_times(trajectories, stops_loc, path_lt)
+results.write_wait_times(headway, stops_loc, path_wt)
+
 
