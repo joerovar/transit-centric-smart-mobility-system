@@ -45,7 +45,7 @@ def plot_headway_per_stop(hs, pathname):
     return
 
 
-def write_link_times(trip_data):
+def write_link_times(trip_data, stop_gps, path_writename):
     link_times = {}
     for t in trip_data:
         stop_data = trip_data[t]
@@ -59,22 +59,36 @@ def write_link_times(trip_data):
     mean_link_times = {}
     for link in link_times:
         mean_link_times[link] = round(np.array(link_times[link]).mean(), 1)
-    link_times_df = pd.DataFrame(mean_link_times.items(), columns=['orig_stop', 'link_time_sec'])
-    link_times_df[['orig_stop', 'dest_stop']] = link_times_df['orig_stop'].str.split('-', expand=True)
-    link_times_df = link_times_df[['orig_stop', 'dest_stop', 'link_time_sec']]
-    link_times_df.to_csv('out/vars/link_travel_times_0816.csv', index=False)
+    link_times_df = pd.DataFrame(mean_link_times.items(), columns=['stop_1', 'time_sec'])
+    link_times_df[['stop_1', 'stop_2']] = link_times_df['stop_1'].str.split('-', expand=True)
+    link_times_df = link_times_df[['stop_1', 'stop_2', 'time_sec']]
+    s = stop_gps.copy()
+    s['stop_id'] = s['stop_id'].astype(str)
+    s = s.rename(columns={'stop_id': 'stop_1', 'stop_lat': 'stop_1_lat', 'stop_lon': 'stop_1_lon'})
+    link_times_df = pd.merge(link_times_df, s, on='stop_1')
+    s = s.rename(columns={'stop_1': 'stop_2', 'stop_1_lat': 'stop_2_lat', 'stop_1_lon': 'stop_2_lon'})
+    link_times_df = pd.merge(link_times_df, s, on='stop_2')
+    link_times_df.to_csv(path_writename, index=False)
     return
 
 
-def write_wait_times(headway_data):
+def write_wait_times(headway_data, stop_gps, pathname):
     mean_wait_time = {}
     for stop in headway_data:
         mean_wait_time[stop] = round((np.array(headway_data[stop]).mean()) / 2, 1)
-    waittimes = pd.DataFrame(mean_wait_time.items(), columns=['stop', 'wait_time_sec'])
-    waittimes.to_csv('out/vars/stop_wait_times_0816.csv', index=False)
+    wait_times = pd.DataFrame(mean_wait_time.items(), columns=['stop', 'wait_time_sec'])
+    s = stop_gps.copy()
+    s['stop_id'] = s['stop_id'].astype(str)
+    s = s.rename(columns={'stop_id': 'stop'})
+    wait_times = pd.merge(wait_times, s, on='stop')
+    wait_times.to_csv(pathname, index=False)
     return
 
 
+def get_stop_gps(pathname):
+    stop_gps = pd.read_csv(pathname)
+    stop_gps = stop_gps[['stop_id', 'stop_lat', 'stop_lon']]
+    return stop_gps
 # def plot_2hw_cv(hw1, hw2, pathname, labels, colors):
 #     fig, ax = plt.subplots(2, sharex='all', figsize=(6, 4))
 #     local_hw1, local_hw2 = dict(hw1), dict(hw2)

@@ -4,17 +4,14 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import pickle
 
-a = pd.DataFrame([['ABC123', '20'], ['DEF456', '22']], columns=['ID', 'age'])
+a = pd.DataFrame([['386', '388', 3.2], ['388', '386', 4.2]], columns=['stop1', 'stop2', 'time'])
 print(a)
 
-numbers = a['ID'].str[-3:]
-a.insert(1, 'ID NUMBER', numbers)
-a['ID'] = a['ID'].str.slice(stop=3)
-print(a)
-
-d = {'386-388': 12, '388-340': 15}
-e = pd.DataFrame(d.items(), columns=['orig_stop', 'time'])
-d_stop = e['orig_stop'].str.split('-')[1]
-e.insert(1, 'dest_stop', d_stop)
-e['orig_stop'] = e['orig_stop'].str.split('-')[0]
-print(e)
+b = pd.DataFrame([['386', 33.1, -88.2], ['388', 34.1, -85.0]], columns=['stop', 'stop_lon', 'stop_lat'])
+b = b.rename(columns={'stop': 'stop1'})
+c = pd.merge(a, b, on='stop1')
+c = c.rename(columns={'stop_lon': 'stop1_lon', 'stop_lat': 'stop1_lat'})
+b = b.rename(columns={'stop1': 'stop2'})
+c = pd.merge(c, b, on='stop2')
+c = c.rename(columns={'stop_lon': 'stop2_lon', 'stop_lat': 'stop2_lat'})
+print(c)
