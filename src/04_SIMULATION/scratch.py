@@ -5,6 +5,5 @@ import pandas as pd
 import pickle
 import time
 
-d = {'1': [200, 2], '2': [250, 4]}
-
-print(d.items())
+d = {'1': 20, '2': 30}
+d2 = {'1': 24, '2': 25}

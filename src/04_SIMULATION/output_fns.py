@@ -2,9 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import csv
 import pandas as pd
-from scipy.stats import norm
 import pickle
-from input import *
 
 
 def write_trajectories(trip_data, pathname):
@@ -27,8 +25,42 @@ def plot_stop_headway(hs, pathname):
             plt.scatter(stop, h, color='r', s=20)
     plt.xticks(rotation=90, fontsize=6)
     plt.tight_layout()
-    plt.savefig(pathname)
+    if pathname:
+        plt.savefig(pathname)
+    else:
+        plt.show()
+    plt.close()
+    return
 
+
+def plot_trajectories(trip_data, pathname):
+    for trip in trip_data:
+        td = np.array(trip_data[trip])
+        if np.size(td):
+            times = td[:, 1].astype(float)
+            plt.plot(times, np.arange(len(times)))
+    if pathname:
+        plt.savefig(pathname)
+    else:
+        plt.show()
+    plt.close()
+    return
+
+
+def plot_multiple_bar_charts(wta, wtc, pathname, lbls):
+    w = 0.27
+    bar1 = np.arange(len(wta.keys()))
+    bar2 = [i + w for i in bar1]
+    plt.bar(bar1, wta.values(), w, label=lbls[0], color='b')
+    plt.bar(bar2, wtc.values(), w, label=lbls[1], color='r')
+    plt.xticks(bar1, wta.keys(), rotation=90, fontsize=6)
+    plt.tight_layout()
+    plt.legend()
+    if pathname:
+        plt.savefig(pathname)
+    else:
+        plt.show()
+    plt.close()
     return
 
 
@@ -59,10 +91,10 @@ def write_link_times(trip_data, stop_gps, path_writename):
     return
 
 
-def write_wait_times(headway_data, stop_gps, pathname):
-    mean_wait_time = {}
-    for stop in headway_data:
-        mean_wait_time[stop] = round((np.array(headway_data[stop]).mean()) / 2, 1)
+def write_wait_times(mean_wait_time, stop_gps, pathname):
+    # mean_wait_time = {}
+    # for stop in headway_data:
+    #     mean_wait_time[stop] = round((np.array(headway_data[stop]).mean()) / 2, 1)
     wait_times = pd.DataFrame(mean_wait_time.items(), columns=['stop', 'wait_time_sec'])
     s = stop_gps.copy()
     s['stop_id'] = s['stop_id'].astype(str)
@@ -72,15 +104,22 @@ def write_wait_times(headway_data, stop_gps, pathname):
     return
 
 
+def plot_bar_chart(var, pathname):
+    plt.bar(var.keys(), var.values())
+    plt.xticks(rotation=90, fontsize=6)
+    plt.tight_layout()
+    if pathname:
+        plt.savefig(pathname)
+    else:
+        plt.show()
+    plt.close()
+    return
+
+
 def get_stop_loc(pathname):
     stop_gps = pd.read_csv(pathname)
     stop_gps = stop_gps[['stop_id', 'stop_lat', 'stop_lon']]
     return stop_gps
-
-
-def plot_trajectories(pathname):
-
-    return
 
 
 def save(pathname, par):
@@ -93,3 +132,4 @@ def load(pathname):
     with open(pathname, 'rb') as tf:
         var = pickle.load(tf)
     return var
+
