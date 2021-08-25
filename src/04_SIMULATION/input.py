@@ -14,16 +14,7 @@ ROUTE_DIRECTION = 'East'
 STOPS, LINK_TIMES_MEAN, LINK_TIMES_STDEV = get_stops(ROUTE_ID, ROUTE_DIRECTION,
                                                      'in/gtfs/trips.txt', 'in/route20_stop_time.dat',
                                                      INIT_SIM_TIME, FIN_SIM_TIME)
-cv = {}
-for s in LINK_TIMES_MEAN:
-    if LINK_TIMES_MEAN[s]:
-        cv[s] = LINK_TIMES_STDEV[s] / LINK_TIMES_MEAN[s]
-    else:
-        cv[s] = 0
-plt.plot(cv.keys(), cv.values())
-plt.xticks(rotation=90, fontsize=6)
-plt.tight_layout()
-plt.show()
+
 # TRAVEL, DWELL TIME AND DEPARTURE DELAY DISTRIBUTION
 TTD = 'LOGNORMAL'
 CV = 0.30
