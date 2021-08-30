@@ -5,7 +5,7 @@ import random
 
 
 def get_interval(time):
-    interval = int(time / (INTERVAL_LENGTH_MINS * 60))
+    interval = int(time / (DEM_INTERVAL_LENGTH_MINS * 60))
     return interval
 
 
@@ -62,7 +62,7 @@ class SimulationEnv:
         stop = self.last_stop[i]
         arrival_rates = ARRIVAL_RATES[stop]
         inter = get_interval(self.time)
-        e_pax = arrival_rates[inter - START_INTERVAL] * headway/60
+        e_pax = arrival_rates[inter - DEM_START_INTERVAL] * headway/60
         pax_at_stop = np.random.poisson(lam=e_pax)
         return pax_at_stop
 
@@ -75,8 +75,8 @@ class SimulationEnv:
         t2 = last_arrival_t + headway
         while t < t2:
             inter = get_interval(t)
-            edge = (inter + 1) * 60 * INTERVAL_LENGTH_MINS
-            e_pax += arrival_rates[inter - START_INTERVAL] * ((min(edge, t2) - t)/60)
+            edge = (inter + 1) * 60 * DEM_INTERVAL_LENGTH_MINS
+            e_pax += arrival_rates[inter - DEM_START_INTERVAL] * ((min(edge, t2) - t)/60)
             t = min(edge, t2)
         pax_arrivals = np.random.poisson(lam=e_pax)
         return pax_arrivals
@@ -84,7 +84,7 @@ class SimulationEnv:
     def get_dropoffs(self):
         i = self.bus_idx
         interv = get_interval(self.time)
-        interv_idx = interv - START_INTERVAL
+        interv_idx = interv - DEM_START_INTERVAL
         dropoffs = int(round(ALIGHT_FRACTIONS[self.last_stop[i]][interv_idx] * self.load[i]))
         return dropoffs
 

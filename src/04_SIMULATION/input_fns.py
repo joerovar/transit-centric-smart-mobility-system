@@ -6,46 +6,54 @@ import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
 
 
-def get_stops(route_id, direction, path_trips, path_stop_times, start_time, end_time):
+def get_interval(t, len_i):
+    interval = int(t/(len_i*60))
+    return interval
+
+
+def get_route(route_id, direction, path_trips, path_stop_times, start_time, end_time, nr_intervals, start_interval, interval_length):
     link_times = {}
     dates = ['2019-09-03', '2019-09-04', '2019-09-05', '2019-09-06']
     all_trips = pd.read_csv(path_trips)
-    route_20_trips = all_trips[all_trips['route_id'] == route_id]
-    route_20_trips_east = route_20_trips[route_20_trips['direction'] == direction]
+    route_trips = all_trips[all_trips['route_id'] == route_id]
+    route_trips_east = route_trips[route_trips['direction'] == direction]
 
-    trip_ids = route_20_trips_east['trip_id'].astype(str).tolist()
-    route_20_stop_times = pd.read_csv(path_stop_times)
-    route_20_peak_stop_times = pd.DataFrame(columns=route_20_stop_times.columns)
+    trip_ids = route_trips_east['trip_id'].astype(str).tolist()
+    route_stop_times = pd.read_csv(path_stop_times)
+    route_peak_stop_times = pd.DataFrame(columns=route_stop_times.columns)
     for t in trip_ids:
-        temp = route_20_stop_times[route_20_stop_times['trip_id'] == int(t[4:])].reset_index()
+        temp = route_stop_times[route_stop_times['trip_id'] == int(t[4:])].reset_index()
         if not temp.empty:
             temp = temp.sort_values(by='stop_sequence')
             dispatch_time = temp['arrival_time'][0]
             dispatch_time = datetime.strptime(dispatch_time, "%H:%M:%S")
-            if start_time < dispatch_time < end_time:
-                route_20_peak_stop_times = route_20_peak_stop_times.append(temp, ignore_index=True)
+            if start_time <= dispatch_time <= end_time:
+                route_peak_stop_times = route_peak_stop_times.append(temp, ignore_index=True)
                 for d in dates:
                     date_specific = temp[temp['event_time'].astype(str).str[:10] == d]
                     stop_id = date_specific['stop_id'].astype(str).tolist()
                     times = date_specific['avl_sec'].tolist()
-                    invalid_links = []
                     check_sequence = date_specific['stop_sequence'].tolist()
                     for i in range(len(stop_id)-1):
                         if check_sequence[i] == check_sequence[i + 1] - 1:
                             link = stop_id[i]+'-'+stop_id[i+1]
                             exists = link in link_times
-                            if exists:
-                                link_times[link].append(times[i+1] - times[i])
-                            else:
-                                if link not in invalid_links:
-                                    link_times[link] = [times[i+1] - times[i]]
+                            if not exists:
+                                link_times[link] = [[] for i in range(nr_intervals)]
+                            nr_bin = get_interval(times[i] % 86400, interval_length) - start_interval
+                            if nr_bin < nr_intervals:
+                                link_times[link][nr_bin].append(times[i+1] - times[i])
+
     mean_link_times = {}
     stdev_link_times = {}
     for link in link_times:
-        mean_link_times[link] = np.array(link_times[link]).mean()
-        stdev_link_times[link] = np.array(link_times[link]).std()
-    some_trip_id = route_20_peak_stop_times['trip_id'][0]
-    some_trip = route_20_peak_stop_times[route_20_peak_stop_times['trip_id'] == some_trip_id]
+        mean_link_times[link] = []
+        stdev_link_times[link] = []
+        for b in link_times[link]:
+            mean_link_times[link].append(np.array(b).mean())
+            stdev_link_times[link].append(np.array(b).std())
+    some_trip_id = route_peak_stop_times['trip_id'][0]
+    some_trip = route_peak_stop_times[route_peak_stop_times['trip_id'] == some_trip_id]
     some_trip = some_trip.sort_values(by='stop_sequence')
     stops = some_trip['stop_id'].astype(str).tolist()
     stops = list(dict.fromkeys(stops))

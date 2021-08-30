@@ -5,16 +5,21 @@ import csv
 
 INIT_SIM_TIME = datetime.strptime('07:00:00', "%H:%M:%S")
 FIN_SIM_TIME = datetime.strptime('10:00:00', "%H:%M:%S")
+TOTAL_MINS = 180
+
 # ROUTE NETWORK: NUMBER OF ROUTES, NUMBER OF STOPS, ROUTE STOPS
 # notes:
 # trips.txt records the id of all trips for a route
 # stop_times.txt records all arr and dep times at all stops for a specific trip id
 ROUTE_ID = '20'
 ROUTE_DIRECTION = 'East'
-STOPS, LINK_TIMES_MEAN, LINK_TIMES_STDEV = get_stops(ROUTE_ID, ROUTE_DIRECTION,
+TIME_START_INTERVAL = 14
+TIME_INTERVAL_LENGTH_MINS = 30
+TIME_NR_INTERVALS = int(TOTAL_MINS/TIME_INTERVAL_LENGTH_MINS)
+STOPS, LINK_TIMES_MEAN, LINK_TIMES_STDEV = get_route(ROUTE_ID, ROUTE_DIRECTION,
                                                      'in/gtfs/trips.txt', 'in/route20_stop_time.dat',
-                                                     INIT_SIM_TIME, FIN_SIM_TIME)
-
+                                                     INIT_SIM_TIME, FIN_SIM_TIME, TIME_NR_INTERVALS,
+                                                     TIME_START_INTERVAL, TIME_INTERVAL_LENGTH_MINS)
 # TRAVEL, DWELL TIME AND DEPARTURE DELAY DISTRIBUTION
 TTD = 'LOGNORMAL'
 CV = 0.30
@@ -29,12 +34,12 @@ DEP_DELAY_FROM = -60
 DEP_DELAY_TO = 120
 
 # DEMAND: O-D POISSON RATES
-# ARRIVAL_RATES, ALIGHT_FRACTIONS, PEAK_VOL = extract_demand('in/od.dat', ROUTE_STOPS)
-NR_INTERVALS = int(180/5)
-INTERVAL_LENGTH_MINS = 5
-START_INTERVAL = 84
+DEM_START_INTERVAL = 84
+DEM_INTERVAL_LENGTH_MINS = 5
+DEM_NR_INTERVALS = int(TOTAL_MINS/DEM_INTERVAL_LENGTH_MINS)
+
 # arrival rates will be in pax/min
-ARRIVAL_RATES, ALIGHT_FRACTIONS = get_demand('in/odt_for_opt.dat', STOPS, NR_INTERVALS, INTERVAL_LENGTH_MINS, START_INTERVAL)
+# ARRIVAL_RATES, ALIGHT_FRACTIONS = get_demand('in/odt_for_opt.dat', STOPS, DEM_NR_INTERVALS, DEM_INTERVAL_LENGTH_MINS, DEM_START_INTERVAL)
 
 # SCHEDULE: DISPATCHING TIMES, STOP TIMES FROM BEGINNING OF ROUTE
 SCHEDULED_DEPARTURES = read_scheduled_departures('in/dispatching_time.dat')
