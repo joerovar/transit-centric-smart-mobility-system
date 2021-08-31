@@ -208,27 +208,32 @@ def extract_demand(path, route_stops):
     return arrival_rates, alighting_fractions, peak_volumes
 
 
-def compare_distributions(cv1, nmean, logn_s):
-    x = cv1 * nmean * np.random.randn(10000) + nmean  # normally  distributed values
-    y = lognorm.rvs(logn_s, scale=nmean, size=10000)
-    plt.hist(x, density=True, alpha=0.2, label='normal')
-    plt.hist(y, density=True, alpha=0.3, label='lognormal')
-    plt.title('main route')
+def plot_multiple_bar_charts(wta, wtc, lbls, pathname=False):
+    w = 0.27
+    bar1 = np.arange(len(wta.keys()))
+    bar2 = [i + w for i in bar1]
+    plt.bar(bar1, wta.values(), w, label=lbls[0], color='b')
+    plt.bar(bar2, wtc.values(), w, label=lbls[1], color='r')
+    plt.xticks(bar1, wta.keys(), rotation=90, fontsize=6)
+    plt.tight_layout()
     plt.legend()
-    plt.show()
+    if pathname:
+        plt.savefig(pathname)
+    else:
+        plt.show()
+    plt.close()
     return
 
 
-def compare_distributions2(cv2, nmean2, logn_s2):
-    x = cv2 * nmean2 * np.random.randn(10000) + nmean2  # normally  distributed values
-    y = lognorm.rvs(logn_s2, scale=nmean2, size=10000)
-    plt.hist(x, density=True, alpha=0.2, label='normal')
-    plt.hist(y, density=True, alpha=0.3, label='lognormal')
-    plt.title('deviations')
-    plt.legend()
-    plt.show()
+def plot_bar_chart(var, pathname=False):
+    plt.bar(var.keys(), var.values())
+    plt.xticks(rotation=90, fontsize=6)
+    plt.tight_layout()
+    if pathname:
+        plt.savefig(pathname)
+    else:
+        plt.show()
+    plt.close()
     return
-
-
 
 

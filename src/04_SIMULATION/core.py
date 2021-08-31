@@ -4,8 +4,8 @@ from scipy.stats import lognorm
 import random
 
 
-def get_interval(time):
-    interval = int(time / (DEM_INTERVAL_LENGTH_MINS * 60))
+def get_interval(time, interval_length):
+    interval = int(time / (interval_length * 60))
     return interval
 
 
@@ -61,7 +61,7 @@ class SimulationEnv:
         i = self.bus_idx
         stop = self.last_stop[i]
         arrival_rates = ARRIVAL_RATES[stop]
-        inter = get_interval(self.time)
+        inter = get_interval(self.time, DEM_INTERVAL_LENGTH_MINS)
         e_pax = arrival_rates[inter - DEM_START_INTERVAL] * headway/60
         pax_at_stop = np.random.poisson(lam=e_pax)
         return pax_at_stop
@@ -74,7 +74,7 @@ class SimulationEnv:
         t = last_arrival_t
         t2 = last_arrival_t + headway
         while t < t2:
-            inter = get_interval(t)
+            inter = get_interval(t, DEM_INTERVAL_LENGTH_MINS)
             edge = (inter + 1) * 60 * DEM_INTERVAL_LENGTH_MINS
             e_pax += arrival_rates[inter - DEM_START_INTERVAL] * ((min(edge, t2) - t)/60)
             t = min(edge, t2)
@@ -83,7 +83,7 @@ class SimulationEnv:
 
     def get_dropoffs(self):
         i = self.bus_idx
-        interv = get_interval(self.time)
+        interv = get_interval(self.time, DEM_INTERVAL_LENGTH_MINS)
         interv_idx = interv - DEM_START_INTERVAL
         dropoffs = int(round(ALIGHT_FRACTIONS[self.last_stop[i]][interv_idx] * self.load[i]))
         return dropoffs
@@ -92,7 +92,10 @@ class SimulationEnv:
         i = self.bus_idx
         prev_stop = self.last_stop[i]
         next_stop = self.next_stop[i]
-        mean_runtime = LINK_TIMES_MEAN[str(prev_stop)+'-'+str(next_stop)]
+        interv = get_interval(self.time, TIME_INTERVAL_LENGTH_MINS)
+        interv_idx = interv - TIME_START_INTERVAL
+        mean_runtime = LINK_TIMES_MEAN[str(prev_stop)+'-'+str(next_stop)][interv_idx]
+        assert mean_runtime
         s = LOGN_S
         runtime = lognorm.rvs(s, scale=mean_runtime)
         assert TTD == 'LOGNORMAL'

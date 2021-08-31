@@ -20,6 +20,7 @@ STOPS, LINK_TIMES_MEAN, LINK_TIMES_STDEV = get_route(ROUTE_ID, ROUTE_DIRECTION,
                                                      'in/gtfs/trips.txt', 'in/route20_stop_time.dat',
                                                      INIT_SIM_TIME, FIN_SIM_TIME, TIME_NR_INTERVALS,
                                                      TIME_START_INTERVAL, TIME_INTERVAL_LENGTH_MINS)
+
 # TRAVEL, DWELL TIME AND DEPARTURE DELAY DISTRIBUTION
 TTD = 'LOGNORMAL'
 CV = 0.30
@@ -39,7 +40,8 @@ DEM_INTERVAL_LENGTH_MINS = 5
 DEM_NR_INTERVALS = int(TOTAL_MINS/DEM_INTERVAL_LENGTH_MINS)
 
 # arrival rates will be in pax/min
-# ARRIVAL_RATES, ALIGHT_FRACTIONS = get_demand('in/odt_for_opt.dat', STOPS, DEM_NR_INTERVALS, DEM_INTERVAL_LENGTH_MINS, DEM_START_INTERVAL)
+ARRIVAL_RATES, ALIGHT_FRACTIONS = get_demand('in/odt_for_opt.dat', STOPS, DEM_NR_INTERVALS,
+                                             DEM_INTERVAL_LENGTH_MINS, DEM_START_INTERVAL)
 
 # SCHEDULE: DISPATCHING TIMES, STOP TIMES FROM BEGINNING OF ROUTE
 SCHEDULED_DEPARTURES = read_scheduled_departures('in/dispatching_time.dat')
