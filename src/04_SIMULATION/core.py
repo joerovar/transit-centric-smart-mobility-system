@@ -127,7 +127,7 @@ class SimulationEnv:
         load = self.load[i]
         last_bus_time = self.last_bus_time[s]
         assert load >= 0
-        if last_bus_time == START_SIMUL_TIME:
+        if last_bus_time == START_TIME_SEC:
             headway = INIT_HEADWAY
             p_arrivals = self.get_arrivals_start(headway)
         else:
@@ -146,7 +146,7 @@ class SimulationEnv:
         self.tot_denied_boardings[s] += denied
         self.denied_boardings[s] = denied
         self.stop_wait_time[s] += (prev_denied + p_arrivals/2) * headway
-        dwell_time = STOPPING_DELAY + boardings * BOARDING_DELAY + drop_offs * ALIGHTING_DELAY
+        dwell_time = ACC_DEC_TIME + boardings * BOARDING_TIME + drop_offs * ALIGHTING_TIME
         dwell_time = (boardings + drop_offs > 0) * dwell_time
         self.load[i] += boardings
         self.dep_t[i] = self.time + dwell_time
@@ -161,7 +161,7 @@ class SimulationEnv:
         self.arr_t[i] = self.time
         self.record_trajectories()
         s = self.next_stop[i]
-        if self.last_bus_time[s] == START_SIMUL_TIME:
+        if self.last_bus_time[s] == START_TIME_SEC:
             headway = INIT_HEADWAY
         else:
             headway = self.time - self.last_bus_time[s]
@@ -184,7 +184,7 @@ class SimulationEnv:
         s = self.last_stop[i]
         self.dep_t[i] = self.time
         self.terminal_dep_t[i] = self.time
-        if self.last_bus_time[s] == START_SIMUL_TIME:
+        if self.last_bus_time[s] == START_TIME_SEC:
             headway = INIT_HEADWAY
             boardings = self.get_arrivals_start(headway)
         else:
@@ -226,7 +226,7 @@ class SimulationEnv:
         dep_delays = [max(random.uniform(DEP_DELAY_FROM, DEP_DELAY_TO), 0) for i in range(len(self.next_departures))]
         self.next_departures = [sum(x) for x in zip(self.next_departures, dep_delays)]
         self.next_trip_ids = [i for i in range(1, 1 + len(SCHEDULED_DEPARTURES))]
-        self.time = START_SIMUL_TIME
+        self.time = START_TIME_SEC
         self.bus_idx = 0
 
         # trip-level data
@@ -258,7 +258,7 @@ class SimulationEnv:
 
     def prep(self):
         self.next_event()
-        if self.time >= STOP_SIMUL_TIME:
+        if self.time >= END_TIME_SEC:
             return True
         if self.event_type == 2:
             self.terminal_arrival()

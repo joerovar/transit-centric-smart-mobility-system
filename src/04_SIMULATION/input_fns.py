@@ -1,9 +1,8 @@
 import csv
 import numpy as np
 import pandas as pd
-from scipy.stats import lognorm
 import matplotlib.pyplot as plt
-from datetime import datetime, timedelta
+import warnings
 
 
 def get_interval(t, len_i):
@@ -11,53 +10,51 @@ def get_interval(t, len_i):
     return interval
 
 
-def get_route(route_id, direction, path_trips, path_stop_times, start_time, end_time, nr_intervals, start_interval, interval_length):
+def get_route(path_stop_times, start_time, end_time, nr_intervals, start_interval, interval_length, dates, trip_choice):
     link_times = {}
-    dates = ['2019-09-03', '2019-09-04', '2019-09-05', '2019-09-06']
-    all_trips = pd.read_csv(path_trips)
-    route_trips = all_trips[all_trips['route_id'] == route_id]
-    route_trips_east = route_trips[route_trips['direction'] == direction]
-
-    trip_ids = route_trips_east['trip_id'].astype(str).tolist()
     route_stop_times = pd.read_csv(path_stop_times)
-    route_peak_stop_times = pd.DataFrame(columns=route_stop_times.columns)
+    whole_df = pd.read_csv(path_stop_times)
+    df = whole_df[whole_df['stop_id'] == 386]
+    df = df[df['stop_sequence'] == 1]
+    df = df[df['avl_sec'] % 86400 <= end_time]
+    df = df[df['avl_sec'] % 86400 >= start_time]
+    trip_ids = df['trip_id'].unique().tolist()
     for t in trip_ids:
-        temp = route_stop_times[route_stop_times['trip_id'] == int(t[4:])].reset_index()
-        if not temp.empty:
-            temp = temp.sort_values(by='stop_sequence')
-            dispatch_time = temp['arrival_time'][0]
-            dispatch_time = datetime.strptime(dispatch_time, "%H:%M:%S")
-            if start_time <= dispatch_time <= end_time:
-                route_peak_stop_times = route_peak_stop_times.append(temp, ignore_index=True)
-                for d in dates:
-                    date_specific = temp[temp['event_time'].astype(str).str[:10] == d]
-                    stop_id = date_specific['stop_id'].astype(str).tolist()
-                    times = date_specific['avl_sec'].tolist()
-                    check_sequence = date_specific['stop_sequence'].tolist()
-                    for i in range(len(stop_id)-1):
-                        if check_sequence[i] == check_sequence[i + 1] - 1:
-                            link = stop_id[i]+'-'+stop_id[i+1]
-                            exists = link in link_times
-                            if not exists:
-                                link_times[link] = [[] for i in range(nr_intervals)]
-                            nr_bin = get_interval(times[i] % 86400, interval_length) - start_interval
-                            if nr_bin < nr_intervals:
-                                link_times[link][nr_bin].append(times[i+1] - times[i])
-
+        temp = route_stop_times[route_stop_times['trip_id'] == t]
+        temp = temp.sort_values(by='stop_sequence')
+        for d in dates:
+            date_specific = temp[temp['event_time'].astype(str).str[:10] == d]
+            stop_id = date_specific['stop_id'].astype(str).tolist()
+            times = date_specific['avl_sec'].tolist()
+            check_sequence = date_specific['stop_sequence'].tolist()
+            if times:
+                for i in range(len(stop_id)-1):
+                    if check_sequence[i] == check_sequence[i + 1] - 1:
+                        link = stop_id[i]+'-'+stop_id[i+1]
+                        exists = link in link_times
+                        if not exists:
+                            link_times[link] = [[] for i in range(nr_intervals)]
+                        nr_bin = get_interval(times[i] % 86400, interval_length) - start_interval
+                        if 0 <= nr_bin < nr_intervals:
+                            link_times[link][nr_bin].append(times[i+1] - times[i])
     mean_link_times = {}
     stdev_link_times = {}
+    nr_dpoints_link_times = {}
     for link in link_times:
         mean_link_times[link] = []
         stdev_link_times[link] = []
+        nr_dpoints_link_times[link] = []
         for b in link_times[link]:
-            mean_link_times[link].append(np.array(b).mean())
-            stdev_link_times[link].append(np.array(b).std())
-    some_trip_id = route_peak_stop_times['trip_id'][0]
-    some_trip = route_peak_stop_times[route_peak_stop_times['trip_id'] == some_trip_id]
-    some_trip = some_trip.sort_values(by='stop_sequence')
-    stops = some_trip['stop_id'].astype(str).tolist()
-    stops = list(dict.fromkeys(stops))
-    return stops, mean_link_times, stdev_link_times
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", category=RuntimeWarning)
+                mean_link_times[link].append(np.array(b).mean())
+                stdev_link_times[link].append(np.array(b).std())
+                nr_dpoints_link_times[link].append(len(b))
+    df_forstops = route_stop_times[route_stop_times['trip_id'] == trip_choice]
+    df_forstops = df_forstops[df_forstops['event_time'].astype(str).str[:10] == dates[0]]
+    df_forstops = df_forstops.sort_values(by='stop_sequence')
+    all_stops = df_forstops['stop_id'].astype(str).tolist()
+    return all_stops, mean_link_times, stdev_link_times, nr_dpoints_link_times
 
 
 def get_demand(path, stops, nr_intervals, interval_length, start_interval):
@@ -117,95 +114,29 @@ def read_scheduled_departures(path):
     return sch_dep
 
 
-def _get_vol_profile(ons_minus_offs):
-    dep_vol = []
-    prev_dep_vol = 0
-    for o in ons_minus_offs:
-        dep_vol.append(prev_dep_vol+o)
-        prev_dep_vol = dep_vol[-1]
-    return dep_vol
-
-
-def _get_passenger_rates(od, stops):
-    ar = {}
-    af = {}
-    ons = od.sum(axis=1)
-    offs = od.sum(axis=0)
-
-    delta = np.subtract(ons, offs)
-    vol = _get_vol_profile(delta)
-    o = offs[1:]
-    v = vol[:-1]
-    p_alight = np.divide(o, v, out=np.zeros_like(o), where=v != 0)
-    p_alight = np.append([0], p_alight)
-    for i, j in zip(stops, ons):
-        ar[i] = j
-    for i, j in zip(stops, p_alight):
-        af[i] = j
-    pv = max(vol)
-    return ar, af, pv
-
-
-def extract_network(path):
-    with open(path, 'r') as f:
-        rf = csv.reader(f, delimiter=' ')
-        route_stops = {}
-        link_times = {}
-        i = 0
-        for row in rf:
-            if row[0] == 'route_id':
-                i = 1
-                continue
-            if row[0] == 'o-d':
-                i = 2
-                continue
-            if i == 1:
-                route_stops[row[0]] = row[1:]
-            if i == 2:
-                link_times[row[0]] = float(row[1])
-    return route_stops, link_times
-
-
-def extract_demand(path, route_stops):
-    arrival_rates = {}
-    alighting_fractions = {}
-    peak_volumes = {}
-
-    with open(path, 'r') as f:
-        rf = csv.reader(f, delimiter=' ')
-        o_rows = []
-        d_cols = []
-        fixed_od = []
-        all_od = {}
-        i = 0
-        for row in rf:
-            if row[0] == 'fixed_od':
-                i = 1
-                fixed_od.append([])
-                o_rows.append([])
-                route_id = row[1]
-                all_od[route_id] = []
-                continue
-            if row[0] == 'OD':
-                all_od[route_id].append(row)
-                d_cols.append(row[1:])
-                continue
-            if i == 1:
-                all_od[route_id].append(row)
-                o_rows[-1].append(row[0])
-                fixed_od[-1].append(row[1:])
-
-    for k in all_od:
-        b = np.array(all_od[k])
-        b = np.delete(b, 0, 0)
-        b = np.delete(b, 0, 1)
-        b = b.astype(float)
-        new_rates, new_fractions, new_pk_vol = _get_passenger_rates(b, route_stops[k])
-        arrival_rates.update(new_rates)
-        alighting_fractions.update(new_fractions)
-        peak_volumes[k] = new_pk_vol
-        all_od[k] = b.tolist()
-    return arrival_rates, alighting_fractions, peak_volumes
+def get_historical_headway(pathname, start, end, dates, all_stops):
+    whole_df = pd.read_csv(pathname)
+    df = whole_df[whole_df['stop_id'] == 386]
+    df = df[df['stop_sequence'] == 1]
+    df = df[df['avl_sec'] % 86400 <= end]
+    df = df[df['avl_sec'] % 86400 >= start]
+    trip_ids = df['trip_id'].unique().tolist()
+    all_stops = [int(s) for s in all_stops]
+    hw_per_day = [{} for i in range(len(dates))]
+    limit_headway = 16 * 60
+    for i in range(len(dates)):
+        df_temp = whole_df[whole_df['trip_id'].isin(trip_ids)]
+        df_temp = df_temp[df_temp['event_time'].astype(str).str[:10] == dates[i]]
+        for s in all_stops:
+            df_temp1 = df_temp[df_temp['stop_id'] == s]
+            df_temp1 = df_temp1.sort_values(by='avl_sec')
+            times_temp = df_temp1['avl_sec'].tolist()
+            hw_per_day[i][str(s)] = []
+            for j in range(1, len(times_temp)):
+                hw = times_temp[j] - times_temp[j-1]
+                if hw <= limit_headway:
+                    hw_per_day[i][str(s)].append(times_temp[j] - times_temp[j - 1])
+    return hw_per_day
 
 
 def plot_multiple_bar_charts(wta, wtc, lbls, pathname=False):
@@ -237,3 +168,45 @@ def plot_bar_chart(var, pathname=False):
     return
 
 
+def plot_stop_headway(hs, pathname):
+    for stop in hs:
+        for h in hs[stop]:
+            plt.scatter(stop, h, color='r', s=20)
+    plt.xticks(rotation=90, fontsize=6)
+    plt.tight_layout()
+    if pathname:
+        plt.savefig(pathname)
+    else:
+        plt.show()
+    plt.close()
+    return
+
+
+def historical_headway(pathname_get, pathname_plot, start, end, dates, stops):
+    # file is stop time from qing yi
+    hh = get_historical_headway(pathname_get, start, end, dates, stops)
+    path_hw = pathname_plot
+    for i in range(len(dates)):
+        plot_stop_headway(hh[i], path_hw.replace('!', dates[i]))
+    return
+
+
+def plot_boardings(pathname, arrival_rates, dem_interval_len):
+    aggregated_boardings = {}
+    for s in arrival_rates:
+        arr = arrival_rates[s]
+        agg = sum([a*dem_interval_len for a in arr])
+        aggregated_boardings[s] = agg
+    plot_bar_chart(aggregated_boardings, pathname)
+    return
+
+
+def write_travel_times(pathname, link_times_mean, link_times_std, nr_time_dpoints):
+    with open(pathname, 'w') as f:
+        fw = csv.writer(f)
+        for key in link_times_mean:
+            fw.writerow([key])
+            fw.writerow(nr_time_dpoints[key])
+            fw.writerow(link_times_mean[key])
+            fw.writerow(link_times_std[key])
+    return
