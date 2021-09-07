@@ -8,8 +8,5 @@ from datetime import datetime
 import random
 
 
-def get_interval(t, len_i):
-    interval = int(t/(len_i*60))
-    return interval
 
 

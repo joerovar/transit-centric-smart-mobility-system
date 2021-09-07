@@ -18,12 +18,45 @@ def get_route(path_stop_times, start_time, end_time, nr_intervals, start_interva
     df = df[df['stop_sequence'] == 1]
     df = df[df['avl_sec'] % 86400 <= end_time]
     df = df[df['avl_sec'] % 86400 >= start_time]
+    reasonable_difference = 10*60
+
+    df1 = df.sort_values(by='schd_sec')
+    df1 = df1.drop_duplicates(subset='schd_trip_id')
+    ordered_trips = df1['schd_trip_id'].tolist()
+    # ordered_trip_stop_pattern = {}
+    # for t in ordered_trips:
+    #     for d in dates:
+    #         single = whole_df[whole_df['trip_id'] == t]
+    #         single = single[single['event_time'].astype(str).str[:10] == d]
+    #         single = single.sort_values(by='stop_sequence')
+    #         stop_sequence = single['stop_sequence'].tolist()
+    #         res = all(i == j-1 for i, j in zip(stop_sequence, stop_sequence[1:]))
+    #         if res:
+    #             stop_ids = single['stop_id'].tolist()
+    #             ordered_trip_stop_pattern[str(t)+'-'+str(d)] = stop_ids
+    # with open('in/stop_pattern.csv', 'w') as csv_file:
+    #     writer = csv.writer(csv_file)
+    #     for key, value in ordered_trip_stop_pattern.items():
+    #         writer.writerow([key, value])
+    # df = df.sort_values(by='avl_sec')
+    # df1.to_csv('in/ordered_dispatching.csv', index=False)
+    # df.to_csv('in/trip_dispatching.csv', index=False)
+
     trip_ids = df['trip_id'].unique().tolist()
+    # corrupted_trip_ids = []
+    for d in dates:
+        df_to_check = whole_df[whole_df['trip_id'].isin(trip_ids)]
+        df_to_check = df_to_check[df_to_check['event_time'].astype(str).str[:10] == d]
+        df_to_check = df_to_check.sort_values(by='avl_sec')
+        df_to_check.to_csv('in/trips_'+str(d)+'.csv', index=False)
     for t in trip_ids:
         temp = route_stop_times[route_stop_times['trip_id'] == t]
         temp = temp.sort_values(by='stop_sequence')
         for d in dates:
             date_specific = temp[temp['event_time'].astype(str).str[:10] == d]
+            # diff = date_specific['avl_sec'].mod(86400) - date_specific['schd_sec']
+            # diff = diff.abs()
+            # if diff.min() <= reasonable_difference:
             stop_id = date_specific['stop_id'].astype(str).tolist()
             times = date_specific['avl_sec'].tolist()
             check_sequence = date_specific['stop_sequence'].tolist()
@@ -36,7 +69,14 @@ def get_route(path_stop_times, start_time, end_time, nr_intervals, start_interva
                             link_times[link] = [[] for i in range(nr_intervals)]
                         nr_bin = get_interval(times[i] % 86400, interval_length) - start_interval
                         if 0 <= nr_bin < nr_intervals:
-                            link_times[link][nr_bin].append(times[i+1] - times[i])
+                            lt = times[i+1] - times[i]
+                            if lt > 0:
+                                link_times[link][nr_bin].append(lt)
+            # else:
+            #     corrupted_trip_ids.append([t, d, date_specific['diff'].min(), diff.min()])
+    # print(corrupted_trip_ids)
+    # print(len(corrupted_trip_ids))
+    # print(len(trip_ids) * len(dates))
     mean_link_times = {}
     stdev_link_times = {}
     nr_dpoints_link_times = {}
@@ -54,7 +94,7 @@ def get_route(path_stop_times, start_time, end_time, nr_intervals, start_interva
     df_forstops = df_forstops[df_forstops['event_time'].astype(str).str[:10] == dates[0]]
     df_forstops = df_forstops.sort_values(by='stop_sequence')
     all_stops = df_forstops['stop_id'].astype(str).tolist()
-    return all_stops, mean_link_times, stdev_link_times, nr_dpoints_link_times
+    return all_stops, mean_link_times, stdev_link_times, nr_dpoints_link_times, ordered_trips
 
 
 def get_demand(path, stops, nr_intervals, interval_length, start_interval):
@@ -114,29 +154,33 @@ def read_scheduled_departures(path):
     return sch_dep
 
 
-def get_historical_headway(pathname, start, end, dates, all_stops):
+def get_dispatching_from_gtfs(pathname, ordered_trips):
+    df = pd.read_csv(pathname)
+    scheduled_departures = df[df['trip_id'].isin(ordered_trips)]['schd_sec'].tolist()
+    return scheduled_departures
+
+
+def get_historical_headway(pathname, dates, all_stops, trips):
     whole_df = pd.read_csv(pathname)
-    df = whole_df[whole_df['stop_id'] == 386]
-    df = df[df['stop_sequence'] == 1]
-    df = df[df['avl_sec'] % 86400 <= end]
-    df = df[df['avl_sec'] % 86400 >= start]
-    trip_ids = df['trip_id'].unique().tolist()
     all_stops = [int(s) for s in all_stops]
-    hw_per_day = [{} for i in range(len(dates))]
-    limit_headway = 16 * 60
-    for i in range(len(dates)):
-        df_temp = whole_df[whole_df['trip_id'].isin(trip_ids)]
-        df_temp = df_temp[df_temp['event_time'].astype(str).str[:10] == dates[i]]
+    df_period = whole_df[whole_df['trip_id'].isin(trips)]
+    headway = {}
+    for d in dates:
+        df_temp = df_period[df_period['event_time'].astype(str).str[:10] == d]
         for s in all_stops:
             df_temp1 = df_temp[df_temp['stop_id'] == s]
-            df_temp1 = df_temp1.sort_values(by='avl_sec')
-            times_temp = df_temp1['avl_sec'].tolist()
-            hw_per_day[i][str(s)] = []
-            for j in range(1, len(times_temp)):
-                hw = times_temp[j] - times_temp[j-1]
-                if hw <= limit_headway:
-                    hw_per_day[i][str(s)].append(times_temp[j] - times_temp[j - 1])
-    return hw_per_day
+            for i, j in zip(trips, trips[1:]):
+                t2 = df_temp1[df_temp1['trip_id'] == j]
+                t1 = df_temp1[df_temp1['trip_id'] == i]
+                if (not t1.empty) & (not t2.empty):
+                    hw = float(t2['avl_sec'])-float(t1['avl_sec'])
+                    if hw < 0:
+                        hw = 0
+                    if s in headway:
+                        headway[s].append(hw)
+                    else:
+                        headway[s] = [hw]
+    return headway
 
 
 def plot_multiple_bar_charts(wta, wtc, lbls, pathname=False):
@@ -171,7 +215,7 @@ def plot_bar_chart(var, pathname=False):
 def plot_stop_headway(hs, pathname):
     for stop in hs:
         for h in hs[stop]:
-            plt.scatter(stop, h, color='r', s=20)
+            plt.scatter(str(stop), h, color='r', s=20)
     plt.xticks(rotation=90, fontsize=6)
     plt.tight_layout()
     if pathname:
@@ -179,15 +223,6 @@ def plot_stop_headway(hs, pathname):
     else:
         plt.show()
     plt.close()
-    return
-
-
-def historical_headway(pathname_get, pathname_plot, start, end, dates, stops):
-    # file is stop time from qing yi
-    hh = get_historical_headway(pathname_get, start, end, dates, stops)
-    path_hw = pathname_plot
-    for i in range(len(dates)):
-        plot_stop_headway(hh[i], path_hw.replace('!', dates[i]))
     return
 
 
@@ -210,3 +245,26 @@ def write_travel_times(pathname, link_times_mean, link_times_std, nr_time_dpoint
             fw.writerow(link_times_mean[key])
             fw.writerow(link_times_std[key])
     return
+
+
+def plot_cv(pathname, link_times_mean, link_times_sd):
+    for link in link_times_mean:
+        cvs = []
+        for i in range(len(link_times_mean[link])):
+            mean = link_times_mean[link][i]
+            sd = link_times_sd[link][i]
+            if mean and sd:
+                cv = sd / mean
+                cvs.append(cv)
+        plt.scatter([link for i in range(len(cvs))], cvs, color='g', alpha=0.3, s=20)
+    plt.ylabel('seconds')
+    plt.xlabel('stop id')
+    plt.xticks(rotation=90, fontsize=6)
+    plt.tight_layout()
+    if pathname:
+        plt.savefig(pathname)
+    else:
+        plt.show()
+    plt.close()
+    return
+

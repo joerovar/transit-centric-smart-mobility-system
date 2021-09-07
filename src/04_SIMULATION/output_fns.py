@@ -19,10 +19,15 @@ def write_trajectories(trip_data, pathname):
     return
 
 
-def plot_stop_headway(hs, pathname):
+def plot_stop_headway(hs, pathname, y_scale=None):
+    fig, ax = plt.subplots()
     for stop in hs:
         for h in hs[stop]:
-            plt.scatter(stop, h, color='r', s=20)
+            ax.scatter(stop, h, color='r', s=20)
+    plt.xlabel('stop id')
+    plt.ylabel('seconds')
+    if y_scale:
+        ax.set_ylim(y_scale)
     plt.xticks(rotation=90, fontsize=6)
     plt.tight_layout()
     if pathname:
@@ -132,4 +137,12 @@ def load(pathname):
     with open(pathname, 'rb') as tf:
         var = pickle.load(tf)
     return var
+
+
+def merge_dictionaries(d1, d2, d3, d4):
+    for k in d1:
+        d1[k].extend(d2[k])
+        d1[k].extend(d3[k])
+        d1[k].extend(d4[k])
+    return d1
 

@@ -26,3 +26,13 @@ def plot_results():
     output_fns.plot_bar_chart(boardings, path_bd_fig)
     output_fns.plot_bar_chart(denied_boardings, path_db_fig)
     return
+
+
+def combine_episodes():
+    dates = ['0906-1906', '0906-1908', '0906-1909', '0906-1910']
+    hw = []
+    for d in dates:
+        hw.append(output_fns.load(path_to_outs + 'headway_' + d + '.pkl'))
+    hw = output_fns.merge_dictionaries(hw[0], hw[1], hw[2], hw[3])
+    output_fns.plot_stop_headway(hw, path_to_outs + 'headway_0906_merged.png', y_scale=[-50, 1800])
+    return
