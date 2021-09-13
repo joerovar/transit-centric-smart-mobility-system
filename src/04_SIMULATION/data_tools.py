@@ -44,6 +44,8 @@ def plot_trajectories(trip_data, pathname):
         if np.size(td):
             times = td[:, 1].astype(float)
             plt.plot(times, np.arange(len(times)))
+    plt.xlabel('seconds')
+    plt.ylabel('stops')
     if pathname:
         plt.savefig(pathname)
     else:
@@ -52,15 +54,33 @@ def plot_trajectories(trip_data, pathname):
     return
 
 
-def plot_multiple_bar_charts(wta, wtc, pathname, lbls):
+def plot_multiple_bar_charts(wta, wtc, pathname, lbls, x_y_lbls=None):
     w = 0.27
     bar1 = np.arange(len(wta.keys()))
     bar2 = [i + w for i in bar1]
     plt.bar(bar1, wta.values(), w, label=lbls[0], color='b')
     plt.bar(bar2, wtc.values(), w, label=lbls[1], color='r')
     plt.xticks(bar1, wta.keys(), rotation=90, fontsize=6)
+    if x_y_lbls:
+        plt.xlabel(x_y_lbls[0])
+        plt.ylabel(x_y_lbls[1])
     plt.tight_layout()
     plt.legend()
+    if pathname:
+        plt.savefig(pathname)
+    else:
+        plt.show()
+    plt.close()
+    return
+
+
+def plot_bar_chart(var, pathname, x_y_lbls=None):
+    plt.bar(var.keys(), var.values())
+    plt.xticks(rotation=90, fontsize=6)
+    if x_y_lbls:
+        plt.xlabel(x_y_lbls[0])
+        plt.ylabel(x_y_lbls[1])
+    plt.tight_layout()
     if pathname:
         plt.savefig(pathname)
     else:
@@ -74,8 +94,8 @@ def write_link_times(trip_data, stop_gps, path_writename):
     for t in trip_data:
         stop_data = trip_data[t]
         for i in range(len(stop_data) - 1):
-            linktime = stop_data[i+1][1] - stop_data[i][1]
-            link = stop_data[i][0] + '-' + stop_data[i+1][0]
+            linktime = stop_data[i + 1][1] - stop_data[i][1]
+            link = stop_data[i][0] + '-' + stop_data[i + 1][0]
             if link in link_times:
                 link_times[link].append(linktime)
             else:
@@ -109,18 +129,6 @@ def write_wait_times(mean_wait_time, stop_gps, pathname):
     return
 
 
-def plot_bar_chart(var, pathname):
-    plt.bar(var.keys(), var.values())
-    plt.xticks(rotation=90, fontsize=6)
-    plt.tight_layout()
-    if pathname:
-        plt.savefig(pathname)
-    else:
-        plt.show()
-    plt.close()
-    return
-
-
 def get_stop_loc(pathname):
     stop_gps = pd.read_csv(pathname)
     stop_gps = stop_gps[['stop_id', 'stop_lat', 'stop_lon']]
@@ -146,3 +154,87 @@ def merge_dictionaries(d1, d2, d3, d4):
         d1[k].extend(d4[k])
     return d1
 
+
+def chop_trajectories(trajectories, start_time, end_time):
+    for trip in trajectories:
+        trajectory = trajectories[trip]
+        start_idx = 0
+        end_idx = -1
+        found_start = False
+        found_end = False
+        for i in range(len(trajectory)):
+            if trajectory[i][1] >= start_time:
+                if not found_start:
+                    found_start = True
+                    start_idx = i
+            if trajectory[i][1] > end_time and not found_end:
+                found_end = True
+                end_idx = i - 1
+        trajectories[trip] = trajectory[start_idx:end_idx]
+    return trajectories
+
+
+def get_historical_headway(pathname, dates, all_stops, trips):
+    whole_df = pd.read_csv(pathname)
+    all_stops = [int(s) for s in all_stops]
+    df_period = whole_df[whole_df['trip_id'].isin(trips)]
+    headway = {}
+    for d in dates:
+        df_temp = df_period[df_period['event_time'].astype(str).str[:10] == d]
+        for s in all_stops:
+            df_temp1 = df_temp[df_temp['stop_id'] == s]
+            for i, j in zip(trips, trips[1:]):
+                t2 = df_temp1[df_temp1['trip_id'] == j]
+                t1 = df_temp1[df_temp1['trip_id'] == i]
+                if (not t1.empty) & (not t2.empty):
+                    hw = float(t2['avl_sec'])-float(t1['avl_sec'])
+                    if hw < 0:
+                        hw = 0
+                    if s in headway:
+                        headway[str(s)].append(hw)
+                    else:
+                        headway[str(s)] = [hw]
+    return headway
+
+
+def plot_boardings(pathname, arrival_rates, dem_interval_len):
+    aggregated_boardings = {}
+    for s in arrival_rates:
+        arr = arrival_rates[s]
+        agg = sum([a*dem_interval_len for a in arr])
+        aggregated_boardings[s] = agg
+    plot_bar_chart(aggregated_boardings, pathname)
+    return
+
+
+def write_travel_times(pathname, link_times_mean, link_times_std, nr_time_dpoints):
+    with open(pathname, 'w') as f:
+        fw = csv.writer(f)
+        for key in link_times_mean:
+            fw.writerow([key])
+            fw.writerow(nr_time_dpoints[key])
+            fw.writerow(link_times_mean[key])
+            fw.writerow(link_times_std[key])
+    return
+
+
+def plot_cv(pathname, link_times_mean, link_times_sd):
+    for link in link_times_mean:
+        cvs = []
+        for i in range(len(link_times_mean[link])):
+            mean = link_times_mean[link][i]
+            sd = link_times_sd[link][i]
+            if mean and sd:
+                cv = sd / mean
+                cvs.append(cv)
+        plt.scatter([link for i in range(len(cvs))], cvs, color='g', alpha=0.3, s=20)
+    plt.ylabel('seconds')
+    plt.xlabel('stop id')
+    plt.xticks(rotation=90, fontsize=6)
+    plt.tight_layout()
+    if pathname:
+        plt.savefig(pathname)
+    else:
+        plt.show()
+    plt.close()
+    return

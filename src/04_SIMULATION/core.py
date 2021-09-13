@@ -4,8 +4,8 @@ from scipy.stats import lognorm
 import random
 
 
-def get_interval(time, interval_length):
-    interval = int(time / (interval_length * 60))
+def get_interval(t, interval_length):
+    interval = int(t / (interval_length * 60))
     return interval
 
 
@@ -14,6 +14,7 @@ class SimulationEnv:
         # THE ONLY NECESSARY TRIP INFORMATION TO CARRY THROUGHOUT SIMULATION
         # SIMUL PARAMS
         # NEW
+        self.no_overtake_policy = True
         self.next_departures = []
         self.next_trip_ids = []
         self.active_trips = []
@@ -38,6 +39,21 @@ class SimulationEnv:
         self.adjusted_wait_time = {}
         self.wait_time_from_h = {}
         self.tot_denied_boardings = {}
+
+    def record_trajectories(self, pickups=0, dropoffs=0, denied_board=0):
+        i = self.bus_idx
+        trip_id = self.active_trips[i]
+        # IN THE END I WANT IT LIKE THIS
+        if self.event_type == 2:
+            trajectory = [self.next_stop[i], round(self.arr_t[i], 2), 0, pickups, dropoffs, denied_board]
+            self.trajectories[trip_id].append(trajectory)
+        if self.event_type == 1:
+            trajectory = [self.last_stop[i], round(self.dep_t[i], 2), self.load[i], pickups, dropoffs, denied_board]
+            self.trajectories[trip_id].append(trajectory)
+        if self.event_type == 0:
+            trajectory = [self.last_stop[i], round(self.dep_t[i], 2), self.load[i], pickups, dropoffs, denied_board]
+            self.trajectories[trip_id].append(trajectory)
+        return
 
     def create_trip(self):
         trip_file = [
@@ -101,20 +117,26 @@ class SimulationEnv:
         assert TTD == 'LOGNORMAL'
         return runtime
 
-    def record_trajectories(self):
-        i = self.bus_idx
-        trip_id = self.active_trips[i]
-        # IN THE END I WANT IT LIKE THIS
-        if self.event_type == 2:
-            trajectory = [self.next_stop[i], round(self.arr_t[i], 2), 0]
-            self.trajectories[trip_id].append(trajectory)
-        if self.event_type == 1:
-            trajectory = [self.last_stop[i], round(self.dep_t[i], 2), self.load[i]]
-            self.trajectories[trip_id].append(trajectory)
-        if self.event_type == 0:
-            trajectory = [self.last_stop[i], round(self.dep_t[i], 2), self.load[i]]
-            self.trajectories[trip_id].append(trajectory)
-        return
+    def no_overtake(self):
+        # if this is the first bus then ignore and return
+        curr_bus_idx = self.bus_idx
+        next_instance_t = self.next_instance_time[curr_bus_idx]
+        if curr_bus_idx == -1:
+            curr_bus_idx = self.active_trips.index(self.active_trips[curr_bus_idx])
+        if curr_bus_idx:
+            prev_bus_idx = curr_bus_idx-1
+            try:
+                prev_bus_last_stop = self.last_stop[prev_bus_idx]
+            except IndexError:
+                print(curr_bus_idx)
+                print(prev_bus_idx)
+                print(self.last_stop)
+                raise
+            curr_bus_next_stop = self.next_stop[curr_bus_idx]
+            if prev_bus_last_stop == curr_bus_next_stop:
+                prev_bus_next_instance = self.next_instance_time[prev_bus_idx]
+                next_instance_t = prev_bus_next_instance
+        return next_instance_t
 
     def fixed_stop_arrival(self):
         i = self.bus_idx
@@ -153,13 +175,16 @@ class SimulationEnv:
         self.last_bus_time[s] = self.dep_t[i]
         runtime = self.get_travel_time()
         self.next_instance_time[i] = self.dep_t[i] + runtime
-        self.record_trajectories()
+        if self.no_overtake_policy:
+            self.next_instance_time[i] = self.no_overtake()
+        self.record_trajectories(pickups=boardings, dropoffs=drop_offs, denied_board=denied)
         return
 
     def terminal_arrival(self):
         i = self.bus_idx
         self.arr_t[i] = self.time
-        self.record_trajectories()
+        drop_offs = self.load[i]
+        self.record_trajectories(dropoffs=drop_offs)
         s = self.next_stop[i]
         if self.last_bus_time[s] == START_TIME_SEC:
             headway = INIT_HEADWAY
@@ -194,15 +219,18 @@ class SimulationEnv:
         self.tot_pax_at_stop[s] += boardings
         self.stop_wait_time[s] += boardings * headway/2
         self.load[i] += boardings
-        self.record_trajectories()
+        self.record_trajectories(pickups=boardings)
         self.last_bus_time[s] = self.dep_t[i]
         runtime = self.get_travel_time()
         self.next_instance_time[i] = self.dep_t[i] + runtime
+        if self.no_overtake_policy:
+            self.next_instance_time[i] = self.no_overtake()
         return
 
     def next_event(self):
         if self.next_departures:
-            if False not in [self.next_departures[0] < n for n in self.next_instance_time]:
+            next_departure = self.next_departures[0]
+            if False not in [next_departure < t for t in self.next_instance_time]:
                 self.time = self.next_departures[0]
                 self.active_trips.append(self.next_trip_ids[0])
                 self.bus_idx = -1
