@@ -7,19 +7,37 @@ ext_fig = '.png'
 ext_csv = '.csv'
 tstamp_save = time.strftime("%m%d-%H%M")
 tstamp_load = tstamp_save
-
+dir_project = 'rt_20-2019-09/'
+dir_raw = 'raw/'
+dir_vis = 'vis/'
 # INPUT FILES
-path_trips_gtfs = path_to_ins + 'gtfs/trips.txt'
-path_stop_times = path_to_ins + 'route20_stop_time.csv'
-path_stops_loc = path_to_ins + 'gtfs/stops.txt'
-path_od = path_to_ins + 'odt_for_opt.csv'
-path_dispatching_times = path_to_ins + 'dispatching_time.csv'
 
-# WRITE / PLOT INPUT
+path_trips_gtfs = path_to_ins + dir_raw + 'gtfs/trips.txt'
+path_stop_times = path_to_ins + dir_raw + 'route20_stop_time.csv'
+path_stops_loc = path_to_ins + dir_raw + 'gtfs/stops.txt'
+path_od = path_to_ins + dir_raw + 'odt_for_opt.csv'
+path_dispatching_times = path_to_ins + dir_raw + 'dispatching_time.csv'
+path_ordered_dispatching = path_to_ins + dir_raw + 'ordered_dispatching.csv'
 
-path_historical_headway = path_to_outs + 'historic_headway_!.png'
-path_input_boardings = path_to_outs + 'predicted_boardings.png'
-path_link_times = path_to_outs + 'travel_time_distribution.csv'
+# EXTRACT NETWORK PARAMS
+
+path_route_stops = path_to_ins + 'xtr/' + dir_project + 'route_stops' + '.pkl'
+path_link_times_mean = path_to_ins + 'xtr/' + dir_project + 'link_times_mean' + '.pkl'
+path_link_times_sd = path_to_ins + 'xtr/' + dir_project + 'link_times_sd' + '.pkl'
+path_link_dpoints = path_to_ins + 'xtr/' + dir_project + 'link_dpoints' + '.pkl'
+path_ordered_trips = path_to_ins + 'xtr/' + dir_project + 'link_dpoints' + '.pkl'
+path_arr_rates = path_to_ins + 'xtr/' + dir_project + 'arr_rates' + '.pkl'
+path_alight_fractions = path_to_ins + 'xtr/' + dir_project + 'alight_fractions' + '.pkl'
+path_departure_times_xtr = path_to_ins + 'xtr/' + dir_project + 'departure_times' + '.pkl'
+
+# VISUALIZE NETWORK PARAMS
+
+path_sorted_daily_trips = path_to_ins + dir_vis + 'trips_'
+path_input_cv_link_times = path_to_ins + dir_vis + 'cv_link_times.png'
+path_historical_headway = path_to_ins + dir_vis + 'historic_headway_!.png'
+path_input_boardings = path_to_ins + dir_vis + 'predicted_boardings.png'
+path_input_link_times = path_to_ins + dir_vis + 'travel_time_distribution.csv'
+path_stop_pattern = path_to_ins + dir_vis + 'stop_pattern.csv'
 
 # SAVE OUTPUT
 

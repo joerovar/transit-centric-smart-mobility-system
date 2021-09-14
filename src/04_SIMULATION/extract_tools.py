@@ -1,7 +1,6 @@
 import csv
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 import warnings
 
 
@@ -10,7 +9,7 @@ def get_interval(t, len_i):
     return interval
 
 
-def get_route(path_stop_times, start_time, end_time, nr_intervals, start_interval, interval_length, dates, trip_choice):
+def get_route(path_stop_times, start_time, end_time, nr_intervals, start_interval, interval_length, dates, trip_choice, pathname_dispatching, pathname_sorted_trips, pathname_stop_pattern):
     link_times = {}
     route_stop_times = pd.read_csv(path_stop_times)
     whole_df = pd.read_csv(path_stop_times)
@@ -23,30 +22,29 @@ def get_route(path_stop_times, start_time, end_time, nr_intervals, start_interva
     df1 = df.sort_values(by='schd_sec')
     df1 = df1.drop_duplicates(subset='schd_trip_id')
     ordered_trips = df1['schd_trip_id'].tolist()
-    # ordered_trip_stop_pattern = {}
-    # for t in ordered_trips:
-    #     for d in dates:
-    #         single = whole_df[whole_df['trip_id'] == t]
-    #         single = single[single['event_time'].astype(str).str[:10] == d]
-    #         single = single.sort_values(by='stop_sequence')
-    #         stop_sequence = single['stop_sequence'].tolist()
-    #         res = all(i == j-1 for i, j in zip(stop_sequence, stop_sequence[1:]))
-    #         if res:
-    #             stop_ids = single['stop_id'].tolist()
-    #             ordered_trip_stop_pattern[str(t)+'-'+str(d)] = stop_ids
-    # with open('in/stop_pattern.csv', 'w') as csv_file:
-    #     writer = csv.writer(csv_file)
-    #     for key, value in ordered_trip_stop_pattern.items():
-    #         writer.writerow([key, value])
-    # df = df.sort_values(by='avl_sec')
-    # df1.to_csv('in/ordered_dispatching.csv', index=False)
+    ordered_trip_stop_pattern = {}
+    for t in ordered_trips:
+        for d in dates:
+            single = whole_df[whole_df['trip_id'] == t]
+            single = single[single['event_time'].astype(str).str[:10] == d]
+            single = single.sort_values(by='stop_sequence')
+            stop_sequence = single['stop_sequence'].tolist()
+            res = all(i == j-1 for i, j in zip(stop_sequence, stop_sequence[1:]))
+            if res:
+                stop_ids = single['stop_id'].tolist()
+                ordered_trip_stop_pattern[str(t)+'-'+str(d)] = stop_ids
+    with open(pathname_stop_pattern, 'w') as csv_file:
+        writer = csv.writer(csv_file)
+        for key, value in ordered_trip_stop_pattern.items():
+            writer.writerow([key, value])
+    df1.to_csv(pathname_dispatching, index=False)
 
     trip_ids = df['trip_id'].unique().tolist()
     for d in dates:
         df_to_check = whole_df[whole_df['trip_id'].isin(trip_ids)]
         df_to_check = df_to_check[df_to_check['event_time'].astype(str).str[:10] == d]
         df_to_check = df_to_check.sort_values(by='avl_sec')
-        df_to_check.to_csv('in/trips_'+str(d)+'.csv', index=False)
+        df_to_check.to_csv(pathname_sorted_trips+str(d)+'.csv', index=False)
     for t in trip_ids:
         temp = route_stop_times[route_stop_times['trip_id'] == t]
         temp = temp.sort_values(by='stop_sequence')

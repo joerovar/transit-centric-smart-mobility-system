@@ -300,6 +300,24 @@ class SimulationEnv:
             self.terminal_departure()
             return self.prep()
 
+    def chop_trajectories(self):
+        trajectories = self.trajectories
+        for trip in trajectories:
+            trajectory = trajectories[trip]
+            start_idx = 0
+            end_idx = -1
+            found_start = False
+            for i in range(len(trajectory)):
+                if trajectory[i][1] >= FOCUS_START_TIME:
+                    if not found_start:
+                        found_start = True
+                        start_idx = i
+                if trajectory[i][1] > FOCUS_END_TIME:
+                    end_idx = i - 1
+                    break
+            trajectories[trip] = trajectory[start_idx:end_idx]
+        return
+
     def process_results(self):
         for s in self.stop_wait_time.keys():
             if self.tot_pax_at_stop[s]:
@@ -310,5 +328,8 @@ class SimulationEnv:
             mean_headway = headway.mean()
             cv_headway = headway.std() / mean_headway
             self.wait_time_from_h[s] = (mean_headway / 2) * (1 + (cv_headway * cv_headway))
+        self.chop_trajectories()
         return
+
+
 

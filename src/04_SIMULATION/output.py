@@ -1,5 +1,5 @@
 import data_tools
-from file_paths import *
+from input import *
 
 
 def write_results():
@@ -39,10 +39,10 @@ def combine_episodes():
     return
 
 
-def change_trajectories():
-    tstamps = ['0909-1334', '0909-1341', '0909-1343', '0909-1351']
-    for ts in tstamps:
-        tr = data_tools.load(path_to_outs + 'trajectories_' + ts + '.pkl')
-        tr = data_tools.chop_trajectories(tr, 28800, 30600)
-        data_tools.plot_trajectories(tr, path_to_outs + 'mini_trajectories_' + ts + '.png')
-    return
+# def change_trajectories():
+#     tstamps = ['0909-1334', '0909-1341', '0909-1343', '0909-1351']
+#     for ts in tstamps:
+#         tr = data_tools.load(path_to_outs + 'trajectories_' + ts + '.pkl')
+#         tr = data_tools.chop_trajectories(tr, 28800, 30600)
+#         data_tools.plot_trajectories(tr, path_to_outs + 'mini_trajectories_' + ts + '.png')
+#     return

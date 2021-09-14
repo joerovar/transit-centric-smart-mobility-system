@@ -1,40 +1,67 @@
 from extract_tools import *
+from data_tools import *
 from file_paths import *
 from const import *
-import csv
-
-STOPS, LINK_TIMES_MEAN, LINK_TIMES_STD, NR_TIME_DPOINTS, ORDERED_TRIPS = get_route(path_stop_times,
-                                                                                   SEC_FOR_TT_EXTRACT, END_TIME_SEC,
-                                                                                   TIME_NR_INTERVALS,
-                                                                                   TIME_START_INTERVAL,
-                                                                                   TIME_INTERVAL_LENGTH_MINS,
-                                                                                   DATES,
-                                                                                   TRIP_WITH_FULL_STOP_PATTERN)
-
-start_idx = ORDERED_TRIPS.index(STARTING_TRIP)
-end_idx = ORDERED_TRIPS.index(ENDING_TRIP)
-ORDERED_TRIPS = ORDERED_TRIPS[start_idx:end_idx+1]
 
 
-# arrival rates will be in pax/min
-ARRIVAL_RATES, ALIGHT_FRACTIONS = get_demand(path_od, STOPS, DEM_NR_INTERVALS,
-                                             DEM_INTERVAL_LENGTH_MINS, DEM_START_INTERVAL)
+def extract_params(visualize=True):
+    stops, link_times_mean, link_times_sd, nr_time_dpoints, ordered_trips = get_route(path_stop_times,
+                                                                                      SEC_FOR_TT_EXTRACT,
+                                                                                      END_TIME_SEC,
+                                                                                      TIME_NR_INTERVALS,
+                                                                                      TIME_START_INTERVAL,
+                                                                                      TIME_INTERVAL_LENGTH_MINS,
+                                                                                      DATES,
+                                                                                      TRIP_WITH_FULL_STOP_PATTERN,
+                                                                                      path_ordered_dispatching,
+                                                                                      path_sorted_daily_trips,
+                                                                                      path_stop_pattern)
 
-# SCHEDULE: DISPATCHING TIMES, STOP TIMES FROM BEGINNING OF ROUTE
+    # arrival rates will be in pax/min
+    arrival_rates, alight_fractions = get_demand(path_od, stops, DEM_NR_INTERVALS,
+                                                 DEM_INTERVAL_LENGTH_MINS, DEM_START_INTERVAL)
 
-# SCHEDULED_DEPARTURES = read_scheduled_departures(path_dispatching_times)
-SCHEDULED_DEPARTURES = get_dispatching_from_gtfs('in/ordered_dispatching.csv', ORDERED_TRIPS)
-INIT_HEADWAY = SCHEDULED_DEPARTURES[1] - SCHEDULED_DEPARTURES[0]
-# initial headway helps calculate loads for the first trip
+    # SCHEDULE: DISPATCHING TIMES, STOP TIMES FROM BEGINNING OF ROUTE
+    # SCHEDULED_DEPARTURES = read_scheduled_departures(path_dispatching_times)
+    scheduled_departures = get_dispatching_from_gtfs(path_ordered_dispatching, ordered_trips)
 
-# OTHER SERVICE PARAMETERS: DWELL TIME, SIMULATION LENGTH
+    save(path_route_stops, stops)
+    save(path_link_times_mean, link_times_mean)
+    save(path_link_times_sd, link_times_sd)
+    save(path_link_dpoints, nr_time_dpoints)
+    save(path_ordered_trips, ordered_trips)
+    save(path_arr_rates, arrival_rates)
+    save(path_alight_fractions, alight_fractions)
+    save(path_departure_times_xtr, scheduled_departures)
+    if visualize:
+        hw = get_historical_headway(path_stop_times, DATES, stops, ordered_trips)
+        plot_stop_headway(hw, path_historical_headway)
+        plot_cv(path_input_cv_link_times, link_times_mean, link_times_sd)
+        write_travel_times(path_input_link_times, link_times_mean, link_times_sd, nr_time_dpoints)
+    return
 
-CAPACITY = 40
 
-# FOR HEADWAY CALCULATION: PERIOD OF HIGH FREQUENCY WITH FULL VARIATION OF ROUTE
+def get_params():
+    stops = load(path_route_stops)
+    link_times_mean = load(path_link_times_mean)
+    link_times_sd = load(path_link_times_sd)
+    nr_time_dpoints = load(path_link_dpoints)
+    ordered_trips = load(path_ordered_trips)
+    arrival_rates = load(path_arr_rates)
+    alight_fractions = load(path_alight_fractions)
+    scheduled_departures = load(path_departure_times_xtr)
+
+    start_idx = ordered_trips.index(STARTING_TRIP)
+    end_idx = ordered_trips.index(ENDING_TRIP)
+    ordered_trips = ordered_trips[start_idx:end_idx + 1]
+    init_headway = scheduled_departures[1] - scheduled_departures[0]
+    # initial headway helps calculate loads for the first trip
+
+    return stops, link_times_mean, link_times_sd, nr_time_dpoints, ordered_trips, arrival_rates, alight_fractions, scheduled_departures,init_headway
 
 
-# hw = get_historical_headway(path_stop_times, DATES, STOPS, ORDERED_TRIPS)
-# plot_stop_headway(hw, 'in/historical_hw.png')
-# plot_cv('in/cv_link_times.png', LINK_TIMES_MEAN, LINK_TIMES_STD)
-# write_travel_times(path_link_times, LINK_TIMES_MEAN, LINK_TIMES_STD, NR_TIME_DPOINTS)
+# extract_params()
+
+STOPS, LINK_TIMES_MEAN, LINK_TIME_SD, NR_TIME_DPOINTS, ORDERED_TRIPS, ARRIVAL_RATES, ALIGHT_FRACTIONS, SCHEDULED_DEPARTURES, INIT_HEADWAY = get_params()
+
+

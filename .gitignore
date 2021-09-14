@@ -4,3 +4,9 @@
 
 data/01_RAW/*
 
+/.idea/misc.xml
+/.idea/inspectionProfiles/profiles_settings.xml
+/.idea/inspectionProfiles/Project_Default.xml
+/.idea/transit-centric-smart-mobility-system.iml
+/.idea/vcs.xml
+/.idea/.gitignore

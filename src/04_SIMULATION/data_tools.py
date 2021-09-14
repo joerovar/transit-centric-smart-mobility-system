@@ -38,12 +38,15 @@ def plot_stop_headway(hs, pathname, y_scale=None):
     return
 
 
-def plot_trajectories(trip_data, pathname):
+def plot_trajectories(trip_data, pathname, stops):
     for trip in trip_data:
         td = np.array(trip_data[trip])
         if np.size(td):
             times = td[:, 1].astype(float)
-            plt.plot(times, np.arange(len(times)))
+            starting_stop = td[0, 0]
+            starting_stop_idx = stops.index(starting_stop)
+            y_axis = np.arange(starting_stop_idx, starting_stop_idx + len(times))
+            plt.plot(times, y_axis)
     plt.xlabel('seconds')
     plt.ylabel('stops')
     if pathname:
@@ -155,23 +158,23 @@ def merge_dictionaries(d1, d2, d3, d4):
     return d1
 
 
-def chop_trajectories(trajectories, start_time, end_time):
-    for trip in trajectories:
-        trajectory = trajectories[trip]
-        start_idx = 0
-        end_idx = -1
-        found_start = False
-        found_end = False
-        for i in range(len(trajectory)):
-            if trajectory[i][1] >= start_time:
-                if not found_start:
-                    found_start = True
-                    start_idx = i
-            if trajectory[i][1] > end_time and not found_end:
-                found_end = True
-                end_idx = i - 1
-        trajectories[trip] = trajectory[start_idx:end_idx]
-    return trajectories
+# def chop_trajectories(trajectories, start_time, end_time):
+#   for trip in trajectories:
+#         trajectory = trajectories[trip]
+#         start_idx = 0
+#         end_idx = -1
+#         found_start = False
+#         found_end = False
+#         for i in range(len(trajectory)):
+#             if trajectory[i][1] >= start_time:
+#                 if not found_start:
+#                     found_start = True
+#                     start_idx = i
+#             if trajectory[i][1] > end_time and not found_end:
+#                 found_end = True
+#                 end_idx = i - 1
+#         trajectories[trip] = trajectory[start_idx:end_idx]
+#     return trajectories
 
 
 def get_historical_headway(pathname, dates, all_stops, trips):
