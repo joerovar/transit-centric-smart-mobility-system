@@ -146,9 +146,9 @@ class SimulationEnv:
         self.next_stop[i] = STOPS[curr_stop_idx + 1]
         drop_offs = self.get_dropoffs()
         self.load[i] -= drop_offs
-        load = self.load[i]
+        bus_load = self.load[i]
         last_bus_time = self.last_bus_time[s]
-        assert load >= 0
+        assert bus_load >= 0
         if last_bus_time == START_TIME_SEC:
             headway = INIT_HEADWAY
             p_arrivals = self.get_arrivals_start(headway)
@@ -162,13 +162,13 @@ class SimulationEnv:
         self.tot_pax_at_stop[s] += p_arrivals
         prev_denied = self.denied_boardings[s]
         pax_at_stop = p_arrivals + prev_denied
-        allowed = CAPACITY - load
+        allowed = CAPACITY - bus_load
         boardings = min(allowed, pax_at_stop)
         denied = pax_at_stop - boardings
         self.tot_denied_boardings[s] += denied
         self.denied_boardings[s] = denied
         self.stop_wait_time[s] += (prev_denied + p_arrivals/2) * headway
-        dwell_time = ACC_DEC_TIME + boardings * BOARDING_TIME + drop_offs * ALIGHTING_TIME
+        dwell_time = ACC_DEC_TIME + max(boardings * BOARDING_TIME, drop_offs * ALIGHTING_TIME)
         dwell_time = (boardings + drop_offs > 0) * dwell_time
         self.load[i] += boardings
         self.dep_t[i] = self.time + dwell_time
@@ -301,21 +301,26 @@ class SimulationEnv:
             return self.prep()
 
     def chop_trajectories(self):
-        trajectories = self.trajectories
+        trajectories = dict(self.trajectories)
         for trip in trajectories:
             trajectory = trajectories[trip]
             start_idx = 0
             end_idx = -1
             found_start = False
             for i in range(len(trajectory)):
-                if trajectory[i][1] >= FOCUS_START_TIME:
+                if i == 0 and trajectory[i][1] >= FOCUS_END_TIME_SEC:
+                    break
+                if trajectory[i][1] >= FOCUS_START_TIME_SEC:
                     if not found_start:
                         found_start = True
-                        start_idx = i
-                if trajectory[i][1] > FOCUS_END_TIME:
-                    end_idx = i - 1
+                        start_idx = int(i)
+                if trajectory[i][1] > FOCUS_END_TIME_SEC:
+                    end_idx = int(i)
                     break
-            trajectories[trip] = trajectory[start_idx:end_idx]
+            if found_start:
+                self.trajectories[trip] = trajectory[start_idx:end_idx]
+            if not found_start:
+                self.trajectories.pop(trip)
         return
 
     def process_results(self):

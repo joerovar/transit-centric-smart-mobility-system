@@ -19,11 +19,14 @@ def write_trajectories(trip_data, pathname):
     return
 
 
-def plot_stop_headway(hs, pathname, y_scale=None):
+def plot_stop_headway(pathname, hs, ordered_stops, y_scale=None):
     fig, ax = plt.subplots()
-    for stop in hs:
-        for h in hs[stop]:
-            ax.scatter(stop, h, color='r', s=20)
+    for stop in ordered_stops:
+        if stop in hs:
+            h = hs[stop]
+            ax.scatter([stop] * len(h), h, color='r', s=20)
+        else:
+            ax.scatter(stop, np.nan)
     plt.xlabel('stop id')
     plt.ylabel('seconds')
     if y_scale:
@@ -38,13 +41,13 @@ def plot_stop_headway(hs, pathname, y_scale=None):
     return
 
 
-def plot_trajectories(trip_data, pathname, stops):
+def plot_trajectories(trip_data, pathname, ordered_stops):
     for trip in trip_data:
         td = np.array(trip_data[trip])
         if np.size(td):
             times = td[:, 1].astype(float)
             starting_stop = td[0, 0]
-            starting_stop_idx = stops.index(starting_stop)
+            starting_stop_idx = ordered_stops.index(starting_stop)
             y_axis = np.arange(starting_stop_idx, starting_stop_idx + len(times))
             plt.plot(times, y_axis)
     plt.xlabel('seconds')
@@ -179,13 +182,12 @@ def merge_dictionaries(d1, d2, d3, d4):
 
 def get_historical_headway(pathname, dates, all_stops, trips):
     whole_df = pd.read_csv(pathname)
-    all_stops = [int(s) for s in all_stops]
     df_period = whole_df[whole_df['trip_id'].isin(trips)]
     headway = {}
     for d in dates:
         df_temp = df_period[df_period['event_time'].astype(str).str[:10] == d]
         for s in all_stops:
-            df_temp1 = df_temp[df_temp['stop_id'] == s]
+            df_temp1 = df_temp[df_temp['stop_id'] == int(s)]
             for i, j in zip(trips, trips[1:]):
                 t2 = df_temp1[df_temp1['trip_id'] == j]
                 t1 = df_temp1[df_temp1['trip_id'] == i]
@@ -194,20 +196,23 @@ def get_historical_headway(pathname, dates, all_stops, trips):
                     if hw < 0:
                         hw = 0
                     if s in headway:
-                        headway[str(s)].append(hw)
+                        headway[s].append(hw)
                     else:
-                        headway[str(s)] = [hw]
+                        headway[s] = [hw]
     return headway
 
 
-def plot_boardings(pathname, arrival_rates, dem_interval_len):
+def get_input_boardings(arrival_rates, dem_interval_len_min, start_time_sec, end_time_sec, first_interval):
     aggregated_boardings = {}
+    start_interval = int(start_time_sec / (60*dem_interval_len_min))
+    end_interval = int(end_time_sec / (60*dem_interval_len_min))
+    start_idx = start_interval - first_interval
+    end_idx = end_interval - first_interval
     for s in arrival_rates:
         arr = arrival_rates[s]
-        agg = sum([a*dem_interval_len for a in arr])
+        agg = sum([a*dem_interval_len_min for a in arr[start_idx:end_idx]])
         aggregated_boardings[s] = agg
-    plot_bar_chart(aggregated_boardings, pathname)
-    return
+    return aggregated_boardings
 
 
 def write_travel_times(pathname, link_times_mean, link_times_std, nr_time_dpoints):
@@ -230,10 +235,62 @@ def plot_cv(pathname, link_times_mean, link_times_sd):
             if mean and sd:
                 cv = sd / mean
                 cvs.append(cv)
-        plt.scatter([link for i in range(len(cvs))], cvs, color='g', alpha=0.3, s=20)
+        plt.scatter([link]*len(cvs), cvs, color='g', alpha=0.3, s=20)
     plt.ylabel('seconds')
     plt.xlabel('stop id')
     plt.xticks(rotation=90, fontsize=6)
+    plt.tight_layout()
+    if pathname:
+        plt.savefig(pathname)
+    else:
+        plt.show()
+    plt.close()
+    return
+
+
+def get_headway_from_trajectories(trajectories):
+    prev_stop_time = {}
+    recorded_headway = {}
+    for trip in trajectories:
+        for stop_details in trajectories[trip]:
+            stop_id = stop_details[0]
+            stop_time = stop_details[1]
+            if stop_id not in prev_stop_time:
+                prev_stop_time[stop_id] = stop_time
+            else:
+                t1 = prev_stop_time[stop_id]
+                t2 = stop_time
+                headway = t2 - t1
+                if stop_id not in recorded_headway:
+                    recorded_headway[stop_id] = [headway]
+                else:
+                    recorded_headway[stop_id].append(headway)
+    return recorded_headway
+
+
+def count_from_trajectories(trajectories, idx):
+    count = {}
+    for trip in trajectories:
+        for stop_details in trajectories[trip]:
+            stop_id = stop_details[0]
+            item_to_count = stop_details[idx]
+            if stop_id not in count:
+                count[stop_id] = item_to_count
+            else:
+                count[stop_id] += item_to_count
+    return count
+
+
+def plot_pax_per_stop(pathname, pax, ordered_stops, x_y_lbls):
+    for stop in ordered_stops:
+        if stop in pax:
+            plt.bar(stop, pax[stop], color='b')
+        else:
+            plt.bar(stop, np.nan, color='b')
+    plt.xticks(rotation=90, fontsize=6)
+    if x_y_lbls:
+        plt.xlabel(x_y_lbls[0])
+        plt.ylabel(x_y_lbls[1])
     plt.tight_layout()
     if pathname:
         plt.savefig(pathname)

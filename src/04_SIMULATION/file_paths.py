@@ -34,8 +34,8 @@ path_departure_times_xtr = path_to_ins + 'xtr/' + dir_project + 'departure_times
 
 path_sorted_daily_trips = path_to_ins + dir_vis + 'trips_'
 path_input_cv_link_times = path_to_ins + dir_vis + 'cv_link_times.png'
-path_historical_headway = path_to_ins + dir_vis + 'historic_headway_!.png'
-path_input_boardings = path_to_ins + dir_vis + 'predicted_boardings.png'
+path_historical_headway = path_to_ins + dir_vis + 'historical_headway.png'
+path_input_boardings = path_to_ins + dir_vis + 'input_boardings.png'
 path_input_link_times = path_to_ins + dir_vis + 'travel_time_distribution.csv'
 path_stop_pattern = path_to_ins + dir_vis + 'stop_pattern.csv'
 

@@ -18,8 +18,8 @@ def extract_params(visualize=True):
                                                                                       path_stop_pattern)
 
     # arrival rates will be in pax/min
-    arrival_rates, alight_fractions = get_demand(path_od, stops, DEM_NR_INTERVALS,
-                                                 DEM_INTERVAL_LENGTH_MINS, DEM_START_INTERVAL)
+    arrival_rates, alight_fractions = get_demand(path_od, stops, PREV_DEM_NR_INTERVALS,
+                                                 PREV_DEM_INTERVAL_LENGTH_MINS, PREV_DEM_START_INTERVAL, new_nr_intervals=DEM_NR_INTERVALS)
 
     # SCHEDULE: DISPATCHING TIMES, STOP TIMES FROM BEGINNING OF ROUTE
     # SCHEDULED_DEPARTURES = read_scheduled_departures(path_dispatching_times)
@@ -35,9 +35,11 @@ def extract_params(visualize=True):
     save(path_departure_times_xtr, scheduled_departures)
     if visualize:
         hw = get_historical_headway(path_stop_times, DATES, stops, ordered_trips)
-        plot_stop_headway(hw, path_historical_headway)
+        plot_stop_headway(path_historical_headway, hw, stops)
         plot_cv(path_input_cv_link_times, link_times_mean, link_times_sd)
         write_travel_times(path_input_link_times, link_times_mean, link_times_sd, nr_time_dpoints)
+        boardings = get_input_boardings(arrival_rates, DEM_INTERVAL_LENGTH_MINS, FOCUS_START_TIME_SEC, FOCUS_END_TIME_SEC, DEM_START_INTERVAL)
+        plot_pax_per_stop(path_input_boardings, boardings, stops, x_y_lbls=['stop id', 'predicted boardings'])
     return
 
 
@@ -57,11 +59,11 @@ def get_params():
     init_headway = scheduled_departures[1] - scheduled_departures[0]
     # initial headway helps calculate loads for the first trip
 
-    return stops, link_times_mean, link_times_sd, nr_time_dpoints, ordered_trips, arrival_rates, alight_fractions, scheduled_departures,init_headway
+    return stops, link_times_mean, link_times_sd, nr_time_dpoints, ordered_trips, arrival_rates, alight_fractions, scheduled_departures, init_headway
 
 
 # extract_params()
 
 STOPS, LINK_TIMES_MEAN, LINK_TIME_SD, NR_TIME_DPOINTS, ORDERED_TRIPS, ARRIVAL_RATES, ALIGHT_FRACTIONS, SCHEDULED_DEPARTURES, INIT_HEADWAY = get_params()
-
+print(ALIGHT_FRACTIONS)
 
