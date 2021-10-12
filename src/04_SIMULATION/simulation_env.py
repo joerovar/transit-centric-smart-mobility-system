@@ -78,7 +78,7 @@ class SimulationEnv:
         stop = self.last_stop[i]
         arrival_rates = ARRIVAL_RATES[stop]
         inter = get_interval(self.time, DEM_INTERVAL_LENGTH_MINS)
-        e_pax = arrival_rates[inter - DEM_START_INTERVAL] * headway/60
+        e_pax = (arrival_rates[inter - DEM_START_INTERVAL]/60) * headway/60
         pax_at_stop = np.random.poisson(lam=e_pax)
         return pax_at_stop
 
@@ -92,7 +92,7 @@ class SimulationEnv:
         while t < t2:
             inter = get_interval(t, DEM_INTERVAL_LENGTH_MINS)
             edge = (inter + 1) * 60 * DEM_INTERVAL_LENGTH_MINS
-            e_pax += arrival_rates[inter - DEM_START_INTERVAL] * ((min(edge, t2) - t)/60)
+            e_pax += (arrival_rates[inter - DEM_START_INTERVAL]/60) * ((min(edge, t2) - t)/60)
             t = min(edge, t2)
         pax_arrivals = np.random.poisson(lam=e_pax)
         return pax_arrivals
@@ -137,6 +137,10 @@ class SimulationEnv:
                 prev_bus_next_instance = self.next_instance_time[prev_bus_idx]
                 next_instance_t = prev_bus_next_instance
         return next_instance_t
+
+    def holding(self):
+
+        return
 
     def fixed_stop_arrival(self):
         i = self.bus_idx
@@ -286,7 +290,7 @@ class SimulationEnv:
 
     def prep(self):
         self.next_event()
-        if self.time >= END_TIME_SEC:
+        if self.time >= FOCUS_END_TIME_SEC:
             return True
         if self.event_type == 2:
             self.terminal_arrival()

@@ -1,15 +1,15 @@
-import core
+import simulation_env
 from file_paths import *
-import data_tools
+import post_process
 
 
 def run(save=False):
-    env = core.SimulationEnv()
+    env = simulation_env.SimulationEnv()
     done = env.reset_simulation()
     while not done:
         done = env.prep()
     if save:
         env.process_results()
-        data_tools.save(path_wt_save, env.adjusted_wait_time)
-        data_tools.save(path_tr_save, env.trajectories)
-        data_tools.save(path_wtc_save, env.wait_time_from_h)
+        post_process.save(path_wt_save, env.adjusted_wait_time)
+        post_process.save(path_tr_save, env.trajectories)
+        post_process.save(path_wtc_save, env.wait_time_from_h)

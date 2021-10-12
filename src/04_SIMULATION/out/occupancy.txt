@@ -1,5 +1,0 @@
-# boardings: 690
-# trips: 22
-average occupancy: 31 pax/trip
-headway: 5 min
-first trip departure time: 7 AM

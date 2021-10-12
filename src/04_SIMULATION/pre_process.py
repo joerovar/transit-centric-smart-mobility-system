@@ -9,20 +9,27 @@ def get_interval(t, len_i):
     return interval
 
 
+def remove_outliers(data, m=2):
+    dev = np.abs(data-np.median(data))
+    median_dev = np.median(dev)
+    s = dev/median_dev if median_dev else 0
+    return data[s < m]
+
+
 def get_route(path_stop_times, start_time, end_time, nr_intervals, start_interval, interval_length, dates, trip_choice, pathname_dispatching, pathname_sorted_trips, pathname_stop_pattern):
     link_times = {}
+    route_times = []
     route_stop_times = pd.read_csv(path_stop_times)
     whole_df = pd.read_csv(path_stop_times)
     df = whole_df[whole_df['stop_id'] == 386]
     df = df[df['stop_sequence'] == 1]
     df = df[df['avl_sec'] % 86400 <= end_time]
     df = df[df['avl_sec'] % 86400 >= start_time]
-    reasonable_difference = 10*60
-
     df1 = df.sort_values(by='schd_sec')
     df1 = df1.drop_duplicates(subset='schd_trip_id')
     ordered_trips = df1['schd_trip_id'].tolist()
     ordered_trip_stop_pattern = {}
+    # dummy = []
     for t in ordered_trips:
         for d in dates:
             single = whole_df[whole_df['trip_id'] == t]
@@ -65,6 +72,8 @@ def get_route(path_stop_times, start_time, end_time, nr_intervals, start_interva
                             lt = times[i+1] - times[i]
                             if lt > 0:
                                 link_times[link][nr_bin].append(lt)
+                                # if link == '386-388':
+                                #     dummy.append([t, d, lt])
     mean_link_times = {}
     stdev_link_times = {}
     nr_dpoints_link_times = {}
@@ -75,17 +84,20 @@ def get_route(path_stop_times, start_time, end_time, nr_intervals, start_interva
         for b in link_times[link]:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", category=RuntimeWarning)
-                mean_link_times[link].append(np.array(b).mean())
-                stdev_link_times[link].append(np.array(b).std())
-                nr_dpoints_link_times[link].append(len(b))
+                b_array = np.array(b)
+                b_array = remove_outliers(b_array)
+                mean_link_times[link].append(b_array.mean())
+                stdev_link_times[link].append(b_array.std())
+                nr_dpoints_link_times[link].append(len(b_array))
     df_forstops = route_stop_times[route_stop_times['trip_id'] == trip_choice]
     df_forstops = df_forstops[df_forstops['event_time'].astype(str).str[:10] == dates[0]]
     df_forstops = df_forstops.sort_values(by='stop_sequence')
     all_stops = df_forstops['stop_id'].astype(str).tolist()
+
     return all_stops, mean_link_times, stdev_link_times, nr_dpoints_link_times, ordered_trips
 
 
-def get_demand(path, stops, nr_intervals, interval_length, start_interval, new_nr_intervals=None):
+def get_demand(path, stops, nr_intervals, start_interval, new_nr_intervals, new_interval_length):
     arr_rates = {}
     drop_rates = {}
     alight_fractions = {}
@@ -93,8 +105,7 @@ def get_demand(path, stops, nr_intervals, interval_length, start_interval, new_n
     od_pairs = pd.read_csv(path)
     viable_dest = {}
     viable_orig = {}
-    new_nr_intervals = 12
-    grouping = nr_intervals / new_nr_intervals
+    grouping = int(nr_intervals / new_nr_intervals)
     # since stops are ordered, stop n is allowed to pair with stop n+1 until N
     for i in range(len(stops)):
         if i == 0:
@@ -104,6 +115,7 @@ def get_demand(path, stops, nr_intervals, interval_length, start_interval, new_n
         else:
             viable_dest[stops[i]] = stops[i + 1:]
             viable_orig[stops[i]] = stops[:i]
+
     for s in stops:
         # record arrival rate
         arrivals = od_pairs[od_pairs['BOARDING_STOP'].astype(str).str[:-2] == s].reset_index()
@@ -114,33 +126,42 @@ def get_demand(path, stops, nr_intervals, interval_length, start_interval, new_n
 
         arr_pax = []
         drop_pax = []
-        for i in range(start_interval, start_interval + nr_intervals):
-            temp_arr_pax = sum(arrivals[arrivals['bin_5'] == i]['mean'].tolist())
-            arr_pax.append(temp_arr_pax/interval_length)
-            temp_drop_pax = sum(dropoffs[dropoffs['bin_5'] == i]['mean'].tolist())
-            drop_pax.append(temp_drop_pax/interval_length)
+        for i in range(start_interval, start_interval + nr_intervals, grouping):
+            temp_arr_pax = 0
+            temp_drop_pax = 0
+            for j in range(i, i+grouping):
+                temp_arr_pax += sum(arrivals[arrivals['bin_5'] == j]['mean'].tolist())
+                temp_drop_pax += sum(dropoffs[dropoffs['bin_5'] == j]['mean'].tolist())
+            arr_pax.append(float(temp_arr_pax*60 / new_interval_length)) # convert each rate to pax/hr, more intuitive
+            drop_pax.append(float(temp_drop_pax*60 / new_interval_length))
         arr_rates[s] = arr_pax
         drop_rates[s] = drop_pax
+
+    # if new_nr_intervals:
+    #     for s in arr_rates:
+    #         temp_ar = arr_rates[s]
+    #         temp_af = drop_rates[s]
+    #         n = grouping
+    #         new_temp_ar = [np.array(temp_ar[i:i+n]).mean() for i in range(0, len(temp_ar), n)]
+    #         new_temp_af = [np.array(temp_af[i:i+n]).mean() for i in range(0, len(temp_af), n)]
+    #         arr_rates[s] = new_temp_ar
+    #         alight_fractions[s] = new_temp_af
     dep_vol = {}
-    prev_vol = [0] * nr_intervals
+    prev_vol = [0] * new_nr_intervals
     for i in range(len(stops)):
+        j = 0
         alight_fractions[stops[i]] = []
-        for pv, d in zip(prev_vol, drop_rates[stops[i]]):
-            try:
-                alight_fractions[stops[i]].append(d/pv)
-            except ZeroDivisionError:
-                alight_fractions[stops[i]].append(0.0)
-        dep_vol[stops[i]] = [round(pv + a - d, 2) for pv, a, d in zip(prev_vol, arr_rates[stops[i]], drop_rates[stops[i]])]
-        prev_vol = dep_vol.get(stops[i])
-    if new_nr_intervals:
-        for s in arr_rates:
-            temp_ar = arr_rates[s]
-            temp_af = alight_fractions[s]
-            n = int(grouping)
-            new_temp_ar = [np.array(temp_ar[i:i+n]).mean() for i in range(0, len(temp_ar), n)]
-            new_temp_af = [np.array(temp_af[i:i+n]).mean() for i in range(0, len(temp_af), n)]
-            arr_rates[s] = new_temp_ar
-            alight_fractions[s] = new_temp_af
+        for pv, a, d in zip(prev_vol, arr_rates[stops[i]], drop_rates[stops[i]]):
+            print(d, pv)
+            af = d / pv if pv else 0
+            alight_fractions[stops[i]].append(af)
+            prev_vol[j] = pv + a - d
+            j += 1
+        print(alight_fractions[stops[i]])
+        print([stops[i], prev_vol])
+        dep_vol[stops[i]] = prev_vol
+    print(f'dep volume {dep_vol}')
+    print(drop_rates)
     return arr_rates, alight_fractions
 
 

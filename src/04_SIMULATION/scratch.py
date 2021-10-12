@@ -8,7 +8,7 @@ from datetime import timedelta
 import random
 
 
-# do_continue = 'y'
+print(int(0.02*90))
 # while do_continue == 'y':
 #     s = input('seconds: ')
 #     conversion = timedelta(seconds=float(s))

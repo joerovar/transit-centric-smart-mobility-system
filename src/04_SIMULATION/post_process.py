@@ -3,6 +3,8 @@ import numpy as np
 import csv
 import pandas as pd
 import pickle
+import math
+import scipy.stats as stats
 
 
 def write_trajectories(trip_data, pathname):
@@ -51,7 +53,7 @@ def plot_trajectories(trip_data, pathname, ordered_stops):
             y_axis = np.arange(starting_stop_idx, starting_stop_idx + len(times))
             plt.plot(times, y_axis)
     plt.xlabel('seconds')
-    plt.ylabel('stops')
+    plt.ylabel('stop sequence')
     if pathname:
         plt.savefig(pathname)
     else:
@@ -123,9 +125,6 @@ def write_link_times(trip_data, stop_gps, path_writename):
 
 
 def write_wait_times(mean_wait_time, stop_gps, pathname):
-    # mean_wait_time = {}
-    # for stop in headway_data:
-    #     mean_wait_time[stop] = round((np.array(headway_data[stop]).mean()) / 2, 1)
     wait_times = pd.DataFrame(mean_wait_time.items(), columns=['stop', 'wait_time_sec'])
     s = stop_gps.copy()
     s['stop_id'] = s['stop_id'].astype(str)
@@ -159,25 +158,6 @@ def merge_dictionaries(d1, d2, d3, d4):
         d1[k].extend(d3[k])
         d1[k].extend(d4[k])
     return d1
-
-
-# def chop_trajectories(trajectories, start_time, end_time):
-#   for trip in trajectories:
-#         trajectory = trajectories[trip]
-#         start_idx = 0
-#         end_idx = -1
-#         found_start = False
-#         found_end = False
-#         for i in range(len(trajectory)):
-#             if trajectory[i][1] >= start_time:
-#                 if not found_start:
-#                     found_start = True
-#                     start_idx = i
-#             if trajectory[i][1] > end_time and not found_end:
-#                 found_end = True
-#                 end_idx = i - 1
-#         trajectories[trip] = trajectory[start_idx:end_idx]
-#     return trajectories
 
 
 def get_historical_headway(pathname, dates, all_stops, trips):
@@ -261,6 +241,7 @@ def get_headway_from_trajectories(trajectories):
                 t1 = prev_stop_time[stop_id]
                 t2 = stop_time
                 headway = t2 - t1
+                prev_stop_time[stop_id] = t2
                 if stop_id not in recorded_headway:
                     recorded_headway[stop_id] = [headway]
                 else:
@@ -268,17 +249,25 @@ def get_headway_from_trajectories(trajectories):
     return recorded_headway
 
 
-def count_from_trajectories(trajectories, idx):
-    count = {}
+def count_from_trajectories(trajectories, idx, average=False):
+    n = {}
+    cntr = {}
     for trip in trajectories:
         for stop_details in trajectories[trip]:
             stop_id = stop_details[0]
             item_to_count = stop_details[idx]
-            if stop_id not in count:
-                count[stop_id] = item_to_count
+            if stop_id not in n:
+                n[stop_id] = item_to_count
+                if average:
+                    cntr[stop_id] = 1
             else:
-                count[stop_id] += item_to_count
-    return count
+                n[stop_id] += item_to_count
+                if average:
+                    cntr[stop_id] += 1
+    if average:
+        for stop in n:
+            n[stop] = n[stop] / cntr[stop] if cntr[stop] else 0
+    return n
 
 
 def plot_pax_per_stop(pathname, pax, ordered_stops, x_y_lbls):
@@ -298,3 +287,43 @@ def plot_pax_per_stop(pathname, pax, ordered_stops, x_y_lbls):
         plt.show()
     plt.close()
     return
+
+
+def plot_load_profile(bd, al, l, os, pathname=None, x_y_lbls=None):
+    w = 0.27
+    x1 = np.arange(len(os))
+    x2 = [i + w for i in x1]
+    fig, ax1 = plt.subplots()
+    ax2 = ax1.twinx()
+    y1, y2, y3 = [], [], []
+    for stop in os:
+        if stop in bd:
+            y1.append(bd[stop])
+        else:
+            y1.append(0)
+        if stop in al:
+            y2.append(al[stop])
+        else:
+            y2.append(0)
+        if stop in l:
+            y3.append(l[stop])
+        else:
+            y3.append(0)
+    ax1.bar(x1, y1, w, label='ons', color='peru')
+    ax1.bar(x2, y2, w, label='offs', color='peachpuff')
+    ax2.plot(x1, y3, label='load', color='dodgerblue')
+    ax1.set_xticks(x1)
+    ax1.set_xticklabels(os, fontsize=6, rotation=90)
+    if x_y_lbls:
+        ax1.set_xlabel(x_y_lbls[0])
+        ax1.set_ylabel(x_y_lbls[1], color='peru')
+        ax2.set_ylabel(x_y_lbls[2], color='dodgerblue')
+    plt.tight_layout()
+    fig.legend()
+    if pathname:
+        plt.savefig(pathname)
+    else:
+        plt.show()
+    plt.close()
+    return
+

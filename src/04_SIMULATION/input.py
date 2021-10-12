@@ -1,7 +1,7 @@
-from extract_tools import *
-from data_tools import *
+from pre_process import *
+from post_process import *
 from file_paths import *
-from const import *
+from constants import *
 
 
 def extract_params(visualize=True):
@@ -19,7 +19,7 @@ def extract_params(visualize=True):
 
     # arrival rates will be in pax/min
     arrival_rates, alight_fractions = get_demand(path_od, stops, PREV_DEM_NR_INTERVALS,
-                                                 PREV_DEM_INTERVAL_LENGTH_MINS, PREV_DEM_START_INTERVAL, new_nr_intervals=DEM_NR_INTERVALS)
+                                                 PREV_DEM_START_INTERVAL, DEM_NR_INTERVALS, DEM_INTERVAL_LENGTH_MINS)
 
     # SCHEDULE: DISPATCHING TIMES, STOP TIMES FROM BEGINNING OF ROUTE
     # SCHEDULED_DEPARTURES = read_scheduled_departures(path_dispatching_times)
@@ -38,8 +38,10 @@ def extract_params(visualize=True):
         plot_stop_headway(path_historical_headway, hw, stops)
         plot_cv(path_input_cv_link_times, link_times_mean, link_times_sd)
         write_travel_times(path_input_link_times, link_times_mean, link_times_sd, nr_time_dpoints)
-        boardings = get_input_boardings(arrival_rates, DEM_INTERVAL_LENGTH_MINS, FOCUS_START_TIME_SEC, FOCUS_END_TIME_SEC, DEM_START_INTERVAL)
-        plot_pax_per_stop(path_input_boardings, boardings, stops, x_y_lbls=['stop id', 'predicted boardings'])
+        # boardings = get_input_boardings(arrival_rates, DEM_INTERVAL_LENGTH_MINS, FOCUS_START_TIME_SEC, FOCUS_END_TIME_SEC,
+        #                                 DEM_START_INTERVAL)
+        # needs to be corrected for pax per hour
+        # plot_pax_per_stop(path_input_boardings, boardings, stops, x_y_lbls=['stop id', 'predicted boardings'])
     return
 
 
@@ -53,16 +55,19 @@ def get_params():
     alight_fractions = load(path_alight_fractions)
     scheduled_departures = load(path_departure_times_xtr)
 
-    start_idx = ordered_trips.index(STARTING_TRIP)
-    end_idx = ordered_trips.index(ENDING_TRIP)
-    ordered_trips = ordered_trips[start_idx:end_idx + 1]
+    # start_idx = ordered_trips.index(STARTING_TRIP)
+    # end_idx = ordered_trips.index(ENDING_TRIP)
+    # ordered_trips = ordered_trips[start_idx:end_idx + 1]
     init_headway = scheduled_departures[1] - scheduled_departures[0]
     # initial headway helps calculate loads for the first trip
 
     return stops, link_times_mean, link_times_sd, nr_time_dpoints, ordered_trips, arrival_rates, alight_fractions, scheduled_departures, init_headway
 
 
-# extract_params()
+# extract_params(visualize=False)
 
 STOPS, LINK_TIMES_MEAN, LINK_TIME_SD, NR_TIME_DPOINTS, ORDERED_TRIPS, ARRIVAL_RATES, ALIGHT_FRACTIONS, SCHEDULED_DEPARTURES, INIT_HEADWAY = get_params()
 
+# ARRIVAL RATES IN HOURS!!
+# print(ARRIVAL_RATES)
+# print(ALIGHT_FRACTIONS)
