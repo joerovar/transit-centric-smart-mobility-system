@@ -68,3 +68,4 @@ path_wt_fig = path_to_outs + dir_figs + 'stop_wait_times_' + tstamp_load + '.png
 path_bd_fig = path_to_outs + dir_figs + 'boardings_' + tstamp_load + '.png'
 path_db_fig = path_to_outs + dir_figs + 'denied_boardings_' + tstamp_load + '.png'
 path_lp_fig = path_to_outs + dir_figs + 'load_profile' + tstamp_load + '.png'
+path_wtc_fig_ = path_to_outs + dir_figs + 'wait_time_post_processed_' + tstamp_load + '.png'

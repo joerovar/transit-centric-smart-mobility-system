@@ -62,13 +62,19 @@ def plot_trajectories(trip_data, pathname, ordered_stops):
     return
 
 
-def plot_multiple_bar_charts(wta, wtc, pathname, lbls, x_y_lbls=None):
+def plot_multiple_bar_charts(wta, wtc, pathname, lbls, ordered_stops, x_y_lbls=None):
     w = 0.27
-    bar1 = np.arange(len(wta.keys()))
+    bar1 = np.arange(len(ordered_stops))
     bar2 = [i + w for i in bar1]
-    plt.bar(bar1, wta.values(), w, label=lbls[0], color='b')
-    plt.bar(bar2, wtc.values(), w, label=lbls[1], color='r')
-    plt.xticks(bar1, wta.keys(), rotation=90, fontsize=6)
+    x = ordered_stops
+    y1 = []
+    y2 = []
+    for s in ordered_stops:
+        y1.append(wta[s]) if s in wta else y1.append(0)
+        y2.append(wtc[s]) if s in wtc else y2.append(0)
+    plt.bar(bar1, y1, w, label=lbls[0], color='b')
+    plt.bar(bar2, y2, w, label=lbls[1], color='r')
+    plt.xticks(bar1, x, rotation=90, fontsize=6)
     if x_y_lbls:
         plt.xlabel(x_y_lbls[0])
         plt.ylabel(x_y_lbls[1])
@@ -82,8 +88,12 @@ def plot_multiple_bar_charts(wta, wtc, pathname, lbls, x_y_lbls=None):
     return
 
 
-def plot_bar_chart(var, pathname, x_y_lbls=None):
-    plt.bar(var.keys(), var.values())
+def plot_bar_chart(var, ordered_stops, pathname, x_y_lbls=None):
+    x = ordered_stops
+    y1 = []
+    for s in ordered_stops:
+        y1.append(var[s]) if s in var else y1.append(0)
+    plt.bar(x, y1)
     plt.xticks(rotation=90, fontsize=6)
     if x_y_lbls:
         plt.xlabel(x_y_lbls[0])
@@ -228,25 +238,47 @@ def plot_cv(pathname, link_times_mean, link_times_sd):
     return
 
 
-def get_headway_from_trajectories(trajectories):
+def get_headway_from_trajectories(trajectories, idx_ons, idx_denied):
     prev_stop_time = {}
+    prev_denied = {}
     recorded_headway = {}
+    tot_wait_time = {}
+    wait_time = {}
+    wait_time_from_hw = {}
+    tot_boardings = {}
     for trip in trajectories:
         for stop_details in trajectories[trip]:
             stop_id = stop_details[0]
             stop_time = stop_details[1]
+            ons = stop_details[idx_ons]
+            denied = stop_details[idx_denied]
             if stop_id not in prev_stop_time:
                 prev_stop_time[stop_id] = stop_time
+                prev_denied[stop_id] = denied
             else:
                 t1 = prev_stop_time[stop_id]
                 t2 = stop_time
                 headway = t2 - t1
-                prev_stop_time[stop_id] = t2
+                prev_denied_ = prev_denied[stop_id]
                 if stop_id not in recorded_headway:
                     recorded_headway[stop_id] = [headway]
+                    tot_wait_time[stop_id] = (prev_denied_ + (ons+denied-prev_denied_)*0.5) * headway
+                    tot_boardings[stop_id] = ons
                 else:
                     recorded_headway[stop_id].append(headway)
-    return recorded_headway
+                    tot_wait_time[stop_id] += (prev_denied_ + (ons+denied-prev_denied_)*0.5) * headway
+                    tot_boardings[stop_id] += ons
+
+                prev_stop_time[stop_id] = t2
+                prev_denied[stop_id] = denied
+    for s in tot_wait_time:
+        wait_time[s] = tot_wait_time[s] / tot_boardings[s] if tot_boardings[s] else 0
+        headway = np.array(recorded_headway[s])
+        mean_headway = headway.mean()
+        cv_headway = headway.std() / mean_headway
+        wait_time_from_hw[s] = (mean_headway / 2) * (1 + (cv_headway * cv_headway))
+
+    return recorded_headway, wait_time, wait_time_from_hw
 
 
 def count_from_trajectories(trajectories, idx, average=False):

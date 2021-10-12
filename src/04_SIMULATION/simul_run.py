@@ -10,6 +10,6 @@ def run(save=False):
         done = env.prep()
     if save:
         env.process_results()
-        post_process.save(path_wt_save, env.adjusted_wait_time)
+        # post_process.save(path_wt_save, env.adjusted_wait_time)
         post_process.save(path_tr_save, env.trajectories)
-        post_process.save(path_wtc_save, env.wait_time_from_h)
+        # post_process.save(path_wtc_save, env.wait_time_from_h)
