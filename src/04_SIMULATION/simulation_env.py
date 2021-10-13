@@ -8,13 +8,10 @@ def get_interval(t, interval_length):
     interval = int(t / (interval_length * 60))
     return interval
 
-
 class SimulationEnv:
-    def __init__(self, no_overtake_policy=True, soft_control=False, deep_control=False):
+    def __init__(self, no_overtake_policy=True):
         # THE ONLY NECESSARY TRIP INFORMATION TO CARRY THROUGHOUT SIMULATION
         self.no_overtake_policy = no_overtake_policy
-        self.soft_control = soft_control
-        self.deep_control = deep_control
         self.next_departures = []
         self.next_trip_ids = []
         self.active_trips = []
@@ -31,7 +28,7 @@ class SimulationEnv:
         self.last_bus_time = {}
         self.track_denied_boardings = {}
         # RECORDINGS
-        self.trajectories = []
+        self.trajectories = {}
 
     def record_trajectories(self, pickups=0, dropoffs=0, denied_board=0):
         i = self.bus_idx
@@ -236,7 +233,7 @@ class SimulationEnv:
         self.next_departures = SCHEDULED_DEPARTURES.copy()
         dep_delays = [max(random.uniform(DEP_DELAY_FROM, DEP_DELAY_TO), 0) for i in range(len(self.next_departures))]
         self.next_departures = [sum(x) for x in zip(self.next_departures, dep_delays)]
-        self.next_trip_ids = [i for i in range(1, 1 + len(SCHEDULED_DEPARTURES))]
+        self.next_trip_ids = ORDERED_TRIPS
         self.time = START_TIME_SEC
         self.bus_idx = 0
 
@@ -294,4 +291,120 @@ class SimulationEnv:
         return
 
 
+def estimate_arrival_time(start_time, start_stop, end_stop):
+    time_control = start_time
+    start_stop_idx = STOPS.index(start_stop)
+    end_stop_idx = STOPS.index(end_stop)
+    for i in range(start_stop_idx, end_stop_idx):
+        stop0 = STOPS[i]
+        stop1 = STOPS[i+1]
+        interv = get_interval(time_control, TIME_INTERVAL_LENGTH_MINS)
+        interv_idx = interv - TIME_START_INTERVAL
+        mean_runtime = LINK_TIMES_MEAN[stop0+'-'+stop1][interv_idx]
+        time_control += mean_runtime
+        assert mean_runtime
+    arrival_time = time_control
+    return arrival_time
 
+
+class SimulationEnvDeepRL(SimulationEnv):
+    def __init__(self, *args, **kwargs):
+        super(SimulationEnvDeepRL, self).__init__(*args, **kwargs)
+
+        self.trips_sars = {}
+
+    def _add_observations(self):
+        t = self.time
+        i = self.bus_idx
+        stop_id = self.next_stop[i]
+        trip_id = self.active_trips[i]
+        trip_sars = self.trips_sars[trip_id]
+
+        bus_load = self.load[i]
+        forward_headway = t - self.last_bus_time[stop_id]
+
+        # for previous trip
+        if i < len(self.active_trips) - 1:
+            dep_t = self.dep_t[i+1]
+            stop0 = self.last_stop[i+1]
+            stop1 = stop_id
+        else:
+            dep_t = self.next_departures[0]
+            stop0 = STOPS[0]
+            stop1 = stop_id
+
+        follow_trip_arrival_time = estimate_arrival_time(dep_t, stop0, stop1)
+        backward_headway = follow_trip_arrival_time - t
+
+        new_state = [bus_load, forward_headway, backward_headway]
+
+        if trip_sars:
+            prev_sars = trip_sars[-1]
+            prev_sars[3] = new_state
+            self.trips_sars[trip_id][-1][3] = prev_sars
+        new_sars = [new_state, 0, 0, []]
+        self.trips_sars[trip_id].append(new_sars)
+        return
+
+    def take_action(self):
+
+        return
+
+    def reset_simulation(self):
+        self.next_departures = SCHEDULED_DEPARTURES.copy()
+        dep_delays = [max(random.uniform(DEP_DELAY_FROM, DEP_DELAY_TO), 0) for i in range(len(self.next_departures))]
+        self.next_departures = [sum(x) for x in zip(self.next_departures, dep_delays)]
+        self.next_trip_ids = [i for i in range(1, 1 + len(SCHEDULED_DEPARTURES))]
+        self.time = START_TIME_SEC
+        self.bus_idx = 0
+
+        # trip-level data
+        self.next_instance_time = []
+        self.active_trips = []
+        self.last_stop = []
+        self.next_stop = []
+        self.load = []
+        self.dep_t = []
+        self.arr_t = []
+        self.terminal_dep_t = []
+        self.event_type = 0
+
+        # stop-level data
+        for s in STOPS:
+            self.last_bus_time[s] = self.time
+            self.track_denied_boardings[s] = 0
+
+        # for records
+        self.trajectories = {}
+        for i in self.next_trip_ids:
+            self.trajectories[i] = []
+
+        # RL PARAMETERS
+        for trip_id in CONTROLLED_TRIPS:
+            self.trips_sars[trip_id] = []
+
+        return False
+
+    def prep(self):
+        self.next_event()
+        t = self.time
+        if t >= END_TIME_SEC:
+            return True
+
+        if self.event_type == 2:
+            self.terminal_arrival()
+            return not self.next_departures and not self.next_instance_time
+
+        if self.event_type == 1:
+            i = self.bus_idx
+            arrival_stop = self.next_stop[i]
+            trip_id = self.active_trips[i]
+            if arrival_stop in CONTROLLED_STOPS and trip_id in CONTROLLED_TRIPS:
+
+                return False
+            self.fixed_stop_arrival()
+            return self.prep()
+
+        if self.event_type == 0:
+            self.terminal_departure()
+            return self.prep()
