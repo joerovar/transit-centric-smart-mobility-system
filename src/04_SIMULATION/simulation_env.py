@@ -10,11 +10,11 @@ def get_interval(t, interval_length):
 
 
 class SimulationEnv:
-    def __init__(self):
+    def __init__(self, no_overtake_policy=True, soft_control=False, deep_control=False):
         # THE ONLY NECESSARY TRIP INFORMATION TO CARRY THROUGHOUT SIMULATION
-        # SIMUL PARAMS
-        # NEW
-        self.no_overtake_policy = True
+        self.no_overtake_policy = no_overtake_policy
+        self.soft_control = soft_control
+        self.deep_control = deep_control
         self.next_departures = []
         self.next_trip_ids = []
         self.active_trips = []
@@ -29,16 +29,9 @@ class SimulationEnv:
         self.next_instance_time = []
         self.time = 0.0
         self.last_bus_time = {}
+        self.track_denied_boardings = {}
         # RECORDINGS
         self.trajectories = []
-        self.recorded_headway = {}
-        self.recorded_trip_times = []
-        self.stop_wait_time = {}
-        self.denied_boardings = {}
-        self.tot_pax_at_stop = {}
-        self.adjusted_wait_time = {}
-        self.wait_time_from_h = {}
-        self.tot_denied_boardings = {}
 
     def record_trajectories(self, pickups=0, dropoffs=0, denied_board=0):
         i = self.bus_idx
@@ -157,17 +150,13 @@ class SimulationEnv:
             headway = self.time - last_bus_time
             if headway < 0:
                 headway = 0
-            self.recorded_headway[s].append(headway)
             p_arrivals = self.get_pax_arrivals(headway, last_bus_time)
-            self.tot_pax_at_stop[s] += p_arrivals
-            prev_denied = self.denied_boardings[s]
-            self.stop_wait_time[s] += (prev_denied + p_arrivals / 2) * headway
+            prev_denied = self.track_denied_boardings[s]
         pax_at_stop = p_arrivals + prev_denied
         allowed = CAPACITY - bus_load
         boardings = min(allowed, pax_at_stop)
         denied = pax_at_stop - boardings
-        self.tot_denied_boardings[s] += denied
-        self.denied_boardings[s] = denied
+        self.track_denied_boardings[s] = denied
         dwell_time = ACC_DEC_TIME + max(boardings * BOARDING_TIME, drop_offs * ALIGHTING_TIME)
         dwell_time = (boardings + drop_offs > 0) * dwell_time
         self.load[i] += boardings
@@ -194,10 +183,7 @@ class SimulationEnv:
             boardings = self.get_arrivals_start(headway)
         else:
             headway = self.dep_t[i] - self.last_bus_time[s]
-            self.recorded_headway[self.last_stop[i]].append(headway)
             boardings = self.get_pax_arrivals(headway, self.last_bus_time[s])
-            self.tot_pax_at_stop[s] += boardings
-            self.stop_wait_time[s] += boardings * headway / 2
         self.load[i] += boardings
         self.record_trajectories(pickups=boardings)
         self.last_bus_time[s] = self.dep_t[i]
@@ -219,9 +205,6 @@ class SimulationEnv:
             headway = self.time - self.last_bus_time[s]
             if headway < 0:
                 headway = 0
-            self.recorded_headway[s].append(headway)
-        actual_route_time = self.time - self.terminal_dep_t[i]
-        self.recorded_trip_times.append(actual_route_time)
         self.last_bus_time[s] = self.time
         # delete record of trip
         self.remove_trip()
@@ -270,23 +253,18 @@ class SimulationEnv:
 
         # stop-level data
         for s in STOPS:
-            self.recorded_headway[s] = []
             self.last_bus_time[s] = self.time
-            self.stop_wait_time[s] = 0
-            self.denied_boardings[s] = 0
-            self.tot_pax_at_stop[s] = 0
-            self.tot_denied_boardings[s] = 0
+            self.track_denied_boardings[s] = 0
 
         # for records
         self.trajectories = {}
         for i in self.next_trip_ids:
             self.trajectories[i] = []
-        self.recorded_trip_times = []
         return False
 
     def prep(self):
         self.next_event()
-        if self.time >= FOCUS_END_TIME_SEC:
+        if self.time >= END_TIME_SEC:
             return True
         if self.event_type == 2:
             self.terminal_arrival()
@@ -303,36 +281,15 @@ class SimulationEnv:
     def chop_trajectories(self):
         trajectories = dict(self.trajectories)
         for trip in trajectories:
-            trajectory = trajectories[trip]
-            start_idx = 0
-            end_idx = -1
-            found_start = False
-            for i in range(len(trajectory)):
-                if i == 0 and trajectory[i][1] >= FOCUS_END_TIME_SEC:
-                    break
-                if trajectory[i][1] >= FOCUS_START_TIME_SEC:
-                    if not found_start:
-                        found_start = True
-                        start_idx = int(i)
-                if trajectory[i][1] > FOCUS_END_TIME_SEC:
-                    end_idx = int(i)
-                    break
-            if found_start:
-                self.trajectories[trip] = trajectory[start_idx:end_idx]
-            if not found_start:
+            if trajectories[trip]:
+                dep_time = trajectories[trip][0][1]
+                if dep_time < FOCUS_START_TIME_SEC or dep_time > FOCUS_END_TIME_SEC:
+                    self.trajectories.pop(trip)
+            else:
                 self.trajectories.pop(trip)
         return
 
     def process_results(self):
-        # for s in self.stop_wait_time:
-        #     if self.tot_pax_at_stop[s]:
-        #         self.adjusted_wait_time[s] = self.stop_wait_time[s] / self.tot_pax_at_stop[s]
-        #     else:
-        #         self.adjusted_wait_time[s] = 0
-        #     headway = np.array(self.recorded_headway[s])
-        #     mean_headway = headway.mean()
-        #     cv_headway = headway.std() / mean_headway
-        #     self.wait_time_from_h[s] = (mean_headway / 2) * (1 + (cv_headway * cv_headway))
         self.chop_trajectories()
         return
 

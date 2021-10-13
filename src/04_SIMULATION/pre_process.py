@@ -16,18 +16,19 @@ def remove_outliers(data, m=2):
     return data[s < m]
 
 
-def get_route(path_stop_times, start_time, end_time, nr_intervals, start_interval, interval_length, dates, trip_choice, pathname_dispatching, pathname_sorted_trips, pathname_stop_pattern):
+def get_route(path_stop_times, tt_start_time, end_time, nr_intervals, start_interval, interval_length, dates, trip_choice, pathname_dispatching, pathname_sorted_trips, pathname_stop_pattern, start_time):
     link_times = {}
-    route_times = []
     route_stop_times = pd.read_csv(path_stop_times)
     whole_df = pd.read_csv(path_stop_times)
     df = whole_df[whole_df['stop_id'] == 386]
     df = df[df['stop_sequence'] == 1]
     df = df[df['avl_sec'] % 86400 <= end_time]
-    df = df[df['avl_sec'] % 86400 >= start_time]
-    df1 = df.sort_values(by='schd_sec')
-    df1 = df1.drop_duplicates(subset='schd_trip_id')
-    ordered_trips = df1['schd_trip_id'].tolist()
+    df = df[df['avl_sec'] % 86400 >= tt_start_time]
+    df_dispatching = df[df['schd_sec'] % 86400 >= start_time]
+    df_dispatching = df_dispatching.sort_values(by='schd_sec')
+    df_dispatching = df_dispatching.drop_duplicates(subset='schd_trip_id')
+    ordered_trips = df_dispatching['schd_trip_id'].tolist()
+    df_dispatching.to_csv(pathname_dispatching, index=False)
     ordered_trip_stop_pattern = {}
     # dummy = []
     for t in ordered_trips:
@@ -44,7 +45,6 @@ def get_route(path_stop_times, start_time, end_time, nr_intervals, start_interva
         writer = csv.writer(csv_file)
         for key, value in ordered_trip_stop_pattern.items():
             writer.writerow([key, value])
-    df1.to_csv(pathname_dispatching, index=False)
 
     trip_ids = df['trip_id'].unique().tolist()
     for d in dates:
@@ -137,31 +137,17 @@ def get_demand(path, stops, nr_intervals, start_interval, new_nr_intervals, new_
         arr_rates[s] = arr_pax
         drop_rates[s] = drop_pax
 
-    # if new_nr_intervals:
-    #     for s in arr_rates:
-    #         temp_ar = arr_rates[s]
-    #         temp_af = drop_rates[s]
-    #         n = grouping
-    #         new_temp_ar = [np.array(temp_ar[i:i+n]).mean() for i in range(0, len(temp_ar), n)]
-    #         new_temp_af = [np.array(temp_af[i:i+n]).mean() for i in range(0, len(temp_af), n)]
-    #         arr_rates[s] = new_temp_ar
-    #         alight_fractions[s] = new_temp_af
     dep_vol = {}
     prev_vol = [0] * new_nr_intervals
     for i in range(len(stops)):
         j = 0
         alight_fractions[stops[i]] = []
         for pv, a, d in zip(prev_vol, arr_rates[stops[i]], drop_rates[stops[i]]):
-            print(d, pv)
             af = d / pv if pv else 0
             alight_fractions[stops[i]].append(af)
             prev_vol[j] = pv + a - d
             j += 1
-        print(alight_fractions[stops[i]])
-        print([stops[i], prev_vol])
         dep_vol[stops[i]] = prev_vol
-    print(f'dep volume {dep_vol}')
-    print(drop_rates)
     return arr_rates, alight_fractions
 
 

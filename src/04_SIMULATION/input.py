@@ -15,7 +15,8 @@ def extract_params(visualize=True):
                                                                                       TRIP_WITH_FULL_STOP_PATTERN,
                                                                                       path_ordered_dispatching,
                                                                                       path_sorted_daily_trips,
-                                                                                      path_stop_pattern)
+                                                                                      path_stop_pattern,
+                                                                                      START_TIME_SEC)
 
     # arrival rates will be in pax/min
     arrival_rates, alight_fractions = get_demand(path_od, stops, PREV_DEM_NR_INTERVALS,
@@ -54,10 +55,6 @@ def get_params():
     arrival_rates = load(path_arr_rates)
     alight_fractions = load(path_alight_fractions)
     scheduled_departures = load(path_departure_times_xtr)
-
-    # start_idx = ordered_trips.index(STARTING_TRIP)
-    # end_idx = ordered_trips.index(ENDING_TRIP)
-    # ordered_trips = ordered_trips[start_idx:end_idx + 1]
     init_headway = scheduled_departures[1] - scheduled_departures[0]
     # initial headway helps calculate loads for the first trip
 
@@ -67,7 +64,6 @@ def get_params():
 # extract_params(visualize=False)
 
 STOPS, LINK_TIMES_MEAN, LINK_TIME_SD, NR_TIME_DPOINTS, ORDERED_TRIPS, ARRIVAL_RATES, ALIGHT_FRACTIONS, SCHEDULED_DEPARTURES, INIT_HEADWAY = get_params()
-
+# print(SCHEDULED_DEPARTURES)
+# print(START_TIME_SEC)
 # ARRIVAL RATES IN HOURS!!
-# print(ARRIVAL_RATES)
-# print(ALIGHT_FRACTIONS)

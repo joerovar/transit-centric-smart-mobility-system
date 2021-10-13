@@ -3,7 +3,7 @@ import numpy as np
 # SIMULATION
 
 START_TIME = datetime.strptime('07:00:00', "%H:%M:%S")
-END_TIME = datetime.strptime('09:00:00', "%H:%M:%S")
+END_TIME = datetime.strptime('10:00:00', "%H:%M:%S")
 T_TRAVEL_TIME_EXTRACT = datetime.strptime('06:00:00', "%H:%M:%S")
 SEC_FOR_TT_EXTRACT = (T_TRAVEL_TIME_EXTRACT - datetime(1900, 1, 1)).total_seconds()
 START_TIME_SEC = (START_TIME - datetime(1900, 1, 1)).total_seconds()

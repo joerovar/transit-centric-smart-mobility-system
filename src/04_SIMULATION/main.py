@@ -1,11 +1,11 @@
-import simul_run
+import simulation_run
 import output
 import time
 st = time.time()
 
 
 # running
-simul_run.run(save=True)
+simulation_run.run(save=True)
 
 # outputs
 output.get_results()
