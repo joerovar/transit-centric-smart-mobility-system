@@ -9,44 +9,40 @@ def get_interval(t, len_i):
     return interval
 
 
-def remove_outliers(data, m=2):
-    dev = np.abs(data-np.median(data))
-    median_dev = np.median(dev)
-    s = dev/median_dev if median_dev else 0
-    return data[s < m]
+def remove_outliers(data):
+    if data.any():
+        q1 = np.quantile(data, 0.25)
+        q3 = np.quantile(data, 0.75)
+        iqr = q3 - q1
+        lower_bound = q1 - 1.5 * iqr
+        upper_bound = q3 + 1.5 * iqr
+        data = data[(data >= lower_bound) & (data <= upper_bound)]
+    return data
 
 
-def get_route(path_stop_times, tt_start_time, end_time, nr_intervals, start_interval, interval_length, dates, trip_choice, pathname_dispatching, pathname_sorted_trips, pathname_stop_pattern, start_time):
+def get_route(path_stop_times, tt_start_time, end_time, nr_intervals, start_interval, interval_length,
+              dates, trip_choice, pathname_dispatching, pathname_sorted_trips, pathname_stop_pattern, start_time,
+              visualize_stop_pattern=False, tolerance_early_departure=1.5*60):
     link_times = {}
     route_stop_times = pd.read_csv(path_stop_times)
     whole_df = pd.read_csv(path_stop_times)
+
     df = whole_df[whole_df['stop_id'] == 386]
     df = df[df['stop_sequence'] == 1]
     df = df[df['avl_sec'] % 86400 <= end_time]
     df = df[df['avl_sec'] % 86400 >= tt_start_time]
+    trip_ids = df['trip_id'].unique().tolist()
+
+    # df_faulty_dispatch_t = df[df['avl_sec'] % 86400 + 120 < df['schd_sec']]
+    # df_faulty_dispatch_t.to_csv('in/vis/faulty_dispatching_times.csv', index=False)
+
     df_dispatching = df[df['schd_sec'] % 86400 >= start_time]
     df_dispatching = df_dispatching.sort_values(by='schd_sec')
     df_dispatching = df_dispatching.drop_duplicates(subset='schd_trip_id')
     ordered_trips = df_dispatching['schd_trip_id'].tolist()
-    df_dispatching.to_csv(pathname_dispatching, index=False)
-    ordered_trip_stop_pattern = {}
-    # dummy = []
-    for t in ordered_trips:
-        for d in dates:
-            single = whole_df[whole_df['trip_id'] == t]
-            single = single[single['event_time'].astype(str).str[:10] == d]
-            single = single.sort_values(by='stop_sequence')
-            stop_sequence = single['stop_sequence'].tolist()
-            res = all(i == j-1 for i, j in zip(stop_sequence, stop_sequence[1:]))
-            if res:
-                stop_ids = single['stop_id'].tolist()
-                ordered_trip_stop_pattern[str(t)+'-'+str(d)] = stop_ids
-    with open(pathname_stop_pattern, 'w') as csv_file:
-        writer = csv.writer(csv_file)
-        for key, value in ordered_trip_stop_pattern.items():
-            writer.writerow([key, value])
 
-    trip_ids = df['trip_id'].unique().tolist()
+    df_dispatching.to_csv(pathname_dispatching, index=False)
+
     for d in dates:
         df_to_check = whole_df[whole_df['trip_id'].isin(trip_ids)]
         df_to_check = df_to_check[df_to_check['event_time'].astype(str).str[:10] == d]
@@ -57,23 +53,28 @@ def get_route(path_stop_times, tt_start_time, end_time, nr_intervals, start_inte
         temp = temp.sort_values(by='stop_sequence')
         for d in dates:
             date_specific = temp[temp['event_time'].astype(str).str[:10] == d]
+            schd_sec = date_specific['schd_sec'].tolist()
             stop_id = date_specific['stop_id'].astype(str).tolist()
-            times = date_specific['avl_sec'].tolist()
-            check_sequence = date_specific['stop_sequence'].tolist()
-            if times:
+            avl_sec = date_specific['avl_sec'].tolist()
+            stop_sequence = date_specific['stop_sequence'].tolist()
+            if avl_sec:
+                if stop_sequence[0] == 1:
+                    if schd_sec[0] - (avl_sec[0] % 86400) > tolerance_early_departure:
+                        schd_sec.pop(0)
+                        stop_id.pop(0)
+                        avl_sec.pop(0)
+                        stop_sequence.pop(0)
                 for i in range(len(stop_id)-1):
-                    if check_sequence[i] == check_sequence[i + 1] - 1:
+                    if stop_sequence[i] == stop_sequence[i + 1] - 1:
                         link = stop_id[i]+'-'+stop_id[i+1]
                         exists = link in link_times
                         if not exists:
                             link_times[link] = [[] for i in range(nr_intervals)]
-                        nr_bin = get_interval(times[i] % 86400, interval_length) - start_interval
+                        nr_bin = get_interval(avl_sec[i] % 86400, interval_length) - start_interval
                         if 0 <= nr_bin < nr_intervals:
-                            lt = times[i+1] - times[i]
+                            lt = avl_sec[i+1] - avl_sec[i]
                             if lt > 0:
                                 link_times[link][nr_bin].append(lt)
-                                # if link == '386-388':
-                                #     dummy.append([t, d, lt])
     mean_link_times = {}
     stdev_link_times = {}
     nr_dpoints_link_times = {}
@@ -89,10 +90,28 @@ def get_route(path_stop_times, tt_start_time, end_time, nr_intervals, start_inte
                 mean_link_times[link].append(b_array.mean())
                 stdev_link_times[link].append(b_array.std())
                 nr_dpoints_link_times[link].append(len(b_array))
+
     df_forstops = route_stop_times[route_stop_times['trip_id'] == trip_choice]
     df_forstops = df_forstops[df_forstops['event_time'].astype(str).str[:10] == dates[0]]
     df_forstops = df_forstops.sort_values(by='stop_sequence')
     all_stops = df_forstops['stop_id'].astype(str).tolist()
+
+    ordered_trip_stop_pattern = {}
+    if visualize_stop_pattern:
+        for t in ordered_trips:
+            for d in dates:
+                single = whole_df[whole_df['trip_id'] == t]
+                single = single[single['event_time'].astype(str).str[:10] == d]
+                single = single.sort_values(by='stop_sequence')
+                stop_sequence = single['stop_sequence'].tolist()
+                res = all(i == j-1 for i, j in zip(stop_sequence, stop_sequence[1:]))
+                if res:
+                    stop_ids = single['stop_id'].tolist()
+                    ordered_trip_stop_pattern[str(t)+'-'+str(d)] = stop_ids
+        with open(pathname_stop_pattern, 'w') as csv_file:
+            writer = csv.writer(csv_file)
+            for key, value in ordered_trip_stop_pattern.items():
+                writer.writerow([key, value])
 
     return all_stops, mean_link_times, stdev_link_times, nr_dpoints_link_times, ordered_trips
 

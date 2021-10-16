@@ -28,15 +28,18 @@ class TechGeek(Person):
 
 # mkbhd = TechGeek('Marques', 29, 'iOS')
 # mkbhd.report()
-
-lst = [1, [1,2], 3, [5]]
-print(lst)
-
-
+# [100.  36. 181. 135.  35.  37.  21. 152.  30.  26. 318. 135. 296.]
 # while do_continue == 'y':
 #     s = input('seconds: ')
 #     conversion = timedelta(seconds=float(s))
 #     converted_time = str(conversion)
 #     print(converted_time)
 #     do_continue = input('another one? ')
+
+p = pd.DataFrame([[1, 0.2], [3, 4]], columns=['a', 'b'])
+i = p.index[p['a'] == 3]
+print(p)
+p.drop(p[p['a'] < p['b']])
+print(p)
+
 
