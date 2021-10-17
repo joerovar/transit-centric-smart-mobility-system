@@ -16,7 +16,9 @@ def extract_params(visualize=True):
                                                                                       path_ordered_dispatching,
                                                                                       path_sorted_daily_trips,
                                                                                       path_stop_pattern,
-                                                                                      START_TIME_SEC)
+                                                                                      START_TIME_SEC,
+                                                                                      FOCUS_START_TIME_SEC,
+                                                                                      FOCUS_END_TIME_SEC)
 
     # arrival rates will be in pax/min
     arrival_rates, alight_fractions = get_demand(path_od, stops, PREV_DEM_NR_INTERVALS,
@@ -63,7 +65,9 @@ def get_params():
 
 extract_params(visualize=True)
 
-# STOPS, LINK_TIMES_MEAN, LINK_TIMES_SD, NR_TIME_DPOINTS, ORDERED_TRIPS, ARRIVAL_RATES, ALIGHT_FRACTIONS, SCHEDULED_DEPARTURES, INIT_HEADWAY = get_params()
+STOPS, LINK_TIMES_MEAN, LINK_TIMES_SD, NR_TIME_DPOINTS, ORDERED_TRIPS, ARRIVAL_RATES, ALIGHT_FRACTIONS, SCHEDULED_DEPARTURES, INIT_HEADWAY = get_params()
+
+print(LINK_TIMES_MEAN)
 # print(LINK_TIMES_MEAN)
 # print(LINK_TIMES_SD)
 # CONTROLLED_TRIPS = np.array(ORDERED_TRIPS)[(np.array(SCHEDULED_DEPARTURES) > FOCUS_START_TIME_SEC) & (np.array(SCHEDULED_DEPARTURES) < FOCUS_END_TIME_SEC)].tolist()

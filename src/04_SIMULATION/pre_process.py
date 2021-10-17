@@ -2,6 +2,7 @@ import csv
 import numpy as np
 import pandas as pd
 import warnings
+import matplotlib.pyplot as plt
 
 
 def get_interval(t, len_i):
@@ -20,18 +21,18 @@ def remove_outliers(data):
     return data
 
 
-def get_route(path_stop_times, tt_start_time, end_time, nr_intervals, start_interval, interval_length,
+def get_route(path_stop_times, start_time_extract, end_time, nr_intervals, start_interval, interval_length,
               dates, trip_choice, pathname_dispatching, pathname_sorted_trips, pathname_stop_pattern, start_time,
-              visualize_stop_pattern=False, tolerance_early_departure=1.5*60):
+              focus_start_time, focus_end_time,
+              visualize_data=True, tolerance_early_departure=1.5*60):
     link_times = {}
-    route_stop_times = pd.read_csv(path_stop_times)
-    whole_df = pd.read_csv(path_stop_times)
+    stop_times_df = pd.read_csv(path_stop_times)
 
-    df = whole_df[whole_df['stop_id'] == 386]
+    df = stop_times_df[stop_times_df['stop_id'] == 386]
     df = df[df['stop_sequence'] == 1]
     df = df[df['avl_sec'] % 86400 <= end_time]
-    df = df[df['avl_sec'] % 86400 >= tt_start_time]
-    trip_ids = df['trip_id'].unique().tolist()
+    df = df[df['avl_sec'] % 86400 >= start_time_extract]
+    trip_ids_tt_extract = df['trip_id'].unique().tolist()
 
     # df_faulty_dispatch_t = df[df['avl_sec'] % 86400 + 120 < df['schd_sec']]
     # df_faulty_dispatch_t.to_csv('in/vis/faulty_dispatching_times.csv', index=False)
@@ -39,17 +40,12 @@ def get_route(path_stop_times, tt_start_time, end_time, nr_intervals, start_inte
     df_dispatching = df[df['schd_sec'] % 86400 >= start_time]
     df_dispatching = df_dispatching.sort_values(by='schd_sec')
     df_dispatching = df_dispatching.drop_duplicates(subset='schd_trip_id')
-    ordered_trips = df_dispatching['schd_trip_id'].tolist()
+    trip_ids_simulation = df_dispatching['schd_trip_id'].tolist()
 
     df_dispatching.to_csv(pathname_dispatching, index=False)
 
-    for d in dates:
-        df_to_check = whole_df[whole_df['trip_id'].isin(trip_ids)]
-        df_to_check = df_to_check[df_to_check['event_time'].astype(str).str[:10] == d]
-        df_to_check = df_to_check.sort_values(by='avl_sec')
-        df_to_check.to_csv(pathname_sorted_trips+str(d)+'.csv', index=False)
-    for t in trip_ids:
-        temp = route_stop_times[route_stop_times['trip_id'] == t]
+    for t in trip_ids_tt_extract:
+        temp = stop_times_df[stop_times_df['trip_id'] == t]
         temp = temp.sort_values(by='stop_sequence')
         for d in dates:
             date_specific = temp[temp['event_time'].astype(str).str[:10] == d]
@@ -91,16 +87,33 @@ def get_route(path_stop_times, tt_start_time, end_time, nr_intervals, start_inte
                 stdev_link_times[link].append(b_array.std())
                 nr_dpoints_link_times[link].append(len(b_array))
 
-    df_forstops = route_stop_times[route_stop_times['trip_id'] == trip_choice]
+    df_forstops = stop_times_df[stop_times_df['trip_id'] == trip_choice]
     df_forstops = df_forstops[df_forstops['event_time'].astype(str).str[:10] == dates[0]]
     df_forstops = df_forstops.sort_values(by='stop_sequence')
     all_stops = df_forstops['stop_id'].astype(str).tolist()
 
     ordered_trip_stop_pattern = {}
-    if visualize_stop_pattern:
-        for t in ordered_trips:
+
+    if visualize_data:
+        # daily trips, already extracted so now optional for next dataset
+        for d in dates:
+            df_day_trips = stop_times_df[stop_times_df['trip_id'].isin(trip_ids_tt_extract)]
+            df_day_trips = df_day_trips[df_day_trips['event_time'].astype(str).str[:10] == d]
+            df_day_trips = df_day_trips.sort_values(by='avl_sec')
+            df_day_trips.to_csv(pathname_sorted_trips + str(d) + '.csv', index=False)
+
+            df_plot = df_day_trips.loc[(df_day_trips['avl_sec'] >= focus_start_time) &
+                                       (df_day_trips['avl_sec'] <= focus_end_time)]
+            df_plot['avl_sec'] = df_plot['avl_sec'] % 86400
+            fig, ax = plt.subplots()
+            df_plot.reset_index().groupby(['trip_id']).plot(x='avl_sec', y='stop_sequence', ax=ax, marker='.',
+                                                            legend=False)
+            plt.savefig('in/vis/historical_trajectories' + d + '.png')
+
+        # stop pattern to spot differences
+        for t in trip_ids_simulation:
             for d in dates:
-                single = whole_df[whole_df['trip_id'] == t]
+                single = stop_times_df[stop_times_df['trip_id'] == t]
                 single = single[single['event_time'].astype(str).str[:10] == d]
                 single = single.sort_values(by='stop_sequence')
                 stop_sequence = single['stop_sequence'].tolist()
@@ -113,7 +126,7 @@ def get_route(path_stop_times, tt_start_time, end_time, nr_intervals, start_inte
             for key, value in ordered_trip_stop_pattern.items():
                 writer.writerow([key, value])
 
-    return all_stops, mean_link_times, stdev_link_times, nr_dpoints_link_times, ordered_trips
+    return all_stops, mean_link_times, stdev_link_times, nr_dpoints_link_times, trip_ids_simulation
 
 
 def get_demand(path, stops, nr_intervals, start_interval, new_nr_intervals, new_interval_length):
@@ -179,8 +192,12 @@ def read_scheduled_departures(path):
     return sch_dep
 
 
-def get_dispatching_from_gtfs(pathname, ordered_trips):
+def get_dispatching_from_gtfs(pathname, trip_ids_simulation):
     df = pd.read_csv(pathname)
-    scheduled_departures = df[df['trip_id'].isin(ordered_trips)]['schd_sec'].tolist()
+    scheduled_departures = df[df['trip_id'].isin(trip_ids_simulation)]['schd_sec'].tolist()
     return scheduled_departures
 
+
+def plot_trajectories_from_dataframe():
+
+    return
