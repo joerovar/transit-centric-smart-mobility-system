@@ -196,8 +196,3 @@ def get_dispatching_from_gtfs(pathname, trip_ids_simulation):
     df = pd.read_csv(pathname)
     scheduled_departures = df[df['trip_id'].isin(trip_ids_simulation)]['schd_sec'].tolist()
     return scheduled_departures
-
-
-def plot_trajectories_from_dataframe():
-
-    return

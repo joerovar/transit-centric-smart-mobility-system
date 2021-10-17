@@ -63,15 +63,15 @@ def get_params():
     return stops, link_times_mean, link_times_sd, nr_time_dpoints, ordered_trips, arrival_rates, alight_fractions, scheduled_departures, init_headway
 
 
-extract_params(visualize=True)
+# extract_params(visualize=True)
 
 STOPS, LINK_TIMES_MEAN, LINK_TIMES_SD, NR_TIME_DPOINTS, ORDERED_TRIPS, ARRIVAL_RATES, ALIGHT_FRACTIONS, SCHEDULED_DEPARTURES, INIT_HEADWAY = get_params()
 
-print(LINK_TIMES_MEAN)
+# print(LINK_TIMES_MEAN)
 # print(LINK_TIMES_MEAN)
 # print(LINK_TIMES_SD)
-# CONTROLLED_TRIPS = np.array(ORDERED_TRIPS)[(np.array(SCHEDULED_DEPARTURES) > FOCUS_START_TIME_SEC) & (np.array(SCHEDULED_DEPARTURES) < FOCUS_END_TIME_SEC)].tolist()
-# CONTROLLED_STOPS = ['403', '14500', '413', '16110', '425']
+CONTROLLED_TRIPS = np.array(ORDERED_TRIPS)[(np.array(SCHEDULED_DEPARTURES) > FOCUS_START_TIME_SEC) & (np.array(SCHEDULED_DEPARTURES) < FOCUS_END_TIME_SEC)].tolist()
+CONTROLLED_STOPS = ['403', '14500', '413', '16110', '425']
 
 # print(SCHEDULED_DEPARTURES)
 # print(START_TIME_SEC)

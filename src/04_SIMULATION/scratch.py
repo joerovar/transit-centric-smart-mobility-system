@@ -26,13 +26,9 @@ class TechGeek(Person):
         print(f'This tech geek called {self.name} is {self.age} years old and uses {self.os}')
 
 
-p = pd.DataFrame([['90', 1, 30], ['90', 2, 45], ['90', 3, 66], ['91', 1, 145], ['91', 2, 162], ['91', 3, 190]],
-                 columns=['trip_id', 'stop_seq', 'dep_time'])
+arr_times = np.array([0, 10, 20, 30, 40])
+dep_times = np.array([2, 12, 22, 32, 42])
+times = np.vstack((arr_times, dep_times))
+times = times.flatten(order='F')
+print(times)
 
-trips = p['trip_id'].unique()
-fig, ax = plt.subplots()
-p.reset_index().groupby(['trip_id']).plot(x='stop_seq', y='dep_time', ax=ax, marker='*')
-start, end = ax.get_xlim()
-plt.xticks([1, 2, 3])
-plt.legend(trips)
-plt.show()

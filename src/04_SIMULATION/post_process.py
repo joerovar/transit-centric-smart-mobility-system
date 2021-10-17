@@ -21,6 +21,33 @@ def write_trajectories(trip_data, pathname):
     return
 
 
+def write_link_times(trip_data, idx_dep_t, idx_arr_t, stop_gps, path_writename):
+    link_times = {}
+    for t in trip_data:
+        stop_data = trip_data[t]
+        for i in range(len(stop_data) - 1):
+            linktime = stop_data[i + 1][idx_arr_t] - stop_data[i][idx_dep_t]
+            link = stop_data[i][0] + '-' + stop_data[i + 1][0]
+            if link in link_times:
+                link_times[link].append(linktime)
+            else:
+                link_times[link] = [linktime]
+    mean_link_times = {}
+    for link in link_times:
+        mean_link_times[link] = round(np.array(link_times[link]).mean(), 1)
+    link_times_df = pd.DataFrame(mean_link_times.items(), columns=['stop_1', 'time_sec'])
+    link_times_df[['stop_1', 'stop_2']] = link_times_df['stop_1'].str.split('-', expand=True)
+    link_times_df = link_times_df[['stop_1', 'stop_2', 'time_sec']]
+    s = stop_gps.copy()
+    s['stop_id'] = s['stop_id'].astype(str)
+    s = s.rename(columns={'stop_id': 'stop_1', 'stop_lat': 'stop_1_lat', 'stop_lon': 'stop_1_lon'})
+    link_times_df = pd.merge(link_times_df, s, on='stop_1')
+    s = s.rename(columns={'stop_1': 'stop_2', 'stop_1_lat': 'stop_2_lat', 'stop_1_lon': 'stop_2_lon'})
+    link_times_df = pd.merge(link_times_df, s, on='stop_2')
+    link_times_df.to_csv(path_writename, index=False)
+    return
+
+
 def plot_stop_headway(pathname, hs, ordered_stops, y_scale=None):
     fig, ax = plt.subplots()
     for stop in ordered_stops:
@@ -43,14 +70,18 @@ def plot_stop_headway(pathname, hs, ordered_stops, y_scale=None):
     return
 
 
-def plot_trajectories(trip_data, pathname, ordered_stops):
+def plot_trajectories(trip_data, idx_arr_t, idx_dep_t, pathname, ordered_stops):
     for trip in trip_data:
         td = np.array(trip_data[trip])
         if np.size(td):
-            times = td[:, 1].astype(float)
+            arr_times = td[:, idx_arr_t].astype(float)
+            dep_times = td[:, idx_dep_t].astype(float)
+            times = np.vstack((arr_times, dep_times))
+            times = times.flatten(order='F')
             starting_stop = td[0, 0]
             starting_stop_idx = ordered_stops.index(starting_stop)
-            y_axis = np.arange(starting_stop_idx, starting_stop_idx + len(times))
+            y_axis = np.arange(starting_stop_idx, starting_stop_idx + len(arr_times))
+            y_axis = np.repeat(y_axis, 2)
             plt.plot(times, y_axis)
     plt.xlabel('seconds')
     plt.ylabel('stop sequence')
@@ -104,33 +135,6 @@ def plot_bar_chart(var, ordered_stops, pathname, x_y_lbls=None):
     else:
         plt.show()
     plt.close()
-    return
-
-
-def write_link_times(trip_data, stop_gps, path_writename):
-    link_times = {}
-    for t in trip_data:
-        stop_data = trip_data[t]
-        for i in range(len(stop_data) - 1):
-            linktime = stop_data[i + 1][1] - stop_data[i][1]
-            link = stop_data[i][0] + '-' + stop_data[i + 1][0]
-            if link in link_times:
-                link_times[link].append(linktime)
-            else:
-                link_times[link] = [linktime]
-    mean_link_times = {}
-    for link in link_times:
-        mean_link_times[link] = round(np.array(link_times[link]).mean(), 1)
-    link_times_df = pd.DataFrame(mean_link_times.items(), columns=['stop_1', 'time_sec'])
-    link_times_df[['stop_1', 'stop_2']] = link_times_df['stop_1'].str.split('-', expand=True)
-    link_times_df = link_times_df[['stop_1', 'stop_2', 'time_sec']]
-    s = stop_gps.copy()
-    s['stop_id'] = s['stop_id'].astype(str)
-    s = s.rename(columns={'stop_id': 'stop_1', 'stop_lat': 'stop_1_lat', 'stop_lon': 'stop_1_lon'})
-    link_times_df = pd.merge(link_times_df, s, on='stop_1')
-    s = s.rename(columns={'stop_1': 'stop_2', 'stop_1_lat': 'stop_2_lat', 'stop_1_lon': 'stop_2_lon'})
-    link_times_df = pd.merge(link_times_df, s, on='stop_2')
-    link_times_df.to_csv(path_writename, index=False)
     return
 
 

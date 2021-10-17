@@ -8,6 +8,7 @@ def get_interval(t, interval_length):
     interval = int(t / (interval_length * 60))
     return interval
 
+
 class SimulationEnv:
     def __init__(self, no_overtake_policy=True):
         # THE ONLY NECESSARY TRIP INFORMATION TO CARRY THROUGHOUT SIMULATION
@@ -34,15 +35,15 @@ class SimulationEnv:
         i = self.bus_idx
         trip_id = self.active_trips[i]
         # IN THE END I WANT IT LIKE THIS
-        if self.event_type == 2:
-            trajectory = [self.next_stop[i], round(self.arr_t[i], 2), 0, pickups, dropoffs, denied_board]
-            self.trajectories[trip_id].append(trajectory)
-        if self.event_type == 1:
-            trajectory = [self.last_stop[i], round(self.dep_t[i], 2), self.load[i], pickups, dropoffs, denied_board]
-            self.trajectories[trip_id].append(trajectory)
-        if self.event_type == 0:
-            trajectory = [self.last_stop[i], round(self.dep_t[i], 2), self.load[i], pickups, dropoffs, denied_board]
-            self.trajectories[trip_id].append(trajectory)
+        # if self.event_type == 2:
+        #     trajectory = [self.last_stop[i], round(self.arr_t[i], 2), round(self.arr_t[i], 2), self.load[i], pickups, dropoffs, denied_board]
+        #     self.trajectories[trip_id].append(trajectory)
+        # if self.event_type == 1:
+        #     trajectory = [self.last_stop[i], round(self.dep_t[i], 2),  self.load[i], pickups, dropoffs, denied_board]
+        #     self.trajectories[trip_id].append(trajectory)
+        # if self.event_type == 0:
+        trajectory = [self.last_stop[i], round(self.arr_t[i], 2), round(self.dep_t[i], 2), self.load[i], pickups, dropoffs, denied_board]
+        self.trajectories[trip_id].append(trajectory)
         return
 
     def create_trip(self):
@@ -118,9 +119,7 @@ class SimulationEnv:
             try:
                 lead_bus_next_stop = self.next_stop[lead_bus_idx]
             except IndexError:
-                print(curr_bus_idx)
-                print(lead_bus_idx)
-                print(self.last_stop)
+                print(curr_bus_idx, lead_bus_idx, self.last_stop[i])
                 raise
             curr_bus_next_stop = self.next_stop[curr_bus_idx]
             if lead_bus_next_stop == curr_bus_next_stop:
@@ -134,6 +133,7 @@ class SimulationEnv:
         s = STOPS[curr_stop_idx]
         self.last_stop[i] = STOPS[curr_stop_idx]
         self.next_stop[i] = STOPS[curr_stop_idx + 1]
+        self.arr_t[i] = self.time
         drop_offs = self.get_dropoffs()
         self.load[i] -= drop_offs
         bus_load = self.load[i]
@@ -173,6 +173,7 @@ class SimulationEnv:
         self.last_stop[i] = STOPS[0]
         self.next_stop[i] = STOPS[1]
         s = self.last_stop[i]
+        self.arr_t[i] = self.time
         self.dep_t[i] = self.time
         self.terminal_dep_t[i] = self.time
         if self.last_bus_time[s] == START_TIME_SEC:
@@ -194,15 +195,10 @@ class SimulationEnv:
         i = self.bus_idx
         self.arr_t[i] = self.time
         drop_offs = self.load[i]
+        self.load[i] = 0
+        self.last_stop[i] = self.next_stop[i]
+        self.dep_t[i] = self.arr_t[i]
         self.record_trajectories(dropoffs=drop_offs)
-        s = self.next_stop[i]
-        if self.last_bus_time[s] == START_TIME_SEC:
-            headway = INIT_HEADWAY
-        else:
-            headway = self.time - self.last_bus_time[s]
-            if headway < 0:
-                headway = 0
-        self.last_bus_time[s] = self.time
         # delete record of trip
         self.remove_trip()
         return

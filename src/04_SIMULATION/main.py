@@ -5,9 +5,9 @@ st = time.time()
 
 
 # running
-simulation_run.run(save=False)
+simulation_run.run(save=True)
 
 # outputs
-# output.get_results()
+output.get_results()
 
 print("ran in %.2f seconds" % (time.time()-st))
