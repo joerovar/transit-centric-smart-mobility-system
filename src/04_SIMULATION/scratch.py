@@ -26,9 +26,15 @@ class TechGeek(Person):
         print(f'This tech geek called {self.name} is {self.age} years old and uses {self.os}')
 
 
-arr_times = np.array([0, 10, 20, 30, 40])
-dep_times = np.array([2, 12, 22, 32, 42])
-times = np.vstack((arr_times, dep_times))
-times = times.flatten(order='F')
-print(times)
+start = 110
 
+
+a = {'10': [['386', 100], ['388', 108], ['400', 140]], '20': [['386', 105], ['388', 150], ['400', 180]]}
+for k in a:
+    for d in a[k]:
+        if d[1] < start:
+            a[k].pop(0)
+        else:
+            break
+
+print(a)

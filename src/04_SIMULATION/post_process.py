@@ -3,8 +3,6 @@ import numpy as np
 import csv
 import pandas as pd
 import pickle
-import math
-import scipy.stats as stats
 
 
 def write_trajectories(trip_data, pathname):
