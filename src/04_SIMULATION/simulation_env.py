@@ -257,7 +257,7 @@ class SimulationEnv:
 
     def prep(self):
         self.next_event()
-        if self.time >= END_TIME_SEC:
+        if self.time >= FOCUS_END_TIME_SEC:
             return True
         if self.event_type == 2:
             self.terminal_arrival()
@@ -274,10 +274,21 @@ class SimulationEnv:
     def chop_trajectories(self):
         trajectories = dict(self.trajectories)
         for trip in trajectories:
-            if trajectories[trip]:
-                dep_time = trajectories[trip][0][1]
-                if dep_time < FOCUS_START_TIME_SEC or dep_time > FOCUS_END_TIME_SEC:
-                    self.trajectories.pop(trip)
+            # if trajectories[trip]:
+            #     dep_time = trajectories[trip][0][1]
+            #     if dep_time < FOCUS_START_TIME_SEC or dep_time > FOCUS_END_TIME_SEC:
+            #         self.trajectories.pop(trip)
+            # else:
+            #     self.trajectories.pop(trip)
+            chopped_trajectories = []
+            i = 0
+            for stop in trajectories[trip]:
+                if stop[IDX_ARR_T] >= FOCUS_START_TIME_SEC:
+                    chopped_trajectories = trajectories[trip][i:]
+                    break
+                i += 1
+            if chopped_trajectories:
+                self.trajectories[trip] = chopped_trajectories
             else:
                 self.trajectories.pop(trip)
         return

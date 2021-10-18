@@ -23,7 +23,7 @@ def get_results():
     post_process.plot_stop_headway(path_hw_fig, headway, STOPS)
     post_process.plot_trajectories(trajectories, IDX_ARR_T, IDX_DEP_T,path_tr_fig, STOPS)
     # post_process.plot_multiple_bar_charts(wait_times_actual, wait_times_from_h, path_wtc_fig, lbl, STOPS, x_y_lbls=['stop id', 'seconds'])
-    post_process.plot_load_profile(boardings, drop_offs, loads, STOPS, pathname=path_lp_fig, x_y_lbls=['stop id', 'nr of pax', 'pax load'])
+    post_process.plot_load_profile(boardings, drop_offs, loads, STOPS, pathname=path_lp_fig, x_y_lbls=['stop id', 'total # pax', 'avg bus load'])
     # post_process.plot_pax_per_stop(path_bd_fig, boardings, STOPS, x_y_lbls=['stop id', 'boardings (pax)'])
     post_process.plot_pax_per_stop(path_db_fig, denied_boardings, STOPS, x_y_lbls=['stop id', 'denied boardings (pax)'])
     return

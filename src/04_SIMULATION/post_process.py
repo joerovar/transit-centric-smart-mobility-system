@@ -324,7 +324,7 @@ def plot_pax_per_stop(pathname, pax, ordered_stops, x_y_lbls):
 
 
 def plot_load_profile(bd, al, l, os, pathname=None, x_y_lbls=None):
-    w = 0.27
+    w = 0.3
     x1 = np.arange(len(os))
     x2 = [i + w for i in x1]
     fig, ax1 = plt.subplots()
@@ -343,14 +343,14 @@ def plot_load_profile(bd, al, l, os, pathname=None, x_y_lbls=None):
             y3.append(l[stop])
         else:
             y3.append(0)
-    ax1.bar(x1, y1, w, label='ons', color='peru')
-    ax1.bar(x2, y2, w, label='offs', color='peachpuff')
+    ax1.bar(x1, y1, w, label='ons', color='g')
+    ax1.bar(x2, y2, w, label='offs', color='r')
     ax2.plot(x1, y3, label='load', color='dodgerblue')
     ax1.set_xticks(x1)
     ax1.set_xticklabels(os, fontsize=6, rotation=90)
     if x_y_lbls:
         ax1.set_xlabel(x_y_lbls[0])
-        ax1.set_ylabel(x_y_lbls[1], color='peru')
+        ax1.set_ylabel(x_y_lbls[1], color='black')
         ax2.set_ylabel(x_y_lbls[2], color='dodgerblue')
     plt.tight_layout()
     fig.legend()
