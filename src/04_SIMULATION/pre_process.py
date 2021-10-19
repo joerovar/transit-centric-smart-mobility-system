@@ -95,18 +95,18 @@ def get_route(path_stop_times, start_time_extract, end_time, nr_intervals, start
     ordered_trip_stop_pattern = {}
 
     if visualize_data:
-        # daily trips, already extracted so now optional for next dataset
+        # daily trips, optional to visualize future trips
         for d in dates:
             df_day_trips = stop_times_df[stop_times_df['trip_id'].isin(trip_ids_tt_extract)]
             df_day_trips = df_day_trips[df_day_trips['event_time'].astype(str).str[:10] == d]
             df_day_trips = df_day_trips.sort_values(by='avl_sec')
             df_day_trips.to_csv(pathname_sorted_trips + str(d) + '.csv', index=False)
-
+            df_day_trips['avl_sec'] = df_day_trips['avl_sec'] % 86400
             df_plot = df_day_trips.loc[(df_day_trips['avl_sec'] >= focus_start_time) &
                                        (df_day_trips['avl_sec'] <= focus_end_time)]
-            df_plot['avl_sec'] = df_plot['avl_sec'] % 86400
+
             fig, ax = plt.subplots()
-            df_plot.reset_index().groupby(['trip_id']).plot(x='avl_sec', y='stop_sequence', ax=ax, marker='.',
+            df_plot.reset_index().groupby(['trip_id']).plot(x='avl_sec', y='stop_sequence', ax=ax,
                                                             legend=False)
             plt.savefig('in/vis/historical_trajectories' + d + '.png')
 

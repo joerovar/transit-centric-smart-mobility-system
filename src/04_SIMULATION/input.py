@@ -66,11 +66,11 @@ def get_params():
 # extract_params(visualize=True)
 
 STOPS, LINK_TIMES_MEAN, LINK_TIMES_SD, NR_TIME_DPOINTS, ORDERED_TRIPS, ARRIVAL_RATES, ALIGHT_FRACTIONS, SCHEDULED_DEPARTURES, INIT_HEADWAY = get_params()
+# print(SCHEDULED_DEPARTURES)
+planned_headway_lst = [(j - i)/60 for i, j in zip(SCHEDULED_DEPARTURES[:-1], SCHEDULED_DEPARTURES[1:])]
+planned_headway_lbls = [str(i) + '-' + str(j) for i, j in zip(ORDERED_TRIPS[:-1], ORDERED_TRIPS[1:])]
+PLANNED_HEADWAY = {i : j for i, j in zip(planned_headway_lbls, planned_headway_lst)}
 
-# print(LINK_TIMES_MEAN)
-# print(LINK_TIMES_MEAN)
-# print(LINK_TIMES_SD)
-# CONTROLLED_TRIPS = np.array(ORDERED_TRIPS)[(np.array(SCHEDULED_DEPARTURES) > FOCUS_START_TIME_SEC) & (np.array(SCHEDULED_DEPARTURES) < FOCUS_END_TIME_SEC)].tolist()
 CONTROLLED_STOPS = ['403', '14500', '413', '16110', '425']
 
 # print(SCHEDULED_DEPARTURES)

@@ -2,6 +2,7 @@ from input import *
 import numpy as np
 from scipy.stats import lognorm
 import random
+from copy import deepcopy
 
 
 def get_interval(t, interval_length):
@@ -13,7 +14,7 @@ class SimulationEnv:
     def __init__(self, no_overtake_policy=True):
         # THE ONLY NECESSARY TRIP INFORMATION TO CARRY THROUGHOUT SIMULATION
         self.no_overtake_policy = no_overtake_policy
-        self.next_departures = []
+        self.next_actual_departures = []
         self.next_trip_ids = []
         self.active_trips = []
         self.last_stop = []
@@ -65,7 +66,7 @@ class SimulationEnv:
         stop = self.last_stop[i]
         arrival_rates = ARRIVAL_RATES[stop]
         inter = get_interval(self.time, DEM_INTERVAL_LENGTH_MINS)
-        e_pax = (arrival_rates[inter - DEM_START_INTERVAL]/60) * headway/60
+        e_pax = (arrival_rates[inter - DEM_START_INTERVAL] / 60) * headway / 60
         pax_at_stop = np.random.poisson(lam=e_pax)
         return pax_at_stop
 
@@ -79,7 +80,7 @@ class SimulationEnv:
         while t < t2:
             inter = get_interval(t, DEM_INTERVAL_LENGTH_MINS)
             edge = (inter + 1) * 60 * DEM_INTERVAL_LENGTH_MINS
-            e_pax += (arrival_rates[inter - DEM_START_INTERVAL]/60) * ((min(edge, t2) - t)/60)
+            e_pax += (arrival_rates[inter - DEM_START_INTERVAL] / 60) * ((min(edge, t2) - t) / 60)
             t = min(edge, t2)
         pax_arrivals = np.random.poisson(lam=e_pax)
         return pax_arrivals
@@ -97,7 +98,7 @@ class SimulationEnv:
         next_stop = self.next_stop[i]
         interv = get_interval(self.time, TIME_INTERVAL_LENGTH_MINS)
         interv_idx = interv - TIME_START_INTERVAL
-        mean_runtime = LINK_TIMES_MEAN[str(prev_stop)+'-'+str(next_stop)][interv_idx]
+        mean_runtime = LINK_TIMES_MEAN[str(prev_stop) + '-' + str(next_stop)][interv_idx]
         assert mean_runtime
         s = LOGN_S
         runtime = lognorm.rvs(s, scale=mean_runtime)
@@ -112,7 +113,7 @@ class SimulationEnv:
         if i == -1:
             i = self.active_trips.index(self.active_trips[i])
         if i:
-            lead_bus_idx = i-1
+            lead_bus_idx = i - 1
             try:
                 lead_bus_next_stop = self.next_stop[lead_bus_idx]
             except IndexError:
@@ -141,16 +142,16 @@ class SimulationEnv:
         s = self.last_stop[i]
         last_bus_time = self.last_bus_time[s]
         assert bus_load >= 0
-        if last_bus_time == START_TIME_SEC:
-            headway = INIT_HEADWAY
-            p_arrivals = self.get_arrivals_start(headway)
-            prev_denied = 0
-        else:
+        if last_bus_time:
             headway = self.time - last_bus_time
             if headway < 0:
                 headway = 0
             p_arrivals = self.get_pax_arrivals(headway, last_bus_time)
             prev_denied = self.track_denied_boardings[s]
+        else:
+            headway = INIT_HEADWAY
+            p_arrivals = self.get_arrivals_start(headway)
+            prev_denied = 0
         pax_at_stop = p_arrivals + prev_denied
         allowed = CAPACITY - bus_load
         self.ons[i] = min(allowed, pax_at_stop)
@@ -190,12 +191,13 @@ class SimulationEnv:
         self.arr_t[i] = self.time
         self.dep_t[i] = self.time
         self.terminal_dep_t[i] = self.time
-        if self.last_bus_time[s] == START_TIME_SEC:
+        last_bus_time = self.last_bus_time[s]
+        if last_bus_time:
+            headway = self.dep_t[i] - last_bus_time
+            boardings = self.get_pax_arrivals(headway, last_bus_time)
+        else:
             headway = INIT_HEADWAY
             boardings = self.get_arrivals_start(headway)
-        else:
-            headway = self.dep_t[i] - self.last_bus_time[s]
-            boardings = self.get_pax_arrivals(headway, self.last_bus_time[s])
         self.load[i] += boardings
         self.record_trajectories(pickups=boardings)
         self.last_bus_time[s] = self.dep_t[i]
@@ -218,14 +220,14 @@ class SimulationEnv:
         return
 
     def next_event(self):
-        if self.next_departures:
-            next_departure = self.next_departures[0]
+        if self.next_actual_departures:
+            next_departure = self.next_actual_departures[0]
             if False not in [next_departure < t for t in self.next_instance_time]:
-                self.time = self.next_departures[0]
+                self.time = self.next_actual_departures[0]
                 self.active_trips.append(self.next_trip_ids[0])
                 self.bus_idx = -1
                 self.event_type = 0
-                self.next_departures.pop(0)
+                self.next_actual_departures.pop(0)
                 self.next_trip_ids.pop(0)
                 return
         if self.next_instance_time:
@@ -240,10 +242,9 @@ class SimulationEnv:
             return
 
     def reset_simulation(self):
-        self.next_departures = SCHEDULED_DEPARTURES.copy()
-        dep_delays = [max(random.uniform(DEP_DELAY_FROM, DEP_DELAY_TO), 0) for i in range(len(self.next_departures))]
-        self.next_departures = [sum(x) for x in zip(self.next_departures, dep_delays)]
-        self.next_trip_ids = ORDERED_TRIPS
+        dep_delays = [max(random.uniform(DEP_DELAY_FROM, DEP_DELAY_TO), 0) for i in range(len(SCHEDULED_DEPARTURES))]
+        self.next_actual_departures = [sum(x) for x in zip(SCHEDULED_DEPARTURES, dep_delays)]
+        self.next_trip_ids = deepcopy(ORDERED_TRIPS)
         self.time = START_TIME_SEC
         self.bus_idx = 0
 
@@ -262,7 +263,7 @@ class SimulationEnv:
         self.event_type = 0
         # stop-level data
         for s in STOPS:
-            self.last_bus_time[s] = self.time
+            self.last_bus_time[s] = []
             self.track_denied_boardings[s] = 0
 
         # for records
@@ -277,7 +278,7 @@ class SimulationEnv:
             return True
         if self.event_type == 2:
             self.terminal_arrival()
-            return not self.next_departures and not self.next_instance_time
+            return not self.next_actual_departures and not self.next_instance_time
 
         if self.event_type == 1:
             self.fixed_stop_unload()
@@ -316,14 +317,32 @@ def estimate_arrival_time(start_time, start_stop, end_stop):
     end_stop_idx = STOPS.index(end_stop)
     for i in range(start_stop_idx, end_stop_idx):
         stop0 = STOPS[i]
-        stop1 = STOPS[i+1]
+        stop1 = STOPS[i + 1]
         interv = get_interval(time_control, TIME_INTERVAL_LENGTH_MINS)
         interv_idx = interv - TIME_START_INTERVAL
-        mean_runtime = LINK_TIMES_MEAN[stop0+'-'+stop1][interv_idx]
+        mean_runtime = LINK_TIMES_MEAN[stop0 + '-' + stop1][interv_idx]
         time_control += mean_runtime
         assert mean_runtime
     arrival_time = time_control
     return arrival_time
+
+
+def _compute_reward(action, fw_h, bw_h, trip_id, prev_bw_h):
+    trip_idx = ORDERED_TRIPS.index(trip_id)
+    follow_trip_id = ORDERED_TRIPS[trip_idx + 1]
+    lead_trip_id = ORDERED_TRIPS[trip_idx - 1]
+    planned_fw_h = PLANNED_HEADWAY[str(lead_trip_id) + '-' + str(trip_id)]
+    planned_bw_h = PLANNED_HEADWAY[str(trip_id) + '-' + str(follow_trip_id)]
+
+    reward_h = -((fw_h - planned_fw_h) * (fw_h - planned_fw_h) / (planned_fw_h * planned_fw_h))
+    reward_h -= ((bw_h - planned_bw_h) * (bw_h - planned_bw_h) / (planned_bw_h * planned_bw_h))
+    if action >= 0:
+        reward_pax = -action * BASE_HOLDING_TIME
+        reward = C_REW_HW_HOLD * reward_h + C_REW_PAX_HOLD * reward_pax
+    else:
+        reward_pax = -prev_bw_h
+        reward = C_REW_HW_SKIP * reward_h + C_REW_PAX_SKIP * reward_pax
+    return reward
 
 
 class SimulationEnvDeepRL(SimulationEnv):
@@ -338,16 +357,16 @@ class SimulationEnvDeepRL(SimulationEnv):
         last_bus_time = self.last_bus_time[s]
         assert bus_load >= 0
 
-        if last_bus_time == START_TIME_SEC:
-            headway = INIT_HEADWAY
-            p_arrivals = self.get_arrivals_start(headway)
-            prev_denied = 0
-        else:
+        if last_bus_time:
             headway = self.time - last_bus_time
             if headway < 0:
                 headway = 0
             p_arrivals = self.get_pax_arrivals(headway, last_bus_time)
             prev_denied = self.track_denied_boardings[s]
+        else:
+            headway = INIT_HEADWAY
+            p_arrivals = self.get_arrivals_start(headway)
+            prev_denied = 0
 
         if skip:
             self.ons[i] = 0
@@ -370,7 +389,9 @@ class SimulationEnvDeepRL(SimulationEnv):
             dwell_time = ACC_DEC_TIME + ALIGHTING_TIME * offs
             dwell_time = offs * dwell_time
         elif hold:
-            dwell_time = max(hold, ACC_DEC_TIME + ons * BOARDING_TIME, ACC_DEC_TIME + offs * ALIGHTING_TIME)
+            dwell_time_pax = max(ACC_DEC_TIME + ons * BOARDING_TIME, ACC_DEC_TIME + offs * ALIGHTING_TIME)
+            dwell_time_pax = (ons + offs > 0) * dwell_time_pax
+            dwell_time = max(hold, dwell_time_pax)
         else:
             dwell_time = ACC_DEC_TIME + max(ons * BOARDING_TIME, offs * ALIGHTING_TIME)
             # herein we zero dwell time if no passengers boarded
@@ -399,12 +420,14 @@ class SimulationEnvDeepRL(SimulationEnv):
 
         # for previous trip
         if i < len(self.active_trips) - 1:
-            dep_t = self.dep_t[i+1]
-            stop0 = self.last_stop[i+1]
+            dep_t = self.dep_t[i + 1]
+            stop0 = self.last_stop[i + 1]
             stop1 = stop_id
         else:
             # in case there is no trip before we can look at future departures which always exist
-            dep_t = self.next_departures[0]
+            # we look at scheduled departures and not actual which include distributed delays
+            trip_idx = ORDERED_TRIPS.index(trip_id)
+            dep_t = SCHEDULED_DEPARTURES[trip_idx]
             stop0 = STOPS[0]
             stop1 = stop_id
 
@@ -414,25 +437,33 @@ class SimulationEnvDeepRL(SimulationEnv):
         new_state = [bus_load, forward_headway, backward_headway]
 
         if trip_sars:
+            previous_action = self.trips_sars[trip_id][-1][1]
+            previous_backward_headway = self.trips_sars[trip_id][-1][0][2]
+            self.trips_sars[trip_id][-1][2] = _compute_reward(previous_action, forward_headway, backward_headway,
+                                                              trip_id, previous_backward_headway)
             self.trips_sars[trip_id][-1][3] = new_state
         new_sars = [new_state, 0, 0, []]
         self.trips_sars[trip_id].append(new_sars)
         return
 
     def take_action(self, action):
+        i = self.bus_idx
+        # record action in sars
+        trip_id = self.active_trips[i]
+        self.trips_sars[trip_id][-1][1] = action
+
         if action == -1:
             self.fixed_stop_arrivals(skip=True)
             self.fixed_stop_depart(skip=True)
         else:
             self.fixed_stop_arrivals()
-            self.fixed_stop_depart(hold=action*BASE_HOLDING_TIME)
+            self.fixed_stop_depart(hold=action * BASE_HOLDING_TIME)
         return
 
     def reset_simulation(self):
-        self.next_departures = SCHEDULED_DEPARTURES.copy()
-        dep_delays = [max(random.uniform(DEP_DELAY_FROM, DEP_DELAY_TO), 0) for i in range(len(self.next_departures))]
-        self.next_departures = [sum(x) for x in zip(self.next_departures, dep_delays)]
-        self.next_trip_ids = ORDERED_TRIPS
+        dep_delays = [max(random.uniform(DEP_DELAY_FROM, DEP_DELAY_TO), 0) for i in range(len(SCHEDULED_DEPARTURES))]
+        self.next_actual_departures = [sum(x) for x in zip(SCHEDULED_DEPARTURES, dep_delays)]
+        self.next_trip_ids = deepcopy(ORDERED_TRIPS)
         self.time = START_TIME_SEC
         self.bus_idx = 0
 
@@ -452,7 +483,7 @@ class SimulationEnvDeepRL(SimulationEnv):
 
         # stop-level data
         for s in STOPS:
-            self.last_bus_time[s] = self.time
+            self.last_bus_time[s] = []
             self.track_denied_boardings[s] = 0
 
         # for records
@@ -472,7 +503,7 @@ class SimulationEnvDeepRL(SimulationEnv):
 
         if self.event_type == 2:
             self.terminal_arrival()
-            return not self.next_departures and not self.next_instance_time
+            return not self.next_actual_departures and not self.next_instance_time
 
         if self.event_type == 1:
             i = self.bus_idx

@@ -25,3 +25,6 @@ class TechGeek(Person):
     def report(self):
         print(f'This tech geek called {self.name} is {self.age} years old and uses {self.os}')
 
+
+a = []
+print(a)
