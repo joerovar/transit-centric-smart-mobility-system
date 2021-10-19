@@ -3,8 +3,6 @@ from input import *
 
 
 def get_results():
-    # wait_times_actual = post_process.load(path_wt_load)
-    # wait_times_from_h = post_process.load(path_wtc_load)
     trajectories = post_process.load(path_tr_load)
     stops_loc = post_process.get_stop_loc(path_stops_loc)
     post_process.write_trajectories(trajectories, path_tr_csv)
@@ -21,13 +19,16 @@ def get_results():
     post_process.plot_multiple_bar_charts(wtimes_, wtimes_from_h, path_wtc_fig_, lbl, STOPS, x_y_lbls=['stop id', 'seconds'])
     post_process.plot_bar_chart(wtimes_, STOPS, path_wt_fig, x_y_lbls=['stop id', 'seconds'])
     post_process.plot_stop_headway(path_hw_fig, headway, STOPS)
-    post_process.plot_trajectories(trajectories, IDX_ARR_T, IDX_DEP_T,path_tr_fig, STOPS)
-    # post_process.plot_multiple_bar_charts(wait_times_actual, wait_times_from_h, path_wtc_fig, lbl, STOPS, x_y_lbls=['stop id', 'seconds'])
+    post_process.plot_trajectories(trajectories, IDX_ARR_T, IDX_DEP_T, path_tr_fig, STOPS)
     post_process.plot_load_profile(boardings, drop_offs, loads, STOPS, pathname=path_lp_fig, x_y_lbls=['stop id', 'total # pax', 'avg bus load'])
-    # post_process.plot_pax_per_stop(path_bd_fig, boardings, STOPS, x_y_lbls=['stop id', 'boardings (pax)'])
     post_process.plot_pax_per_stop(path_db_fig, denied_boardings, STOPS, x_y_lbls=['stop id', 'denied boardings (pax)'])
     return
 
+
+def get_rl_results():
+    sars = post_process.load(path_sars_load)
+    post_process.write_trajectories(sars, path_sars_csv)
+    return
 
 def combine_episodes():
     dates = ['0906-1906', '0906-1908', '0906-1909', '0906-1910']
