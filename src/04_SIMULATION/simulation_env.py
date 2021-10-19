@@ -334,8 +334,10 @@ def _compute_reward(action, fw_h, bw_h, trip_id, prev_bw_h):
     planned_fw_h = PLANNED_HEADWAY[str(lead_trip_id) + '-' + str(trip_id)]
     planned_bw_h = PLANNED_HEADWAY[str(trip_id) + '-' + str(follow_trip_id)]
 
-    reward_h = -((fw_h - planned_fw_h) * (fw_h - planned_fw_h) / (planned_fw_h * planned_fw_h))
-    reward_h -= ((bw_h - planned_bw_h) * (bw_h - planned_bw_h) / (planned_bw_h * planned_bw_h))
+    dev_fw_h = fw_h - planned_fw_h
+    dev_bw_h = bw_h - planned_bw_h
+    reward_h = - dev_fw_h * dev_fw_h / (planned_fw_h * planned_fw_h)
+    reward_h -= dev_bw_h * dev_bw_h / (planned_bw_h * planned_bw_h)
     if action >= 0:
         reward_pax = -action * BASE_HOLDING_TIME
         reward = C_REW_HW_HOLD * reward_h + C_REW_PAX_HOLD * reward_pax
@@ -433,6 +435,8 @@ class SimulationEnvDeepRL(SimulationEnv):
 
         follow_trip_arrival_time = estimate_arrival_time(dep_t, stop0, stop1)
         backward_headway = follow_trip_arrival_time - t
+        if backward_headway < 0:
+            backward_headway = 0
 
         new_state = [bus_load, forward_headway, backward_headway]
 
