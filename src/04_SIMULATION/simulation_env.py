@@ -338,8 +338,8 @@ def _compute_reward(action, fw_h, bw_h, trip_id, prev_bw_h):
     dev_bw_h = bw_h - planned_bw_h
     reward_h = - dev_fw_h * dev_fw_h / (planned_fw_h * planned_fw_h)
     reward_h -= dev_bw_h * dev_bw_h / (planned_bw_h * planned_bw_h)
-    if action >= 0:
-        reward_pax = -action * BASE_HOLDING_TIME
+    if action > 0:
+        reward_pax = -(action-1) * BASE_HOLDING_TIME
         reward = C_REW_HW_HOLD * reward_h + C_REW_PAX_HOLD * reward_pax
     else:
         reward_pax = -prev_bw_h
@@ -456,12 +456,12 @@ class SimulationEnvDeepRL(SimulationEnv):
         trip_id = self.active_trips[i]
         self.trips_sars[trip_id][-1][1] = action
 
-        if action == -1:
+        if action:
+            self.fixed_stop_arrivals()
+            self.fixed_stop_depart(hold=(action - 1) * BASE_HOLDING_TIME)
+        else:
             self.fixed_stop_arrivals(skip=True)
             self.fixed_stop_depart(skip=True)
-        else:
-            self.fixed_stop_arrivals()
-            self.fixed_stop_depart(hold=action * BASE_HOLDING_TIME)
         return
 
     def reset_simulation(self):
