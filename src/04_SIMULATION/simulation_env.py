@@ -172,6 +172,9 @@ class SimulationEnv:
 
         self.load[i] += ons
         self.dep_t[i] = self.time + dwell_time
+
+        if self.no_overtake_policy and self.last_bus_time[s]:
+            self.dep_t[i] = max(self.last_bus_time[s], self.dep_t[i])
         self.last_bus_time[s] = self.dep_t[i]
 
         runtime = self.get_travel_time()
@@ -401,8 +404,10 @@ class SimulationEnvDeepRL(SimulationEnv):
 
         self.load[i] += ons
         self.dep_t[i] = self.time + dwell_time
-        self.last_bus_time[s] = self.dep_t[i]
 
+        if self.no_overtake_policy and self.last_bus_time[s]:
+            self.dep_t[i] = max(self.last_bus_time[s], self.dep_t[i])
+        self.last_bus_time[s] = self.dep_t[i]
         runtime = self.get_travel_time()
         self.next_instance_time[i] = self.dep_t[i] + runtime
         if self.no_overtake_policy:
