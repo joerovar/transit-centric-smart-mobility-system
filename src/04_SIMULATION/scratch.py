@@ -29,6 +29,6 @@ class TechGeek(Person):
         print(f'This tech geek called {self.name} is {self.age} years old and uses {self.os}')
 
 
-mkbhd = Person(29, 'iOS')
-
-mkbhd.report()
+sars = [[1, 2], 4, 5, [1,3]]
+s, a, r, s_ = sars
+print(s, a, r, s)

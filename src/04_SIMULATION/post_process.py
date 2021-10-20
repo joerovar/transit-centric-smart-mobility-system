@@ -333,9 +333,7 @@ def plot_load_profile(bd, al, l, l_dev,os, pathname=None, x_y_lbls=None):
     x1 = np.arange(len(os))
     x2 = [i + w for i in x1]
     fig, ax1 = plt.subplots()
-    plt.subplots_adjust(right=0.75)
     ax2 = ax1.twinx()
-    ax3 = ax1.twinx()
     y1, y2, y3, y4 = [], [], [], []
     for stop in os:
         if stop in bd:
@@ -358,18 +356,15 @@ def plot_load_profile(bd, al, l, l_dev,os, pathname=None, x_y_lbls=None):
     ax1.bar(x1, y1, w, label='ons', color='g')
     ax1.bar(x2, y2, w, label='offs', color='r')
     ax2.plot(x1, y3, label='load', color='dodgerblue')
-    ax3.plot(x1, y4, label='load deviation', color='purple')
+    ax2.plot(x1, y4, label='load deviation', color='purple')
     ax1.set_xticks(x1)
     ax1.set_xticklabels(os, fontsize=6, rotation=90)
     # right, left, top, bottom
-    ax3.spines['right'].set_position(('outward', 60))
     if x_y_lbls:
         ax1.set_xlabel(x_y_lbls[0])
         ax1.set_ylabel(x_y_lbls[1], color='black')
         ax2.set_ylabel(x_y_lbls[2], color='dodgerblue')
         ax2.tick_params(axis='y', colors='dodgerblue')
-        ax3.set_ylabel(x_y_lbls[3], color='purple')
-        ax3.tick_params(axis='y', colors='purple')
     plt.tight_layout()
     fig.legend()
     if pathname:
