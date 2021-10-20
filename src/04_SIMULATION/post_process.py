@@ -81,8 +81,9 @@ def plot_trajectories(trip_data, idx_arr_t, idx_dep_t, pathname, ordered_stops):
             y_axis = np.arange(starting_stop_idx, starting_stop_idx + len(arr_times))
             y_axis = np.repeat(y_axis, 2)
             plt.plot(times, y_axis)
+    plt.yticks(np.arange(len(ordered_stops)), ordered_stops, fontsize=6)
     plt.xlabel('seconds')
-    plt.ylabel('stop sequence')
+    plt.ylabel('stops')
     if pathname:
         plt.savefig(pathname)
     else:
@@ -283,24 +284,28 @@ def get_headway_from_trajectories(trajectories, idx_ons, idx_denied):
     return recorded_headway, wait_time, wait_time_from_hw
 
 
-def count_from_trajectories(trajectories, idx, average=False):
+def count_from_trajectories(trajectories, idx, average=False, stdev=False):
     n = {}
-    cntr = {}
     for trip in trajectories:
         for stop_details in trajectories[trip]:
             stop_id = stop_details[0]
             item_to_count = stop_details[idx]
             if stop_id not in n:
-                n[stop_id] = item_to_count
-                if average:
-                    cntr[stop_id] = 1
+                if average or stdev:
+                    n[stop_id] = [item_to_count]
+                else:
+                    n[stop_id] = item_to_count
             else:
-                n[stop_id] += item_to_count
-                if average:
-                    cntr[stop_id] += 1
+                if average or stdev:
+                    n[stop_id].append(item_to_count)
+                else:
+                    n[stop_id] += item_to_count
     if average:
         for stop in n:
-            n[stop] = n[stop] / cntr[stop] if cntr[stop] else 0
+            n[stop] = np.nan_to_num(np.array(n[stop]).mean())
+    if stdev:
+        for stop in n:
+            n[stop] = np.nan_to_num(np.array(n[stop]).std())
     return n
 
 
@@ -323,13 +328,15 @@ def plot_pax_per_stop(pathname, pax, ordered_stops, x_y_lbls):
     return
 
 
-def plot_load_profile(bd, al, l, os, pathname=None, x_y_lbls=None):
+def plot_load_profile(bd, al, l, l_dev,os, pathname=None, x_y_lbls=None):
     w = 0.3
     x1 = np.arange(len(os))
     x2 = [i + w for i in x1]
     fig, ax1 = plt.subplots()
+    plt.subplots_adjust(right=0.75)
     ax2 = ax1.twinx()
-    y1, y2, y3 = [], [], []
+    ax3 = ax1.twinx()
+    y1, y2, y3, y4 = [], [], [], []
     for stop in os:
         if stop in bd:
             y1.append(bd[stop])
@@ -343,15 +350,26 @@ def plot_load_profile(bd, al, l, os, pathname=None, x_y_lbls=None):
             y3.append(l[stop])
         else:
             y3.append(0)
+        if stop in l_dev:
+            y4.append(l_dev[stop])
+        else:
+            y4.append(0)
+
     ax1.bar(x1, y1, w, label='ons', color='g')
     ax1.bar(x2, y2, w, label='offs', color='r')
     ax2.plot(x1, y3, label='load', color='dodgerblue')
+    ax3.plot(x1, y4, label='load deviation', color='purple')
     ax1.set_xticks(x1)
     ax1.set_xticklabels(os, fontsize=6, rotation=90)
+    # right, left, top, bottom
+    ax3.spines['right'].set_position(('outward', 60))
     if x_y_lbls:
         ax1.set_xlabel(x_y_lbls[0])
         ax1.set_ylabel(x_y_lbls[1], color='black')
         ax2.set_ylabel(x_y_lbls[2], color='dodgerblue')
+        ax2.tick_params(axis='y', colors='dodgerblue')
+        ax3.set_ylabel(x_y_lbls[3], color='purple')
+        ax3.tick_params(axis='y', colors='purple')
     plt.tight_layout()
     fig.legend()
     if pathname:

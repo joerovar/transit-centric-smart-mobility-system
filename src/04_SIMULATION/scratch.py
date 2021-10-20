@@ -12,9 +12,12 @@ class Person:
     def __init__(self, age, os):
         self.age = age
         self.os = os
+        self.age_in_10_yrs = 0
 
     def report(self):
-        print(f'my dude is {self.age} years old and uses {self.os}')
+        self.age_in_10_yrs = self.age
+        self.age += 1
+        print(f'my dude is {self.age} years old and uses {self.os} and he will be {self.age_in_10_yrs} in 10 yrs')
 
 
 class TechGeek(Person):
@@ -26,5 +29,6 @@ class TechGeek(Person):
         print(f'This tech geek called {self.name} is {self.age} years old and uses {self.os}')
 
 
-a = []
-print(a)
+mkbhd = Person(29, 'iOS')
+
+mkbhd.report()
