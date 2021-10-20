@@ -38,10 +38,6 @@ class SimulationEnv:
     def record_trajectories(self, pickups=0, offs=0, denied_board=0):
         i = self.bus_idx
         trip_id = self.active_trips[i]
-        if self.trajectories[trip_id]:
-            if self.last_stop[i] == self.trajectories[trip_id][-1][0]:
-                print(self.time, self.last_stop[i], self.next_stop[i], self.active_trips[i])
-                raise AttributeError
         trajectory = [self.last_stop[i], round(self.arr_t[i], 2), round(self.dep_t[i], 2),
                       self.load[i], pickups, offs, denied_board]
         self.trajectories[trip_id].append(trajectory)
@@ -176,10 +172,8 @@ class SimulationEnv:
 
         self.load[i] += ons
         self.dep_t[i] = self.time + dwell_time
-        if self.no_overtake_policy:
-            if self.last_bus_time[s]:
-                self.dep_t[i] = max(self.dep_t[i], self.last_bus_time[s])
         self.last_bus_time[s] = self.dep_t[i]
+
         runtime = self.get_travel_time()
         self.next_instance_time[i] = self.dep_t[i] + runtime
         if self.no_overtake_policy:
@@ -218,7 +212,7 @@ class SimulationEnv:
         self.arr_t[i] = self.time
         offs = self.load[i]
         self.load[i] = 0
-        self.last_stop[i] = deepcopy(self.next_stop[i])
+        self.last_stop[i] = self.next_stop[i]
         self.dep_t[i] = self.arr_t[i]
         self.record_trajectories(offs=offs)
         # delete record of trip
@@ -407,9 +401,6 @@ class SimulationEnvDeepRL(SimulationEnv):
 
         self.load[i] += ons
         self.dep_t[i] = self.time + dwell_time
-        if self.no_overtake_policy:
-            if self.last_bus_time[s]:
-                self.dep_t[i] = max(self.dep_t[i], self.last_bus_time[s])
         self.last_bus_time[s] = self.dep_t[i]
 
         runtime = self.get_travel_time()
@@ -516,7 +507,7 @@ class SimulationEnvDeepRL(SimulationEnv):
 
         if self.event_type == 2:
             self.terminal_arrival()
-            return self.prep()
+            return not self.next_actual_departures and not self.next_instance_time
 
         if self.event_type == 1:
             i = self.bus_idx
