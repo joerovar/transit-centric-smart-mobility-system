@@ -71,7 +71,7 @@ planned_headway_lst = [(j - i) for i, j in zip(SCHEDULED_DEPARTURES[:-1], SCHEDU
 planned_headway_lbls = [str(i) + '-' + str(j) for i, j in zip(ORDERED_TRIPS[:-1], ORDERED_TRIPS[1:])]
 PLANNED_HEADWAY = {i : j for i, j in zip(planned_headway_lbls, planned_headway_lst)}
 
-CONTROLLED_STOPS = ['403', '14500', '413', '16110', '425']
+CONTROLLED_STOPS = ['403', '14500', '413', '16110', '425', '431']
 
 # print(SCHEDULED_DEPARTURES)
 # print(START_TIME_SEC)

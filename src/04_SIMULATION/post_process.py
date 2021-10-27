@@ -86,6 +86,7 @@ def plot_trajectories(trip_data, idx_arr_t, idx_dep_t, pathname, ordered_stops):
     plt.yticks(np.arange(len(ordered_stops)), ordered_stops, fontsize=6)
     plt.xlabel('seconds')
     plt.ylabel('stops')
+    plt.tick_params(labelright=True)
     if pathname:
         plt.savefig(pathname)
     else:

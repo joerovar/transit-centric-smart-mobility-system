@@ -60,8 +60,9 @@ if __name__ == '__main__':
     if args.load_checkpoint:
         agent.load_models()
 
+    tstamp_save = time.strftime("%m%d-%H%M")
     fname = args.algo + '_' + args.env + '_alpha' + str(args.lr) + '_' +\
-        str(args.n_games) + 'games'
+        str(args.n_games) + 'eps_' + tstamp_save
 
     figure_file = 'plots/' + fname + '.png'
     scores_file = fname + '_scores.npy'
@@ -113,37 +114,3 @@ if __name__ == '__main__':
             output.get_rl_results()
     if not args.load_checkpoint:
         plot_learning(steps_array, scores, eps_history, figure_file)
-
-
-    # for i in range(args.n_games):
-    #     score = 0
-    #     done = False
-    #     observation = env.reset()
-    #     while not done:
-    #         action = agent.choose_action(observation)
-    #         observation_, reward, done, info = env.step(action)
-    #         score += reward
-    #
-    #         if not args.load_checkpoint:
-    #             agent.store_transition(observation, action, reward,
-    #                                    observation_, int(done))
-    #             agent.learn()
-    #         observation = observation_
-    #         n_steps += 1
-    #     scores.append(score)
-    #     steps_array.append(n_steps)
-    #
-    #     avg_score = np.mean(scores[-100:])
-    #     print('episode ', i, 'score %.2f' % score, 'average score %.2f' % avg_score,
-    #           'epsilon %.2f' % agent.epsilon, 'steps ', n_steps)
-    #     if avg_score > best_score:
-    #         if not args.load_checkpoint:
-    #             agent.save_models()
-    #         best_score = avg_score
-    #
-    #     eps_history.append(agent.epsilon)
-    #     if args.load_checkpoint and n_steps >= 18000:
-    #         break
-
-    # plot_learning(steps_array, scores, eps_history, figure_file)
-    # np.save(scores_file, np.array(scores))

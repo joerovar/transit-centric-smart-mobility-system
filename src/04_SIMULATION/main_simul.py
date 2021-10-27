@@ -24,10 +24,10 @@ def run_base_drl(save=False):
     while not done:
         i = env.bus_idx
         trip_id = env.active_trips[i]
-        bw_h = env.trips_sars[trip_id][-1][0][2]
-        fw_h = env.trips_sars[trip_id][-1][0][1]
+        bw_h = env.trips_sars[trip_id][-1][0][3]
+        fw_h = env.trips_sars[trip_id][-1][0][2]
         if fw_h < bw_h:
-            env.take_action(4)
+            env.take_action(5)
         else:
             env.take_action(1)
         done = env.prep()
@@ -38,10 +38,10 @@ def run_base_drl(save=False):
 
 
 # running
-run_base_drl(save=False)
+run_base_drl(save=True)
 
 # outputs
-# output.get_results()
-# output.get_rl_results()
+output.get_results()
+output.get_rl_results()
 
 print("ran in %.2f seconds" % (time.time()-st))

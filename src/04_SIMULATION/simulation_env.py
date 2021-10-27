@@ -435,9 +435,6 @@ class SimulationEnvDeepRL(SimulationEnv):
 
         if self.no_overtake_policy:
             self.next_instance_time[i] = self.no_overtake()
-        # if self.active_trips[i] == 911377020:
-        #     print([self.active_trips[i], self.last_stop[i], self.next_stop[i], self.arr_t[i], self.dep_t[i], runtime,
-        #            self.next_instance_time[i]])
 
         self.record_trajectories(pickups=ons, offs=offs, denied_board=denied, hold=hold, skip=skip)
         return
