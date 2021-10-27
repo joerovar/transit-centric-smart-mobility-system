@@ -5,10 +5,12 @@ import pandas as pd
 import pickle
 
 
-def write_trajectories(trip_data, pathname):
+def write_trajectories(trip_data, pathname, label=None):
     with open(pathname, 'w', newline='') as f:
         wf = csv.writer(f, delimiter=' ', quotechar=' ', quoting=csv.QUOTE_MINIMAL)
         i = 1
+        if label:
+            wf.writerow(label)
         for trip in trip_data:
             wf.writerow([trip, '{'])
             for stop in trip_data[trip]:
@@ -328,7 +330,7 @@ def plot_pax_per_stop(pathname, pax, ordered_stops, x_y_lbls):
     return
 
 
-def plot_load_profile(bd, al, l, l_dev,os, pathname=None, x_y_lbls=None):
+def plot_load_profile(bd, al, l, l_dev, os, pathname=None, x_y_lbls=None):
     w = 0.3
     x1 = np.arange(len(os))
     x2 = [i + w for i in x1]

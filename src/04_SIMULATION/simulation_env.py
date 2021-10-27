@@ -281,7 +281,7 @@ class SimulationEnv:
             return True
         if self.event_type == 2:
             self.terminal_arrival()
-            return not self.next_actual_departures and not self.next_instance_time
+            return self.prep()
 
         if self.event_type == 1:
             self.fixed_stop_unload()
@@ -350,10 +350,32 @@ def _compute_reward(action, fw_h, bw_h, trip_id, prev_bw_h):
     return reward
 
 
+class SimulationEnvWithControl(SimulationEnv):
+    def __init__(self, *args, **kwargs):
+        super(SimulationEnvWithControl, self).__init__(*args, **kwargs)
+        self.holding_time = {}
+
+
 class SimulationEnvDeepRL(SimulationEnv):
     def __init__(self, *args, **kwargs):
         super(SimulationEnvDeepRL, self).__init__(*args, **kwargs)
         self.trips_sars = {}
+
+    def record_trajectories(self, pickups=0, offs=0, denied_board=0, hold=0, skip=False):
+        i = self.bus_idx
+        trip_id = self.active_trips[i]
+        trajectory = [self.last_stop[i], round(self.arr_t[i], 2), round(self.dep_t[i], 2),
+                      self.load[i], pickups, offs, denied_board, hold, int(skip)]
+        trajectories = self.trajectories[trip_id]
+        if trajectories:
+            prev_trajectory = self.trajectories[trip_id][-1]
+            if prev_trajectory[0] == trajectory[0]:
+                print(trip_id)
+                print(prev_trajectory)
+                print(trajectory)
+                raise
+        self.trajectories[trip_id].append(trajectory)
+        return
 
     def fixed_stop_arrivals(self, skip=False):
         i = self.bus_idx
@@ -407,18 +429,24 @@ class SimulationEnvDeepRL(SimulationEnv):
 
         if self.no_overtake_policy and self.last_bus_time[s]:
             self.dep_t[i] = max(self.last_bus_time[s], self.dep_t[i])
-        self.last_bus_time[s] = self.dep_t[i]
+        self.last_bus_time[s] = deepcopy(self.dep_t[i])
         runtime = self.get_travel_time()
         self.next_instance_time[i] = self.dep_t[i] + runtime
+
         if self.no_overtake_policy:
             self.next_instance_time[i] = self.no_overtake()
-        self.record_trajectories(pickups=ons, offs=offs, denied_board=denied)
+        # if self.active_trips[i] == 911377020:
+        #     print([self.active_trips[i], self.last_stop[i], self.next_stop[i], self.arr_t[i], self.dep_t[i], runtime,
+        #            self.next_instance_time[i]])
+
+        self.record_trajectories(pickups=ons, offs=offs, denied_board=denied, hold=hold, skip=skip)
         return
 
     def _add_observations(self):
         t = self.time
         i = self.bus_idx
         stop_id = self.last_stop[i]
+        stop_idx = STOPS.index(self.last_stop[i])
         trip_id = self.active_trips[i]
         trip_sars = self.trips_sars[trip_id]
 
@@ -443,7 +471,8 @@ class SimulationEnvDeepRL(SimulationEnv):
         if backward_headway < 0:
             backward_headway = 0
 
-        new_state = [bus_load, forward_headway, backward_headway]
+        route_progress = stop_idx/len(STOPS)
+        new_state = [route_progress, bus_load, forward_headway, backward_headway]
 
         if trip_sars:
             previous_action = self.trips_sars[trip_id][-1][1]
@@ -506,13 +535,15 @@ class SimulationEnvDeepRL(SimulationEnv):
 
     def prep(self):
         self.next_event()
+        i = self.bus_idx
+        # print([self.active_trips[i], self.event_type])
         t = self.time
         if t >= FOCUS_END_TIME_SEC:
             return True
 
         if self.event_type == 2:
             self.terminal_arrival()
-            return not self.next_actual_departures and not self.next_instance_time
+            return self.prep()
 
         if self.event_type == 1:
             i = self.bus_idx

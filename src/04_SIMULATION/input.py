@@ -72,8 +72,7 @@ planned_headway_lbls = [str(i) + '-' + str(j) for i, j in zip(ORDERED_TRIPS[:-1]
 PLANNED_HEADWAY = {i : j for i, j in zip(planned_headway_lbls, planned_headway_lst)}
 
 CONTROLLED_STOPS = ['403', '14500', '413', '16110', '425']
-# print(LINK_TIMES_MEAN['423-15364'])
-# print(LINK_TIMES_SD['423-15364'])
+
 # print(SCHEDULED_DEPARTURES)
 # print(START_TIME_SEC)
 # ARRIVAL RATES IN HOURS!!

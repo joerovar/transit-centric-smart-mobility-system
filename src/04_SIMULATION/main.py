@@ -46,7 +46,7 @@ if __name__ == '__main__':
     agent = agent_(gamma=args.gamma,
                    epsilon=args.eps,
                    lr=args.lr,
-                   input_dims=[3],
+                   input_dims=[4],
                    n_actions=5,
                    mem_size=args.max_mem,
                    eps_min=args.eps_min,

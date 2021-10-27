@@ -38,11 +38,10 @@ def run_base_drl(save=False):
 
 
 # running
-# simulation_run.run_base(save=False)
-run_base(save=True)
+run_base_drl(save=False)
 
 # outputs
-output.get_results()
+# output.get_results()
 # output.get_rl_results()
 
 print("ran in %.2f seconds" % (time.time()-st))
