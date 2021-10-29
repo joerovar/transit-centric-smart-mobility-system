@@ -21,7 +21,7 @@ def write_trajectories(trip_data, pathname, label=None):
     return
 
 
-def write_link_times(trip_data, idx_dep_t, idx_arr_t, stop_gps, path_writename):
+def write_link_times(trip_data, idx_dep_t, idx_arr_t, stop_gps, pathname):
     link_times = {}
     for t in trip_data:
         stop_data = trip_data[t]
@@ -33,18 +33,21 @@ def write_link_times(trip_data, idx_dep_t, idx_arr_t, stop_gps, path_writename):
             else:
                 link_times[link] = [linktime]
     mean_link_times = {}
+    std_link_times = {}
     for link in link_times:
         mean_link_times[link] = round(np.array(link_times[link]).mean(), 1)
-    link_times_df = pd.DataFrame(mean_link_times.items(), columns=['stop_1', 'time_sec'])
+        std_link_times[link] = round(np.array(link_times[link]).std(), 1)
+    link_times_df = pd.DataFrame(mean_link_times.items(), columns=['stop_1', 'mean_sec'])
+    link_times_df['std_sec'] = link_times_df['stop_1'].map(std_link_times)
     link_times_df[['stop_1', 'stop_2']] = link_times_df['stop_1'].str.split('-', expand=True)
-    link_times_df = link_times_df[['stop_1', 'stop_2', 'time_sec']]
+    link_times_df = link_times_df[['stop_1', 'stop_2', 'mean_sec', 'std_sec']]
     s = stop_gps.copy()
     s['stop_id'] = s['stop_id'].astype(str)
     s = s.rename(columns={'stop_id': 'stop_1', 'stop_lat': 'stop_1_lat', 'stop_lon': 'stop_1_lon'})
     link_times_df = pd.merge(link_times_df, s, on='stop_1')
     s = s.rename(columns={'stop_1': 'stop_2', 'stop_1_lat': 'stop_2_lat', 'stop_1_lon': 'stop_2_lon'})
     link_times_df = pd.merge(link_times_df, s, on='stop_2')
-    link_times_df.to_csv(path_writename, index=False)
+    link_times_df.to_csv(pathname, index=False)
     return
 
 
@@ -70,7 +73,7 @@ def plot_stop_headway(pathname, hs, ordered_stops, y_scale=None):
     return
 
 
-def plot_trajectories(trip_data, idx_arr_t, idx_dep_t, pathname, ordered_stops):
+def plot_trajectories(trip_data, idx_arr_t, idx_dep_t, pathname, ordered_stops, controlled_stops=None):
     for trip in trip_data:
         td = np.array(trip_data[trip])
         if np.size(td):
@@ -83,6 +86,10 @@ def plot_trajectories(trip_data, idx_arr_t, idx_dep_t, pathname, ordered_stops):
             y_axis = np.arange(starting_stop_idx, starting_stop_idx + len(arr_times))
             y_axis = np.repeat(y_axis, 2)
             plt.plot(times, y_axis)
+    if controlled_stops:
+        for c in controlled_stops:
+            stop_idx = ordered_stops.index(c)
+            plt.axhline(y=stop_idx, color='gray', alpha=0.5, linestyle='dashed')
     plt.yticks(np.arange(len(ordered_stops)), ordered_stops, fontsize=6)
     plt.xlabel('seconds')
     plt.ylabel('stops')
@@ -377,3 +384,87 @@ def plot_load_profile(bd, al, l, l_dev, os, pathname=None, x_y_lbls=None):
     plt.close()
     return
 
+
+def get_headway_from_trajectory_set(trajectory_set, idx_ons, idx_denied):
+    recorded_headway = {}
+    tot_wait_time = {}
+    wait_time = {}
+    wait_time_from_hw = {}
+    tot_boardings = {}
+    for trajectories in trajectory_set:
+        prev_stop_time = {}
+        prev_denied = {}
+        for trip in trajectories:
+            for stop_details in trajectories[trip]:
+                stop_id = stop_details[0]
+                stop_time = stop_details[1]
+                ons = stop_details[idx_ons]
+                denied = stop_details[idx_denied]
+                if stop_id not in prev_stop_time:
+                    prev_stop_time[stop_id] = stop_time
+                    prev_denied[stop_id] = denied
+                else:
+                    t1 = prev_stop_time[stop_id]
+                    t2 = stop_time
+                    headway = t2 - t1
+                    prev_denied_ = prev_denied[stop_id]
+                    if stop_id not in recorded_headway:
+                        recorded_headway[stop_id] = [headway]
+                        tot_wait_time[stop_id] = (prev_denied_ + (ons+denied-prev_denied_) * 0.5) * headway
+                        tot_boardings[stop_id] = ons
+                    else:
+                        recorded_headway[stop_id].append(headway)
+                        tot_wait_time[stop_id] += (prev_denied_ + (ons+denied-prev_denied_) * 0.5) * headway
+                        tot_boardings[stop_id] += ons
+
+                    prev_stop_time[stop_id] = t2
+                    prev_denied[stop_id] = denied
+    for s in tot_wait_time:
+        wait_time[s] = tot_wait_time[s] / tot_boardings[s] if tot_boardings[s] else 0
+        headway = np.array(recorded_headway[s])
+        mean_headway = headway.mean()
+        cv_headway = headway.std() / mean_headway
+        wait_time_from_hw[s] = (mean_headway / 2) * (1 + (cv_headway * cv_headway))
+
+    return recorded_headway, wait_time, wait_time_from_hw
+
+
+def average_from_trajectory_set(trajectory_set, idx):
+    n = {}
+    for trajectories in trajectory_set:
+        for trip in trajectories:
+            for stop_details in trajectories[trip]:
+                stop_id = stop_details[0]
+                item_to_count = stop_details[idx]
+                if stop_id not in n:
+                    n[stop_id] = [item_to_count]
+                else:
+                    n[stop_id].append(item_to_count)
+    n_mean = {}
+    n_std = {}
+    for stop in n:
+        n_mean[stop] = np.nan_to_num(np.array(n[stop]).mean())
+        n_std[stop] = np.nan_to_num(np.array(n[stop]).std())
+    return n_mean, n_std
+
+
+def count_from_trajectory_set(trajectory_set, idx):
+    n_final = {}
+    for trajectories in trajectory_set:
+        n = {}
+        for trip in trajectories:
+            for stop_details in trajectories[trip]:
+                stop_id = stop_details[0]
+                item_to_count = stop_details[idx]
+                if stop_id not in n:
+                    n[stop_id] = item_to_count
+                else:
+                    n[stop_id] += item_to_count
+        for stop_id in n:
+            if stop_id in n_final:
+                n_final[stop_id].append(n[stop_id])
+            else:
+                n_final[stop_id] = [n[stop_id]]
+    for stop_id in n_final:
+        n_final[stop_id] = np.array(n_final[stop_id]).mean()
+    return n_final
