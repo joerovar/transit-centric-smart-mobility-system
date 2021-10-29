@@ -7,6 +7,7 @@ import simulation_env
 import post_process
 from file_paths import *
 import output
+from datetime import datetime
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
@@ -56,30 +57,27 @@ if __name__ == '__main__':
                    chkpt_dir=args.path,
                    algo=args.algo,
                    env_name=args.env)
+    if not args.load_checkpoint:
 
-    if args.load_checkpoint:
-        agent.load_models()
+        tstamp_save = time.strftime("%m%d-%H%M")
+        fname = args.algo + '_' + args.env + '_alpha' + str(args.lr) + '_' +\
+            str(args.n_games) + 'eps_' + tstamp_save
 
-    tstamp_save = time.strftime("%m%d-%H%M")
-    fname = args.algo + '_' + args.env + '_alpha' + str(args.lr) + '_' +\
-        str(args.n_games) + 'eps_' + tstamp_save
+        figure_file = 'plots/' + fname + '.png'
+        scores_file = fname + '_scores.npy'
 
-    figure_file = 'plots/' + fname + '.png'
-    scores_file = fname + '_scores.npy'
-
-    scores, eps_history, steps_array = [], [], []
-    n_steps = 0
-    for j in range(args.n_games):
-        score = 0
-        env = simulation_env.SimulationEnvDeepRL()
-        done = env.reset_simulation()
-        done = env.prep()
-        while not done:
-            i = env.bus_idx
-            trip_id = env.active_trips[i]
-            all_sars = env.trips_sars[trip_id]
-            if len(all_sars) > 1:
-                if not args.load_checkpoint:
+        scores, eps_history, steps_array = [], [], []
+        n_steps = 0
+        for j in range(args.n_games):
+            score = 0
+            env = simulation_env.SimulationEnvDeepRL()
+            done = env.reset_simulation()
+            done = env.prep()
+            while not done:
+                i = env.bus_idx
+                trip_id = env.active_trips[i]
+                all_sars = env.trips_sars[trip_id]
+                if len(all_sars) > 1:
                     prev_sars = all_sars[-2]
                     observation, action, reward, observation_ = prev_sars
                     observation = np.array(observation, dtype=np.float32)
@@ -87,30 +85,49 @@ if __name__ == '__main__':
                     score += reward
                     agent.store_transition(observation, action, reward, observation_, int(done))
                     agent.learn()
-            observation = np.array(all_sars[-1][0], dtype=np.float32)
-            action = agent.choose_action(observation)
-            env.take_action(action)
-            done = env.prep()
-            n_steps += 1
-        if not args.load_checkpoint:
-            scores.append(score)
-            steps_array.append(n_steps)
-            avg_score = np.mean(scores[-100:])
-            print('episode ', j, 'score %.2f' % score, 'average score %.2f' % avg_score,
-                  'epsilon %.2f' % agent.epsilon, 'steps ', n_steps)
-            if avg_score > best_score:
-                if not args.load_checkpoint:
-                    agent.save_models()
-                best_score = avg_score
+                observation = np.array(all_sars[-1][0], dtype=np.float32)
+                action = agent.choose_action(observation)
+                env.take_action(action)
+                done = env.prep()
+                n_steps += 1
+            if not args.load_checkpoint:
+                scores.append(score)
+                steps_array.append(n_steps)
+                avg_score = np.mean(scores[-100:])
+                print('episode ', j, 'score %.2f' % score, 'average score %.2f' % avg_score,
+                      'epsilon %.2f' % agent.epsilon, 'steps ', n_steps)
+                if avg_score > best_score:
+                    if not args.load_checkpoint:
+                        agent.save_models()
+                    best_score = avg_score
 
-            eps_history.append(agent.epsilon)
-        if args.load_checkpoint and n_steps >= 18000:
-            break
-        if args.load_checkpoint:
-            env.process_results()
-            post_process.save(path_tr_save, env.trajectories)
-            post_process.save(path_sars_save, env.trips_sars)
-            output.get_results()
-            output.get_rl_results()
-    if not args.load_checkpoint:
+                eps_history.append(agent.epsilon)
         plot_learning(steps_array, scores, eps_history, figure_file)
+    # if args.load_checkpoint and n_steps >= 18000:
+    #     break
+    else:
+        agent.load_models()
+        tstamps = []
+        for j in range(args.n_games):
+            score = 0
+            env = simulation_env.SimulationEnvDeepRL()
+            done = env.reset_simulation()
+            done = env.prep()
+            while not done:
+                i = env.bus_idx
+                trip_id = env.active_trips[i]
+                all_sars = env.trips_sars[trip_id]
+                observation = np.array(all_sars[-1][0], dtype=np.float32)
+                action = agent.choose_action(observation)
+                env.take_action(action)
+                done = env.prep()
+
+            env.process_results()
+            tstamps.append(datetime.now().strftime('%m%d-%H%M%S%f')[:-5])
+            path_trajectories = path_to_outs + dir_var + 'trajectories_' + tstamps[-1] + ext_var
+            path_sars = path_to_outs + dir_var + 'sars_record_' + tstamps[-1] + ext_var
+            post_process.save(path_trajectories, env.trajectories)
+            post_process.save(path_sars, env.trips_sars)
+        # output.get_results()
+        output.get_rl_results(tstamps)
+

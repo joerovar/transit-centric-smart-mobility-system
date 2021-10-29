@@ -341,13 +341,13 @@ def _compute_reward(action, fw_h, bw_h, trip_id, prev_bw_h):
     dev_bw_h = bw_h - planned_bw_h
     reward_h = - dev_fw_h * dev_fw_h / (planned_fw_h * planned_fw_h)
     reward_h -= dev_bw_h * dev_bw_h / (planned_bw_h * planned_bw_h)
-    if action > 0:
-        reward_pax = -(action-1) * BASE_HOLDING_TIME
-        reward = C_REW_HW_HOLD * reward_h + C_REW_PAX_HOLD * reward_pax
-    else:
-        reward_pax = -prev_bw_h
-        reward = C_REW_HW_SKIP * reward_h + C_REW_PAX_SKIP * reward_pax
-    return reward
+    # if action > 0:
+    #     reward_pax = -(action-1) * BASE_HOLDING_TIME
+    #     reward = C_REW_HW_HOLD * reward_h + C_REW_PAX_HOLD * reward_pax
+    # else:
+    #     reward_pax = -prev_bw_h
+    #     reward = C_REW_HW_SKIP * reward_h + C_REW_PAX_SKIP * reward_pax
+    return reward_h
 
 
 class SimulationEnvWithControl(SimulationEnv):
