@@ -8,6 +8,7 @@ import post_process
 from file_paths import *
 import output
 from datetime import datetime
+from constants import *
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
@@ -15,19 +16,19 @@ if __name__ == '__main__':
     # the hyphen makes the argument optional
     parser.add_argument('-n_games', type=int, default=1,
                         help='Number of games to play')
-    parser.add_argument('-lr', type=float, default=0.001,
+    parser.add_argument('-lr', type=float, default=0.0001,
                         help='Learning rate for optimizer')
     parser.add_argument('-eps_min', type=float, default=0.1,
                         help='Minimum value for epsilon in epsilon-greedy action selection')
     parser.add_argument('-gamma', type=float, default=0.99,
                         help='Discount factor for update equation.')
-    parser.add_argument('-eps_dec', type=float, default=5e-5,
+    parser.add_argument('-eps_dec', type=float, default=2e-4,
                         help='Linear factor for decreasing epsilon')
     parser.add_argument('-eps', type=float, default=1.0,
                         help='Starting value for epsilon in epsilon-greedy action selection')
-    parser.add_argument('-max_mem', type=int, default=50000,
+    parser.add_argument('-max_mem', type=int, default=10000,
                         help='Maximum size for memory replay buffer')
-    parser.add_argument('-bs', type=int, default=32,
+    parser.add_argument('-bs', type=int, default=16,
                         help='Batch size for replay memory sampling')
     parser.add_argument('-replace', type=int, default=500,
                         help='interval for replacing target network')
@@ -35,7 +36,7 @@ if __name__ == '__main__':
                         help='environment')
     parser.add_argument('-load_checkpoint', type=bool, default=False,
                         help='load model checkpoint')
-    parser.add_argument('-path', type=str, default='models/',
+    parser.add_argument('-path', type=str, default='out/models/',
                         help='path for model saving/loading')
     parser.add_argument('-algo', type=str, default='DQNAgent',
                         help='DQNAgent/DDQNAgent/DuelingDQNAgent/DuelingDDQNAgent')
@@ -48,7 +49,7 @@ if __name__ == '__main__':
                    epsilon=args.eps,
                    lr=args.lr,
                    input_dims=[4],
-                   n_actions=5,
+                   n_actions=N_ACTIONS_RL,
                    mem_size=args.max_mem,
                    eps_min=args.eps_min,
                    batch_size=args.bs,
@@ -63,7 +64,7 @@ if __name__ == '__main__':
         fname = args.algo + '_' + args.env + '_alpha' + str(args.lr) + '_' +\
             str(args.n_games) + 'eps_' + tstamp_save
 
-        figure_file = 'plots/' + fname + '.png'
+        figure_file = 'out/training plots/' + fname + '.png'
         scores_file = fname + '_scores.npy'
 
         scores, eps_history, steps_array = [], [], []

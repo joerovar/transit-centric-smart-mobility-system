@@ -3,7 +3,6 @@ import simulation_env
 from file_paths import *
 import post_process
 from datetime import datetime
-import agents as Agents
 
 st = time.time()
 
@@ -40,11 +39,6 @@ def run_base_control(episodes=1, save=False, plot=False):
         output.get_base_control_results(tstamps)
 
 
-# running
-run_base_control(episodes=4, save=True, plot=True)
-
-# outputs
-# output.get_results()
-# output.get_even_headway_results()
+run_base_control(episodes=6, save=True, plot=True)
 
 print("ran in %.2f seconds" % (time.time()-st))

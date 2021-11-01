@@ -330,26 +330,6 @@ def estimate_arrival_time(start_time, start_stop, end_stop):
     return arrival_time
 
 
-def _compute_reward(action, fw_h, bw_h, trip_id, prev_bw_h):
-    trip_idx = ORDERED_TRIPS.index(trip_id)
-    follow_trip_id = ORDERED_TRIPS[trip_idx + 1]
-    lead_trip_id = ORDERED_TRIPS[trip_idx - 1]
-    planned_fw_h = PLANNED_HEADWAY[str(lead_trip_id) + '-' + str(trip_id)]
-    planned_bw_h = PLANNED_HEADWAY[str(trip_id) + '-' + str(follow_trip_id)]
-
-    dev_fw_h = fw_h - planned_fw_h
-    dev_bw_h = bw_h - planned_bw_h
-    reward_h = - dev_fw_h * dev_fw_h / (planned_fw_h * planned_fw_h)
-    reward_h -= dev_bw_h * dev_bw_h / (planned_bw_h * planned_bw_h)
-    # if action > 0:
-    #     reward_pax = -(action-1) * BASE_HOLDING_TIME
-    #     reward = C_REW_HW_HOLD * reward_h + C_REW_PAX_HOLD * reward_pax
-    # else:
-    #     reward_pax = -prev_bw_h
-    #     reward = C_REW_HW_SKIP * reward_h + C_REW_PAX_SKIP * reward_pax
-    return reward_h
-
-
 class SimulationEnvWithControl(SimulationEnv):
     def __init__(self, *args, **kwargs):
         super(SimulationEnvWithControl, self).__init__(*args, **kwargs)
@@ -445,7 +425,7 @@ class SimulationEnvWithControl(SimulationEnv):
             backward_headway = 0
 
         if backward_headway > forward_headway:
-            holding_time = backward_headway - forward_headway
+            holding_time = min(LIMIT_HOLDING, backward_headway - forward_headway)
             self.fixed_stop_arrivals()
             self.fixed_stop_depart(hold=holding_time)
         else:
@@ -481,6 +461,30 @@ class SimulationEnvWithControl(SimulationEnv):
         if self.event_type == 0:
             self.terminal_departure()
             return self.prep()
+
+
+def _compute_reward(action, fw_h, bw_h, trip_id, prev_bw_h, prev_fw_h):
+    trip_idx = ORDERED_TRIPS.index(trip_id)
+    follow_trip_id = ORDERED_TRIPS[trip_idx + 1]
+    lead_trip_id = ORDERED_TRIPS[trip_idx - 1]
+    planned_fw_h = PLANNED_HEADWAY[str(lead_trip_id) + '-' + str(trip_id)]
+    planned_bw_h = PLANNED_HEADWAY[str(trip_id) + '-' + str(follow_trip_id)]
+
+    fw_h_diff0 = abs(prev_fw_h - planned_fw_h)
+    fw_h_diff1 = abs(fw_h - planned_fw_h)
+    reward = fw_h_diff0 - fw_h_diff1
+    # dev_fw_h = fw_h - planned_fw_h
+    # dev_bw_h = bw_h - planned_bw_h
+    # reward_h = - dev_fw_h * dev_fw_h / (planned_fw_h * planned_fw_h)
+    # reward_h -= dev_bw_h * dev_bw_h / (planned_bw_h * planned_bw_h)
+
+    # if action > 0:
+    #     reward_pax = -(action-1) * BASE_HOLDING_TIME
+    #     reward = C_REW_HW_HOLD * reward_h + C_REW_PAX_HOLD * reward_pax
+    # else:
+    #     reward_pax = -prev_bw_h
+    #     reward = C_REW_HW_SKIP * reward_h + C_REW_PAX_SKIP * reward_pax
+    return reward
 
 
 class SimulationEnvDeepRL(SimulationEnv):
@@ -606,9 +610,10 @@ class SimulationEnvDeepRL(SimulationEnv):
 
         if trip_sars:
             previous_action = self.trips_sars[trip_id][-1][1]
-            previous_backward_headway = self.trips_sars[trip_id][-1][0][2]
+            previous_backward_headway = self.trips_sars[trip_id][-1][0][IDX_BW_H]
+            prev_fw_h = self.trips_sars[trip_id][-1][0][IDX_FW_H]
             self.trips_sars[trip_id][-1][2] = _compute_reward(previous_action, forward_headway, backward_headway,
-                                                              trip_id, previous_backward_headway)
+                                                              trip_id, previous_backward_headway, prev_fw_h)
             self.trips_sars[trip_id][-1][3] = new_state
         new_sars = [new_state, 0, 0, []]
         self.trips_sars[trip_id].append(new_sars)
