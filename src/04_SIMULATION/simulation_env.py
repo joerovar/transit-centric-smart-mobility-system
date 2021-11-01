@@ -414,7 +414,7 @@ class SimulationEnvWithControl(SimulationEnv):
         else:
             # in case there is no trip before we can look at future departures which always exist
             # we look at scheduled departures and not actual which include distributed delays
-            trip_idx = ORDERED_TRIPS.index(trip_id)
+            trip_idx = ORDERED_TRIPS.index(trip_id) + 1
             dep_t = SCHEDULED_DEPARTURES[trip_idx]
             stop0 = STOPS[0]
             stop1 = stop_id
@@ -472,7 +472,9 @@ def _compute_reward(action, fw_h, bw_h, trip_id, prev_bw_h, prev_fw_h):
 
     fw_h_diff0 = abs(prev_fw_h - planned_fw_h)
     fw_h_diff1 = abs(fw_h - planned_fw_h)
-    reward = fw_h_diff0 - fw_h_diff1
+    bw_h_diff0 = abs(prev_bw_h - planned_bw_h)
+    bw_h_diff1 = abs(bw_h - planned_bw_h)
+    reward = (fw_h_diff0 - fw_h_diff1) + (bw_h_diff0 - bw_h_diff1)
     # dev_fw_h = fw_h - planned_fw_h
     # dev_bw_h = bw_h - planned_bw_h
     # reward_h = - dev_fw_h * dev_fw_h / (planned_fw_h * planned_fw_h)
@@ -595,7 +597,7 @@ class SimulationEnvDeepRL(SimulationEnv):
         else:
             # in case there is no trip before we can look at future departures which always exist
             # we look at scheduled departures and not actual which include distributed delays
-            trip_idx = ORDERED_TRIPS.index(trip_id)
+            trip_idx = ORDERED_TRIPS.index(trip_id) + 1
             dep_t = SCHEDULED_DEPARTURES[trip_idx]
             stop0 = STOPS[0]
             stop1 = stop_id
@@ -656,8 +658,6 @@ class SimulationEnvDeepRL(SimulationEnv):
 
     def prep(self):
         self.next_event()
-        i = self.bus_idx
-        # print([self.active_trips[i], self.event_type])
         t = self.time
         if t >= FOCUS_END_TIME_SEC:
             return True

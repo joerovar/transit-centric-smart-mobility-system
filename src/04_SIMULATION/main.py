@@ -22,15 +22,15 @@ if __name__ == '__main__':
                         help='Minimum value for epsilon in epsilon-greedy action selection')
     parser.add_argument('-gamma', type=float, default=0.99,
                         help='Discount factor for update equation.')
-    parser.add_argument('-eps_dec', type=float, default=2e-4,
+    parser.add_argument('-eps_dec', type=float, default=1e-4,
                         help='Linear factor for decreasing epsilon')
     parser.add_argument('-eps', type=float, default=1.0,
                         help='Starting value for epsilon in epsilon-greedy action selection')
     parser.add_argument('-max_mem', type=int, default=10000,
                         help='Maximum size for memory replay buffer')
-    parser.add_argument('-bs', type=int, default=16,
+    parser.add_argument('-bs', type=int, default=32,
                         help='Batch size for replay memory sampling')
-    parser.add_argument('-replace', type=int, default=500,
+    parser.add_argument('-replace', type=int, default=800,
                         help='interval for replacing target network')
     parser.add_argument('-env', type=str, default='BusControl',
                         help='environment')

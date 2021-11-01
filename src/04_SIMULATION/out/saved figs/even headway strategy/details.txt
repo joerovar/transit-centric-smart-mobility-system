@@ -1,2 +1,0 @@
-episodes 6
-maximum holding time 40 seconds
