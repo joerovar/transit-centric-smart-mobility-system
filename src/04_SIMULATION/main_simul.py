@@ -16,7 +16,7 @@ def run_base(episodes=1, save=False, plot=False):
             done = env.prep()
         if save:
             env.process_results()
-            tstamps.append(datetime.now().strftime('%m%d-%H%M%S%f')[:-5])
+            tstamps.append(datetime.now().strftime('%m%d-%H%M%S%f')[:-4])
             path_trajectories = path_to_outs + dir_var + 'trajectories_' + tstamps[-1] + ext_var
             post_process.save(path_trajectories, env.trajectories)
     if plot:
@@ -32,7 +32,7 @@ def run_base_control(episodes=1, save=False, plot=False):
             done = env.prep()
         if save:
             env.process_results()
-            tstamps.append(datetime.now().strftime('%m%d-%H%M%S%f')[:-5])
+            tstamps.append(datetime.now().strftime('%m%d-%H%M%S%f')[:-4])
             path_trajectories = path_to_outs + dir_var + 'trajectories_' + tstamps[-1] + ext_var
             post_process.save(path_trajectories, env.trajectories)
     if plot:

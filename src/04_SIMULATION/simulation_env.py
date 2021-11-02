@@ -470,11 +470,13 @@ def _compute_reward(action, fw_h, bw_h, trip_id, prev_bw_h, prev_fw_h):
     planned_fw_h = PLANNED_HEADWAY[str(lead_trip_id) + '-' + str(trip_id)]
     planned_bw_h = PLANNED_HEADWAY[str(trip_id) + '-' + str(follow_trip_id)]
 
-    fw_h_diff0 = abs(prev_fw_h - planned_fw_h)
-    fw_h_diff1 = abs(fw_h - planned_fw_h)
-    bw_h_diff0 = abs(prev_bw_h - planned_bw_h)
-    bw_h_diff1 = abs(bw_h - planned_bw_h)
-    reward = (fw_h_diff0 - fw_h_diff1) + (bw_h_diff0 - bw_h_diff1)
+    # fw_h_diff0 = abs(prev_fw_h - planned_fw_h)
+    # fw_h_diff1 = abs(fw_h - planned_fw_h)
+    # bw_h_diff0 = abs(prev_bw_h - planned_bw_h)
+    # bw_h_diff1 = abs(bw_h - planned_bw_h)
+    reward = - abs(fw_h - bw_h)
+
+    # specific reward for skipping and weighted reward
     # dev_fw_h = fw_h - planned_fw_h
     # dev_bw_h = bw_h - planned_bw_h
     # reward_h = - dev_fw_h * dev_fw_h / (planned_fw_h * planned_fw_h)
