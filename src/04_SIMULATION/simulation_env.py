@@ -495,6 +495,7 @@ class SimulationEnvDeepRL(SimulationEnv):
     def __init__(self, *args, **kwargs):
         super(SimulationEnvDeepRL, self).__init__(*args, **kwargs)
         self.trips_sars = {}
+        self.bool_terminal_state = False
 
     def record_trajectories(self, pickups=0, offs=0, denied_board=0, hold=0, skip=False):
         i = self.bus_idx
@@ -619,8 +620,9 @@ class SimulationEnvDeepRL(SimulationEnv):
             self.trips_sars[trip_id][-1][2] = _compute_reward(previous_action, forward_headway, backward_headway,
                                                               trip_id, previous_backward_headway, prev_fw_h)
             self.trips_sars[trip_id][-1][3] = new_state
-        new_sars = [new_state, 0, 0, []]
-        self.trips_sars[trip_id].append(new_sars)
+        if not self.bool_terminal_state:
+            new_sars = [new_state, 0, 0, []]
+            self.trips_sars[trip_id].append(new_sars)
         return
 
     def reset_simulation(self):
@@ -656,6 +658,7 @@ class SimulationEnvDeepRL(SimulationEnv):
         for trip_id in self.next_trip_ids:
             self.trajectories[trip_id] = []
             self.trips_sars[trip_id] = []
+        self.bool_terminal_state = False
         return False
 
     def prep(self):
@@ -674,8 +677,15 @@ class SimulationEnvDeepRL(SimulationEnv):
             trip_id = self.active_trips[i]
             if trip_id != ORDERED_TRIPS[0]:
                 if arrival_stop in CONTROLLED_STOPS and self.time >= FOCUS_START_TIME_SEC:
-                    self.fixed_stop_unload()
-                    self._add_observations()
+                    if arrival_stop == CONTROLLED_STOPS[-1]:
+                        self.bool_terminal_state = True
+                        self.fixed_stop_unload()
+                        self._add_observations()
+                        self.fixed_stop_depart()
+                    else:
+                        self.bool_terminal_state = False
+                        self.fixed_stop_unload()
+                        self._add_observations()
                     return False
             self.fixed_stop_unload()
             self.fixed_stop_arrivals()

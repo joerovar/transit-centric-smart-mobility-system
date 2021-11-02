@@ -1,5 +1,7 @@
 import post_process
 from input import *
+from os import listdir
+from os.path import isfile, join
 
 
 def get_results(tstamps):
@@ -152,7 +154,7 @@ def get_rl_results(tstamps):
     # THINGS TO COMBINE
     trajectories_set = []
     for t in tstamps:
-        path_sars = path_to_outs + dir_var + 'sars_record_' + tstamps[-1] + ext_var
+        path_sars = path_to_outs + dir_var + 'sars_record_' + t + ext_var
         sars = post_process.load(path_sars)
         path_trajectories_load = path_to_outs + dir_var + 'trajectories_' + t + ext_var
         trajectories = post_process.load(path_trajectories_load)
@@ -226,3 +228,16 @@ def get_rl_results(tstamps):
         post_process.plot_bar_chart(holding_time_comb, STOPS, path_plot_holding_time_comb, x_y_lbls=['stop id', 'seconds'])
     return
 
+
+def access_past_results(path_dir_load, vartype, tstamp_contained, path_dir_save):
+    onlyfiles = [f for f in listdir(path_dir_load) if isfile(join(path_dir_load, f)) and vartype in f and tstamp_contained in f]
+    for f in onlyfiles:
+        path_load_file = path_dir_load + '/' + f
+        var = post_process.load(path_load_file)
+        path_save_file = path_dir_save + '/' + f
+        path_sars_write = path_save_file.replace(ext_var, ext_csv)
+        post_process.write_trajectories(var, path_sars_write)
+    return
+
+
+access_past_results('out/var', 'sars_record', '1201', 'out/txt')

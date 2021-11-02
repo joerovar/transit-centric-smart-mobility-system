@@ -78,17 +78,24 @@ if __name__ == '__main__':
                 i = env.bus_idx
                 trip_id = env.active_trips[i]
                 all_sars = env.trips_sars[trip_id]
+
                 if len(all_sars) > 1:
-                    prev_sars = all_sars[-2]
+                    if env.bool_terminal_state:
+                        prev_sars = all_sars[-1]
+                    else:
+                        prev_sars = all_sars[-2]
                     observation, action, reward, observation_ = prev_sars
                     observation = np.array(observation, dtype=np.float32)
                     observation_ = np.array(observation_, dtype=np.float32)
                     score += reward
-                    agent.store_transition(observation, action, reward, observation_, int(done))
+                    agent.store_transition(observation, action, reward, observation_, int(env.bool_terminal_state))
                     agent.learn()
-                observation = np.array(all_sars[-1][0], dtype=np.float32)
-                action = agent.choose_action(observation)
-                env.take_action(action)
+
+                if not env.bool_terminal_state:
+                    observation = np.array(all_sars[-1][0], dtype=np.float32)
+                    action = agent.choose_action(observation)
+                    env.take_action(action)
+
                 done = env.prep()
                 n_steps += 1
             if not args.load_checkpoint:
@@ -115,12 +122,13 @@ if __name__ == '__main__':
             done = env.reset_simulation()
             done = env.prep()
             while not done:
-                i = env.bus_idx
-                trip_id = env.active_trips[i]
-                all_sars = env.trips_sars[trip_id]
-                observation = np.array(all_sars[-1][0], dtype=np.float32)
-                action = agent.choose_action(observation)
-                env.take_action(action)
+                if not env.bool_terminal_state:
+                    i = env.bus_idx
+                    trip_id = env.active_trips[i]
+                    all_sars = env.trips_sars[trip_id]
+                    observation = np.array(all_sars[-1][0], dtype=np.float32)
+                    action = agent.choose_action(observation)
+                    env.take_action(action)
                 done = env.prep()
 
             env.process_results()
