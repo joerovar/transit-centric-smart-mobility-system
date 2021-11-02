@@ -240,4 +240,4 @@ def access_past_results(path_dir_load, vartype, tstamp_contained, path_dir_save)
     return
 
 
-access_past_results('out/var', 'sars_record', '1201', 'out/txt')
+# access_past_results('out/var', 'sars_record', '1201', 'out/txt')
