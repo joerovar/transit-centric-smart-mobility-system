@@ -145,6 +145,7 @@ if __name__ == '__main__':
         route_progress_scenarios = np.array([(STOPS.index(s) / len(STOPS)) for s in CONTROLLED_STOPS])
         action_grid = np.zeros(shape=(len(fw_headway_scenarios), len(route_progress_scenarios)))
         bus_load = 7
+
         for i in range(fw_headway_scenarios.size):
             for j in range(route_progress_scenarios.size):
                 obs = np.array(
@@ -153,8 +154,23 @@ if __name__ == '__main__':
                 action_grid[i, j] = agent.choose_action(obs)
 
         fig, ax = plt.subplots()
+        x_axis = np.arange(route_progress_scenarios.size)
+        y_axis = np.arange(fw_headway_scenarios.size)
         ms = ax.matshow(action_grid)
+        ax.set_xticks(x_axis)
+        ax.xaxis.set_ticks_position('bottom')
+        ax.set_xticklabels(np.arange(1, route_progress_scenarios.size+1))
+        ax.set_yticks(y_axis)
+        ax.set_yticklabels(['FH>>BH', 'FH>BH', 'FH=BH', 'BH>FH', 'BH>>FH'])
+        ax.set_xlabel('control point')
+        ax.set_ylabel('scenarios')
         cbar = fig.colorbar(ms, ticks=np.arange(np.min(action_grid), np.max(action_grid) + 1), orientation='horizontal')
-        path_policy_examination = path_to_outs + dir_figs + 'policy_examination_' + tstamps[-1] + ext_fig
+        cbar.ax.set_xlabel('best action')
+        path_policy_examination = path_to_outs + dir_figs + 'policy_' + args.env + ext_fig
         plt.savefig(path_policy_examination)
 
+# cd src/04_SIMULATION
+# train
+# python main.py -env -algo -n_games
+# test
+# python main.py -env -algo -n_games -eps -load_checkpoint

@@ -449,7 +449,7 @@ class SimulationEnvWithControl(SimulationEnv):
             arrival_stop = self.next_stop[i]
             trip_id = self.active_trips[i]
             if trip_id != ORDERED_TRIPS[0]:
-                if arrival_stop in CONTROLLED_STOPS and self.time >= FOCUS_START_TIME_SEC:
+                if arrival_stop in CONTROLLED_STOPS[:-1] and self.time >= FOCUS_START_TIME_SEC:
                     self.fixed_stop_unload()
                     self.decide_bus_holding()
                     return self.prep()
@@ -470,11 +470,20 @@ def _compute_reward(action, fw_h, bw_h, trip_id, prev_bw_h, prev_fw_h):
     planned_fw_h = PLANNED_HEADWAY[str(lead_trip_id) + '-' + str(trip_id)]
     planned_bw_h = PLANNED_HEADWAY[str(trip_id) + '-' + str(follow_trip_id)]
 
+    # hw_diff0 = abs(prev_fw_h - prev_bw_h)
+    # hw_diff1 = abs(fw_h - bw_h)
+    # reward = hw_diff0 - hw_diff1
+
     fw_h_diff0 = abs(prev_fw_h - planned_fw_h)
     fw_h_diff1 = abs(fw_h - planned_fw_h)
-    bw_h_diff0 = abs(prev_bw_h - planned_bw_h)
-    bw_h_diff1 = abs(bw_h - planned_bw_h)
-    reward = fw_h_diff0 - fw_h_diff1 + bw_h_diff0 - bw_h_diff1
+    reward = fw_h_diff0 - fw_h_diff1
+
+    # fw_h_diff0 = abs(prev_fw_h - planned_fw_h)
+    # fw_h_diff1 = abs(fw_h - planned_fw_h)
+    # bw_h_diff0 = abs(prev_bw_h - planned_bw_h)
+    # bw_h_diff1 = abs(bw_h - planned_bw_h)
+    # reward = fw_h_diff0 - fw_h_diff1 + bw_h_diff0 - bw_h_diff1
+
     # reward = - abs(fw_h - bw_h)
 
     # specific reward for skipping and weighted reward
