@@ -9,6 +9,8 @@ from file_paths import *
 import output
 from datetime import datetime
 from constants import *
+import matplotlib.pyplot as plt
+from input import *
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
@@ -111,8 +113,6 @@ if __name__ == '__main__':
 
                 eps_history.append(agent.epsilon)
         plot_learning(steps_array, scores, eps_history, figure_file)
-    # if args.load_checkpoint and n_steps >= 18000:
-    #     break
     else:
         agent.load_models()
         tstamps = []
@@ -137,6 +137,24 @@ if __name__ == '__main__':
             path_sars = path_to_outs + dir_var + 'sars_record_' + tstamps[-1] + ext_var
             post_process.save(path_trajectories, env.trajectories)
             post_process.save(path_sars, env.trips_sars)
-        # output.get_results()
+
         output.get_rl_results(tstamps)
+
+        fw_headway_scenarios = np.array([330, 300, 270, 240, 210])
+        bw_headway_scenarios = np.flip(fw_headway_scenarios, axis=0)
+        route_progress_scenarios = np.array([(STOPS.index(s) / len(STOPS)) for s in CONTROLLED_STOPS])
+        action_grid = np.zeros(shape=(len(fw_headway_scenarios), len(route_progress_scenarios)))
+        bus_load = 7
+        for i in range(fw_headway_scenarios.size):
+            for j in range(route_progress_scenarios.size):
+                obs = np.array(
+                    [route_progress_scenarios[j], bus_load, fw_headway_scenarios[i], bw_headway_scenarios[i]],
+                    dtype=np.float32)
+                action_grid[i, j] = agent.choose_action(obs)
+
+        fig, ax = plt.subplots()
+        ms = ax.matshow(action_grid)
+        cbar = fig.colorbar(ms, ticks=np.arange(np.min(action_grid), np.max(action_grid) + 1), orientation='horizontal')
+        path_policy_examination = path_to_outs + dir_figs + 'policy_examination_' + tstamps[-1] + ext_fig
+        plt.savefig(path_policy_examination)
 

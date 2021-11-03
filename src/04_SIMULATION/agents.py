@@ -113,11 +113,11 @@ class DQNAgent(Agent):
 class DDQNAgent(Agent):
     def __init__(self, *args, **kwargs):
         super(DDQNAgent, self).__init__(*args, **kwargs)
-        self.Q_eval = DeepQNetwork(self.lr, self.input_dims,n_actions=self.n_actions,
+        self.Q_eval = DeepQNetwork(self.lr, self.input_dims, n_actions=self.n_actions,
                                    fc1_dims=256, fc2_dims=256,
                                    name=self.env_name+'_'+self.algo+'_q_eval',
                                    chkpt_dir=self.chkpt_dir)
-        self.Q_next = DeepQNetwork(self.lr, self.input_dims,n_actions=self.n_actions,
+        self.Q_next = DeepQNetwork(self.lr, self.input_dims, n_actions=self.n_actions,
                                    fc1_dims=256, fc2_dims=256,
                                    name=self.env_name + '_' + self.algo + '_q_next',
                                    chkpt_dir=self.chkpt_dir)

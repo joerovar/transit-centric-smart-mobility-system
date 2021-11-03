@@ -226,6 +226,7 @@ def get_rl_results(tstamps):
         post_process.plot_pax_per_stop(path_plot_denied_boardings_combined, denied_boardings_comb, STOPS,
                                        x_y_lbls=['stop id', 'denied boardings (pax)'])
         post_process.plot_bar_chart(holding_time_comb, STOPS, path_plot_holding_time_comb, x_y_lbls=['stop id', 'seconds'])
+
     return
 
 
