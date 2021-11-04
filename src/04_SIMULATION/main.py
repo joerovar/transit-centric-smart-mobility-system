@@ -62,6 +62,8 @@ if __name__ == '__main__':
                    env_name=args.env)
     if not args.load_checkpoint:
 
+        # --------------------------------------------------- TRAINING -----------------------------------------
+
         tstamp_save = time.strftime("%m%d-%H%M")
         fname = args.algo + '_' + args.env + '_alpha' + str(args.lr) + '_' +\
             str(args.n_games) + 'eps_' + tstamp_save
@@ -114,33 +116,36 @@ if __name__ == '__main__':
                 eps_history.append(agent.epsilon)
         plot_learning(steps_array, scores, eps_history, figure_file)
     else:
+
+        # --------------------------------- TESTING ----------------------------------------------------------------
+
         agent.load_models()
-        tstamps = []
-        for j in range(args.n_games):
-            score = 0
-            env = simulation_env.SimulationEnvDeepRL()
-            done = env.reset_simulation()
-            done = env.prep()
-            while not done:
-                if not env.bool_terminal_state:
-                    i = env.bus_idx
-                    trip_id = env.active_trips[i]
-                    all_sars = env.trips_sars[trip_id]
-                    observation = np.array(all_sars[-1][0], dtype=np.float32)
-                    action = agent.choose_action(observation)
-                    env.take_action(action)
-                done = env.prep()
+        # tstamps = []
+        # for j in range(args.n_games):
+        #     score = 0
+        #     env = simulation_env.SimulationEnvDeepRL()
+        #     done = env.reset_simulation()
+        #     done = env.prep()
+        #     while not done:
+        #         if not env.bool_terminal_state:
+        #             i = env.bus_idx
+        #             trip_id = env.active_trips[i]
+        #             all_sars = env.trips_sars[trip_id]
+        #             observation = np.array(all_sars[-1][0], dtype=np.float32)
+        #             action = agent.choose_action(observation)
+        #             env.take_action(action)
+        #         done = env.prep()
+        #
+        #     env.process_results()
+        #     tstamps.append(datetime.now().strftime('%m%d-%H%M%S%f')[:-4])
+        #     path_trajectories = path_to_outs + dir_var + 'trajectories_' + tstamps[-1] + ext_var
+        #     path_sars = path_to_outs + dir_var + 'sars_record_' + tstamps[-1] + ext_var
+        #     post_process.save(path_trajectories, env.trajectories)
+        #     post_process.save(path_sars, env.trips_sars)
+        #
+        # output.get_rl_results(tstamps)
 
-            env.process_results()
-            tstamps.append(datetime.now().strftime('%m%d-%H%M%S%f')[:-4])
-            path_trajectories = path_to_outs + dir_var + 'trajectories_' + tstamps[-1] + ext_var
-            path_sars = path_to_outs + dir_var + 'sars_record_' + tstamps[-1] + ext_var
-            post_process.save(path_trajectories, env.trajectories)
-            post_process.save(path_sars, env.trips_sars)
-
-        output.get_rl_results(tstamps)
-
-        fw_headway_scenarios = np.array([330, 300, 270, 240, 210])
+        fw_headway_scenarios = np.array([320, 310, 300, 290, 280, 270, 260, 250, 240, 230, 220])
         bw_headway_scenarios = np.flip(fw_headway_scenarios, axis=0)
         route_progress_scenarios = np.array([(STOPS.index(s) / len(STOPS)) for s in CONTROLLED_STOPS])
         action_grid = np.zeros(shape=(len(fw_headway_scenarios), len(route_progress_scenarios)))
@@ -161,9 +166,9 @@ if __name__ == '__main__':
         ax.xaxis.set_ticks_position('bottom')
         ax.set_xticklabels(np.arange(1, route_progress_scenarios.size+1))
         ax.set_yticks(y_axis)
-        ax.set_yticklabels(['FH>>BH', 'FH>BH', 'FH=BH', 'BH>FH', 'BH>>FH'])
+        ax.set_yticklabels(np.arange(50, -60, -10))
         ax.set_xlabel('control point')
-        ax.set_ylabel('scenarios')
+        ax.set_ylabel('dfh=-dbh (sec)')
         cbar = fig.colorbar(ms, ticks=np.arange(np.min(action_grid), np.max(action_grid) + 1), orientation='horizontal')
         cbar.ax.set_xlabel('best action')
         path_policy_examination = path_to_outs + dir_figs + 'policy_' + args.env + ext_fig
