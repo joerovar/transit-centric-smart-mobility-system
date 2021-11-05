@@ -39,6 +39,6 @@ def run_base_control(episodes=1, save=False, plot=False):
         output.get_base_control_results(tstamps)
 
 
-run_base_control(episodes=6, save=True, plot=True)
+run_base(episodes=6, save=True, plot=True)
 
 print("ran in %.2f seconds" % (time.time()-st))
