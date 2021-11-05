@@ -83,7 +83,7 @@ def get_base_control_results(tstamps):
             trajectories_set.append(trajectories)
 
         stops_loc = post_process.get_stop_loc(path_stops_loc)
-        trajectories_header = ['stop_id, arr_t, dep_t, bus_load, pick_count, drop_count, denied_count, hold_sec']
+        trajectories_header = ['stop_id', 'arr_t', 'dep_t', 'load_count', 'ons_count', 'offs_count', 'denied_count', 'hold_sec']
         path_trajectories_write = path_to_outs + dir_csv + 'trajectories_' + t + ext_csv
         path_trajectories_plot = path_to_outs + dir_figs + 'trajectories_' + t + ext_fig
         post_process.write_trajectories(trajectories, path_trajectories_write, label=trajectories_header)
@@ -162,7 +162,7 @@ def get_rl_results(tstamps):
             trajectories_set.append(trajectories)
 
         stops_loc = post_process.get_stop_loc(path_stops_loc)
-        trajectories_header = ['stop_id, arr_t, dep_t, bus_load, pick_count, drop_count, denied_count, hold_sec, skip']
+        trajectories_header = ['stop_id', 'arr_t', 'dep_t', 'load_count', 'ons_count', 'offs_count', 'denied_count', 'hold_sec', 'skip']
         path_trajectories_write = path_to_outs + dir_csv + 'trajectories_' + t + ext_csv
         path_trajectories_plot = path_to_outs + dir_figs + 'trajectories_' + t + ext_fig
         path_sars_write = path_to_outs + dir_csv + 'sars_record_' + t + ext_csv
