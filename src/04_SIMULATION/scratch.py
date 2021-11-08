@@ -12,5 +12,10 @@ from os.path import isfile, join
 import post_process
 import datetime
 
-print(str(datetime.timedelta(seconds=26400)))
-print(str(datetime.timedelta(seconds=28860)))
+
+stop = ['386', '388', '390']
+load = [12, 22, 35]
+d = {'stop': stop,
+     'load': load}
+df = pd.DataFrame(d)
+print(df.columns)

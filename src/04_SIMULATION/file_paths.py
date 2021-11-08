@@ -41,29 +41,3 @@ path_historical_headway = path_to_ins + dir_vis + 'historical_headway.png'
 path_input_boardings = path_to_ins + dir_vis + 'input_boardings.png'
 path_input_link_times = path_to_ins + dir_vis + 'travel_time_distribution.csv'
 path_stop_pattern = path_to_ins + dir_vis + 'stop_pattern.csv'
-
-# SAVE OUTPUT
-
-# path_tr_save = path_to_outs + dir_var + 'trajectories_' + tstamp_save + '.pkl'
-# path_sars_save = path_to_outs + dir_var + 'sars' + tstamp_save + '.pkl'
-#
-# # LOAD
-#
-# path_tr_load = path_to_outs + dir_var + 'trajectories_' + tstamp_load + '.pkl'
-# path_hw_load = path_to_outs + dir_var + 'headway_' + tstamp_load + '.pkl'
-# path_sars_load = path_to_outs + dir_var + 'sars' + tstamp_load + '.pkl'
-#
-# # WRITE / PLOT OUTPUT
-#
-# path_lt = path_to_outs + dir_csv + 'link_times_' + tstamp_load + '.csv'
-# path_wt = path_to_outs + dir_csv + 'stop_wait_times_' + tstamp_load + '.csv'
-# path_tr_csv = path_to_outs + dir_csv + 'trajectories_' + tstamp_load + '.csv'
-# path_hw_fig = path_to_outs + dir_figs + 'headway_' + tstamp_load + '.png'
-# path_tr_fig = path_to_outs + dir_figs + 'trajectories_' + tstamp_load + '.png'
-# path_wt_fig = path_to_outs + dir_figs + 'stop_wait_time_' + tstamp_load + '.png'
-# path_bd_fig = path_to_outs + dir_figs + 'boardings_' + tstamp_load + '.png'
-# path_db_fig = path_to_outs + dir_figs + 'denied_boardings_' + tstamp_load + '.png'
-# path_lp_fig = path_to_outs + dir_figs + 'load_profile' + tstamp_load + '.png'
-# path_wtc_fig_ = path_to_outs + dir_figs + 'stop_wait_time_compare_' + tstamp_load + '.png'
-# path_sars_csv = path_to_outs + dir_csv + 'sars_record_' + tstamp_load + '.csv'
-# path_hold_time_fig = path_to_outs + dir_figs + 'holding_time_' + tstamp_load + '.png'
