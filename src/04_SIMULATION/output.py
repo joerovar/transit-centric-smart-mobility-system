@@ -51,7 +51,7 @@ def get_results(tstamps):
         # ------------------------------------------------ LINK TIMES/DWELL TIMES -------------------------------------
         path_ltimes_write = path_to_outs + dir_csv + link_time_filename + t + ext_csv
         path_ltimes_plot = path_to_outs + dir_figs + link_time_filename + t + ext_fig
-        path_dtimes_write = path_to_outs + dir_figs + dwell_time_filename + t + ext_csv
+        path_dtimes_write = path_to_outs + dir_csv + dwell_time_filename + t + ext_csv
         path_dtimes_plot = path_to_outs + dir_figs + dwell_time_filename + t + ext_fig
 
         ltimes_mean, ltimes_std, dtimes_mean, dtimes_std = post_process.travel_times_from_trajectory_set(trajectories_set, IDX_DEP_T, IDX_ARR_T)
@@ -63,7 +63,7 @@ def get_results(tstamps):
         post_process.plot_link_times(ltimes_mean, ltimes_std, STOPS, path_ltimes_plot, ltimes_lbl,
                                      x_y_lbls=ltimes_x_y_lbls)
         post_process.write_dwell_times(dtimes_mean, dtimes_std, stops_loc, path_dtimes_write, STOPS)
-        post_process.plot_dwell_times(dtimes_mean, dtimes_std, stops_loc, path_dtimes_plot, STOPS)
+        post_process.plot_dwell_times(dtimes_mean, dtimes_std, STOPS, path_dtimes_plot, ltimes_lbl, x_y_lbls=ltimes_x_y_lbls)
 
         # ------------------------------------------------ HEADWAY ---------------------------------------------
 
@@ -79,7 +79,7 @@ def get_results(tstamps):
 
         load_labels = ['stop id', 'pax per trip', 'pax load']
 
-        post_process.plot_load_profile(ons_comb, offs_comb, mean_load_comb, std_load_comb, STOPS,
+        post_process.plot_load_profile(ons_comb, offs_comb, mean_load_comb, STOPS, l_dev=std_load_comb,
                                        pathname=path_plot_load_profile_combined, x_y_lbls=load_labels)
 
         # ------------------------------------------------- DENIED BOARDINGS -----------------------------------
@@ -156,15 +156,14 @@ def get_base_control_results(tstamps):
         post_process.plot_headway(path_plot_headway_combined, headway_comb, STOPS,
                                   controlled_stops=CONTROLLED_STOPS)
 
+        # ------------------------------------------ LOAD PROFILE ------------------------------------------
         mean_load_comb, std_load_comb, ons_comb, offs_comb = post_process.pax_per_trip_from_trajectory_set(
             trajectories_set, IDX_LOAD,
             IDX_PICK, IDX_DROP)
 
-        # ------------------------------------------ LOAD PROFILE ------------------------------------------
-
         path_plot_load_profile_combined = path_to_outs + dir_figs + load_profile_filename + t + ext_fig
 
-        post_process.plot_load_profile(ons_comb, offs_comb, mean_load_comb, std_load_comb, STOPS,
+        post_process.plot_load_profile(ons_comb, offs_comb, mean_load_comb, STOPS, l_dev=std_load_comb,
                                        pathname=path_plot_load_profile_combined,
                                        x_y_lbls=['stop id', 'pax per trip', 'pax load'],
                                        controlled_stops=CONTROLLED_STOPS)
@@ -258,15 +257,14 @@ def get_rl_results(tstamps):
         post_process.plot_headway(path_plot_headway_combined, headway_comb, STOPS,
                                   controlled_stops=CONTROLLED_STOPS)
 
+        # ------------------------------------------ LOAD PROFILE ------------------------------------------
         mean_load_comb, std_load_comb, ons_comb, offs_comb = post_process.pax_per_trip_from_trajectory_set(
             trajectories_set, IDX_LOAD,
             IDX_PICK, IDX_DROP)
 
-        # ------------------------------------------ LOAD PROFILE ------------------------------------------
-
         path_plot_load_profile_combined = path_to_outs + dir_figs + load_profile_filename + t + ext_fig
 
-        post_process.plot_load_profile(ons_comb, offs_comb, mean_load_comb, std_load_comb, STOPS,
+        post_process.plot_load_profile(ons_comb, offs_comb, mean_load_comb, STOPS, l_dev=std_load_comb,
                                        pathname=path_plot_load_profile_combined,
                                        x_y_lbls=['stop id', 'pax per trip', 'pax load'],
                                        controlled_stops=CONTROLLED_STOPS)

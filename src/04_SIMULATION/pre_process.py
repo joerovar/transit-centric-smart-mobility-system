@@ -3,9 +3,11 @@ import numpy as np
 import pandas as pd
 import warnings
 import matplotlib.pyplot as plt
+from copy import deepcopy
 
 
 def get_interval(t, len_i):
+    # t is in seconds and len_i in minutes
     interval = int(t/(len_i*60))
     return interval
 
@@ -179,8 +181,8 @@ def get_demand(path, stops, nr_intervals, start_interval, new_nr_intervals, new_
             alight_fractions[stops[i]].append(af)
             prev_vol[j] = pv + a - d
             j += 1
-        dep_vol[stops[i]] = prev_vol
-    return arr_rates, alight_fractions
+        dep_vol[stops[i]] = deepcopy(prev_vol)
+    return arr_rates, alight_fractions, drop_rates, dep_vol
 
 
 def read_scheduled_departures(path):
@@ -196,3 +198,29 @@ def get_dispatching_from_gtfs(pathname, trip_ids_simulation):
     df = pd.read_csv(pathname)
     scheduled_departures = df[df['trip_id'].isin(trip_ids_simulation)]['schd_sec'].tolist()
     return scheduled_departures
+
+
+def get_pax_per_trip(rates, start_time, end_time, start_interval, interval_length, avg_headway):
+    # time in HOURS
+    single_rate = {}
+    for s in rates:
+        # get interval has unit requirements as t in seconds and interval length in minutes
+        inter1 = get_interval(start_time*3600, interval_length*60)
+        inter2 = get_interval(end_time*3600, interval_length*60)
+        numer = 0
+        denom = 0
+        for i in range(inter1, inter2+1):
+            idx = i - start_interval
+            if i == inter1:
+                length_temp = (i+1) * interval_length - start_time
+                numer += length_temp * rates[s][idx]
+                denom += length_temp
+            elif i == inter2:
+                length_temp = end_time - i * interval_length
+                numer += length_temp * rates[s][idx]
+                denom += length_temp
+            else:
+                numer += interval_length * rates[s][idx]
+                denom += interval_length
+            single_rate[s] = avg_headway * numer/denom
+    return single_rate

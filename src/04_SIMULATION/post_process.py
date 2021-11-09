@@ -179,7 +179,7 @@ def plot_pax_per_stop(pathname, pax, ordered_stops, x_y_lbls, controlled_stops=N
     return
 
 
-def plot_load_profile(bd, al, l, l_dev, os, pathname=None, x_y_lbls=None, controlled_stops=None):
+def plot_load_profile(bd, al, l, os, l_dev=None, pathname=None, x_y_lbls=None, controlled_stops=None):
     w = 0.3
     x1 = np.arange(len(os))
     x2 = [i + w for i in x1]
@@ -199,15 +199,17 @@ def plot_load_profile(bd, al, l, l_dev, os, pathname=None, x_y_lbls=None, contro
             y3.append(l[stop])
         else:
             y3.append(0)
-        if stop in l_dev:
-            y4.append(l_dev[stop])
-        else:
-            y4.append(0)
+        if l_dev:
+            if stop in l_dev:
+                y4.append(l_dev[stop])
+            else:
+                y4.append(0)
 
     ax1.bar(x1, y1, w, label='ons', color='g')
     ax1.bar(x2, y2, w, label='offs', color='r')
     ax2.plot(x1, y3, label='load', color='dodgerblue')
-    ax2.plot(x1, y4, label='load deviation', color='purple')
+    if l_dev:
+        ax2.plot(x1, y4, label='load deviation', color='purple')
     if controlled_stops:
         for cs in controlled_stops:
             idx = os.index(cs)
@@ -449,34 +451,26 @@ def write_link_times(link_times_mean, link_times_std, stop_gps, pathname, ordere
 
 
 def write_dwell_times(dwell_times_mean, dwell_times_std, stop_gps, pathname, ordered_stops):
-
-    dwell_times_df = pd.DataFrame(dwell_times_mean.items(), columns=['stop_1', 'mean_sec'])
-    dwell_times_df['std_sec'] = dwell_times_df['stop_1'].map(dwell_times_std)
-    dwell_times_df[['stop_1', 'stop_2']] = dwell_times_df['stop_1'].str.split('-', expand=True)
-    dwell_times_df = dwell_times_df[['stop_1', 'stop_2', 'mean_sec', 'std_sec']]
-
+    dwell_times_df = pd.DataFrame(dwell_times_mean.items(), columns=['stop', 'wait_time_sec'])
     s = stop_gps.copy()
     s['stop_id'] = s['stop_id'].astype(str)
+    s = s.rename(columns={'stop_id': 'stop'})
+    dwell_times_df = pd.merge(dwell_times_df, s, on='stop')
 
-    s1 = s.rename(columns={'stop_id': 'stop_1', 'stop_lat': 'stop_1_lat', 'stop_lon': 'stop_1_lon'})
-    dwell_times_df = pd.merge(dwell_times_df, s1, on='stop_1')
-    s2 = s1.rename(columns={'stop_1': 'stop_2', 'stop_1_lat': 'stop_2_lat', 'stop_1_lon': 'stop_2_lon'})
-    dwell_times_df = pd.merge(dwell_times_df, s2, on='stop_2')
-
-    stop_seq = [i for i in range(len(ordered_stops)-1)]
-    ordered_stop_data = {'stop_1': ordered_stops[:-1], 'stop_1_sequence': stop_seq}
+    stop_seq = [i for i in range(len(ordered_stops))]
+    ordered_stop_data = {'stop': ordered_stops, 'stop_sequence': stop_seq}
     os_df = pd.DataFrame(ordered_stop_data)
-    os_df['stop_1'] = os_df['stop_1'].astype(str)
-    dwell_times_df = pd.merge(dwell_times_df, os_df, on='stop_1')
-    dwell_times_df = dwell_times_df.sort_values(by=['stop_1_sequence'])
+    os_df['stop'] = os_df['stop'].astype(str)
 
+    dwell_times_df = pd.merge(dwell_times_df, os_df, on='stop')
+    dwell_times_df = dwell_times_df.sort_values(by=['stop_sequence'])
     dwell_times_df.to_csv(pathname, index=False)
     return
 
 
 def plot_dwell_times(dwell_times_mean, dwell_times_std, ordered_stops, pathname, lbls, x_y_lbls=None, controlled_stops=None):
     w = 0.27
-    bar1 = np.arange(len(ordered_stops)-1)
+    bar1 = np.arange(len(ordered_stops))
     bar2 = [i + w for i in bar1]
     mean = []
     std = []

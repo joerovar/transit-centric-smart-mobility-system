@@ -12,4 +12,3 @@ from os.path import isfile, join
 import post_process
 import datetime
 
-
