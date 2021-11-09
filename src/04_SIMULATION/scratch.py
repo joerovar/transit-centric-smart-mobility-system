@@ -13,9 +13,3 @@ import post_process
 import datetime
 
 
-stop = ['386', '388', '390']
-load = [12, 22, 35]
-d = {'stop': stop,
-     'load': load}
-df = pd.DataFrame(d)
-print(df.columns)

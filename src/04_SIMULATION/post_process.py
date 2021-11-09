@@ -3,20 +3,20 @@ import numpy as np
 import csv
 import pandas as pd
 import pickle
+from copy import deepcopy
 
 
-def write_trajectories(trip_data, pathname, label=None):
+def write_trajectories(trip_data, pathname, header=None):
     with open(pathname, 'w', newline='') as f:
-        wf = csv.writer(f, delimiter=' ', quotechar=' ', quoting=csv.QUOTE_MINIMAL)
+        wf = csv.writer(f, delimiter=',', quotechar=' ', quoting=csv.QUOTE_MINIMAL)
         i = 1
-        if label:
-            wf.writerow(label)
+        if header:
+            wf.writerow(header)
         for trip in trip_data:
-            wf.writerow([trip, '{'])
-            for stop in trip_data[trip]:
-                wf.writerow(stop)
-            wf.writerow([' ', '}'])
-            wf.writerow('------')
+            for s in trip_data[trip]:
+                stop_lst = deepcopy(s)
+                stop_lst.insert(0, trip)
+                wf.writerow(stop_lst)
             i += 1
     return
 
@@ -25,23 +25,20 @@ def plot_headway(pathname, hs, ordered_stops, controlled_stops=None):
     x = [i for i in range(len(ordered_stops))]
     y = []
     for s in ordered_stops:
-        h = hs[s]
-        mean = np.array(h).mean()
-        std = np.array(h).std()
-        y.append(std/mean) if mean else y.append(0)
+        if s in hs:
+            h = hs[s]
+            mean = np.array(h).mean()
+            std = np.array(h).std()
+            y.append(std/mean) if mean else y.append(0)
+        else:
+            y.append(np.nan)
     plt.plot(x, y)
-    # for stop in ordered_stops:
-    #     if stop in hs:
-    #         h = hs[stop]
-    #         ax.scatter([stop] * len(h), h, color='r', s=20)
-    #     else:
-    #         ax.scatter(stop, np.nan)
     if controlled_stops:
         for cs in controlled_stops:
             idx = ordered_stops.index(cs)
             plt.axvline(x=idx, color='gray', alpha=0.5, linestyle='dashed')
     plt.xlabel('stop id')
-    plt.ylabel('seconds')
+    plt.ylabel('coefficient of variation')
     plt.xticks(np.arange(len(ordered_stops)), ordered_stops, rotation=90, fontsize=6)
     plt.tight_layout()
     if pathname:
@@ -135,16 +132,16 @@ def write_wait_times(mean_wait_time, stop_gps, pathname, ordered_stops):
     s = stop_gps.copy()
     s['stop_id'] = s['stop_id'].astype(str)
     s = s.rename(columns={'stop_id': 'stop'})
-    wait_times = pd.merge(wait_times, s, on='stop')
+    wait_times_df = pd.merge(wait_times, s, on='stop')
 
     stop_seq = [i for i in range(len(ordered_stops))]
     ordered_stop_data = {'stop': ordered_stops, 'stop_sequence': stop_seq}
-    os_df = pd.DataFrame(ordered_stop_data, columns=ordered_stop_data.keys())
-    os_df = os_df['stop'].astype(str)
+    os_df = pd.DataFrame(ordered_stop_data)
+    os_df['stop'] = os_df['stop'].astype(str)
 
-    wait_times = pd.merge(wait_times, os_df, on='stop')
-    wait_times = wait_times.sort_values(by=['stop_sequence'])
-    wait_times.to_csv(pathname, index=False)
+    wait_times_df = pd.merge(wait_times_df, os_df, on='stop')
+    wait_times_df = wait_times_df.sort_values(by=['stop_sequence'])
+    wait_times_df.to_csv(pathname, index=False)
     return
 
 
@@ -314,15 +311,15 @@ def pax_per_trip_from_trajectory_set(trajectory_set, idx_load, idx_ons, idx_offs
         bus_load_mean[stop] = np.nan_to_num(np.array(bus_load_all[stop]).mean())
         bus_load_std[stop] = np.nan_to_num(np.array(bus_load_all[stop]).std())
 
-    for stop in ons_mean:
+    for stop in ons_all:
         ons_mean[stop] = np.nan_to_num(np.array(ons_all[stop]).mean())
-        ons_std[stop] = np.nan_to_num(np.array(ons_all[stop]).std())
+        # ons_std[stop] = np.nan_to_num(np.array(ons_all[stop]).std())
 
-    for stop in offs_mean:
+    for stop in offs_all:
         offs_mean[stop] = np.nan_to_num(np.array(offs_all[stop]).mean())
-        offs_std[stop] = np.nan_to_num(np.array(offs_all[stop]).std())
+        # offs_std[stop] = np.nan_to_num(np.array(offs_all[stop]).std())
 
-    return bus_load_mean, bus_load_std
+    return bus_load_mean, bus_load_std, ons_mean, offs_mean
 
 
 def hold_time_from_trajectory_set(trajectory_set, idx):
@@ -359,11 +356,12 @@ def denied_from_trajectory_set(trajectory_set, idx, tot_ons):
     for stop in tot_denied:
         if tot_ons:
             per_mil_denied[stop] = tot_denied[stop] / tot_ons[stop] * 1000
-    return
+    return per_mil_denied
 
 
-def link_times_from_trajectory_set(trajectory_set, idx_dep_t, idx_arr_t):
+def travel_times_from_trajectory_set(trajectory_set, idx_dep_t, idx_arr_t):
     link_times = {}
+    dwell_times = {}
     for trajectory in trajectory_set:
         for trip in trajectory:
             trip_data = trajectory[trip]
@@ -376,12 +374,22 @@ def link_times_from_trajectory_set(trajectory_set, idx_dep_t, idx_arr_t):
                     link_times[link].append(link_time)
                 else:
                     link_times[link] = [link_time]
+                dwell_time = trip_data[i][idx_dep_t] - trip_data[i][idx_arr_t]
+                if s0 in dwell_times:
+                    dwell_times[s0].append(dwell_time)
+                else:
+                    dwell_times[s0] = [dwell_time]
     mean_link_times = {}
     std_link_times = {}
+    mean_dwell_times = {}
+    std_dwell_times = {}
     for link in link_times:
         mean_link_times[link] = round(np.array(link_times[link]).mean(), 1)
         std_link_times[link] = round(np.array(link_times[link]).std(), 1)
-    return mean_link_times, std_link_times
+    for s in dwell_times:
+        mean_dwell_times[s] = round(np.array(dwell_times[s]).mean(), 1)
+        std_dwell_times[s] = round(np.array(dwell_times[s]).mean(), 1)
+    return mean_link_times, std_link_times, mean_dwell_times, std_dwell_times
 
 
 def plot_link_times(link_times_mean, link_times_std, ordered_stops, pathname, lbls, x_y_lbls=None, controlled_stops=None):
@@ -394,8 +402,8 @@ def plot_link_times(link_times_mean, link_times_std, ordered_stops, pathname, lb
     for link in links:
         mean.append(link_times_mean[link]) if link in link_times_mean else mean.append(0)
         std.append(link_times_std[link]) if link in link_times_std else std.append(0)
-    plt.bar(bar1, mean, w, lbls[0], color='b')
-    plt.bar(bar2, std, w, lbls[1], color='r')
+    plt.bar(bar1, mean, w, label=lbls[0], color='b')
+    plt.bar(bar2, std, w, label=lbls[1], color='r')
     if controlled_stops:
         for cs in controlled_stops:
             idx = ordered_stops.index(cs)
@@ -437,6 +445,62 @@ def write_link_times(link_times_mean, link_times_std, stop_gps, pathname, ordere
     link_times_df = link_times_df.sort_values(by=['stop_1_sequence'])
 
     link_times_df.to_csv(pathname, index=False)
+    return
+
+
+def write_dwell_times(dwell_times_mean, dwell_times_std, stop_gps, pathname, ordered_stops):
+
+    dwell_times_df = pd.DataFrame(dwell_times_mean.items(), columns=['stop_1', 'mean_sec'])
+    dwell_times_df['std_sec'] = dwell_times_df['stop_1'].map(dwell_times_std)
+    dwell_times_df[['stop_1', 'stop_2']] = dwell_times_df['stop_1'].str.split('-', expand=True)
+    dwell_times_df = dwell_times_df[['stop_1', 'stop_2', 'mean_sec', 'std_sec']]
+
+    s = stop_gps.copy()
+    s['stop_id'] = s['stop_id'].astype(str)
+
+    s1 = s.rename(columns={'stop_id': 'stop_1', 'stop_lat': 'stop_1_lat', 'stop_lon': 'stop_1_lon'})
+    dwell_times_df = pd.merge(dwell_times_df, s1, on='stop_1')
+    s2 = s1.rename(columns={'stop_1': 'stop_2', 'stop_1_lat': 'stop_2_lat', 'stop_1_lon': 'stop_2_lon'})
+    dwell_times_df = pd.merge(dwell_times_df, s2, on='stop_2')
+
+    stop_seq = [i for i in range(len(ordered_stops)-1)]
+    ordered_stop_data = {'stop_1': ordered_stops[:-1], 'stop_1_sequence': stop_seq}
+    os_df = pd.DataFrame(ordered_stop_data)
+    os_df['stop_1'] = os_df['stop_1'].astype(str)
+    dwell_times_df = pd.merge(dwell_times_df, os_df, on='stop_1')
+    dwell_times_df = dwell_times_df.sort_values(by=['stop_1_sequence'])
+
+    dwell_times_df.to_csv(pathname, index=False)
+    return
+
+
+def plot_dwell_times(dwell_times_mean, dwell_times_std, ordered_stops, pathname, lbls, x_y_lbls=None, controlled_stops=None):
+    w = 0.27
+    bar1 = np.arange(len(ordered_stops)-1)
+    bar2 = [i + w for i in bar1]
+    mean = []
+    std = []
+    x = ordered_stops
+    for s in ordered_stops:
+        mean.append(dwell_times_mean[s]) if s in dwell_times_mean else mean.append(0)
+        std.append(dwell_times_std[s]) if s in dwell_times_std else std.append(0)
+    plt.bar(bar1, mean, w, label=lbls[0], color='b')
+    plt.bar(bar2, std, w, label=lbls[1], color='r')
+    if controlled_stops:
+        for cs in controlled_stops:
+            idx = ordered_stops.index(cs)
+            plt.axvline(x=idx, color='gray', alpha=0.5, linestyle='dashed')
+    plt.xticks(bar1, x, rotation=90, fontsize=6)
+    if x_y_lbls:
+        plt.xlabel(x_y_lbls[0])
+        plt.ylabel(x_y_lbls[1])
+    plt.tight_layout()
+    plt.legend()
+    if pathname:
+        plt.savefig(pathname)
+    else:
+        plt.show()
+    plt.close()
     return
 
 

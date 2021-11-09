@@ -36,15 +36,6 @@ def extract_params(visualize=True):
     save(path_arr_rates, arrival_rates)
     save(path_alight_fractions, alight_fractions)
     save(path_departure_times_xtr, scheduled_departures)
-    if visualize:
-        hw = get_historical_headway(path_stop_times, DATES, stops, ordered_trips)
-        plot_stop_headway(path_historical_headway, hw, stops)
-        plot_cv(path_input_cv_link_times, link_times_mean, link_times_sd)
-        write_travel_times(path_input_link_times, link_times_mean, link_times_sd, nr_time_dpoints)
-        # boardings = get_input_boardings(arrival_rates, DEM_INTERVAL_LENGTH_MINS, FOCUS_START_TIME_SEC, FOCUS_END_TIME_SEC,
-        #                                 DEM_START_INTERVAL)
-        # needs to be corrected for pax per hour
-        # plot_pax_per_stop(path_input_boardings, boardings, stops, x_y_lbls=['stop id', 'predicted boardings'])
     return
 
 
@@ -69,13 +60,7 @@ STOPS, LINK_TIMES_MEAN, LINK_TIMES_SD, NR_TIME_DPOINTS, ORDERED_TRIPS, ARRIVAL_R
 # print(SCHEDULED_DEPARTURES)
 planned_headway_lst = [(j - i) for i, j in zip(SCHEDULED_DEPARTURES[:-1], SCHEDULED_DEPARTURES[1:])]
 planned_headway_lbls = [str(i) + '-' + str(j) for i, j in zip(ORDERED_TRIPS[:-1], ORDERED_TRIPS[1:])]
-PLANNED_HEADWAY = {i : j for i, j in zip(planned_headway_lbls, planned_headway_lst)}
+PLANNED_HEADWAY = {i: j for i, j in zip(planned_headway_lbls, planned_headway_lst)}
+print(ARRIVAL_RATES['443'])
 
-# print(LINK_TIMES_MEAN['423-15364'])
-# print(LINK_TIMES_SD['423-15364'])
-# print(ARRIVAL_RATES['15364'])
-# print(planned_headway_lst[5:14])
-# print(SCHEDULED_DEPARTURES[5:14])
-# print(SCHEDULED_DEPARTURES)
-# print(START_TIME_SEC)
-# ARRIVAL RATES IN HOURS!!
+

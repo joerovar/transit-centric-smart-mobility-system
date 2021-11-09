@@ -120,30 +120,30 @@ if __name__ == '__main__':
         # --------------------------------- TESTING ----------------------------------------------------------------
 
         agent.load_models()
-        # tstamps = []
-        # for j in range(args.n_games):
-        #     score = 0
-        #     env = simulation_env.SimulationEnvDeepRL()
-        #     done = env.reset_simulation()
-        #     done = env.prep()
-        #     while not done:
-        #         if not env.bool_terminal_state:
-        #             i = env.bus_idx
-        #             trip_id = env.active_trips[i]
-        #             all_sars = env.trips_sars[trip_id]
-        #             observation = np.array(all_sars[-1][0], dtype=np.float32)
-        #             action = agent.choose_action(observation)
-        #             env.take_action(action)
-        #         done = env.prep()
-        #
-        #     env.process_results()
-        #     tstamps.append(datetime.now().strftime('%m%d-%H%M%S%f')[:-4])
-        #     path_trajectories = path_to_outs + dir_var + 'trajectories_' + tstamps[-1] + ext_var
-        #     path_sars = path_to_outs + dir_var + 'sars_record_' + tstamps[-1] + ext_var
-        #     post_process.save(path_trajectories, env.trajectories)
-        #     post_process.save(path_sars, env.trips_sars)
-        #
-        # output.get_rl_results(tstamps)
+        tstamps = []
+        for j in range(args.n_games):
+            score = 0
+            env = simulation_env.SimulationEnvDeepRL()
+            done = env.reset_simulation()
+            done = env.prep()
+            while not done:
+                if not env.bool_terminal_state:
+                    i = env.bus_idx
+                    trip_id = env.active_trips[i]
+                    all_sars = env.trips_sars[trip_id]
+                    observation = np.array(all_sars[-1][0], dtype=np.float32)
+                    action = agent.choose_action(observation)
+                    env.take_action(action)
+                done = env.prep()
+
+            env.process_results()
+            tstamps.append(datetime.now().strftime('%m%d-%H%M%S%f')[:-4])
+            path_trajectories = path_to_outs + dir_var + 'trajectories_' + tstamps[-1] + ext_var
+            path_sars = path_to_outs + dir_var + 'sars_record_' + tstamps[-1] + ext_var
+            post_process.save(path_trajectories, env.trajectories)
+            post_process.save(path_sars, env.trips_sars)
+
+        output.get_rl_results(tstamps)
 
         fw_headway_scenarios = np.array([320, 310, 300, 290, 280, 270, 260, 250, 240, 230, 220])
         bw_headway_scenarios = np.flip(fw_headway_scenarios, axis=0)

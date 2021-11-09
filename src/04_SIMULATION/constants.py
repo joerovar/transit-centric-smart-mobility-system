@@ -29,7 +29,7 @@ CV = 0.15
 LOGN_S = np.sqrt(np.log(np.power(CV, 2) + 1))
 
 ACC_DEC_TIME = 5
-BOARDING_TIME = 3.1
+BOARDING_TIME = 3.0
 ALIGHTING_TIME = 1.2
 
 DDD = 'UNIFORM'

@@ -566,7 +566,7 @@ class SimulationEnvDeepRL(SimulationEnv):
         s = self.last_stop[i]
         if skip:
             dwell_time = ACC_DEC_TIME + ALIGHTING_TIME * offs
-            dwell_time = offs * dwell_time
+            dwell_time = (offs > 0) * dwell_time
         elif hold:
             dwell_time_pax = max(ACC_DEC_TIME + ons * BOARDING_TIME, ACC_DEC_TIME + offs * ALIGHTING_TIME)
             dwell_time_pax = (ons + offs > 0) * dwell_time_pax
