@@ -223,7 +223,7 @@ def plot_load_profile(bd, al, l, os, l_dev=None, pathname=None, x_y_lbls=None, c
         ax2.set_ylabel(x_y_lbls[2], color='dodgerblue')
         ax2.tick_params(axis='y', colors='dodgerblue')
     plt.tight_layout()
-    fig.legend()
+    fig.legend(loc='upper center')
     if pathname:
         plt.savefig(pathname)
     else:
@@ -390,7 +390,7 @@ def travel_times_from_trajectory_set(trajectory_set, idx_dep_t, idx_arr_t):
         std_link_times[link] = round(np.array(link_times[link]).std(), 1)
     for s in dwell_times:
         mean_dwell_times[s] = round(np.array(dwell_times[s]).mean(), 1)
-        std_dwell_times[s] = round(np.array(dwell_times[s]).mean(), 1)
+        std_dwell_times[s] = round(np.array(dwell_times[s]).std(), 1)
     return mean_link_times, std_link_times, mean_dwell_times, std_dwell_times
 
 
@@ -528,25 +528,29 @@ def load(pathname):
     return var
 
 
-def get_historical_headway(pathname, dates, all_stops, trips):
+def get_historical_headway(pathname, dates, all_stops, trips, early_departure=1*60):
     whole_df = pd.read_csv(pathname)
     df_period = whole_df[whole_df['trip_id'].isin(trips)]
     headway = {}
     for d in dates:
         df_temp = df_period[df_period['event_time'].astype(str).str[:10] == d]
+        df_temp = df_temp.sort_values(by=['schd_sec'])
         for s in all_stops:
-            df_temp1 = df_temp[df_temp['stop_id'] == int(s)]
+            df_stop = df_temp[df_temp['stop_id'] == int(s)]
             for i, j in zip(trips, trips[1:]):
-                t2 = df_temp1[df_temp1['trip_id'] == j]
-                t1 = df_temp1[df_temp1['trip_id'] == i]
-                if (not t1.empty) & (not t2.empty):
-                    hw = float(t2['avl_sec'])-float(t1['avl_sec'])
-                    if hw < 0:
-                        hw = 0
-                    if s in headway:
-                        headway[s].append(hw)
-                    else:
-                        headway[s] = [hw]
+                t2_df = df_stop[df_stop['trip_id'] == j]
+                t1_df = df_stop[df_stop['trip_id'] == i]
+                if (not t1_df.empty) & (not t2_df.empty):
+                    t1_avl = float(t1_df['avl_sec'])
+                    t2_avl = float(t2_df['avl_sec'])
+                    t1_schd = float(t1_df['schd_sec'])
+                    t2_schd = float(t2_df['schd_sec'])
+                    if t1_schd - t1_avl < early_departure or t2_schd - t2_avl < early_departure:
+                        hw = t2_avl - t1_avl
+                        if s in headway:
+                            headway[s].append(hw)
+                        else:
+                            headway[s] = [hw]
     return headway
 
 

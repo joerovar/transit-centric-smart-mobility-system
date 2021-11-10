@@ -224,3 +224,4 @@ def get_pax_per_trip(rates, start_time, end_time, start_interval, interval_lengt
                 denom += interval_length
             single_rate[s] = avg_headway * numer/denom
     return single_rate
+
