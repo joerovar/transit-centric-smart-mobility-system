@@ -7,10 +7,10 @@ from datetime import datetime
 st = time.time()
 
 
-def run_base(episodes=1, save=False, plot=False):
+def run_base(episodes=1, save=False, plot=False, time_dep_tt=True, time_dep_dem=True):
     tstamps = []
     for i in range(episodes):
-        env = simulation_env.SimulationEnv()
+        env = simulation_env.SimulationEnv(time_dependent_travel_time=time_dep_tt, time_dependent_demand=time_dep_dem)
         done = env.reset_simulation()
         while not done:
             done = env.prep()
@@ -23,10 +23,11 @@ def run_base(episodes=1, save=False, plot=False):
         output.get_results(tstamps)
 
 
-def run_base_control(episodes=1, save=False, plot=False):
+def run_base_control(episodes=1, save=False, plot=False, time_dep_tt=True, time_dep_dem=True):
     tstamps = []
     for i in range(episodes):
-        env = simulation_env.SimulationEnvWithControl()
+        env = simulation_env.SimulationEnvWithControl(time_dependent_travel_time=time_dep_tt,
+                                                      time_dependent_demand=time_dep_dem)
         done = env.reset_simulation()
         while not done:
             done = env.prep()
@@ -39,6 +40,6 @@ def run_base_control(episodes=1, save=False, plot=False):
         output.get_base_control_results(tstamps)
 
 
-run_base(episodes=6, save=True, plot=True)
+run_base_control(episodes=6, save=True, plot=True)
 
 print("ran in %.2f seconds" % (time.time()-st))

@@ -6,14 +6,19 @@ from copy import deepcopy
 
 
 def get_interval(t, interval_length):
+    # time in seconds, interval length in minutes
     interval = int(t / (interval_length * 60))
     return interval
 
 
 class SimulationEnv:
-    def __init__(self, no_overtake_policy=True):
+    def __init__(self, no_overtake_policy=True, time_dependent_travel_time=True, time_dependent_demand=True,
+                 uniform_schedule=False):
         # THE ONLY NECESSARY TRIP INFORMATION TO CARRY THROUGHOUT SIMULATION
         self.no_overtake_policy = no_overtake_policy
+        self.time_dependent_travel_time = time_dependent_travel_time
+        self.time_dependent_demand = time_dependent_demand
+        self.uniform_schedule = uniform_schedule
         self.next_actual_departures = []
         self.next_trip_ids = []
         self.active_trips = []
@@ -64,41 +69,56 @@ class SimulationEnv:
     def get_arrivals_start(self, headway):
         i = self.bus_idx
         stop = self.last_stop[i]
-        arrival_rates = ARRIVAL_RATES[stop]
-        inter = get_interval(self.time, DEM_INTERVAL_LENGTH_MINS)
-        e_pax = (arrival_rates[inter - DEM_START_INTERVAL] / 60) * headway / 60
+        if self.time_dependent_demand:
+            arrival_rates = ARRIVAL_RATES[stop]
+            inter = get_interval(self.time, DEM_INTERVAL_LENGTH_MINS)
+            e_pax = (arrival_rates[inter - DEM_START_INTERVAL] / 60) * headway / 60
+        else:
+            arrival_rate = ARRIVAL_RATE[stop]
+            e_pax = (arrival_rate / 60) * headway / 60
         pax_at_stop = np.random.poisson(lam=e_pax)
         return pax_at_stop
 
     def get_pax_arrivals(self, headway, last_arrival_t):
         i = self.bus_idx
         stop = self.last_stop[i]
-        arrival_rates = ARRIVAL_RATES[stop]
-        e_pax = 0
-        t = last_arrival_t
-        t2 = last_arrival_t + headway
-        while t < t2:
-            inter = get_interval(t, DEM_INTERVAL_LENGTH_MINS)
-            edge = (inter + 1) * 60 * DEM_INTERVAL_LENGTH_MINS
-            e_pax += (arrival_rates[inter - DEM_START_INTERVAL] / 60) * ((min(edge, t2) - t) / 60)
-            t = min(edge, t2)
+        if self.time_dependent_demand:
+            arrival_rates = ARRIVAL_RATES[stop]
+            e_pax = 0
+            t = last_arrival_t
+            t2 = last_arrival_t + headway
+            while t < t2:
+                inter = get_interval(t, DEM_INTERVAL_LENGTH_MINS)
+                edge = (inter + 1) * 60 * DEM_INTERVAL_LENGTH_MINS
+                e_pax += (arrival_rates[inter - DEM_START_INTERVAL] / 60) * ((min(edge, t2) - t) / 60)
+                t = min(edge, t2)
+        else:
+            arrival_rate = ARRIVAL_RATE[stop]
+            e_pax = (arrival_rate / 60) * headway / 60
         pax_arrivals = np.random.poisson(lam=e_pax)
         return pax_arrivals
 
     def get_offs(self):
         i = self.bus_idx
-        interv = get_interval(self.time, DEM_INTERVAL_LENGTH_MINS)
-        interv_idx = interv - DEM_START_INTERVAL
-        offs = int(round(ALIGHT_FRACTIONS[self.last_stop[i]][interv_idx] * self.load[i]))
+        stop = self.last_stop[i]
+        if self.time_dependent_demand:
+            interv = get_interval(self.time, DEM_INTERVAL_LENGTH_MINS)
+            interv_idx = interv - DEM_START_INTERVAL
+            offs = int(round(ALIGHT_FRACTIONS[stop][interv_idx] * self.load[i]))
+        else:
+            offs = int(round(ALIGHT_FRACTION[stop] * self.load[i]))
         return offs
 
     def get_travel_time(self):
         i = self.bus_idx
         prev_stop = self.last_stop[i]
         next_stop = self.next_stop[i]
-        interv = get_interval(self.time, TIME_INTERVAL_LENGTH_MINS)
-        interv_idx = interv - TIME_START_INTERVAL
-        mean_runtime = LINK_TIMES_MEAN[str(prev_stop) + '-' + str(next_stop)][interv_idx]
+        if self.time_dependent_travel_time:
+            interv = get_interval(self.time, TIME_INTERVAL_LENGTH_MINS)
+            interv_idx = interv - TIME_START_INTERVAL
+            mean_runtime = LINK_TIMES_MEAN[str(prev_stop) + '-' + str(next_stop)][interv_idx]
+        else:
+            mean_runtime = SINGLE_LINK_TIMES_MEAN[str(prev_stop) + '-' + str(next_stop)]
         assert mean_runtime
         s = LOGN_S
         runtime = lognorm.rvs(s, scale=mean_runtime)
@@ -245,8 +265,13 @@ class SimulationEnv:
             return
 
     def reset_simulation(self):
-        dep_delays = [max(random.uniform(DEP_DELAY_FROM, DEP_DELAY_TO), 0) for i in range(len(SCHEDULED_DEPARTURES))]
-        self.next_actual_departures = [sum(x) for x in zip(SCHEDULED_DEPARTURES, dep_delays)]
+        if self.uniform_schedule:
+            dep_delays = [max(random.uniform(DEP_DELAY_FROM, DEP_DELAY_TO), 0) for i in
+                          range(len(UNIFORM_SCHEDULED_DEPARTURES))]
+            self.next_actual_departures = [sum(x) for x in zip(UNIFORM_SCHEDULED_DEPARTURES, dep_delays)]
+        else:
+            dep_delays = [max(random.uniform(DEP_DELAY_FROM, DEP_DELAY_TO), 0) for i in range(len(SCHEDULED_DEPARTURES))]
+            self.next_actual_departures = [sum(x) for x in zip(SCHEDULED_DEPARTURES, dep_delays)]
         self.next_trip_ids = deepcopy(ORDERED_TRIPS)
         self.time = START_TIME_SEC
         self.bus_idx = 0
@@ -314,16 +339,19 @@ class SimulationEnv:
         return
 
 
-def estimate_arrival_time(start_time, start_stop, end_stop):
+def estimate_arrival_time(start_time, start_stop, end_stop, time_dependent_tt):
     time_control = start_time
     start_stop_idx = STOPS.index(start_stop)
     end_stop_idx = STOPS.index(end_stop)
     for i in range(start_stop_idx, end_stop_idx):
         stop0 = STOPS[i]
         stop1 = STOPS[i + 1]
-        interv = get_interval(time_control, TIME_INTERVAL_LENGTH_MINS)
-        interv_idx = interv - TIME_START_INTERVAL
-        mean_runtime = LINK_TIMES_MEAN[stop0 + '-' + stop1][interv_idx]
+        if time_dependent_tt:
+            interv = get_interval(time_control, TIME_INTERVAL_LENGTH_MINS)
+            interv_idx = interv - TIME_START_INTERVAL
+            mean_runtime = LINK_TIMES_MEAN[stop0 + '-' + stop1][interv_idx]
+        else:
+            mean_runtime = SINGLE_LINK_TIMES_MEAN[stop0 + '-' + stop1]
         time_control += mean_runtime
         assert mean_runtime
     arrival_time = time_control
@@ -415,11 +443,14 @@ class SimulationEnvWithControl(SimulationEnv):
             # in case there is no trip before we can look at future departures which always exist
             # we look at scheduled departures and not actual which include distributed delays
             trip_idx = ORDERED_TRIPS.index(trip_id) + 1
-            dep_t = SCHEDULED_DEPARTURES[trip_idx]
+            if self.uniform_schedule:
+                dep_t = UNIFORM_SCHEDULED_DEPARTURES[trip_idx]
+            else:
+                dep_t = SCHEDULED_DEPARTURES[trip_idx]
             stop0 = STOPS[0]
             stop1 = stop_id
 
-        follow_trip_arrival_time = estimate_arrival_time(dep_t, stop0, stop1)
+        follow_trip_arrival_time = estimate_arrival_time(dep_t, stop0, stop1, self.time_dependent_travel_time)
         backward_headway = follow_trip_arrival_time - t
         if backward_headway < 0:
             backward_headway = 0
@@ -463,12 +494,16 @@ class SimulationEnvWithControl(SimulationEnv):
             return self.prep()
 
 
-def _compute_reward(action, fw_h, bw_h, trip_id, prev_bw_h, prev_fw_h):
+def _compute_reward(action, fw_h, bw_h, trip_id, prev_bw_h, prev_fw_h, is_headway_constant):
     trip_idx = ORDERED_TRIPS.index(trip_id)
     follow_trip_id = ORDERED_TRIPS[trip_idx + 1]
     lead_trip_id = ORDERED_TRIPS[trip_idx - 1]
-    planned_fw_h = PLANNED_HEADWAY[str(lead_trip_id) + '-' + str(trip_id)]
-    planned_bw_h = PLANNED_HEADWAY[str(trip_id) + '-' + str(follow_trip_id)]
+    if is_headway_constant:
+        planned_fw_h = CONSTANT_HEADWAY
+        planned_bw_h = CONSTANT_HEADWAY
+    else:
+        planned_fw_h = PLANNED_HEADWAY[str(lead_trip_id) + '-' + str(trip_id)]
+        planned_bw_h = PLANNED_HEADWAY[str(trip_id) + '-' + str(follow_trip_id)]
 
     # hw_diff0 = abs(prev_fw_h - prev_bw_h)
     # hw_diff1 = abs(fw_h - bw_h)
@@ -611,11 +646,14 @@ class SimulationEnvDeepRL(SimulationEnv):
             # in case there is no trip before we can look at future departures which always exist
             # we look at scheduled departures and not actual which include distributed delays
             trip_idx = ORDERED_TRIPS.index(trip_id) + 1
-            dep_t = SCHEDULED_DEPARTURES[trip_idx]
+            if self.uniform_schedule:
+                dep_t = UNIFORM_SCHEDULED_DEPARTURES[trip_idx]
+            else:
+                dep_t = SCHEDULED_DEPARTURES[trip_idx]
             stop0 = STOPS[0]
             stop1 = stop_id
 
-        follow_trip_arrival_time = estimate_arrival_time(dep_t, stop0, stop1)
+        follow_trip_arrival_time = estimate_arrival_time(dep_t, stop0, stop1, self.time_dependent_travel_time)
         backward_headway = follow_trip_arrival_time - t
         if backward_headway < 0:
             backward_headway = 0
@@ -628,7 +666,7 @@ class SimulationEnvDeepRL(SimulationEnv):
             previous_backward_headway = self.trips_sars[trip_id][-1][0][IDX_BW_H]
             prev_fw_h = self.trips_sars[trip_id][-1][0][IDX_FW_H]
             self.trips_sars[trip_id][-1][2] = _compute_reward(previous_action, forward_headway, backward_headway,
-                                                              trip_id, previous_backward_headway, prev_fw_h)
+                                                              trip_id, previous_backward_headway, prev_fw_h, self.uniform_schedule)
             self.trips_sars[trip_id][-1][3] = new_state
         if not self.bool_terminal_state:
             new_sars = [new_state, 0, 0, []]
@@ -636,8 +674,13 @@ class SimulationEnvDeepRL(SimulationEnv):
         return
 
     def reset_simulation(self):
-        dep_delays = [max(random.uniform(DEP_DELAY_FROM, DEP_DELAY_TO), 0) for i in range(len(SCHEDULED_DEPARTURES))]
-        self.next_actual_departures = [sum(x) for x in zip(SCHEDULED_DEPARTURES, dep_delays)]
+        if self.uniform_schedule:
+            dep_delays = [max(random.uniform(DEP_DELAY_FROM, DEP_DELAY_TO), 0) for i in
+                          range(len(UNIFORM_SCHEDULED_DEPARTURES))]
+            self.next_actual_departures = [sum(x) for x in zip(UNIFORM_SCHEDULED_DEPARTURES, dep_delays)]
+        else:
+            dep_delays = [max(random.uniform(DEP_DELAY_FROM, DEP_DELAY_TO), 0) for i in range(len(SCHEDULED_DEPARTURES))]
+            self.next_actual_departures = [sum(x) for x in zip(SCHEDULED_DEPARTURES, dep_delays)]
         self.next_trip_ids = deepcopy(ORDERED_TRIPS)
         self.time = START_TIME_SEC
         self.bus_idx = 0

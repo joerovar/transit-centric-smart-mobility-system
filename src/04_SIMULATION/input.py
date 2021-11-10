@@ -2,6 +2,7 @@ from pre_process import *
 from post_process import *
 from file_paths import *
 from constants import *
+from datetime import timedelta
 
 
 def extract_params():
@@ -79,9 +80,10 @@ def visualize_for_validation():
 
     ordered_trips_array = np.array(ordered_trips)
     scheduled_departures_array = np.array(scheduled_departures)
-    subset_ordered_trips = ordered_trips_array[(scheduled_departures_array >= FOCUS_START_TIME_SEC) & (
+    subset_ordered_trips = ordered_trips_array[(scheduled_departures_array >= START_TIME_SEC) & (
                 scheduled_departures_array <= FOCUS_END_TIME_SEC)].tolist()
-    historical_headway = get_historical_headway(path_stop_times, DATES, stops, subset_ordered_trips)
+    historical_headway = get_historical_headway(path_stop_times, DATES, stops, subset_ordered_trips,
+                                                FOCUS_START_TIME_SEC, FOCUS_END_TIME_SEC)
     plot_headway(path_historical_headway, historical_headway, stops)
 
     single_link_time_mean = {}
@@ -98,10 +100,21 @@ def visualize_for_validation():
 
 
 # extract_params()
-# visualize_for_validation()
+visualize_for_validation()
 
 STOPS, LINK_TIMES_MEAN, LINK_TIMES_SD, NR_TIME_DPOINTS, ORDERED_TRIPS, ARRIVAL_RATES, ALIGHT_FRACTIONS, SCHEDULED_DEPARTURES, INIT_HEADWAY = get_params()
 planned_headway_lst = [(j - i) for i, j in zip(SCHEDULED_DEPARTURES[:-1], SCHEDULED_DEPARTURES[1:])]
 planned_headway_lbls = [str(i) + '-' + str(j) for i, j in zip(ORDERED_TRIPS[:-1], ORDERED_TRIPS[1:])]
 PLANNED_HEADWAY = {i: j for i, j in zip(planned_headway_lbls, planned_headway_lst)}
 
+# FOR UNIFORM CONDITIONS: TO USE - SET TIME-DEPENDENT TRAVEL TIME AND DEMAND TO FALSE
+CONSTANT_HEADWAY = 270
+UNIFORM_SCHEDULED_DEPARTURES = [SCHEDULED_DEPARTURES[0] + CONSTANT_HEADWAY*i for i in range(len(SCHEDULED_DEPARTURES))]
+UNIFORM_INTERVAL = 1
+ARRIVAL_RATE = {key: value[UNIFORM_INTERVAL] for (key, value) in ARRIVAL_RATES.items()}
+SINGLE_LINK_TIMES_MEAN = {key: value[UNIFORM_INTERVAL] for (key, value) in LINK_TIMES_MEAN.items()}
+ALIGHT_FRACTION = {key: value[UNIFORM_INTERVAL] for (key, value) in ALIGHT_FRACTIONS.items()}
+
+# print([str(timedelta(seconds=i)) for i in SCHEDULED_DEPARTURES])
+# print(planned_headway_lst)
+# print(ORDERED_TRIPS)

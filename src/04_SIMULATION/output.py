@@ -17,6 +17,7 @@ dwell_time_filename = 'dwell_time_'
 
 def get_results(tstamps):
     trajectories_set = []
+    first_trip_id = ORDERED_TRIPS[0]
     for t in tstamps:
         # --------------------------------------------- TRAJECTORIES -----------------------
         path_trajectories_load = path_to_outs + dir_var + trajectories_filename + t + ext_var
@@ -36,7 +37,8 @@ def get_results(tstamps):
         t = tstamps[-1]
 
         headway_comb, wait_time_comb, wait_time_from_h_comb = get_headway_from_trajectory_set(trajectories_set,
-                                                                                              IDX_PICK, IDX_DENIED)
+                                                                                              IDX_PICK, IDX_DENIED,
+                                                                                              first_trip_id)
         stops_loc = post_process.get_stop_loc(path_stops_loc)
 
         # ------------------------------------------------ WAIT TIMES -----------------------------------------
@@ -54,7 +56,10 @@ def get_results(tstamps):
         path_dtimes_write = path_to_outs + dir_csv + dwell_time_filename + t + ext_csv
         path_dtimes_plot = path_to_outs + dir_figs + dwell_time_filename + t + ext_fig
 
-        ltimes_mean, ltimes_std, dtimes_mean, dtimes_std = post_process.travel_times_from_trajectory_set(trajectories_set, IDX_DEP_T, IDX_ARR_T)
+        ltimes_mean, ltimes_std, dtimes_mean, dtimes_std = post_process.travel_times_from_trajectory_set(trajectories_set,
+                                                                                                         IDX_DEP_T,
+                                                                                                         IDX_ARR_T,
+                                                                                                         first_trip_id)
 
         ltimes_lbl = ['mean', 'stdev']
         ltimes_x_y_lbls = ['stops', 'seconds']
@@ -73,7 +78,7 @@ def get_results(tstamps):
         # ------------------------------------------------ LOAD PROFILE ----------------------------------------
         mean_load_comb, std_load_comb, ons_comb, offs_comb = post_process.pax_per_trip_from_trajectory_set(
             trajectories_set, IDX_LOAD,
-            IDX_PICK, IDX_DROP)
+            IDX_PICK, IDX_DROP, first_trip_id)
 
         path_plot_load_profile_combined = path_to_outs + dir_figs + load_profile_filename + t + ext_fig
 
@@ -83,7 +88,8 @@ def get_results(tstamps):
                                        pathname=path_plot_load_profile_combined, x_y_lbls=load_labels)
 
         # ------------------------------------------------- DENIED BOARDINGS -----------------------------------
-        denied_boardings_comb = post_process.denied_from_trajectory_set(trajectories_set, IDX_DENIED, ons_comb)
+        denied_boardings_comb = post_process.denied_from_trajectory_set(trajectories_set, IDX_DENIED, ons_comb,
+                                                                        first_trip_id)
         path_plot_denied_boardings_combined = path_to_outs + dir_figs + denied_filename + t + ext_fig
 
         denied_labels = ['stop id', '1 in 1,000 pax']
@@ -96,6 +102,7 @@ def get_results(tstamps):
 def get_base_control_results(tstamps):
     # THINGS TO COMBINE
     trajectories_set = []
+    first_trip_id = ORDERED_TRIPS[0]
     for t in tstamps:
         # -------------------------------------------- TRAJECTORIES ---------------------------------------------
         path_trajectories_load = path_to_outs + dir_var + trajectories_filename + t + ext_var
@@ -115,7 +122,8 @@ def get_base_control_results(tstamps):
         t = tstamps[-1]
 
         headway_comb, wait_time_comb, wait_time_from_h_comb = get_headway_from_trajectory_set(trajectories_set,
-                                                                                              IDX_PICK, IDX_DENIED)
+                                                                                              IDX_PICK, IDX_DENIED,
+                                                                                              first_trip_id)
         stops_loc = post_process.get_stop_loc(path_stops_loc)
 
         # ------------------------------------------ WAIT TIMES ---------------------------------------------------
@@ -133,11 +141,11 @@ def get_base_control_results(tstamps):
         # ------------------------------------------ LINK TIMES ----------------------------------------------------
         path_ltimes_write = path_to_outs + dir_csv + link_time_filename + t + ext_csv
         path_ltimes_plot = path_to_outs + dir_figs + link_time_filename + t + ext_fig
-        path_dtimes_write = path_to_outs + dir_figs + dwell_time_filename + t + ext_csv
+        path_dtimes_write = path_to_outs + dir_csv + dwell_time_filename + t + ext_csv
         path_dtimes_plot = path_to_outs + dir_figs + dwell_time_filename + t + ext_fig
 
         ltimes_mean, ltimes_std, dtimes_mean, dtimes_std = post_process.travel_times_from_trajectory_set(
-            trajectories_set, IDX_DEP_T, IDX_ARR_T)
+            trajectories_set, IDX_DEP_T, IDX_ARR_T, first_trip_id)
 
         ltimes_lbl = ['mean', 'stdev']
         ltimes_x_y_lbls = ['stops', 'seconds']
@@ -146,8 +154,8 @@ def get_base_control_results(tstamps):
         post_process.plot_link_times(ltimes_mean, ltimes_std, STOPS, path_ltimes_plot, ltimes_lbl,
                                      x_y_lbls=ltimes_x_y_lbls, controlled_stops=CONTROLLED_STOPS)
         post_process.write_dwell_times(dtimes_mean, dtimes_std, stops_loc, path_dtimes_write, STOPS)
-        post_process.plot_dwell_times(dtimes_mean, dtimes_std, stops_loc, path_dtimes_plot, STOPS,
-                                      controlled_stops=CONTROLLED_STOPS)
+        post_process.plot_dwell_times(dtimes_mean, dtimes_std, STOPS, path_dtimes_plot, ltimes_lbl,
+                                      x_y_lbls=ltimes_x_y_lbls, controlled_stops=CONTROLLED_STOPS)
 
         # ------------------------------------------ HEADWAY ---------------------------------------------
 
@@ -159,7 +167,7 @@ def get_base_control_results(tstamps):
         # ------------------------------------------ LOAD PROFILE ------------------------------------------
         mean_load_comb, std_load_comb, ons_comb, offs_comb = post_process.pax_per_trip_from_trajectory_set(
             trajectories_set, IDX_LOAD,
-            IDX_PICK, IDX_DROP)
+            IDX_PICK, IDX_DROP, first_trip_id)
 
         path_plot_load_profile_combined = path_to_outs + dir_figs + load_profile_filename + t + ext_fig
 
@@ -169,7 +177,8 @@ def get_base_control_results(tstamps):
                                        controlled_stops=CONTROLLED_STOPS)
 
         # ---------------------------------------- DENIED BOARDINGS -----------------------------------------
-        denied_boardings_comb = post_process.denied_from_trajectory_set(trajectories_set, IDX_DENIED, ons_comb)
+        denied_boardings_comb = post_process.denied_from_trajectory_set(trajectories_set, IDX_DENIED, ons_comb,
+                                                                        first_trip_id)
 
         path_plot_denied_boardings_combined = path_to_outs + dir_figs + denied_filename + t + ext_fig
 
@@ -180,7 +189,8 @@ def get_base_control_results(tstamps):
         # ---------------------------------------- HOLD TIME ---------------------------------------------
         path_plot_holding_time_comb = path_to_outs + dir_figs + hold_time_filename + t + ext_fig
         path_plot_holding_time_distribution = path_to_outs + dir_figs + hold_time_distribution_filename + t + ext_fig
-        hold_time_comb, hold_time_all = post_process.hold_time_from_trajectory_set(trajectories_set, IDX_HOLD_TIME)
+        hold_time_comb, hold_time_all = post_process.hold_time_from_trajectory_set(trajectories_set, IDX_HOLD_TIME,
+                                                                                   first_trip_id, CONTROLLED_STOPS[:-1])
 
         post_process.plot_bar_chart(hold_time_comb, STOPS, path_plot_holding_time_comb,
                                     x_y_lbls=['stop id', 'seconds'], controlled_stops=CONTROLLED_STOPS)
@@ -193,6 +203,7 @@ def get_base_control_results(tstamps):
 def get_rl_results(tstamps):
     # THINGS TO COMBINE
     trajectories_set = []
+    first_trip_id = ORDERED_TRIPS[0]
     for t in tstamps:
         # ---------------------------------------- SARS ------------------------------------------------------
         path_sars = path_to_outs + dir_var + sars_record_filename + t + ext_var
@@ -216,7 +227,8 @@ def get_rl_results(tstamps):
     if len(tstamps) > 1:
         t = tstamps[-1]
         headway_comb, wait_time_comb, wait_time_from_h_comb = get_headway_from_trajectory_set(trajectories_set,
-                                                                                              IDX_PICK, IDX_DENIED)
+                                                                                              IDX_PICK, IDX_DENIED,
+                                                                                              first_trip_id)
         stops_loc = post_process.get_stop_loc(path_stops_loc)
 
         # ------------------------------------------ WAIT TIMES ---------------------------------------------------
@@ -234,11 +246,11 @@ def get_rl_results(tstamps):
         # ------------------------------------------ LINK/DWELL TIMES ----------------------------------------------
         path_ltimes_write = path_to_outs + dir_csv + link_time_filename + t + ext_csv
         path_ltimes_plot = path_to_outs + dir_figs + link_time_filename + t + ext_fig
-        path_dtimes_write = path_to_outs + dir_figs + dwell_time_filename + t + ext_csv
+        path_dtimes_write = path_to_outs + dir_csv + dwell_time_filename + t + ext_csv
         path_dtimes_plot = path_to_outs + dir_figs + dwell_time_filename + t + ext_fig
 
         ltimes_mean, ltimes_std, dtimes_mean, dtimes_std = post_process.travel_times_from_trajectory_set(
-            trajectories_set, IDX_DEP_T, IDX_ARR_T)
+            trajectories_set, IDX_DEP_T, IDX_ARR_T, first_trip_id)
 
         ltimes_lbl = ['mean', 'stdev']
         ltimes_x_y_lbls = ['stops', 'seconds']
@@ -247,8 +259,8 @@ def get_rl_results(tstamps):
         post_process.plot_link_times(ltimes_mean, ltimes_std, STOPS, path_ltimes_plot, ltimes_lbl,
                                      x_y_lbls=ltimes_x_y_lbls, controlled_stops=CONTROLLED_STOPS)
         post_process.write_dwell_times(dtimes_mean, dtimes_std, stops_loc, path_dtimes_write, STOPS)
-        post_process.plot_dwell_times(dtimes_mean, dtimes_std, stops_loc, path_dtimes_plot, STOPS,
-                                      controlled_stops=CONTROLLED_STOPS)
+        post_process.plot_dwell_times(dtimes_mean, dtimes_std, STOPS, path_dtimes_plot, ltimes_lbl,
+                                      x_y_lbls=ltimes_x_y_lbls, controlled_stops=CONTROLLED_STOPS)
 
         # ------------------------------------------ HEADWAY ---------------------------------------------
 
@@ -260,7 +272,7 @@ def get_rl_results(tstamps):
         # ------------------------------------------ LOAD PROFILE ------------------------------------------
         mean_load_comb, std_load_comb, ons_comb, offs_comb = post_process.pax_per_trip_from_trajectory_set(
             trajectories_set, IDX_LOAD,
-            IDX_PICK, IDX_DROP)
+            IDX_PICK, IDX_DROP, first_trip_id)
 
         path_plot_load_profile_combined = path_to_outs + dir_figs + load_profile_filename + t + ext_fig
 
@@ -270,7 +282,8 @@ def get_rl_results(tstamps):
                                        controlled_stops=CONTROLLED_STOPS)
 
         # ---------------------------------------- DENIED BOARDINGS -----------------------------------------
-        denied_boardings_comb = post_process.denied_from_trajectory_set(trajectories_set, IDX_DENIED, ons_comb)
+        denied_boardings_comb = post_process.denied_from_trajectory_set(trajectories_set, IDX_DENIED, ons_comb,
+                                                                        first_trip_id)
 
         path_plot_denied_boardings_combined = path_to_outs + dir_figs + denied_filename + t + ext_fig
 
@@ -281,7 +294,8 @@ def get_rl_results(tstamps):
         # ---------------------------------------- HOLDING TIME ---------------------------------------------
         path_plot_holding_time_comb = path_to_outs + dir_figs + hold_time_filename + t + ext_fig
         path_plot_hold_time_distribution = path_to_outs + dir_figs + hold_time_distribution_filename + t + ext_fig
-        hold_time_comb, hold_time_all = post_process.hold_time_from_trajectory_set(trajectories_set, IDX_HOLD_TIME)
+        hold_time_comb, hold_time_all = post_process.hold_time_from_trajectory_set(trajectories_set, IDX_HOLD_TIME,
+                                                                                   first_trip_id, CONTROLLED_STOPS[:-1])
         post_process.plot_bar_chart(hold_time_comb, STOPS, path_plot_holding_time_comb,
                                     x_y_lbls=['stop id', 'seconds'], controlled_stops=CONTROLLED_STOPS)
         post_process.plot_histogram(hold_time_all, path_plot_hold_time_distribution)
