@@ -25,7 +25,6 @@ class SimulationEnv:
         self.last_stop = []
         self.next_stop = []
         self.dep_t = []
-        self.terminal_dep_t = []
         self.arr_t = []
         self.offs = []
         self.ons = []
@@ -51,7 +50,7 @@ class SimulationEnv:
     def create_trip(self):
         trip_file = [
             self.next_instance_time, self.last_stop, self.next_stop, self.load,
-            self.dep_t, self.arr_t, self.terminal_dep_t, self.ons, self.offs, self.denied
+            self.dep_t, self.arr_t, self.ons, self.offs, self.denied
         ]
         for tf in trip_file:
             tf.append(0)
@@ -60,7 +59,7 @@ class SimulationEnv:
     def remove_trip(self):
         trip_file = [
             self.active_trips, self.next_instance_time, self.last_stop, self.next_stop, self.load,
-            self.dep_t, self.arr_t, self.terminal_dep_t, self.ons, self.offs, self.denied
+            self.dep_t, self.arr_t, self.ons, self.offs, self.denied
         ]
         for tf in trip_file:
             tf.pop(self.bus_idx)
@@ -213,7 +212,6 @@ class SimulationEnv:
         s = self.last_stop[i]
         self.arr_t[i] = self.time
         self.dep_t[i] = self.time
-        self.terminal_dep_t[i] = self.time
         last_bus_time = self.last_bus_time[s]
         if last_bus_time:
             headway = self.dep_t[i] - last_bus_time
@@ -287,7 +285,6 @@ class SimulationEnv:
         self.offs = []
         self.ons = []
         self.denied = []
-        self.terminal_dep_t = []
         self.event_type = 0
         # stop-level data
         for s in STOPS:
@@ -696,7 +693,6 @@ class SimulationEnvDeepRL(SimulationEnv):
         self.offs = []
         self.ons = []
         self.denied = []
-        self.terminal_dep_t = []
         self.event_type = 0
 
         # stop-level data

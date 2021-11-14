@@ -22,14 +22,15 @@ def extract_params():
                                                                                       FOCUS_END_TIME_SEC)
 
     # arrival rates will be in pax/min
-    arrival_rates, alight_fractions, alight_rates, dep_vol = get_demand(path_od, stops, PREV_DEM_NR_INTERVALS,
-                                                                        PREV_DEM_START_INTERVAL, DEM_NR_INTERVALS,
-                                                                        DEM_INTERVAL_LENGTH_MINS)
+    arrival_rates, alight_fractions, alight_rates, dep_vol, odt = get_demand(path_od, stops, PREV_DEM_NR_INTERVALS,
+                                                                             PREV_DEM_START_INTERVAL, DEM_NR_INTERVALS,
+                                                                             DEM_INTERVAL_LENGTH_MINS)
 
     # SCHEDULE: DISPATCHING TIMES, STOP TIMES FROM BEGINNING OF ROUTE
     # SCHEDULED_DEPARTURES = read_scheduled_departures(path_dispatching_times)
     scheduled_departures = get_dispatching_from_gtfs(path_ordered_dispatching, ordered_trips)
 
+    save(path_odt_xtr, odt)
     save(path_alight_rates, alight_rates)
     save(path_dep_volume, dep_vol)
     save(path_route_stops, stops)
@@ -53,8 +54,9 @@ def get_params():
     alight_fractions = load(path_alight_fractions)
     scheduled_departures = load(path_departure_times_xtr)
     init_headway = scheduled_departures[1] - scheduled_departures[0]
+    odt = load(path_odt_xtr)
     # initial headway helps calculate loads for the first trip
-    return stops, link_times_mean, link_times_sd, nr_time_dpoints, ordered_trips, arrival_rates, alight_fractions, scheduled_departures, init_headway
+    return stops, link_times_mean, link_times_sd, nr_time_dpoints, ordered_trips, arrival_rates, alight_fractions, scheduled_departures, init_headway, odt
 
 
 def visualize_for_validation():
@@ -81,7 +83,7 @@ def visualize_for_validation():
     ordered_trips_array = np.array(ordered_trips)
     scheduled_departures_array = np.array(scheduled_departures)
     subset_ordered_trips = ordered_trips_array[(scheduled_departures_array >= START_TIME_SEC) & (
-                scheduled_departures_array <= FOCUS_END_TIME_SEC)].tolist()
+            scheduled_departures_array <= FOCUS_END_TIME_SEC)].tolist()
     historical_headway = get_historical_headway(path_stop_times, DATES, stops, subset_ordered_trips,
                                                 FOCUS_START_TIME_SEC, FOCUS_END_TIME_SEC)
     plot_headway(path_historical_headway, historical_headway, stops)
@@ -102,14 +104,15 @@ def visualize_for_validation():
 # extract_params()
 # visualize_for_validation()
 
-STOPS, LINK_TIMES_MEAN, LINK_TIMES_SD, NR_TIME_DPOINTS, ORDERED_TRIPS, ARRIVAL_RATES, ALIGHT_FRACTIONS, SCHEDULED_DEPARTURES, INIT_HEADWAY = get_params()
+STOPS, LINK_TIMES_MEAN, LINK_TIMES_SD, NR_TIME_DPOINTS, ORDERED_TRIPS, ARRIVAL_RATES, ALIGHT_FRACTIONS, SCHEDULED_DEPARTURES, INIT_HEADWAY, ODT = get_params()
 planned_headway_lst = [(j - i) for i, j in zip(SCHEDULED_DEPARTURES[:-1], SCHEDULED_DEPARTURES[1:])]
 planned_headway_lbls = [str(i) + '-' + str(j) for i, j in zip(ORDERED_TRIPS[:-1], ORDERED_TRIPS[1:])]
 PLANNED_HEADWAY = {i: j for i, j in zip(planned_headway_lbls, planned_headway_lst)}
 
 # FOR UNIFORM CONDITIONS: TO USE - SET TIME-DEPENDENT TRAVEL TIME AND DEMAND TO FALSE
 CONSTANT_HEADWAY = 270
-UNIFORM_SCHEDULED_DEPARTURES = [SCHEDULED_DEPARTURES[0] + CONSTANT_HEADWAY*i for i in range(len(SCHEDULED_DEPARTURES))]
+UNIFORM_SCHEDULED_DEPARTURES = [SCHEDULED_DEPARTURES[0] + CONSTANT_HEADWAY * i for i in
+                                range(len(SCHEDULED_DEPARTURES))]
 UNIFORM_INTERVAL = 1
 ARRIVAL_RATE = {key: value[UNIFORM_INTERVAL] for (key, value) in ARRIVAL_RATES.items()}
 SINGLE_LINK_TIMES_MEAN = {key: value[UNIFORM_INTERVAL] for (key, value) in LINK_TIMES_MEAN.items()}

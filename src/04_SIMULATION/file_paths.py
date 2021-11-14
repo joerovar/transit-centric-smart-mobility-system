@@ -34,6 +34,7 @@ path_alight_fractions = path_to_ins + 'xtr/' + dir_project + 'alight_fractions' 
 path_departure_times_xtr = path_to_ins + 'xtr/' + dir_project + 'departure_times' + '.pkl'
 path_alight_rates = path_to_ins + 'xtr/' + dir_project + 'alight_rates' + '.pkl'
 path_dep_volume = path_to_ins + 'xtr/' + dir_project + 'dep_vol' + '.pkl'
+path_odt_xtr = path_to_ins + 'xtr/' + dir_project + 'odt' + '.pkl'
 
 # VISUALIZE NETWORK PARAMS
 

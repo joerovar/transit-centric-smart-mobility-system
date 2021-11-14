@@ -135,11 +135,20 @@ def get_demand(path, stops, nr_intervals, start_interval, new_nr_intervals, new_
     arr_rates = {}
     drop_rates = {}
     alight_fractions = {}
-    # first we turn it into an OD matrix
     od_pairs = pd.read_csv(path)
     viable_dest = {}
     viable_orig = {}
     grouping = int(nr_intervals / new_nr_intervals)
+    od_set = np.zeros(shape=(new_nr_intervals, len(stops), len(stops)))
+    for i in range(len(stops)):
+        for j in range(i+1, len(stops)):
+            pax_df = od_pairs[od_pairs['BOARDING_STOP'].astype(str).str[:-2] == stops[i]].reset_index()
+            pax_df = od_pairs[od_pairs['INFERRED_ALIGHTING_GTFS_STOP'].astype(str).str[:-2] == stops[j]]
+            for i in range(start_interval, start_interval + nr_intervals, grouping):
+                temp_pax = 0
+                for j in range(i, i + grouping):
+                    temp_pax += sum(pax_df[pax_df['bin_5'] == j]['mean'].tolist())
+
     # since stops are ordered, stop n is allowed to pair with stop n+1 until N
     for i in range(len(stops)):
         if i == 0:
@@ -182,7 +191,7 @@ def get_demand(path, stops, nr_intervals, start_interval, new_nr_intervals, new_
             prev_vol[j] = pv + a - d
             j += 1
         dep_vol[stops[i]] = deepcopy(prev_vol)
-    return arr_rates, alight_fractions, drop_rates, dep_vol
+    return arr_rates, alight_fractions, drop_rates, dep_vol, od_set
 
 
 def read_scheduled_departures(path):
