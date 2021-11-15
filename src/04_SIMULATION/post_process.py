@@ -21,7 +21,8 @@ def write_trajectories(trip_data, pathname, header=None):
     return
 
 
-def plot_headway(pathname, hs, ordered_stops, controlled_stops=None):
+def plot_headway(pathname, hs, ordered_stops, controlled_stops=None, min_size_for_cv=2, hw_scale=(200, 340, 20),
+                 cv_scale=(0,1,0.1)):
     x = []
     y1 = []
     y2 = []
@@ -29,22 +30,25 @@ def plot_headway(pathname, hs, ordered_stops, controlled_stops=None):
         s = ordered_stops[i]
         if s in hs:
             h = hs[s]
-            mean = np.array(h).mean()
-            std = np.array(h).std()
-            x.append(i)
-            y1.append(std/mean) if mean else y1.append(0)
-            y2.append(mean)
-
+            if len(h) > min_size_for_cv:
+                mean = np.array(h).mean()
+                std = np.array(h).std()
+                cv = std/mean
+                x.append(i)
+                y1.append(cv) if mean else y1.append(0)
+                y2.append(mean)
     fig, ax1 = plt.subplots()
     color = 'tab:red'
     ax1.set_xlabel('stop id')
     ax1.set_ylabel('coefficient of variation', color=color)
     ax1.plot(x, y1, color=color)
+    ax1.set_yticks(np.arange(cv_scale[0], cv_scale[1]+cv_scale[2], cv_scale[2]))
     ax1.tick_params(axis='y', labelcolor=color)
     ax2 = ax1.twinx()
     color = 'tab:blue'
     ax2.set_ylabel('mean headway (seconds)', color=color)
     ax2.plot(x, y2, color=color)
+    ax2.set_yticks(np.arange(hw_scale[0], hw_scale[1]+hw_scale[2], hw_scale[2]))
     ax2.tick_params(axis='y', labelcolor=color)
 
     if controlled_stops:
@@ -553,7 +557,8 @@ def load(pathname):
     return var
 
 
-def get_historical_headway(pathname, dates, all_stops, trips, start_time, end_time, early_departure=1*60):
+def get_historical_headway(pathname, dates, all_stops, trips, start_time, end_time, early_departure=0.5*60,
+                           sch_dev_tolerance=6*60):
     whole_df = pd.read_csv(pathname)
     df_period = whole_df[whole_df['trip_id'].isin(trips)]
     headway = {}
@@ -567,14 +572,16 @@ def get_historical_headway(pathname, dates, all_stops, trips, start_time, end_ti
                 t2_df = df_stop[df_stop['trip_id'] == j]
                 t1_df = df_stop[df_stop['trip_id'] == i]
                 if (not t1_df.empty) & (not t2_df.empty):
-                    t1_avl = float(t1_df['avl_sec'])
-                    t2_avl = float(t2_df['avl_sec'])
+                    t1_avl = float(t1_df['avl_sec']) % 86400
+                    t2_avl = float(t2_df['avl_sec']) % 86400
                     t1_schd = float(t1_df['schd_sec'])
                     t2_schd = float(t2_df['schd_sec'])
                     condition1 = s == all_stops[0]
-                    condition2 = t1_schd - t1_avl < early_departure or t2_schd - t2_avl < early_departure
+                    condition2 = t1_schd - t1_avl > early_departure or t2_schd - t2_avl > early_departure
+                    sch_dev_condition = abs(t1_schd - t1_avl) > sch_dev_tolerance or abs(t2_schd-t2_avl) > sch_dev_tolerance
                     faulty = condition1 and condition2
-                    if not faulty:
+
+                    if not faulty and not sch_dev_condition:
                         hw = t2_avl - t1_avl
                         if s in headway:
                             headway[s].append(hw)

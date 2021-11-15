@@ -13,14 +13,6 @@ import post_process
 import datetime
 from scipy.stats import lognorm
 
-CV = 0.15
-LOGN_S = np.sqrt(np.log(np.power(CV, 2) + 1))
-s = LOGN_S
-mean_runtime1 = 81
-runtime = lognorm.rvs(s, scale=mean_runtime1, size=20)
-print(runtime)
-print(runtime.std())
-mean_runtime2 = 30
-runtime2 = lognorm.rvs(s, scale=mean_runtime2, size=20)
-print(runtime2)
-print(runtime2.std())
+t = [1, 2, 3, 4, 5]
+c = [(i,j) for i,j in zip(t,t[1:])]
+print(c)
