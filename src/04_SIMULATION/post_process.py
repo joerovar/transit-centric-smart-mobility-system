@@ -603,4 +603,13 @@ def get_input_boardings(arrival_rates, dem_interval_len_min, start_time_sec, end
     return aggregated_boardings
 
 
+def plot_od(od, pathname=None):
+    plt.imshow(od, cmap='hot', interpolation='nearest')
+    if pathname:
+        plt.savefig(pathname)
+    else:
+        plt.show()
+    plt.close()
+    return
+
 

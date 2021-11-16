@@ -6,9 +6,9 @@ import matplotlib.pyplot as plt
 from copy import deepcopy
 
 
-def get_interval(t, len_i):
+def get_interval(t, len_i_mins):
     # t is in seconds and len_i in minutes
-    interval = int(t/(len_i*60))
+    interval = int(t/(len_i_mins*60))
     return interval
 
 
@@ -140,14 +140,20 @@ def get_demand(path, stops, nr_intervals, start_interval, new_nr_intervals, new_
     viable_orig = {}
     grouping = int(nr_intervals / new_nr_intervals)
     od_set = np.zeros(shape=(new_nr_intervals, len(stops), len(stops)))
+
     for i in range(len(stops)):
         for j in range(i+1, len(stops)):
             pax_df = od_pairs[od_pairs['BOARDING_STOP'].astype(str).str[:-2] == stops[i]].reset_index()
-            pax_df = od_pairs[od_pairs['INFERRED_ALIGHTING_GTFS_STOP'].astype(str).str[:-2] == stops[j]]
-            for i in range(start_interval, start_interval + nr_intervals, grouping):
+            pax_df = pax_df[pax_df['INFERRED_ALIGHTING_GTFS_STOP'].astype(str).str[:-2] == stops[j]].reset_index()
+            counter = 0
+            for k in range(start_interval, start_interval + nr_intervals, grouping):
                 temp_pax = 0
-                for j in range(i, i + grouping):
-                    temp_pax += sum(pax_df[pax_df['bin_5'] == j]['mean'].tolist())
+                for m in range(k, k + grouping):
+                    mean_interval_pax = pax_df[pax_df['bin_5'] == m]['mean']
+                    if not mean_interval_pax.empty:
+                        temp_pax += float(mean_interval_pax)
+                od_set[counter, i, j] = temp_pax * 60 / new_interval_length # pax per hr
+                counter += 1
 
     # since stops are ordered, stop n is allowed to pair with stop n+1 until N
     for i in range(len(stops)):

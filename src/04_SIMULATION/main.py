@@ -143,7 +143,7 @@ if __name__ == '__main__':
             post_process.save(path_trajectories, env.trajectories)
             post_process.save(path_sars, env.trips_sars)
 
-        output.get_rl_results(tstamps)
+        load_mean = output.get_rl_results(tstamps)
 
         fw_headway_scenarios = np.array([320, 310, 300, 290, 280, 270, 260, 250, 240, 230, 220])
         bw_headway_scenarios = np.flip(fw_headway_scenarios, axis=0)
@@ -153,9 +153,8 @@ if __name__ == '__main__':
 
         for i in range(fw_headway_scenarios.size):
             for j in range(route_progress_scenarios.size):
-                obs = np.array(
-                    [route_progress_scenarios[j], bus_load, fw_headway_scenarios[i], bw_headway_scenarios[i]],
-                    dtype=np.float32)
+                obs = np.array([route_progress_scenarios[j], load_mean[CONTROLLED_STOPS[j]],
+                                fw_headway_scenarios[i], bw_headway_scenarios[i]], dtype=np.float32)
                 action_grid[i, j] = agent.choose_action(obs)
 
         fig, ax = plt.subplots()

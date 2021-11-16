@@ -300,7 +300,7 @@ def get_rl_results(tstamps):
                                     x_y_lbls=['stop id', 'seconds'], controlled_stops=CONTROLLED_STOPS)
         post_process.plot_histogram(hold_time_all, path_plot_hold_time_distribution)
 
-    return
+    return mean_load_comb
 
 
 def access_past_results(path_dir_load, vartype, tstamp_contained, path_dir_save):

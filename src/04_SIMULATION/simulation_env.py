@@ -3,6 +3,7 @@ import numpy as np
 from scipy.stats import lognorm
 import random
 from copy import deepcopy
+from classes_simul import Passenger, Stop
 
 
 def get_interval(t, interval_length):
@@ -744,3 +745,202 @@ class SimulationEnvDeepRL(SimulationEnv):
         if self.event_type == 0:
             self.terminal_departure()
             return self.prep()
+
+
+class DetailedSimulationEnv(SimulationEnv):
+    def __init__(self, *args, **kwargs):
+        super(DetailedSimulationEnv, self).__init__(*args, **kwargs)
+        self.stops = []
+
+    def reset_simulation(self):
+        if self.uniform_schedule:
+            dep_delays = [max(random.uniform(DEP_DELAY_FROM, DEP_DELAY_TO), 0) for i in
+                          range(len(UNIFORM_SCHEDULED_DEPARTURES))]
+            self.next_actual_departures = [sum(x) for x in zip(UNIFORM_SCHEDULED_DEPARTURES, dep_delays)]
+        else:
+            dep_delays = [max(random.uniform(DEP_DELAY_FROM, DEP_DELAY_TO), 0) for i in range(len(SCHEDULED_DEPARTURES))]
+            self.next_actual_departures = [sum(x) for x in zip(SCHEDULED_DEPARTURES, dep_delays)]
+        self.next_trip_ids = deepcopy(ORDERED_TRIPS)
+        self.time = START_TIME_SEC
+        self.bus_idx = 0
+
+        # trip-level data
+        self.next_instance_time = []
+        self.active_trips = []
+        self.last_stop = []
+        self.next_stop = []
+        self.load = []
+        self.dep_t = []
+        self.arr_t = []
+        self.offs = []
+        self.ons = []
+        self.denied = []
+        self.event_type = 0
+        # stop-level data
+        for s in STOPS:
+            self.last_bus_time[s] = []
+            self.track_denied_boardings[s] = 0
+
+        # for records
+        self.trajectories = {}
+        for i in self.next_trip_ids:
+            self.trajectories[i] = []
+
+        # initialize passenger demand
+        for i in range(len(STOPS)):
+            self.stops.append(Stop(STOPS[i]))
+            for j in range(i + 1, len(STOPS)):
+                for k in range(DEM_START_INTERVAL, DEM_END_INTERVAL + 1):
+                    start_edge_interval = k * DEM_INTERVAL_LENGTH_MINS * 60
+                    end_edge_interval = start_edge_interval + DEM_INTERVAL_LENGTH_MINS * 60
+                    od_rate = ODT[k - DEM_START_INTERVAL, i, j]
+                    max_size = int(od_rate * (DEM_INTERVAL_LENGTH_MINS / 60) * 3)
+                    temp_pax_interarr_times = np.random.exponential(3600 / od_rate, size=max_size)
+                    temp_pax_arr_times = np.cumsum(temp_pax_interarr_times)
+                    if k == DEM_START_INTERVAL:
+                        temp_pax_arr_times += pax_initialize_time[i]
+                    else:
+                        temp_pax_arr_times += max(start_edge_interval, pax_initialize_time[i])
+                    temp_pax_arr_times = temp_pax_arr_times[temp_pax_arr_times <= min(FOCUS_END_TIME_SEC, end_edge_interval)]
+                    for t in temp_pax_arr_times:
+                        self.stops[i].passengers.append(Passenger(i, j, t))
+        return False
+
+    def get_arrivals_start(self, headway):
+        i = self.bus_idx
+        stop = self.last_stop[i]
+        if self.time_dependent_demand:
+            arrival_rates = ARRIVAL_RATES[stop]
+            inter = get_interval(self.time, DEM_INTERVAL_LENGTH_MINS)
+            e_pax = (arrival_rates[inter - DEM_START_INTERVAL] / 60) * headway / 60
+        else:
+            arrival_rate = ARRIVAL_RATE[stop]
+            e_pax = (arrival_rate / 60) * headway / 60
+        pax_at_stop = np.random.poisson(lam=e_pax)
+        return pax_at_stop
+
+    def get_pax_arrivals(self, headway, last_arrival_t):
+        i = self.bus_idx
+        stop = self.last_stop[i]
+        if self.time_dependent_demand:
+            arrival_rates = ARRIVAL_RATES[stop]
+            e_pax = 0
+            t = last_arrival_t
+            t2 = last_arrival_t + headway
+            while t < t2:
+                inter = get_interval(t, DEM_INTERVAL_LENGTH_MINS)
+                edge = (inter + 1) * 60 * DEM_INTERVAL_LENGTH_MINS
+                e_pax += (arrival_rates[inter - DEM_START_INTERVAL] / 60) * ((min(edge, t2) - t) / 60)
+                t = min(edge, t2)
+        else:
+            arrival_rate = ARRIVAL_RATE[stop]
+            e_pax = (arrival_rate / 60) * headway / 60
+        pax_arrivals = np.random.poisson(lam=e_pax)
+        return pax_arrivals
+
+    def get_offs(self):
+        i = self.bus_idx
+        stop = self.last_stop[i]
+        if self.time_dependent_demand:
+            interv = get_interval(self.time, DEM_INTERVAL_LENGTH_MINS)
+            interv_idx = interv - DEM_START_INTERVAL
+            offs = int(round(ALIGHT_FRACTIONS[stop][interv_idx] * self.load[i]))
+        else:
+            offs = int(round(ALIGHT_FRACTION[stop] * self.load[i]))
+        return offs
+
+    def fixed_stop_unload(self):
+        i = self.bus_idx
+        curr_stop_idx = STOPS.index(self.next_stop[i])
+        self.last_stop[i] = STOPS[curr_stop_idx]
+        self.next_stop[i] = STOPS[curr_stop_idx + 1]
+        self.arr_t[i] = self.time
+
+        self.offs[i] = self.get_offs()
+        self.load[i] -= self.offs[i]
+        return
+
+    def fixed_stop_arrivals(self):
+        i = self.bus_idx
+        bus_load = self.load[i]
+        s = self.last_stop[i]
+        last_bus_time = self.last_bus_time[s]
+        assert bus_load >= 0
+        if last_bus_time:
+            headway = self.time - last_bus_time
+            if headway < 0:
+                headway = 0
+            p_arrivals = self.get_pax_arrivals(headway, last_bus_time)
+            prev_denied = self.track_denied_boardings[s]
+        else:
+            headway = INIT_HEADWAY
+            p_arrivals = self.get_arrivals_start(headway)
+            prev_denied = 0
+        pax_at_stop = p_arrivals + prev_denied
+        allowed = CAPACITY - bus_load
+        self.ons[i] = min(allowed, pax_at_stop)
+        self.denied[i] = pax_at_stop - self.ons[i]
+        self.track_denied_boardings[s] = self.denied[i]
+        return
+
+    def fixed_stop_depart(self):
+        i = self.bus_idx
+        ons = self.ons[i]
+        offs = self.offs[i]
+        denied = self.denied[i]
+        s = self.last_stop[i]
+
+        dwell_time = ACC_DEC_TIME + max(ons * BOARDING_TIME, offs * ALIGHTING_TIME)
+        # herein we zero dwell time if no passengers boarded
+        dwell_time = (ons + offs > 0) * dwell_time
+
+        self.load[i] += ons
+        self.dep_t[i] = self.time + dwell_time
+
+        if self.no_overtake_policy and self.last_bus_time[s]:
+            self.dep_t[i] = max(self.last_bus_time[s], self.dep_t[i])
+        self.last_bus_time[s] = self.dep_t[i]
+
+        runtime = self.get_travel_time()
+        self.next_instance_time[i] = self.dep_t[i] + runtime
+        if self.no_overtake_policy:
+            self.next_instance_time[i] = self.no_overtake()
+        self.record_trajectories(pickups=ons, offs=offs, denied_board=denied)
+        return
+
+    def terminal_departure(self):
+        # first create file for trip
+        i = self.bus_idx
+        self.create_trip()
+        self.last_stop[i] = STOPS[0]
+        self.next_stop[i] = STOPS[1]
+        s = self.last_stop[i]
+        self.arr_t[i] = self.time
+        self.dep_t[i] = self.time
+        last_bus_time = self.last_bus_time[s]
+        if last_bus_time:
+            headway = self.dep_t[i] - last_bus_time
+            boardings = self.get_pax_arrivals(headway, last_bus_time)
+        else:
+            headway = INIT_HEADWAY
+            boardings = self.get_arrivals_start(headway)
+        self.load[i] += boardings
+        self.record_trajectories(pickups=boardings)
+        self.last_bus_time[s] = self.dep_t[i]
+        runtime = self.get_travel_time()
+        self.next_instance_time[i] = self.dep_t[i] + runtime
+        if self.no_overtake_policy:
+            self.next_instance_time[i] = self.no_overtake()
+        return
+
+    def terminal_arrival(self):
+        i = self.bus_idx
+        self.arr_t[i] = self.time
+        offs = self.load[i]
+        self.load[i] = 0
+        self.last_stop[i] = self.next_stop[i]
+        self.dep_t[i] = self.arr_t[i]
+        self.record_trajectories(offs=offs)
+        # delete record of trip
+        self.remove_trip()
+        return

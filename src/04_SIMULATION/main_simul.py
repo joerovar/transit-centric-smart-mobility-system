@@ -1,5 +1,5 @@
 import output
-import simulation_env
+from simulation_env import SimulationEnv, SimulationEnvWithControl, DetailedSimulationEnv
 from file_paths import *
 import post_process
 from datetime import datetime
@@ -10,7 +10,7 @@ st = time.time()
 def run_base(episodes=1, save=False, plot=False, time_dep_tt=True, time_dep_dem=True):
     tstamps = []
     for i in range(episodes):
-        env = simulation_env.SimulationEnv(time_dependent_travel_time=time_dep_tt, time_dependent_demand=time_dep_dem)
+        env = SimulationEnv(time_dependent_travel_time=time_dep_tt, time_dependent_demand=time_dep_dem)
         done = env.reset_simulation()
         while not done:
             done = env.prep()
@@ -21,13 +21,13 @@ def run_base(episodes=1, save=False, plot=False, time_dep_tt=True, time_dep_dem=
             post_process.save(path_trajectories, env.trajectories)
     if plot:
         output.get_results(tstamps)
+    return
 
 
 def run_base_control(episodes=1, save=False, plot=False, time_dep_tt=True, time_dep_dem=True):
     tstamps = []
     for i in range(episodes):
-        env = simulation_env.SimulationEnvWithControl(time_dependent_travel_time=time_dep_tt,
-                                                      time_dependent_demand=time_dep_dem)
+        env = SimulationEnvWithControl(time_dependent_travel_time=time_dep_tt, time_dependent_demand=time_dep_dem)
         done = env.reset_simulation()
         while not done:
             done = env.prep()
@@ -38,8 +38,15 @@ def run_base_control(episodes=1, save=False, plot=False, time_dep_tt=True, time_
             post_process.save(path_trajectories, env.trajectories)
     if plot:
         output.get_base_control_results(tstamps)
+    return
 
 
-run_base_control(episodes=6, save=True, plot=True)
+def run_base_detailed(episodes=1, save=False, plot=False, time_dep_tt=True, time_dep_dem=True):
+    env = DetailedSimulationEnv(time_dependent_travel_time=time_dep_tt, time_dependent_demand=time_dep_dem)
+    done = env.reset_simulation()
+    return
+
+
+run_base_detailed()
 
 print("ran in %.2f seconds" % (time.time()-st))
