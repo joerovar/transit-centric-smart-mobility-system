@@ -1,9 +1,11 @@
+import pandas as pd
+
 from input import *
 import numpy as np
 from scipy.stats import lognorm
 import random
 from copy import deepcopy
-from classes_simul import Passenger, Stop
+from classes_simul import Passenger, Stop, Trip
 
 
 def get_interval(t, interval_length):
@@ -187,7 +189,7 @@ class SimulationEnv:
         s = self.last_stop[i]
 
         dwell_time = ACC_DEC_TIME + max(ons * BOARDING_TIME, offs * ALIGHTING_TIME)
-        # herein we zero dwell time if no passengers boarded
+        # herein we zero dwell time if no pax boarded
         dwell_time = (ons + offs > 0) * dwell_time
 
         self.load[i] += ons
@@ -406,7 +408,7 @@ class SimulationEnvWithControl(SimulationEnv):
             dwell_time = max(hold, dwell_time_pax)
         else:
             dwell_time = ACC_DEC_TIME + max(ons * BOARDING_TIME, offs * ALIGHTING_TIME)
-            # herein we zero dwell time if no passengers boarded
+            # herein we zero dwell time if no pax boarded
             dwell_time = (ons + offs > 0) * dwell_time
 
         self.load[i] += ons
@@ -606,7 +608,7 @@ class SimulationEnvDeepRL(SimulationEnv):
             dwell_time = max(hold, dwell_time_pax)
         else:
             dwell_time = ACC_DEC_TIME + max(ons * BOARDING_TIME, offs * ALIGHTING_TIME)
-            # herein we zero dwell time if no passengers boarded
+            # herein we zero dwell time if no pax boarded
             dwell_time = (ons + offs > 0) * dwell_time
 
         self.load[i] += ons
@@ -751,6 +753,7 @@ class DetailedSimulationEnv(SimulationEnv):
     def __init__(self, *args, **kwargs):
         super(DetailedSimulationEnv, self).__init__(*args, **kwargs)
         self.stops = []
+        self.trips = []
 
     def reset_simulation(self):
         if self.uniform_schedule:
@@ -786,9 +789,17 @@ class DetailedSimulationEnv(SimulationEnv):
         for i in self.next_trip_ids:
             self.trajectories[i] = []
 
+        # initialize vehicle trips
+        for i in range(len(ORDERED_TRIPS)):
+            self.trips.append(Trip(ORDERED_TRIPS[i]))
+
         # initialize passenger demand
+        pax_info = {}
         for i in range(len(STOPS)):
             self.stops.append(Stop(STOPS[i]))
+            pax_info['arr_times'] = []
+            pax_info['o_stop_idx'] = []
+            pax_info['d_stop_idx'] = []
             for j in range(i + 1, len(STOPS)):
                 for k in range(DEM_START_INTERVAL, DEM_END_INTERVAL + 1):
                     start_edge_interval = k * DEM_INTERVAL_LENGTH_MINS * 60
@@ -802,85 +813,59 @@ class DetailedSimulationEnv(SimulationEnv):
                     else:
                         temp_pax_arr_times += max(start_edge_interval, pax_initialize_time[i])
                     temp_pax_arr_times = temp_pax_arr_times[temp_pax_arr_times <= min(FOCUS_END_TIME_SEC, end_edge_interval)]
-                    for t in temp_pax_arr_times:
-                        self.stops[i].passengers.append(Passenger(i, j, t))
+                    temp_pax_arr_times = temp_pax_arr_times.tolist()
+                    if len(temp_pax_arr_times):
+                        pax_info['arr_times'] += temp_pax_arr_times
+                        pax_info['o_stop_idx'] += [i] * len(temp_pax_arr_times)
+                        pax_info['d_stop_idx'] += [j] * len(temp_pax_arr_times)
+            df = pd.DataFrame(pax_info).sort_values(by='arr_times')
+            pax_sorted_info = df.to_dict('list')
+            for o, d, at in zip(pax_sorted_info['o_stop_idx'], pax_sorted_info['d_stop_idx'], pax_sorted_info['arr_times']):
+                self.stops[i].pax.append(Passenger(o, d, at))
         return False
 
-    def get_arrivals_start(self, headway):
-        i = self.bus_idx
-        stop = self.last_stop[i]
-        if self.time_dependent_demand:
-            arrival_rates = ARRIVAL_RATES[stop]
-            inter = get_interval(self.time, DEM_INTERVAL_LENGTH_MINS)
-            e_pax = (arrival_rates[inter - DEM_START_INTERVAL] / 60) * headway / 60
-        else:
-            arrival_rate = ARRIVAL_RATE[stop]
-            e_pax = (arrival_rate / 60) * headway / 60
-        pax_at_stop = np.random.poisson(lam=e_pax)
-        return pax_at_stop
-
-    def get_pax_arrivals(self, headway, last_arrival_t):
-        i = self.bus_idx
-        stop = self.last_stop[i]
-        if self.time_dependent_demand:
-            arrival_rates = ARRIVAL_RATES[stop]
-            e_pax = 0
-            t = last_arrival_t
-            t2 = last_arrival_t + headway
-            while t < t2:
-                inter = get_interval(t, DEM_INTERVAL_LENGTH_MINS)
-                edge = (inter + 1) * 60 * DEM_INTERVAL_LENGTH_MINS
-                e_pax += (arrival_rates[inter - DEM_START_INTERVAL] / 60) * ((min(edge, t2) - t) / 60)
-                t = min(edge, t2)
-        else:
-            arrival_rate = ARRIVAL_RATE[stop]
-            e_pax = (arrival_rate / 60) * headway / 60
-        pax_arrivals = np.random.poisson(lam=e_pax)
-        return pax_arrivals
-
-    def get_offs(self):
-        i = self.bus_idx
-        stop = self.last_stop[i]
-        if self.time_dependent_demand:
-            interv = get_interval(self.time, DEM_INTERVAL_LENGTH_MINS)
-            interv_idx = interv - DEM_START_INTERVAL
-            offs = int(round(ALIGHT_FRACTIONS[stop][interv_idx] * self.load[i]))
-        else:
-            offs = int(round(ALIGHT_FRACTION[stop] * self.load[i]))
-        return offs
-
     def fixed_stop_unload(self):
+        # SWITCH POSITION AND ARRIVAL TIME
         i = self.bus_idx
+        curr_trip_idx = ORDERED_TRIPS.index(self.active_trips[i])
         curr_stop_idx = STOPS.index(self.next_stop[i])
         self.last_stop[i] = STOPS[curr_stop_idx]
         self.next_stop[i] = STOPS[curr_stop_idx + 1]
         self.arr_t[i] = self.time
+        self.offs[i] = 0
+        for p in self.trips[curr_trip_idx].pax.copy():
+            if p.dest_idx == curr_stop_idx:
+                p.alight_time = float(self.time)
+                p.journey_time = float(p.alight_time - p.arr_time)
+                self.stops[curr_stop_idx].pax_completed.append(p)
 
-        self.offs[i] = self.get_offs()
+                self.trips[curr_trip_idx].pax.remove(p)
+
+                self.offs[i] += 1
         self.load[i] -= self.offs[i]
         return
 
     def fixed_stop_arrivals(self):
         i = self.bus_idx
         bus_load = self.load[i]
-        s = self.last_stop[i]
-        last_bus_time = self.last_bus_time[s]
+        curr_stop_idx = STOPS.index(self.last_stop[i])
+        curr_trip_idx = ORDERED_TRIPS.index(self.active_trips[i])
+        self.denied[i] = 0
         assert bus_load >= 0
-        if last_bus_time:
-            headway = self.time - last_bus_time
-            if headway < 0:
-                headway = 0
-            p_arrivals = self.get_pax_arrivals(headway, last_bus_time)
-            prev_denied = self.track_denied_boardings[s]
-        else:
-            headway = INIT_HEADWAY
-            p_arrivals = self.get_arrivals_start(headway)
-            prev_denied = 0
-        pax_at_stop = p_arrivals + prev_denied
-        allowed = CAPACITY - bus_load
-        self.ons[i] = min(allowed, pax_at_stop)
-        self.denied[i] = pax_at_stop - self.ons[i]
-        self.track_denied_boardings[s] = self.denied[i]
+        self.ons[i] = 0
+        for p in self.stops[curr_stop_idx].pax.copy():
+            if p.arr_time <= self.time:
+                if bus_load + self.ons[i] + 1 <= CAPACITY:
+                    p.board_time = float(self.time)
+                    p.wait_time = float(p.board_time - p.arr_time)
+                    self.trips[curr_trip_idx].pax.append(p)
+                    self.stops[curr_stop_idx].pax.remove(p)
+                    self.ons[i] += 1
+                else:
+                    p.denied = 1
+                    self.denied[i] += 1
+            else:
+                break
         return
 
     def fixed_stop_depart(self):
@@ -891,7 +876,7 @@ class DetailedSimulationEnv(SimulationEnv):
         s = self.last_stop[i]
 
         dwell_time = ACC_DEC_TIME + max(ons * BOARDING_TIME, offs * ALIGHTING_TIME)
-        # herein we zero dwell time if no passengers boarded
+        # herein we zero dwell time if no pax boarded
         dwell_time = (ons + offs > 0) * dwell_time
 
         self.load[i] += ons
@@ -917,16 +902,23 @@ class DetailedSimulationEnv(SimulationEnv):
         s = self.last_stop[i]
         self.arr_t[i] = self.time
         self.dep_t[i] = self.time
-        last_bus_time = self.last_bus_time[s]
-        if last_bus_time:
-            headway = self.dep_t[i] - last_bus_time
-            boardings = self.get_pax_arrivals(headway, last_bus_time)
-        else:
-            headway = INIT_HEADWAY
-            boardings = self.get_arrivals_start(headway)
-        self.load[i] += boardings
-        self.record_trajectories(pickups=boardings)
+        curr_trip_idx = ORDERED_TRIPS.index(self.active_trips[i])
+        bus_load = self.load[i]
+        for p in self.stops[0].pax.copy():
+            if p.arr_time <= self.time:
+                if bus_load + self.ons[i] + 1 <= CAPACITY:
+                    p.board_time = float(self.time)
+                    p.wait_time = float(p.board_time - p.arr_time)
+                    self.trips[curr_trip_idx].pax.append(p)
+                    self.stops[0].pax.remove(p)
+                    self.ons[i] += 1
+                else:
+                    p.denied = 1
+                    self.denied[i] += 1
+        self.load[i] += self.ons[i]
+        self.record_trajectories(pickups=self.ons[i])
         self.last_bus_time[s] = self.dep_t[i]
+
         runtime = self.get_travel_time()
         self.next_instance_time[i] = self.dep_t[i] + runtime
         if self.no_overtake_policy:
@@ -936,11 +928,19 @@ class DetailedSimulationEnv(SimulationEnv):
     def terminal_arrival(self):
         i = self.bus_idx
         self.arr_t[i] = self.time
-        offs = self.load[i]
+        curr_stop_idx = STOPS.index(self.next_stop[i])
+        curr_trip_idx = ORDERED_TRIPS.index(self.active_trips[i])
+        for p in self.trips[curr_trip_idx].pax.copy():
+            if p.dest_idx == curr_stop_idx:
+                p.alight_time = float(self.time)
+                p.journey_time = float(p.alight_time - p.arr_time)
+                self.stops[curr_stop_idx].pax_completed.append(p)
+                self.trips[curr_trip_idx].pax.remove(p)
+                self.offs[i] += 1
         self.load[i] = 0
-        self.last_stop[i] = self.next_stop[i]
+        self.last_stop[i] = STOPS[curr_stop_idx]
         self.dep_t[i] = self.arr_t[i]
-        self.record_trajectories(offs=offs)
+        self.record_trajectories(offs=self.offs[i])
         # delete record of trip
         self.remove_trip()
         return
