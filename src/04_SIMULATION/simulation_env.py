@@ -754,6 +754,11 @@ class DetailedSimulationEnv(SimulationEnv):
         super(DetailedSimulationEnv, self).__init__(*args, **kwargs)
         self.stops = []
         self.trips = []
+        self.completed_pax = []
+        self.od_journey_time_mean = []
+        self.od_wait_time_mean = []
+        self.od_journey_time_std = []
+        self.od_wait_time_std = []
 
     def reset_simulation(self):
         if self.uniform_schedule:
@@ -779,6 +784,7 @@ class DetailedSimulationEnv(SimulationEnv):
         self.ons = []
         self.denied = []
         self.event_type = 0
+        self.completed_pax = []
         # stop-level data
         for s in STOPS:
             self.last_bus_time[s] = []
@@ -837,10 +843,8 @@ class DetailedSimulationEnv(SimulationEnv):
             if p.dest_idx == curr_stop_idx:
                 p.alight_time = float(self.time)
                 p.journey_time = float(p.alight_time - p.arr_time)
-                self.stops[curr_stop_idx].pax_completed.append(p)
-
+                self.completed_pax.append(p)
                 self.trips[curr_trip_idx].pax.remove(p)
-
                 self.offs[i] += 1
         self.load[i] -= self.offs[i]
         return
@@ -904,6 +908,7 @@ class DetailedSimulationEnv(SimulationEnv):
         self.dep_t[i] = self.time
         curr_trip_idx = ORDERED_TRIPS.index(self.active_trips[i])
         bus_load = self.load[i]
+        self.denied[i] = 0
         for p in self.stops[0].pax.copy():
             if p.arr_time <= self.time:
                 if bus_load + self.ons[i] + 1 <= CAPACITY:
@@ -934,7 +939,7 @@ class DetailedSimulationEnv(SimulationEnv):
             if p.dest_idx == curr_stop_idx:
                 p.alight_time = float(self.time)
                 p.journey_time = float(p.alight_time - p.arr_time)
-                self.stops[curr_stop_idx].pax_completed.append(p)
+                self.completed_pax.append(p)
                 self.trips[curr_trip_idx].pax.remove(p)
                 self.offs[i] += 1
         self.load[i] = 0
@@ -943,4 +948,39 @@ class DetailedSimulationEnv(SimulationEnv):
         self.record_trajectories(offs=self.offs[i])
         # delete record of trip
         self.remove_trip()
+        return
+
+    def process_od_level_data(self):
+        # we add all data points to a dataframe
+        # then we convert into an od matrix
+        # journey times only from completed pax
+        journey_times = {'o': [], 'd': [], 'jt': []}
+        wait_times = {'o': [], 'd': [], 'wt': []}
+        for p in self.completed_pax:
+            if p.board_time > FOCUS_START_TIME_SEC:
+                journey_times['o'].append(p.orig_idx)
+                journey_times['d'].append(p.dest_idx)
+                journey_times['jt'].append(p.journey_time)
+                wait_times['o'].append(p.orig_idx)
+                wait_times['d'].append(p.dest_idx)
+                wait_times['wt'].append(p.wait_time)
+        # wait times from all boarded pax
+        for t in self.trips:
+            for p in t.pax:
+                if p.board_time > FOCUS_START_TIME_SEC:
+                    wait_times['o'].append(p.orig_idx)
+                    wait_times['d'].append(p.dest_idx)
+                    wait_times['wt'].append(p.wait_time)
+        journey_times_df = pd.DataFrame(journey_times)
+        wait_times_df = pd.DataFrame(wait_times)
+        self.od_wait_time = np.zeros(shape=(len(STOPS), len(STOPS)))
+        for i in range(len(STOPS)):
+            for j in range(i + 1, len(STOPS)):
+                jt_mean = journey_times_df[(journey_times_df['o'] == i) & (journey_times_df['d'] == j)]['jt'].mean()
+                self.od_wait_time[i, j] = jt_mean
+        return
+
+    def process_results(self):
+        self.chop_trajectories()
+        self.process_od_level_data()
         return

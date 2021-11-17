@@ -23,7 +23,6 @@ class Stop:
     def __init__(self, stop_id):
         self.stop_id = stop_id
         self.pax = []
-        self.pax_completed = []
 
 
 # samp_stops = ['386', '388', '390']

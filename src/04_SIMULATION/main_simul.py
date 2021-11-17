@@ -47,19 +47,6 @@ def run_base_detailed(episodes=1, save=False, plot=False, time_dep_tt=True, time
     while not done:
         done = env.prep()
         env.process_results()
-    # for trip in env.trajectories:
-    #     print([trip,env.trajectories[trip][-1]])
-    for t in env.trips:
-        print(t.trip_id)
-        print(len(t.pax))
-        for p in t.pax:
-            print([p.orig_idx, p.dest_idx, round(p.arr_time)])
-    # for s in env.stops:
-    #     print(s.stop_id)
-    #     print(len(s.pax_completed))
-    #     print(len(s.pax))
-    #     for p in s.pax_completed:
-    #         print([p.orig_idx, p.dest_idx, round(p.arr_time), round(p.board_time), round(p.alight_time), round(p.wait_time), round(p.journey_time)])
     return
 
 
