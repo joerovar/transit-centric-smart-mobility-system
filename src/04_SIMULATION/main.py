@@ -123,7 +123,7 @@ if __name__ == '__main__':
         tstamps = []
         for j in range(args.n_games):
             score = 0
-            env = simulation_env.SimulationEnvDeepRL()
+            env = simulation_env.DetailedSimulationEnvWithDeepRL()
             done = env.reset_simulation()
             done = env.prep()
             while not done:
@@ -142,6 +142,8 @@ if __name__ == '__main__':
             path_sars = path_to_outs + dir_var + 'sars_record_' + tstamps[-1] + ext_var
             post_process.save(path_trajectories, env.trajectories)
             post_process.save(path_sars, env.trips_sars)
+            path_completed_pax = path_to_outs + dir_var + 'completed_pax_' + tstamps[-1] + ext_var
+            post_process.save(path_completed_pax, env.completed_pax)
 
         load_mean = output.get_rl_results(tstamps)
 

@@ -4,6 +4,7 @@ import csv
 import pandas as pd
 import pickle
 from copy import deepcopy
+import seaborn as sns
 
 
 def write_trajectories(trip_data, pathname, header=None):
@@ -387,16 +388,22 @@ def denied_from_trajectory_set(trajectory_set, idx, tot_ons, first_trip):
     return per_mil_denied
 
 
-def travel_times_from_trajectory_set(trajectory_set, idx_dep_t, idx_arr_t, first_trip):
+def travel_times_from_trajectory_set(trajectory_set, idx_dep_t, idx_arr_t, first_trip, tpoint0, tpoint1):
     link_times = {}
     dwell_times = {}
+    segment_times = []
     for trajectory in trajectory_set:
         for trip in trajectory:
             if trip != first_trip:
                 trip_data = trajectory[trip]
+                time_tpoint0, time_tpoint1 = 0, 0
                 for i in range(len(trip_data) - 1):
                     s0 = trip_data[i][0]
+                    if s0 == tpoint0:
+                        time_tpoint0 = trip_data[i][idx_dep_t]
                     s1 = trip_data[i+1][0]
+                    if s1 == tpoint1:
+                        time_tpoint1 = trip_data[i][idx_arr_t]
                     link = s0 + '-' + s1
                     link_time = trip_data[i + 1][idx_arr_t] - trip_data[i][idx_dep_t]
                     if link in link_times:
@@ -408,6 +415,8 @@ def travel_times_from_trajectory_set(trajectory_set, idx_dep_t, idx_arr_t, first
                         dwell_times[s0].append(dwell_time)
                     else:
                         dwell_times[s0] = [dwell_time]
+                if time_tpoint0 and time_tpoint1:
+                    segment_times.append(time_tpoint1 - time_tpoint0)
     mean_link_times = {}
     std_link_times = {}
     mean_dwell_times = {}
@@ -418,7 +427,7 @@ def travel_times_from_trajectory_set(trajectory_set, idx_dep_t, idx_arr_t, first
     for s in dwell_times:
         mean_dwell_times[s] = round(np.array(dwell_times[s]).mean(), 1)
         std_dwell_times[s] = round(np.array(dwell_times[s]).std(), 1)
-    return mean_link_times, std_link_times, mean_dwell_times, std_dwell_times
+    return mean_link_times, std_link_times, mean_dwell_times, std_dwell_times, segment_times
 
 
 def plot_link_times(link_times_mean, link_times_std, ordered_stops, pathname, lbls, x_y_lbls=None, controlled_stops=None):
@@ -647,3 +656,14 @@ def process_od_level_data(pax_set, ordered_stops, focus_start_time_sec):
             od_wait_time_mean[i, j] = wt.mean()
             od_wait_time_std[i, j] = wt.std()
     return od_journey_time_mean, od_journey_time_std, od_wait_time_mean, od_wait_time_std
+
+
+def plot_travel_time(times, pathname):
+    sns.kdeplot(np.array(times))
+    if pathname:
+        plt.savefig(pathname)
+    else:
+        plt.show()
+    plt.close()
+    return
+
