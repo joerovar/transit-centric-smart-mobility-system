@@ -41,15 +41,29 @@ def run_base_control(episodes=1, save=False, plot=False, time_dep_tt=True, time_
     return
 
 
-def run_base_detailed(episodes=1, save=False, plot=False, time_dep_tt=True, time_dep_dem=True):
-    env = DetailedSimulationEnv(time_dependent_travel_time=time_dep_tt, time_dependent_demand=time_dep_dem)
-    done = env.reset_simulation()
-    while not done:
-        done = env.prep()
-        env.process_results()
+def run_base_detailed(episodes=2, save=False, plot=False, time_dep_tt=True, time_dep_dem=True):
+    tstamps = []
+    for i in range(episodes):
+        env = DetailedSimulationEnv(time_dependent_travel_time=time_dep_tt, time_dependent_demand=time_dep_dem)
+        done = env.reset_simulation()
+        while not done:
+            done = env.prep()
+        if save:
+            env.process_results()
+            tstamps.append(datetime.now().strftime('%m%d-%H%M%S%f')[:-4])
+            path_trajectories = path_to_outs + dir_var + 'trajectories_' + tstamps[-1] + ext_var
+            post_process.save(path_trajectories, env.trajectories)
+            path_completed_pax = path_to_outs + dir_var + 'completed_pax_' + tstamps[-1] + ext_var
+            post_process.save(path_completed_pax, env.completed_pax)
+        if plot:
+            output.get_results(tstamps)
+    # output.plot_od(env.od_journey_time_mean, 'od_jt_test.png')
+    # output.plot_od(env.od_journey_time_std, 'od_jt_std_test.png')
+    # output.plot_od(env.od_wait_time_mean, 'od_wt_test.png')
+    # output.plot_od(env.od_wait_time_std, 'od_wt_std_test.png')
     return
 
 
-run_base_detailed()
+run_base_detailed(save=True, plot=True)
 
 print("ran in %.2f seconds" % (time.time()-st))

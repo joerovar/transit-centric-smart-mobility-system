@@ -604,7 +604,8 @@ def get_input_boardings(arrival_rates, dem_interval_len_min, start_time_sec, end
 
 
 def plot_od(od, pathname=None):
-    plt.imshow(od, cmap='hot', interpolation='nearest')
+    plt.imshow(od, cmap='Reds', interpolation='nearest')
+    plt.colorbar()
     if pathname:
         plt.savefig(pathname)
     else:
@@ -613,3 +614,43 @@ def plot_od(od, pathname=None):
     return
 
 
+def process_od_level_data(pax_set, ordered_stops, focus_start_time_sec):
+    # we add all data points to a dataframe
+    # then we convert into an od matrix
+    # journey times only from completed pax
+    journey_times = {'o': [], 'd': [], 'jt': []}
+    wait_times = {'o': [], 'd': [], 'wt': []}
+    for replication in pax_set:
+        for p in replication:
+            if p.board_time > focus_start_time_sec:
+                journey_times['o'].append(p.orig_idx)
+                journey_times['d'].append(p.dest_idx)
+                journey_times['jt'].append(p.journey_time)
+                wait_times['o'].append(p.orig_idx)
+                wait_times['d'].append(p.dest_idx)
+                wait_times['wt'].append(p.wait_time)
+        # wait times from in vehicle pax at end of simulation
+        # for t in self.trips:
+        #     for p in t.pax:
+        #         if p.board_time > FOCUS_START_TIME_SEC:
+        #             wait_times['o'].append(p.orig_idx)
+        #             wait_times['d'].append(p.dest_idx)
+        #             wait_times['wt'].append(p.wait_time)
+    journey_times_df = pd.DataFrame(journey_times)
+    wait_times_df = pd.DataFrame(wait_times)
+    n = len(ordered_stops)
+    od_wait_time_mean = np.zeros(shape=(n,)*2)
+    od_wait_time_std = np.zeros(shape=(n,)*2)
+    od_journey_time_mean = np.zeros(shape=(n,)*2)
+    od_journey_time_std = np.zeros(shape=(n,)*2)
+
+    for i in range(n):
+        for j in range(i + 1, n):
+            jt = journey_times_df[(journey_times_df['o'] == i) & (journey_times_df['d'] == j)]['jt']
+            od_journey_time_mean[i, j] = jt.mean()
+            od_journey_time_std[i, j] = jt.std()
+
+            wt = wait_times_df[(wait_times_df['o'] == i) & (wait_times_df['d'] == j)]['wt']
+            od_wait_time_mean[i, j] = wt.mean()
+            od_wait_time_std[i, j] = wt.std()
+    return od_journey_time_mean, od_journey_time_std, od_wait_time_mean, od_wait_time_std

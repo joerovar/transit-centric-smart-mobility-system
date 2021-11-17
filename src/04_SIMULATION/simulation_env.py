@@ -115,15 +115,22 @@ class SimulationEnv:
         i = self.bus_idx
         prev_stop = self.last_stop[i]
         next_stop = self.next_stop[i]
+        link = str(prev_stop) + '-' + str(next_stop)
         if self.time_dependent_travel_time:
             interv = get_interval(self.time, TIME_INTERVAL_LENGTH_MINS)
             interv_idx = interv - TIME_START_INTERVAL
-            mean_runtime = LINK_TIMES_MEAN[str(prev_stop) + '-' + str(next_stop)][interv_idx]
+            mean_runtime = LINK_TIMES_MEAN[link][interv_idx]
         else:
-            mean_runtime = SINGLE_LINK_TIMES_MEAN[str(prev_stop) + '-' + str(next_stop)]
+            mean_runtime = SINGLE_LINK_TIMES_MEAN[link]
         assert mean_runtime
         s = LOGN_S
-        runtime = lognorm.rvs(s, scale=mean_runtime)
+        try:
+            runtime = lognorm.rvs(s, scale=mean_runtime)
+        except RecursionError:
+            print(s)
+            print(mean_runtime)
+            print(link)
+            raise
         assert TTD == 'LOGNORMAL'
         return runtime
 
@@ -755,10 +762,11 @@ class DetailedSimulationEnv(SimulationEnv):
         self.stops = []
         self.trips = []
         self.completed_pax = []
-        self.od_journey_time_mean = []
-        self.od_wait_time_mean = []
-        self.od_journey_time_std = []
-        self.od_wait_time_std = []
+        # self.od_journey_time_mean = []
+        # self.od_wait_time_mean = []
+        # self.od_journey_time_std = []
+        # self.od_wait_time_std = []
+        # self.in_vehicle_pax = [] # for having additional datapoints for
 
     def reset_simulation(self):
         if self.uniform_schedule:
@@ -796,11 +804,13 @@ class DetailedSimulationEnv(SimulationEnv):
             self.trajectories[i] = []
 
         # initialize vehicle trips
+        self.trips = []
         for i in range(len(ORDERED_TRIPS)):
             self.trips.append(Trip(ORDERED_TRIPS[i]))
 
         # initialize passenger demand
         pax_info = {}
+        self.stops = []
         for i in range(len(STOPS)):
             self.stops.append(Stop(STOPS[i]))
             pax_info['arr_times'] = []
@@ -950,37 +960,47 @@ class DetailedSimulationEnv(SimulationEnv):
         self.remove_trip()
         return
 
-    def process_od_level_data(self):
-        # we add all data points to a dataframe
-        # then we convert into an od matrix
-        # journey times only from completed pax
-        journey_times = {'o': [], 'd': [], 'jt': []}
-        wait_times = {'o': [], 'd': [], 'wt': []}
-        for p in self.completed_pax:
-            if p.board_time > FOCUS_START_TIME_SEC:
-                journey_times['o'].append(p.orig_idx)
-                journey_times['d'].append(p.dest_idx)
-                journey_times['jt'].append(p.journey_time)
-                wait_times['o'].append(p.orig_idx)
-                wait_times['d'].append(p.dest_idx)
-                wait_times['wt'].append(p.wait_time)
-        # wait times from all boarded pax
-        for t in self.trips:
-            for p in t.pax:
-                if p.board_time > FOCUS_START_TIME_SEC:
-                    wait_times['o'].append(p.orig_idx)
-                    wait_times['d'].append(p.dest_idx)
-                    wait_times['wt'].append(p.wait_time)
-        journey_times_df = pd.DataFrame(journey_times)
-        wait_times_df = pd.DataFrame(wait_times)
-        self.od_wait_time = np.zeros(shape=(len(STOPS), len(STOPS)))
-        for i in range(len(STOPS)):
-            for j in range(i + 1, len(STOPS)):
-                jt_mean = journey_times_df[(journey_times_df['o'] == i) & (journey_times_df['d'] == j)]['jt'].mean()
-                self.od_wait_time[i, j] = jt_mean
-        return
+    # def process_od_level_data(self):
+    #     # we add all data points to a dataframe
+    #     # then we convert into an od matrix
+    #     # journey times only from completed pax
+    #     journey_times = {'o': [], 'd': [], 'jt': []}
+    #     wait_times = {'o': [], 'd': [], 'wt': []}
+    #     for p in self.completed_pax:
+    #         if p.board_time > FOCUS_START_TIME_SEC:
+    #             journey_times['o'].append(p.orig_idx)
+    #             journey_times['d'].append(p.dest_idx)
+    #             journey_times['jt'].append(p.journey_time)
+    #             wait_times['o'].append(p.orig_idx)
+    #             wait_times['d'].append(p.dest_idx)
+    #             wait_times['wt'].append(p.wait_time)
+    #     # wait times from in vehicle pax at end of simulation
+    #     # for t in self.trips:
+    #     #     for p in t.pax:
+    #     #         if p.board_time > FOCUS_START_TIME_SEC:
+    #     #             wait_times['o'].append(p.orig_idx)
+    #     #             wait_times['d'].append(p.dest_idx)
+    #     #             wait_times['wt'].append(p.wait_time)
+    #     journey_times_df = pd.DataFrame(journey_times)
+    #     wait_times_df = pd.DataFrame(wait_times)
+    #     self.od_wait_time_mean = np.zeros(shape=(len(STOPS), len(STOPS)))
+    #     self.od_wait_time_std = np.zeros(shape=(len(STOPS), len(STOPS)))
+    #     self.od_journey_time_mean = np.zeros(shape=(len(STOPS), len(STOPS)))
+    #     self.od_journey_time_std = np.zeros(shape=(len(STOPS), len(STOPS)))
+    #
+    #     for i in range(len(STOPS)):
+    #         for j in range(i + 1, len(STOPS)):
+    #             jt = journey_times_df[(journey_times_df['o'] == i) & (journey_times_df['d'] == j)]['jt']
+    #             self.od_journey_time_mean[i, j] = jt.mean()
+    #             self.od_journey_time_std[i, j] = jt.std()
+    #
+    #             wt = wait_times_df[(wait_times_df['o'] == i) & (wait_times_df['d'] == j)]['wt']
+    #             self.od_wait_time_mean[i, j] = wt.mean()
+    #             self.od_wait_time_std[i, j] = wt.std()
+    #     return
 
     def process_results(self):
         self.chop_trajectories()
-        self.process_od_level_data()
+        # self.process_od_level_data()
         return
+

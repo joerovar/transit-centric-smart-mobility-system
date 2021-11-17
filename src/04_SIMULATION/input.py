@@ -122,7 +122,11 @@ UNIFORM_INTERVAL = 1
 ARRIVAL_RATE = {key: value[UNIFORM_INTERVAL] for (key, value) in ARRIVAL_RATES.items()}
 SINGLE_LINK_TIMES_MEAN = {key: value[UNIFORM_INTERVAL] for (key, value) in LINK_TIMES_MEAN.items()}
 ALIGHT_FRACTION = {key: value[UNIFORM_INTERVAL] for (key, value) in ALIGHT_FRACTIONS.items()}
-
-# print([str(timedelta(seconds=i)) for i in SCHEDULED_DEPARTURES])
-# print(planned_headway_lst)
+# print(PLANNED_HEADWAY)
+print([str(timedelta(seconds=i)) for i in SCHEDULED_DEPARTURES[:-6]])
+# print(planned_headway_lst[:-6])
+# print(ORDERED_TRIPS[:-6])
+# print(len([str(timedelta(seconds=i)) for i in SCHEDULED_DEPARTURES[:-6]]))
+# print(len(planned_headway_lst[:-6]))
+# print(len(ORDERED_TRIPS[:-6]))
 # print(ORDERED_TRIPS)

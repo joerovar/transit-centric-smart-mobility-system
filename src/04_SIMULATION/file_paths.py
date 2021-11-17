@@ -13,6 +13,7 @@ dir_vis = 'vis/'
 dir_figs = 'fig/'
 dir_csv = 'txt/'
 dir_var = 'var/'
+
 # INPUT FILES
 
 path_trips_gtfs = path_to_ins + dir_raw + 'gtfs/trips.txt'
