@@ -25,7 +25,7 @@ def plot_headway(pathname, hs, ordered_stops, controlled_stops=None, min_size_fo
                  cv_scale=(0,1,0.1)):
     x = []
     y1 = []
-    y2 = []
+    # y2 = []
     for i in range(len(ordered_stops)):
         s = ordered_stops[i]
         if s in hs:
@@ -36,7 +36,7 @@ def plot_headway(pathname, hs, ordered_stops, controlled_stops=None, min_size_fo
                 cv = std/mean
                 x.append(i)
                 y1.append(cv) if mean else y1.append(0)
-                y2.append(mean)
+                # y2.append(mean)
     fig, ax1 = plt.subplots()
     color = 'tab:red'
     ax1.set_xlabel('stop id')
@@ -44,12 +44,12 @@ def plot_headway(pathname, hs, ordered_stops, controlled_stops=None, min_size_fo
     ax1.plot(x, y1, color=color)
     ax1.set_yticks(np.arange(cv_scale[0], cv_scale[1]+cv_scale[2], cv_scale[2]))
     ax1.tick_params(axis='y', labelcolor=color)
-    ax2 = ax1.twinx()
-    color = 'tab:blue'
-    ax2.set_ylabel('mean headway (seconds)', color=color)
-    ax2.plot(x, y2, color=color)
-    ax2.set_yticks(np.arange(hw_scale[0], hw_scale[1]+hw_scale[2], hw_scale[2]))
-    ax2.tick_params(axis='y', labelcolor=color)
+    # ax2 = ax1.twinx()
+    # color = 'tab:blue'
+    # ax2.set_ylabel('mean headway (seconds)', color=color)
+    # ax2.plot(x, y2, color=color)
+    # ax2.set_yticks(np.arange(hw_scale[0], hw_scale[1]+hw_scale[2], hw_scale[2]))
+    # ax2.tick_params(axis='y', labelcolor=color)
 
     if controlled_stops:
         for cs in controlled_stops:
@@ -106,8 +106,8 @@ def plot_multiple_bar_charts(wta, wtc, pathname, lbls, ordered_stops, x_y_lbls=N
     for s in ordered_stops:
         y1.append(wta[s]) if s in wta else y1.append(0)
         y2.append(wtc[s]) if s in wtc else y2.append(0)
-    plt.bar(bar1, y1, w, label=lbls[0], color='b')
-    plt.bar(bar2, y2, w, label=lbls[1], color='r')
+    plt.bar(bar1, y1, w, label=lbls[0], color='tab:blue')
+    plt.bar(bar2, y2, w, label=lbls[1], color='tab:red')
     plt.xticks(bar1, x, rotation=90, fontsize=6)
     if x_y_lbls:
         plt.xlabel(x_y_lbls[0])
@@ -629,13 +629,6 @@ def process_od_level_data(pax_set, ordered_stops, focus_start_time_sec):
                 wait_times['o'].append(p.orig_idx)
                 wait_times['d'].append(p.dest_idx)
                 wait_times['wt'].append(p.wait_time)
-        # wait times from in vehicle pax at end of simulation
-        # for t in self.trips:
-        #     for p in t.pax:
-        #         if p.board_time > FOCUS_START_TIME_SEC:
-        #             wait_times['o'].append(p.orig_idx)
-        #             wait_times['d'].append(p.dest_idx)
-        #             wait_times['wt'].append(p.wait_time)
     journey_times_df = pd.DataFrame(journey_times)
     wait_times_df = pd.DataFrame(wait_times)
     n = len(ordered_stops)

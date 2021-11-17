@@ -17,6 +17,33 @@ od_jt_mean_filename = 'od_jt_m_'
 od_wt_mean_filename = 'od_wt_m_'
 od_jt_std_filename = 'od_jt_s_'
 od_wt_std_filename = 'od_wt_s_'
+travel_time_dist_filename = 'travel_time_dist_'
+
+# parameters for benchmark comparison
+# cv headway
+hw_nc_varname = 'cv_hw_nc'
+hw_eh_varname = 'cv_hw_eh'
+hw_rl_varname = 'cv_hw_rl'
+# travel time dist
+ttd_nc_varname = 'ttd_nc'
+ttd_eh_varname = 'ttd_eh'
+ttd_rl_varname = 'ttd_rl'
+# od wait time mean
+od_wtm_nc_varname = 'od_wtm_nc'
+od_wtm_eh_varname = 'od_wtm_eh'
+od_wtm_rl_varname = 'od_wtm_rl'
+# od wait time standard deviation
+od_wts_nc_varname = 'od_wts_nc'
+od_wts_eh_varname = 'od_wts_eh'
+od_wts_rl_varname = 'od_wts_rl'
+# od journey time mean
+od_jtm_nc_varname = 'od_jtm_nc'
+od_jtm_eh_varname = 'od_jtm_eh'
+od_jtm_rl_varname = 'od_jtm_rl'
+# od journey time std
+od_jts_nc_varname = 'od_jts_nc'
+od_jts_eh_varname = 'od_jts_eh'
+od_jts_rl_varname = 'od_jts_rl'
 
 
 def get_results(tstamps):
@@ -119,6 +146,14 @@ def get_results(tstamps):
         post_process.plot_od(od_journey_time_std, path_plot_od_jt_std)
         post_process.plot_od(od_wait_time_mean, path_plot_od_wt_mean)
         post_process.plot_od(od_wait_time_std, path_plot_od_wt_std)
+
+        # ----------------------------------------- SAVE DATA FOR BENCHMARK COMPARISON ------------------------------
+        post_process.save(path_to_outs + dir_var + hw_nc_varname + ext_var, headway_comb)
+
+        post_process.save(path_to_outs + dir_var + od_wtm_nc_varname + ext_var, od_wait_time_mean)
+        post_process.save(path_to_outs + dir_var + od_wts_nc_varname + ext_var, od_wait_time_std)
+        post_process.save(path_to_outs + dir_var + od_jtm_nc_varname + ext_var, od_journey_time_mean)
+        post_process.save(path_to_outs + dir_var + od_jts_nc_varname + ext_var, od_journey_time_std)
     return
 
 

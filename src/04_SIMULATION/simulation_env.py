@@ -313,17 +313,17 @@ class SimulationEnv:
             return True
         if self.event_type == 2:
             self.terminal_arrival()
-            return self.prep()
+            return False
 
         if self.event_type == 1:
             self.fixed_stop_unload()
             self.fixed_stop_arrivals()
             self.fixed_stop_depart()
-            return self.prep()
+            return False
 
         if self.event_type == 0:
             self.terminal_departure()
-            return self.prep()
+            return False
 
     def chop_trajectories(self):
         trajectories = dict(self.trajectories)
@@ -480,7 +480,7 @@ class SimulationEnvWithControl(SimulationEnv):
 
         if self.event_type == 2:
             self.terminal_arrival()
-            return self.prep()
+            return False
 
         if self.event_type == 1:
             i = self.bus_idx
@@ -498,7 +498,7 @@ class SimulationEnvWithControl(SimulationEnv):
 
         if self.event_type == 0:
             self.terminal_departure()
-            return self.prep()
+            return False
 
 
 def _compute_reward(action, fw_h, bw_h, trip_id, prev_bw_h, prev_fw_h, is_headway_constant):
@@ -728,7 +728,7 @@ class SimulationEnvDeepRL(SimulationEnv):
 
         if self.event_type == 2:
             self.terminal_arrival()
-            return self.prep()
+            return False
 
         if self.event_type == 1:
             i = self.bus_idx
@@ -749,11 +749,11 @@ class SimulationEnvDeepRL(SimulationEnv):
             self.fixed_stop_unload()
             self.fixed_stop_arrivals()
             self.fixed_stop_depart()
-            return self.prep()
+            return False
 
         if self.event_type == 0:
             self.terminal_departure()
-            return self.prep()
+            return False
 
 
 class DetailedSimulationEnv(SimulationEnv):
@@ -762,11 +762,6 @@ class DetailedSimulationEnv(SimulationEnv):
         self.stops = []
         self.trips = []
         self.completed_pax = []
-        # self.od_journey_time_mean = []
-        # self.od_wait_time_mean = []
-        # self.od_journey_time_std = []
-        # self.od_wait_time_std = []
-        # self.in_vehicle_pax = [] # for having additional datapoints for
 
     def reset_simulation(self):
         if self.uniform_schedule:
@@ -960,47 +955,7 @@ class DetailedSimulationEnv(SimulationEnv):
         self.remove_trip()
         return
 
-    # def process_od_level_data(self):
-    #     # we add all data points to a dataframe
-    #     # then we convert into an od matrix
-    #     # journey times only from completed pax
-    #     journey_times = {'o': [], 'd': [], 'jt': []}
-    #     wait_times = {'o': [], 'd': [], 'wt': []}
-    #     for p in self.completed_pax:
-    #         if p.board_time > FOCUS_START_TIME_SEC:
-    #             journey_times['o'].append(p.orig_idx)
-    #             journey_times['d'].append(p.dest_idx)
-    #             journey_times['jt'].append(p.journey_time)
-    #             wait_times['o'].append(p.orig_idx)
-    #             wait_times['d'].append(p.dest_idx)
-    #             wait_times['wt'].append(p.wait_time)
-    #     # wait times from in vehicle pax at end of simulation
-    #     # for t in self.trips:
-    #     #     for p in t.pax:
-    #     #         if p.board_time > FOCUS_START_TIME_SEC:
-    #     #             wait_times['o'].append(p.orig_idx)
-    #     #             wait_times['d'].append(p.dest_idx)
-    #     #             wait_times['wt'].append(p.wait_time)
-    #     journey_times_df = pd.DataFrame(journey_times)
-    #     wait_times_df = pd.DataFrame(wait_times)
-    #     self.od_wait_time_mean = np.zeros(shape=(len(STOPS), len(STOPS)))
-    #     self.od_wait_time_std = np.zeros(shape=(len(STOPS), len(STOPS)))
-    #     self.od_journey_time_mean = np.zeros(shape=(len(STOPS), len(STOPS)))
-    #     self.od_journey_time_std = np.zeros(shape=(len(STOPS), len(STOPS)))
-    #
-    #     for i in range(len(STOPS)):
-    #         for j in range(i + 1, len(STOPS)):
-    #             jt = journey_times_df[(journey_times_df['o'] == i) & (journey_times_df['d'] == j)]['jt']
-    #             self.od_journey_time_mean[i, j] = jt.mean()
-    #             self.od_journey_time_std[i, j] = jt.std()
-    #
-    #             wt = wait_times_df[(wait_times_df['o'] == i) & (wait_times_df['d'] == j)]['wt']
-    #             self.od_wait_time_mean[i, j] = wt.mean()
-    #             self.od_wait_time_std[i, j] = wt.std()
-    #     return
-
     def process_results(self):
         self.chop_trajectories()
-        # self.process_od_level_data()
         return
 

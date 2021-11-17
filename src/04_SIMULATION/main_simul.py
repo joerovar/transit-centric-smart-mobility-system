@@ -57,10 +57,6 @@ def run_base_detailed(episodes=2, save=False, plot=False, time_dep_tt=True, time
             post_process.save(path_completed_pax, env.completed_pax)
         if plot:
             output.get_results(tstamps)
-    # output.plot_od(env.od_journey_time_mean, 'od_jt_test.png')
-    # output.plot_od(env.od_journey_time_std, 'od_jt_std_test.png')
-    # output.plot_od(env.od_wait_time_mean, 'od_wt_test.png')
-    # output.plot_od(env.od_wait_time_std, 'od_wt_std_test.png')
     return
 
 
