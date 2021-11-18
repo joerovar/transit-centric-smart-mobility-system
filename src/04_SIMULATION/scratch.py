@@ -14,5 +14,3 @@ import datetime
 from scipy.stats import lognorm
 from classes_simul import Passenger, Stop, Trip
 import seaborn as sns
-a = np.arange(400, 310, -10)
-print(a)

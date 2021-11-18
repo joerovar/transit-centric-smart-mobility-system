@@ -453,17 +453,32 @@ def benchmark_comparisons():
     tt_rl = post_process.load(path_to_outs + dir_var + ttd_rl_varname + ext_var)
     ht_eh = post_process.load(path_to_outs + dir_var + eh_hold_time_varname + ext_var)
     ht_rl = post_process.load(path_to_outs + dir_var + rl_hold_time_varname + ext_var)
+    rbt_nc = post_process.load(path_to_outs + dir_var + od_jtr_nc_varname + ext_var)
+    rbt_eh = post_process.load(path_to_outs + dir_var + od_jtr_eh_varname + ext_var)
+    rbt_rl = post_process.load(path_to_outs + dir_var + od_jtr_rl_varname + ext_var)
+    wt_nc = post_process.load(path_to_outs + dir_var + od_wtm_nc_varname + ext_var)
+    wt_eh = post_process.load(path_to_outs + dir_var + od_wtm_eh_varname + ext_var)
+    wt_rl = post_process.load(path_to_outs + dir_var + od_wtm_rl_varname + ext_var)
     # rbt_nc = post_process.load(path_to_outs + dir_var + rbt_nc_varname)
-    # headway graph
-    post_process.plot_headway_benchmark([hw_nc, hw_eh, hw_rl], STOPS)
-    # travel time graph
-    post_process.plot_travel_time_benchmark([tt_nc, tt_eh, tt_rl])
-    # wait time mean RL vs NC
-
-    # wait time mean RL vs EH
-
-    # hold time RL vs EH
-    post_process.plot_multiple_bar_charts(ht_eh, ht_rl, lbls[1:], STOPS)
+    # # headway graph
+    # post_process.plot_headway_benchmark([hw_nc, hw_eh, hw_rl], STOPS, pathname='out/benchmark/hw.png')
+    # # travel time graph
+    # post_process.plot_travel_time_benchmark([tt_nc, tt_eh, tt_rl], pathname='out/benchmark/ttd.png')
+    # # wait time mean RL vs NC
+    #
+    # # wait time mean RL vs EH
+    #
+    # # hold time RL vs EH
+    # post_process.plot_multiple_bar_charts(ht_eh, ht_rl, lbls[1:], STOPS, pathname='out/benchmark/hold.png')
+    # # rbt RL vs EH vs NC
+    # post_process.plot_od(rbt_nc, STOPS, clim=(0, 400), pathname='out/benchmark/rbt_nc.png',controlled_stops=CONTROLLED_STOPS)
+    # post_process.plot_od(rbt_eh, STOPS, clim=(0, 400), pathname='out/benchmark/rbt_eh.png', controlled_stops=CONTROLLED_STOPS)
+    # post_process.plot_od(rbt_rl, STOPS, clim=(0, 400), pathname='out/benchmark/rbt_rl.png', controlled_stops=CONTROLLED_STOPS)
+    # post_process.plot_difference_od(wt_nc-wt_rl, STOPS, controlled_stops=CONTROLLED_STOPS, pathname='out/benchmark/wt_diff_nc_rl.png')
+    # post_process.plot_difference_od(wt_eh-wt_rl, STOPS, controlled_stops=CONTROLLED_STOPS, pathname='out/benchmark/wt_diff_eh_rl.png')
+    np.savetxt('out/benchmark/wt_eh.csv', wt_eh)
+    np.savetxt('out/benchmark/wt_rl.csv', wt_rl)
+    np.savetxt('out/benchmark/wt_diff.csv', wt_eh-wt_rl)
     return
 
 

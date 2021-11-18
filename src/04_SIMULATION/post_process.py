@@ -6,7 +6,7 @@ import pickle
 from copy import deepcopy
 import seaborn as sns
 from datetime import timedelta
-
+from matplotlib import cm
 
 def write_trajectories(trip_data, pathname, idx_arr_t, idx_dep_t, header=None):
     with open(pathname, 'w', newline='') as f:
@@ -633,9 +633,38 @@ def get_input_boardings(arrival_rates, dem_interval_len_min, start_time_sec, end
     return aggregated_boardings
 
 
-def plot_od(od, pathname=None):
+def plot_od(od, ordered_stops, pathname=None, clim=None, controlled_stops=None):
     plt.imshow(od, cmap='Reds', interpolation='nearest')
+    if clim:
+        plt.clim(clim)
     plt.colorbar()
+    bar = np.arange(len(ordered_stops))
+    x = np.array(ordered_stops)
+    plt.xticks(bar, x, rotation=90, fontsize=6)
+    plt.yticks(bar, x, fontsize=6)
+    for c in controlled_stops:
+        idx = ordered_stops.index(c)
+        plt.axhline(y=idx, color='gray', alpha=0.5, linestyle='dashed')
+    if pathname:
+        plt.savefig(pathname)
+    else:
+        plt.show()
+    plt.close()
+    return
+
+
+def plot_difference_od(od, ordered_stops, pathname=None, clim=None, controlled_stops=None):
+    plt.imshow(od, cmap='BrBG',interpolation='nearest')
+    if clim:
+        plt.clim(clim)
+    plt.colorbar()
+    bar = np.arange(len(ordered_stops))
+    x = np.array(ordered_stops)
+    plt.xticks(bar, x, rotation=90, fontsize=6)
+    plt.yticks(bar, x, fontsize=6)
+    for c in controlled_stops:
+        idx = ordered_stops.index(c)
+        plt.axhline(y=idx, color='gray', alpha=0.5, linestyle='dashed')
     if pathname:
         plt.savefig(pathname)
     else:
