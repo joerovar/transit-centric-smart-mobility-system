@@ -147,15 +147,14 @@ if __name__ == '__main__':
 
         load_mean = output.get_rl_results(tstamps)
 
-        fw_headway_scenarios = np.array([320, 310, 300, 290, 280, 270, 260, 250, 240, 230, 220])
+        fw_headway_scenarios = np.arange(HEADWAY_UNIFORM+60, HEADWAY_UNIFORM-80, -20)
         bw_headway_scenarios = np.flip(fw_headway_scenarios, axis=0)
-        route_progress_scenarios = np.array([(STOPS.index(s) / len(STOPS)) for s in CONTROLLED_STOPS])
+        route_progress_scenarios = np.array([(STOPS.index(s) / len(STOPS)) for s in CONTROLLED_STOPS[:-1]])
         action_grid = np.zeros(shape=(len(fw_headway_scenarios), len(route_progress_scenarios)))
-        bus_load = 7
 
         for i in range(fw_headway_scenarios.size):
             for j in range(route_progress_scenarios.size):
-                obs = np.array([route_progress_scenarios[j], load_mean[CONTROLLED_STOPS[j]],
+                obs = np.array([route_progress_scenarios[j], int(load_mean[CONTROLLED_STOPS[j]]),
                                 fw_headway_scenarios[i], bw_headway_scenarios[i]], dtype=np.float32)
                 action_grid[i, j] = agent.choose_action(obs)
 
@@ -167,9 +166,9 @@ if __name__ == '__main__':
         ax.xaxis.set_ticks_position('bottom')
         ax.set_xticklabels(np.arange(1, route_progress_scenarios.size+1))
         ax.set_yticks(y_axis)
-        ax.set_yticklabels(np.arange(50, -60, -10))
+        ax.set_yticklabels(np.arange(60, -80, -20))
         ax.set_xlabel('control point')
-        ax.set_ylabel('dfh=-dbh (sec)')
+        ax.set_ylabel('dfh=-dbh (seconds)')
         cbar = fig.colorbar(ms, ticks=np.arange(np.min(action_grid), np.max(action_grid) + 1), orientation='horizontal')
         cbar.ax.set_xlabel('best action')
         path_policy_examination = path_to_outs + dir_figs + 'policy_' + args.env + ext_fig

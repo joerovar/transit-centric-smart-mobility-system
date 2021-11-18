@@ -44,6 +44,13 @@ od_jtm_rl_varname = 'od_jtm_rl'
 od_jts_nc_varname = 'od_jts_nc'
 od_jts_eh_varname = 'od_jts_eh'
 od_jts_rl_varname = 'od_jts_rl'
+# od journey time rbt
+od_jtr_nc_varname = 'od_jtr_nc'
+od_jtr_eh_varname = 'od_jtr_eh'
+od_jtr_rl_varname = 'od_jtr_rl'
+# hold time
+eh_hold_time_varname = 'eh_hold_time'
+rl_hold_time_varname = 'rl_hold_time'
 
 
 def get_results(tstamps):
@@ -63,7 +70,7 @@ def get_results(tstamps):
                                'ons_count', 'offs_count', 'denied_count']
         path_trajectories_write = path_to_outs + dir_csv + trajectories_filename + t + ext_csv
         path_trajectories_plot = path_to_outs + dir_figs + trajectories_filename + t + ext_fig
-        # post_process.write_trajectories(trajectories, path_trajectories_write, header=trajectories_header)
+        post_process.write_trajectories(trajectories, path_trajectories_write, IDX_ARR_T, IDX_DEP_T, header=trajectories_header)
         # post_process.plot_trajectories(trajectories, IDX_ARR_T, IDX_DEP_T, path_trajectories_plot, STOPS)
 
         # ------------------------------------------------- PAX DATA ---------------------------
@@ -114,7 +121,7 @@ def get_results(tstamps):
         post_process.plot_headway(path_plot_headway_combined, headway_comb, STOPS)
 
         # ------------------------------------------------ LOAD PROFILE ----------------------------------------
-        mean_load_comb, std_load_comb, ons_comb, offs_comb = post_process.pax_per_trip_from_trajectory_set(
+        mean_load_comb, std_load_comb, ons_comb, offs_comb, ons_tot = post_process.pax_per_trip_from_trajectory_set(
             trajectories_set, IDX_LOAD,
             IDX_PICK, IDX_DROP, first_trip_id)
 
@@ -126,18 +133,18 @@ def get_results(tstamps):
                                        pathname=path_plot_load_profile_combined, x_y_lbls=load_labels)
 
         # ------------------------------------------------- DENIED BOARDINGS -----------------------------------
-        denied_boardings_comb = post_process.denied_from_trajectory_set(trajectories_set, IDX_DENIED, ons_comb,
+        denied_boardings_comb = post_process.denied_from_trajectory_set(trajectories_set, IDX_DENIED, ons_tot,
                                                                         first_trip_id)
         path_plot_denied_boardings_combined = path_to_outs + dir_figs + denied_filename + t + ext_fig
 
-        denied_labels = ['stop id', '1 in 1,000 pax']
+        denied_labels = ['stop id', '1/1000 pax']
 
         post_process.plot_pax_per_stop(path_plot_denied_boardings_combined, denied_boardings_comb, STOPS,
                                        x_y_lbls=denied_labels)
 
         # ------------------------------------------------ OD-LEVEL DATA --------------------------------------
         od_journey_time_mean, od_journey_time_std, od_wait_time_mean, \
-        od_wait_time_std = post_process.process_od_level_data(completed_pax_set, STOPS, FOCUS_START_TIME_SEC)
+        od_wait_time_std, od_journey_time_rbt = post_process.process_od_level_data(completed_pax_set, STOPS, FOCUS_TRIPS)
         path_plot_od_jt_mean = path_to_outs + dir_figs + od_jt_mean_filename + t + ext_fig
         path_plot_od_jt_std = path_to_outs + dir_figs + od_jt_std_filename + t + ext_fig
         path_plot_od_wt_mean = path_to_outs + dir_figs + od_wt_mean_filename + t + ext_fig
@@ -155,6 +162,7 @@ def get_results(tstamps):
         post_process.save(path_to_outs + dir_var + od_wts_nc_varname + ext_var, od_wait_time_std)
         post_process.save(path_to_outs + dir_var + od_jtm_nc_varname + ext_var, od_journey_time_mean)
         post_process.save(path_to_outs + dir_var + od_jts_nc_varname + ext_var, od_journey_time_std)
+        post_process.save(path_to_outs + dir_var + od_jtr_nc_varname + ext_var, od_journey_time_rbt)
     return
 
 
@@ -174,7 +182,7 @@ def get_base_control_results(tstamps):
                                'offs_count', 'denied_count', 'hold_sec']
         path_trajectories_write = path_to_outs + dir_csv + trajectories_filename + t + ext_csv
         path_trajectories_plot = path_to_outs + dir_figs + trajectories_filename + t + ext_fig
-        # post_process.write_trajectories(trajectories, path_trajectories_write, header=trajectories_header)
+        post_process.write_trajectories(trajectories, path_trajectories_write, IDX_ARR_T, IDX_DEP_T, header=trajectories_header)
         # post_process.plot_trajectories(trajectories, IDX_ARR_T, IDX_DEP_T, path_trajectories_plot, STOPS,
         #                                controlled_stops=CONTROLLED_STOPS)
         # ------------------------------------------------- PAX DATA ---------------------------
@@ -230,7 +238,7 @@ def get_base_control_results(tstamps):
                                   controlled_stops=CONTROLLED_STOPS)
 
         # ------------------------------------------ LOAD PROFILE ------------------------------------------
-        mean_load_comb, std_load_comb, ons_comb, offs_comb = post_process.pax_per_trip_from_trajectory_set(
+        mean_load_comb, std_load_comb, ons_comb, offs_comb, ons_tot = post_process.pax_per_trip_from_trajectory_set(
             trajectories_set, IDX_LOAD,
             IDX_PICK, IDX_DROP, first_trip_id)
 
@@ -242,7 +250,7 @@ def get_base_control_results(tstamps):
                                        controlled_stops=CONTROLLED_STOPS)
 
         # ---------------------------------------- DENIED BOARDINGS -----------------------------------------
-        denied_boardings_comb = post_process.denied_from_trajectory_set(trajectories_set, IDX_DENIED, ons_comb,
+        denied_boardings_comb = post_process.denied_from_trajectory_set(trajectories_set, IDX_DENIED, ons_tot,
                                                                         first_trip_id)
 
         path_plot_denied_boardings_combined = path_to_outs + dir_figs + denied_filename + t + ext_fig
@@ -264,7 +272,7 @@ def get_base_control_results(tstamps):
 
         # ------------------------------------------------ OD-LEVEL DATA --------------------------------------
         od_journey_time_mean, od_journey_time_std, od_wait_time_mean, \
-        od_wait_time_std = post_process.process_od_level_data(completed_pax_set, STOPS, FOCUS_START_TIME_SEC)
+        od_wait_time_std, od_journey_time_rbt = post_process.process_od_level_data(completed_pax_set, STOPS, FOCUS_TRIPS)
         # path_plot_od_jt_mean = path_to_outs + dir_figs + od_jt_mean_filename + t + ext_fig
         # path_plot_od_jt_std = path_to_outs + dir_figs + od_jt_std_filename + t + ext_fig
         # path_plot_od_wt_mean = path_to_outs + dir_figs + od_wt_mean_filename + t + ext_fig
@@ -282,6 +290,8 @@ def get_base_control_results(tstamps):
         post_process.save(path_to_outs + dir_var + od_wts_eh_varname + ext_var, od_wait_time_std)
         post_process.save(path_to_outs + dir_var + od_jtm_eh_varname + ext_var, od_journey_time_mean)
         post_process.save(path_to_outs + dir_var + od_jts_eh_varname + ext_var, od_journey_time_std)
+        post_process.save(path_to_outs + dir_var + od_jtr_eh_varname + ext_var, od_journey_time_rbt)
+        post_process.save(path_to_outs + dir_var + eh_hold_time_varname + ext_var, hold_time_comb)
     return
 
 
@@ -306,10 +316,10 @@ def get_rl_results(tstamps):
         path_trajectories_write = path_to_outs + dir_csv + trajectories_filename + t + ext_csv
         path_trajectories_plot = path_to_outs + dir_figs + trajectories_filename + t + ext_fig
         path_sars_write = path_to_outs + dir_csv + sars_record_filename + t + ext_csv
-        post_process.write_trajectories(trajectories, path_trajectories_write, header=trajectories_header)
-        post_process.plot_trajectories(trajectories, IDX_ARR_T, IDX_DEP_T, path_trajectories_plot, STOPS,
-                                       controlled_stops=CONTROLLED_STOPS)
-        post_process.write_trajectories(sars, path_sars_write)
+        post_process.write_trajectories(trajectories, path_trajectories_write, IDX_ARR_T, IDX_DEP_T,header=trajectories_header)
+        # post_process.plot_trajectories(trajectories, IDX_ARR_T, IDX_DEP_T, path_trajectories_plot, STOPS,
+        #                                controlled_stops=CONTROLLED_STOPS)
+        post_process.write_sars(sars, path_sars_write)
 
         # ------------------------------------------------- PAX DATA ---------------------------
         path_completed_pax_load = path_to_outs + dir_var + 'completed_pax_' + t + ext_var
@@ -363,7 +373,7 @@ def get_rl_results(tstamps):
                                   controlled_stops=CONTROLLED_STOPS)
 
         # ------------------------------------------ LOAD PROFILE ------------------------------------------
-        mean_load_comb, std_load_comb, ons_comb, offs_comb = post_process.pax_per_trip_from_trajectory_set(
+        mean_load_comb, std_load_comb, ons_comb, offs_comb, ons_tot = post_process.pax_per_trip_from_trajectory_set(
             trajectories_set, IDX_LOAD,
             IDX_PICK, IDX_DROP, first_trip_id)
 
@@ -375,7 +385,7 @@ def get_rl_results(tstamps):
                                        controlled_stops=CONTROLLED_STOPS)
 
         # ---------------------------------------- DENIED BOARDINGS -----------------------------------------
-        denied_boardings_comb = post_process.denied_from_trajectory_set(trajectories_set, IDX_DENIED, ons_comb,
+        denied_boardings_comb = post_process.denied_from_trajectory_set(trajectories_set, IDX_DENIED, ons_tot,
                                                                         first_trip_id)
 
         path_plot_denied_boardings_combined = path_to_outs + dir_figs + denied_filename + t + ext_fig
@@ -392,9 +402,10 @@ def get_rl_results(tstamps):
         post_process.plot_bar_chart(hold_time_comb, STOPS, path_plot_holding_time_comb,
                                     x_y_lbls=['stop id', 'seconds'], controlled_stops=CONTROLLED_STOPS)
         post_process.plot_histogram(hold_time_all, path_plot_hold_time_distribution)
+
         # ------------------------------------------------ OD-LEVEL DATA --------------------------------------
         od_journey_time_mean, od_journey_time_std, od_wait_time_mean, \
-        od_wait_time_std = post_process.process_od_level_data(completed_pax_set, STOPS, FOCUS_START_TIME_SEC)
+        od_wait_time_std, od_journey_time_rbt = post_process.process_od_level_data(completed_pax_set, STOPS, FOCUS_TRIPS)
         path_plot_od_jt_mean = path_to_outs + dir_figs + od_jt_mean_filename + t + ext_fig
         path_plot_od_jt_std = path_to_outs + dir_figs + od_jt_std_filename + t + ext_fig
         path_plot_od_wt_mean = path_to_outs + dir_figs + od_wt_mean_filename + t + ext_fig
@@ -412,38 +423,47 @@ def get_rl_results(tstamps):
         post_process.save(path_to_outs + dir_var + od_wts_rl_varname + ext_var, od_wait_time_std)
         post_process.save(path_to_outs + dir_var + od_jtm_rl_varname + ext_var, od_journey_time_mean)
         post_process.save(path_to_outs + dir_var + od_jts_rl_varname + ext_var, od_journey_time_std)
+        post_process.save(path_to_outs + dir_var + od_jtr_rl_varname + ext_var, od_journey_time_rbt)
+        post_process.save(path_to_outs + dir_var + rl_hold_time_varname + ext_var, hold_time_comb)
         return mean_load_comb
 
     else:
         return
 
 
-def access_past_results(path_dir_load, vartype, tstamp_contained, path_dir_save):
-    onlyfiles = [f for f in listdir(path_dir_load) if
-                 isfile(join(path_dir_load, f)) and vartype in f and tstamp_contained in f]
-    for f in onlyfiles:
-        path_load_file = path_dir_load + '/' + f
-        var = post_process.load(path_load_file)
-        path_save_file = path_dir_save + '/' + f
-        path_sars_write = path_save_file.replace(ext_var, ext_csv)
-        post_process.write_trajectories(var, path_sars_write)
-    return
+# def access_past_results(path_dir_load, vartype, tstamp_contained, path_dir_save):
+#     onlyfiles = [f for f in listdir(path_dir_load) if
+#                  isfile(join(path_dir_load, f)) and vartype in f and tstamp_contained in f]
+#     for f in onlyfiles:
+#         path_load_file = path_dir_load + '/' + f
+#         var = post_process.load(path_load_file)
+#         path_save_file = path_dir_save + '/' + f
+#         path_sars_write = path_save_file.replace(ext_var, ext_csv)
+#         post_process.write_trajectories(var, path_sars_write)
+#     return
 
 
 def benchmark_comparisons():
     lbls = ['NC', 'EH', 'RL']
+    hw_nc = post_process.load(path_to_outs + dir_var + hw_nc_varname + ext_var)
+    hw_eh = post_process.load(path_to_outs + dir_var + hw_eh_varname + ext_var)
+    hw_rl = post_process.load(path_to_outs + dir_var + hw_rl_varname + ext_var)
+    tt_nc = post_process.load(path_to_outs + dir_var + ttd_nc_varname + ext_var)
+    tt_eh = post_process.load(path_to_outs + dir_var + ttd_eh_varname + ext_var)
+    tt_rl = post_process.load(path_to_outs + dir_var + ttd_rl_varname + ext_var)
+    ht_eh = post_process.load(path_to_outs + dir_var + eh_hold_time_varname + ext_var)
+    ht_rl = post_process.load(path_to_outs + dir_var + rl_hold_time_varname + ext_var)
+    # rbt_nc = post_process.load(path_to_outs + dir_var + rbt_nc_varname)
     # headway graph
-
+    post_process.plot_headway_benchmark([hw_nc, hw_eh, hw_rl], STOPS)
     # travel time graph
-
+    post_process.plot_travel_time_benchmark([tt_nc, tt_eh, tt_rl])
     # wait time mean RL vs NC
-
-    # wait time std RL vs NC
 
     # wait time mean RL vs EH
 
-    # wait time std RL vs EH
-
+    # hold time RL vs EH
+    post_process.plot_multiple_bar_charts(ht_eh, ht_rl, lbls[1:], STOPS)
     return
 
 

@@ -5,9 +5,27 @@ import pandas as pd
 import pickle
 from copy import deepcopy
 import seaborn as sns
+from datetime import timedelta
 
 
-def write_trajectories(trip_data, pathname, header=None):
+def write_trajectories(trip_data, pathname, idx_arr_t, idx_dep_t, header=None):
+    with open(pathname, 'w', newline='') as f:
+        wf = csv.writer(f, delimiter=',', quotechar=' ', quoting=csv.QUOTE_MINIMAL)
+        i = 1
+        if header:
+            wf.writerow(header)
+        for trip in trip_data:
+            for s in trip_data[trip]:
+                stop_lst = deepcopy(s)
+                stop_lst[idx_arr_t] = str(timedelta(seconds=round(stop_lst[idx_arr_t])))
+                stop_lst[idx_dep_t] = str(timedelta(seconds=round(stop_lst[idx_dep_t])))
+                stop_lst.insert(0, trip)
+                wf.writerow(stop_lst)
+            i += 1
+    return
+
+
+def write_sars(trip_data, pathname, header=None):
     with open(pathname, 'w', newline='') as f:
         wf = csv.writer(f, delimiter=',', quotechar=' ', quoting=csv.QUOTE_MINIMAL)
         i = 1
@@ -97,8 +115,8 @@ def plot_trajectories(trip_data, idx_arr_t, idx_dep_t, pathname, ordered_stops, 
     return
 
 
-def plot_multiple_bar_charts(wta, wtc, pathname, lbls, ordered_stops, x_y_lbls=None):
-    w = 0.27
+def plot_multiple_bar_charts(wta, wtc,  lbls, ordered_stops, x_y_lbls=None, pathname=None):
+    w = 0.5
     bar1 = np.arange(len(ordered_stops))
     bar2 = [i + w for i in bar1]
     x = ordered_stops
@@ -333,19 +351,22 @@ def pax_per_trip_from_trajectory_set(trajectory_set, idx_load, idx_ons, idx_offs
     ons_std = {}
     offs_mean = {}
     offs_std = {}
+    ons_tot = {}
+
     for stop in bus_load_all:
         bus_load_mean[stop] = np.nan_to_num(np.array(bus_load_all[stop]).mean())
         bus_load_std[stop] = np.nan_to_num(np.array(bus_load_all[stop]).std())
 
     for stop in ons_all:
         ons_mean[stop] = np.nan_to_num(np.array(ons_all[stop]).mean())
+        ons_tot[stop] = np.nan_to_num(np.array(ons_all[stop]).sum())
         # ons_std[stop] = np.nan_to_num(np.array(ons_all[stop]).std())
 
     for stop in offs_all:
         offs_mean[stop] = np.nan_to_num(np.array(offs_all[stop]).mean())
         # offs_std[stop] = np.nan_to_num(np.array(offs_all[stop]).std())
 
-    return bus_load_mean, bus_load_std, ons_mean, offs_mean
+    return bus_load_mean, bus_load_std, ons_mean, offs_mean, ons_tot
 
 
 def hold_time_from_trajectory_set(trajectory_set, idx, first_trip, controlled_stops):
@@ -383,7 +404,7 @@ def denied_from_trajectory_set(trajectory_set, idx, tot_ons, first_trip):
                         tot_denied[stop_id] += denied
     per_mil_denied = {}
     for stop in tot_denied:
-        if tot_ons:
+        if tot_ons[stop]:
             per_mil_denied[stop] = tot_denied[stop] / tot_ons[stop] * 1000
     return per_mil_denied
 
@@ -623,7 +644,7 @@ def plot_od(od, pathname=None):
     return
 
 
-def process_od_level_data(pax_set, ordered_stops, focus_start_time_sec):
+def process_od_level_data(pax_set, ordered_stops, focus_trip_ids):
     # we add all data points to a dataframe
     # then we convert into an od matrix
     # journey times only from completed pax
@@ -631,7 +652,7 @@ def process_od_level_data(pax_set, ordered_stops, focus_start_time_sec):
     wait_times = {'o': [], 'd': [], 'wt': []}
     for replication in pax_set:
         for p in replication:
-            if p.board_time > focus_start_time_sec:
+            if p.trip_id in focus_trip_ids:
                 journey_times['o'].append(p.orig_idx)
                 journey_times['d'].append(p.dest_idx)
                 journey_times['jt'].append(p.journey_time)
@@ -642,20 +663,26 @@ def process_od_level_data(pax_set, ordered_stops, focus_start_time_sec):
     wait_times_df = pd.DataFrame(wait_times)
     n = len(ordered_stops)
     od_wait_time_mean = np.zeros(shape=(n,)*2)
+    od_wait_time_mean[:] = np.nan
     od_wait_time_std = np.zeros(shape=(n,)*2)
+    od_wait_time_std[:] = np.nan
     od_journey_time_mean = np.zeros(shape=(n,)*2)
+    od_journey_time_mean[:] = np.nan
     od_journey_time_std = np.zeros(shape=(n,)*2)
-
+    od_journey_time_std[:] = np.nan
+    od_journey_time_rbt = np.zeros(shape=(n,)*2)
+    od_journey_time_rbt[:] = np.nan
     for i in range(n):
         for j in range(i + 1, n):
             jt = journey_times_df[(journey_times_df['o'] == i) & (journey_times_df['d'] == j)]['jt']
-            od_journey_time_mean[i, j] = jt.mean()
-            od_journey_time_std[i, j] = jt.std()
-
             wt = wait_times_df[(wait_times_df['o'] == i) & (wait_times_df['d'] == j)]['wt']
-            od_wait_time_mean[i, j] = wt.mean()
-            od_wait_time_std[i, j] = wt.std()
-    return od_journey_time_mean, od_journey_time_std, od_wait_time_mean, od_wait_time_std
+            if not jt.empty:
+                od_journey_time_mean[i, j] = jt.mean()
+                od_journey_time_std[i, j] = jt.std()
+                od_journey_time_rbt[i, j] = jt.quantile(0.8) - jt.median()
+                od_wait_time_mean[i, j] = wt.mean()
+                od_wait_time_std[i, j] = wt.std()
+    return od_journey_time_mean, od_journey_time_std, od_wait_time_mean, od_wait_time_std, od_journey_time_rbt
 
 
 def plot_travel_time(times, pathname):
@@ -665,5 +692,56 @@ def plot_travel_time(times, pathname):
     else:
         plt.show()
     plt.close()
+    return
+
+
+def plot_travel_time_benchmark(tt_set, pathname=None):
+    for tt in tt_set:
+        sns.kdeplot(np.array(tt))
+    if pathname:
+        plt.savefig(pathname)
+    else:
+        plt.show()
+    plt.close()
+    return
+
+
+def plot_headway_benchmark(hw_set, ordered_stops, pathname=None, controlled_stops=None, min_size_for_cv=1, cv_scale=(0,1,0.1)):
+    fig, ax1 = plt.subplots()
+    color = ['tab:red', 'tab:blue', 'tab:green']
+
+    color_count = 0
+    for hs in hw_set:
+        x = []
+        y1 = []
+        for i in range(len(ordered_stops)):
+            s = ordered_stops[i]
+            if s in hs:
+                h = hs[s]
+                if len(h) > min_size_for_cv:
+                    mean = np.array(h).mean()
+                    std = np.array(h).std()
+                    cv = std / mean
+                    x.append(i)
+                    y1.append(cv) if mean else y1.append(0)
+                    # y2.append(mean)
+        ax1.plot(x, y1, color=color[color_count])
+        color_count += 1
+
+    ax1.set_xlabel('stop id')
+    ax1.set_ylabel('coefficient of variation')
+    ax1.set_yticks(np.arange(cv_scale[0], cv_scale[1] + cv_scale[2], cv_scale[2]))
+    if controlled_stops:
+        for cs in controlled_stops:
+            idx = ordered_stops.index(cs)
+            plt.axvline(x=idx, color='gray', alpha=0.5, linestyle='dashed')
+    x1 = np.arange(len(ordered_stops))
+    ax1.set_xticks(x1)
+    ax1.set_xticklabels(ordered_stops, fontsize=6, rotation=90)
+    plt.tight_layout()
+    if pathname:
+        plt.savefig(pathname)
+    else:
+        plt.show()
     return
 

@@ -55,12 +55,12 @@ def run_base_detailed(episodes=2, save=False, plot=False, time_dep_tt=True, time
             post_process.save(path_trajectories, env.trajectories)
             path_completed_pax = path_to_outs + dir_var + 'completed_pax_' + tstamps[-1] + ext_var
             post_process.save(path_completed_pax, env.completed_pax)
-        if plot:
-            output.get_results(tstamps)
+    if plot:
+        output.get_results(tstamps)
     return
 
 
-def run_base_control_detailed(episodes=1, save=False, plot=False, time_dep_tt=True, time_dep_dem=True):
+def run_base_control_detailed(episodes=2, save=False, plot=False, time_dep_tt=True, time_dep_dem=True):
     tstamps = []
     for i in range(episodes):
         env = DetailedSimulationEnvWithControl(time_dependent_travel_time=time_dep_tt, time_dependent_demand=time_dep_dem)
@@ -79,6 +79,6 @@ def run_base_control_detailed(episodes=1, save=False, plot=False, time_dep_tt=Tr
     return
 
 
-run_base_detailed(save=True, plot=True)
-
+# run_base_control_detailed(episodes=6, save=True, plot=True)
+output.benchmark_comparisons()
 print("ran in %.2f seconds" % (time.time()-st))

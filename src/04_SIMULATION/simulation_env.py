@@ -303,7 +303,7 @@ class SimulationEnv:
 
     def prep(self):
         self.next_event()
-        if self.time >= FOCUS_END_TIME_SEC:
+        if (LAST_FOCUS_TRIP not in self.active_trips) & (LAST_FOCUS_TRIP not in self.next_trip_ids):
             return True
         if self.event_type == 2:
             self.terminal_arrival()
@@ -320,18 +320,8 @@ class SimulationEnv:
             return False
 
     def chop_trajectories(self):
-        trajectories = dict(self.trajectories)
-        for trip in trajectories:
-            chopped_trajectories = []
-            i = 0
-            for stop in trajectories[trip]:
-                if stop[IDX_ARR_T] >= FOCUS_START_TIME_SEC:
-                    chopped_trajectories = trajectories[trip][i:]
-                    break
-                i += 1
-            if chopped_trajectories:
-                self.trajectories[trip] = chopped_trajectories
-            else:
+        for trip in self.trajectories.copy():
+            if trip not in FOCUS_TRIPS:
                 self.trajectories.pop(trip)
         return
 
@@ -442,9 +432,8 @@ class SimulationEnvWithControl(SimulationEnv):
 
     def prep(self):
         self.next_event()
-        t = self.time
 
-        if t >= FOCUS_END_TIME_SEC:
+        if (LAST_FOCUS_TRIP not in self.active_trips) & (LAST_FOCUS_TRIP not in self.next_trip_ids):
             return True
 
         if self.event_type == 2:
@@ -455,15 +444,15 @@ class SimulationEnvWithControl(SimulationEnv):
             i = self.bus_idx
             arrival_stop = self.next_stop[i]
             trip_id = self.active_trips[i]
-            if trip_id != ORDERED_TRIPS[0]:
-                if arrival_stop in CONTROLLED_STOPS[:-1] and self.time >= FOCUS_START_TIME_SEC:
+            if (trip_id != ORDERED_TRIPS[0]) & (trip_id != ORDERED_TRIPS[-1]):
+                if arrival_stop in CONTROLLED_STOPS[:-1]:
                     self.fixed_stop_unload()
                     self.decide_bus_holding()
-                    return self.prep()
+                    return False
             self.fixed_stop_unload()
             self.fixed_stop_arrivals()
             self.fixed_stop_depart()
-            return self.prep()
+            return False
 
         if self.event_type == 0:
             self.terminal_departure()
@@ -472,22 +461,22 @@ class SimulationEnvWithControl(SimulationEnv):
 
 def _compute_reward(action, fw_h, bw_h, trip_id, prev_bw_h, prev_fw_h, is_headway_constant):
     trip_idx = ORDERED_TRIPS.index(trip_id)
-    follow_trip_id = ORDERED_TRIPS[trip_idx + 1]
-    lead_trip_id = ORDERED_TRIPS[trip_idx - 1]
-    if is_headway_constant:
-        planned_fw_h = CONSTANT_HEADWAY
-        planned_bw_h = CONSTANT_HEADWAY
-    else:
-        planned_fw_h = PLANNED_HEADWAY[str(lead_trip_id) + '-' + str(trip_id)]
-        planned_bw_h = PLANNED_HEADWAY[str(trip_id) + '-' + str(follow_trip_id)]
+    # follow_trip_id = ORDERED_TRIPS[trip_idx + 1]
+    # lead_trip_id = ORDERED_TRIPS[trip_idx - 1]
+    # if is_headway_constant:
+    #     planned_fw_h = CONSTANT_HEADWAY
+    #     planned_bw_h = CONSTANT_HEADWAY
+    # else:
+    #     planned_fw_h = PLANNED_HEADWAY[str(lead_trip_id) + '-' + str(trip_id)]
+    #     planned_bw_h = PLANNED_HEADWAY[str(trip_id) + '-' + str(follow_trip_id)]
 
-    # hw_diff0 = abs(prev_fw_h - prev_bw_h)
-    # hw_diff1 = abs(fw_h - bw_h)
-    # reward = hw_diff0 - hw_diff1
+    hw_diff0 = abs(prev_fw_h - prev_bw_h)
+    hw_diff1 = abs(fw_h - bw_h)
+    reward = hw_diff0 - hw_diff1
 
-    fw_h_diff0 = abs(prev_fw_h - planned_fw_h)
-    fw_h_diff1 = abs(fw_h - planned_fw_h)
-    reward = fw_h_diff0 - fw_h_diff1
+    # fw_h_diff0 = abs(prev_fw_h - planned_fw_h)
+    # fw_h_diff1 = abs(fw_h - planned_fw_h)
+    # reward = fw_h_diff0 - fw_h_diff1
 
     # fw_h_diff0 = abs(prev_fw_h - planned_fw_h)
     # fw_h_diff1 = abs(fw_h - planned_fw_h)
@@ -689,28 +678,26 @@ class SimulationEnvDeepRL(SimulationEnv):
             self.trips_sars[trip_id].append(new_sars)
         return
 
-
-
     def prep(self):
         self.next_event()
-        t = self.time
-        if t >= FOCUS_END_TIME_SEC:
+        if (LAST_FOCUS_TRIP not in self.active_trips) & (LAST_FOCUS_TRIP not in self.next_trip_ids):
             return True
 
         if self.event_type == 2:
             self.terminal_arrival()
-            return False
+            return self.prep()
 
         if self.event_type == 1:
             i = self.bus_idx
             arrival_stop = self.next_stop[i]
             trip_id = self.active_trips[i]
-            if trip_id != ORDERED_TRIPS[0]:
-                if arrival_stop in CONTROLLED_STOPS and self.time >= FOCUS_START_TIME_SEC:
+            if (trip_id != ORDERED_TRIPS[0]) & (trip_id != ORDERED_TRIPS[-1]):
+                if arrival_stop in CONTROLLED_STOPS:
                     if arrival_stop == CONTROLLED_STOPS[-1]:
                         self.bool_terminal_state = True
                         self.fixed_stop_unload()
                         self._add_observations()
+                        self.fixed_stop_arrivals()
                         self.fixed_stop_depart()
                     else:
                         self.bool_terminal_state = False
@@ -720,11 +707,11 @@ class SimulationEnvDeepRL(SimulationEnv):
             self.fixed_stop_unload()
             self.fixed_stop_arrivals()
             self.fixed_stop_depart()
-            return False
+            return self.prep()
 
         if self.event_type == 0:
             self.terminal_departure()
-            return False
+            return self.prep()
 
 
 class DetailedSimulationEnv(SimulationEnv):
@@ -788,24 +775,25 @@ class DetailedSimulationEnv(SimulationEnv):
             pax_info['o_stop_idx'] = []
             pax_info['d_stop_idx'] = []
             for j in range(i + 1, len(STOPS)):
-                for k in range(DEM_START_INTERVAL, DEM_END_INTERVAL + 1):
+                for k in range(DEM_START_INTERVAL, DEM_END_INTERVAL):
                     start_edge_interval = k * DEM_INTERVAL_LENGTH_MINS * 60
                     end_edge_interval = start_edge_interval + DEM_INTERVAL_LENGTH_MINS * 60
                     od_rate = ODT[k - DEM_START_INTERVAL, i, j]
                     max_size = int(od_rate * (DEM_INTERVAL_LENGTH_MINS / 60) * 3)
-                    temp_pax_interarr_times = np.random.exponential(3600 / od_rate, size=max_size)
-                    temp_pax_arr_times = np.cumsum(temp_pax_interarr_times)
-                    if k == DEM_START_INTERVAL:
-                        temp_pax_arr_times += pax_initialize_time[i]
-                    else:
-                        temp_pax_arr_times += max(start_edge_interval, pax_initialize_time[i])
-                    temp_pax_arr_times = temp_pax_arr_times[
-                        temp_pax_arr_times <= min(FOCUS_END_TIME_SEC, end_edge_interval)]
-                    temp_pax_arr_times = temp_pax_arr_times.tolist()
-                    if len(temp_pax_arr_times):
-                        pax_info['arr_times'] += temp_pax_arr_times
-                        pax_info['o_stop_idx'] += [i] * len(temp_pax_arr_times)
-                        pax_info['d_stop_idx'] += [j] * len(temp_pax_arr_times)
+                    if od_rate:
+                        temp_pax_interarr_times = np.random.exponential(3600 / od_rate, size=max_size)
+                        temp_pax_arr_times = np.cumsum(temp_pax_interarr_times)
+                        if k == DEM_START_INTERVAL:
+                            temp_pax_arr_times += pax_initialize_time[i]
+                        else:
+                            temp_pax_arr_times += max(start_edge_interval, pax_initialize_time[i])
+                        temp_pax_arr_times = temp_pax_arr_times[
+                            temp_pax_arr_times <= min(END_TIME_SEC, end_edge_interval)]
+                        temp_pax_arr_times = temp_pax_arr_times.tolist()
+                        if len(temp_pax_arr_times):
+                            pax_info['arr_times'] += temp_pax_arr_times
+                            pax_info['o_stop_idx'] += [i] * len(temp_pax_arr_times)
+                            pax_info['d_stop_idx'] += [j] * len(temp_pax_arr_times)
             df = pd.DataFrame(pax_info).sort_values(by='arr_times')
             pax_sorted_info = df.to_dict('list')
             for o, d, at in zip(pax_sorted_info['o_stop_idx'], pax_sorted_info['d_stop_idx'],
@@ -843,6 +831,7 @@ class DetailedSimulationEnv(SimulationEnv):
         for p in self.stops[curr_stop_idx].pax.copy():
             if p.arr_time <= self.time:
                 if bus_load + self.ons[i] + 1 <= CAPACITY:
+                    p.trip_id = self.active_trips[i]
                     p.board_time = float(self.time)
                     p.wait_time = float(p.board_time - p.arr_time)
                     self.trips[curr_trip_idx].pax.append(p)
@@ -870,6 +859,7 @@ class DetailedSimulationEnv(SimulationEnv):
         for p in self.stops[0].pax.copy():
             if p.arr_time <= self.time:
                 if bus_load + self.ons[i] + 1 <= CAPACITY:
+                    p.trip_id = self.active_trips[i]
                     p.board_time = float(self.time)
                     p.wait_time = float(p.board_time - p.arr_time)
                     self.trips[curr_trip_idx].pax.append(p)
@@ -992,9 +982,8 @@ class DetailedSimulationEnvWithControl(DetailedSimulationEnv):
 
     def prep(self):
         self.next_event()
-        t = self.time
 
-        if t >= FOCUS_END_TIME_SEC:
+        if (LAST_FOCUS_TRIP not in self.active_trips) & (LAST_FOCUS_TRIP not in self.next_trip_ids):
             return True
 
         if self.event_type == 2:
@@ -1005,15 +994,15 @@ class DetailedSimulationEnvWithControl(DetailedSimulationEnv):
             i = self.bus_idx
             arrival_stop = self.next_stop[i]
             trip_id = self.active_trips[i]
-            if trip_id != ORDERED_TRIPS[0]:
-                if arrival_stop in CONTROLLED_STOPS[:-1] and self.time >= FOCUS_START_TIME_SEC:
+            if (trip_id != ORDERED_TRIPS[0]) & (trip_id != ORDERED_TRIPS[-1]):
+                if arrival_stop in CONTROLLED_STOPS[:-1]:
                     self.fixed_stop_unload()
                     self.decide_bus_holding()
-                    return self.prep()
+                    return False
             self.fixed_stop_unload()
             self.fixed_stop_arrivals()
             self.fixed_stop_depart()
-            return self.prep()
+            return False
 
         if self.event_type == 0:
             self.terminal_departure()
@@ -1095,6 +1084,7 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
         for p in self.stops[curr_stop_idx].pax.copy():
             if p.arr_time <= self.time:
                 if bus_load + self.ons[i] + 1 <= CAPACITY and not skip:
+                    p.trip_id = self.active_trips[i]
                     p.board_time = float(self.time)
                     p.wait_time = float(p.board_time - p.arr_time)
                     self.trips[curr_trip_idx].pax.append(p)
@@ -1205,24 +1195,25 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
 
     def prep(self):
         self.next_event()
-        t = self.time
-        if t >= FOCUS_END_TIME_SEC:
+
+        if (LAST_FOCUS_TRIP not in self.active_trips) & (LAST_FOCUS_TRIP not in self.next_trip_ids):
             return True
 
         if self.event_type == 2:
             self.terminal_arrival()
-            return False
+            return self.prep()
 
         if self.event_type == 1:
             i = self.bus_idx
             arrival_stop = self.next_stop[i]
             trip_id = self.active_trips[i]
-            if trip_id != ORDERED_TRIPS[0]:
-                if arrival_stop in CONTROLLED_STOPS and self.time >= FOCUS_START_TIME_SEC:
+            if (trip_id != ORDERED_TRIPS[0]) & (trip_id != ORDERED_TRIPS[-1]):
+                if arrival_stop in CONTROLLED_STOPS:
                     if arrival_stop == CONTROLLED_STOPS[-1]:
                         self.bool_terminal_state = True
                         self.fixed_stop_unload()
                         self._add_observations()
+                        self.fixed_stop_arrivals()
                         self.fixed_stop_depart()
                     else:
                         self.bool_terminal_state = False
@@ -1232,9 +1223,9 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
             self.fixed_stop_unload()
             self.fixed_stop_arrivals()
             self.fixed_stop_depart()
-            return False
+            return self.prep()
 
         if self.event_type == 0:
             self.terminal_departure()
-            return False
+            return self.prep()
 

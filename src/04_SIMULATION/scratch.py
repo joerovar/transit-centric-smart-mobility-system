@@ -14,9 +14,5 @@ import datetime
 from scipy.stats import lognorm
 from classes_simul import Passenger, Stop, Trip
 import seaborn as sns
-
-a1 = np.array([2] * 3 + [4] * 5 + [6] * 5 + [8] * 2)
-a2 = np.array([3] * 3 + [5] * 5 + [7] * 5 + [0] * 2)
-sns.kdeplot(a1)
-sns.kdeplot(a2)
-plt.show()
+a = np.arange(400, 310, -10)
+print(a)
