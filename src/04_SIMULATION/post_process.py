@@ -6,7 +6,7 @@ import pickle
 from copy import deepcopy
 import seaborn as sns
 from datetime import timedelta
-from matplotlib import cm
+
 
 def write_trajectories(trip_data, pathname, idx_arr_t, idx_dep_t, header=None):
     with open(pathname, 'w', newline='') as f:
@@ -40,11 +40,9 @@ def write_sars(trip_data, pathname, header=None):
     return
 
 
-def plot_headway(pathname, hs, ordered_stops, controlled_stops=None, min_size_for_cv=2, hw_scale=(200, 340, 20),
-                 cv_scale=(0,1,0.1)):
+def plot_headway(pathname, hs, ordered_stops, controlled_stops=None, min_size_for_cv=2, cv_scale=(0,1,0.1)):
     x = []
     y1 = []
-    # y2 = []
     for i in range(len(ordered_stops)):
         s = ordered_stops[i]
         if s in hs:
@@ -55,7 +53,6 @@ def plot_headway(pathname, hs, ordered_stops, controlled_stops=None, min_size_fo
                 cv = std/mean
                 x.append(i)
                 y1.append(cv) if mean else y1.append(0)
-                # y2.append(mean)
     fig, ax1 = plt.subplots()
     color = 'tab:red'
     ax1.set_xlabel('stop id')
@@ -63,12 +60,6 @@ def plot_headway(pathname, hs, ordered_stops, controlled_stops=None, min_size_fo
     ax1.plot(x, y1, color=color)
     ax1.set_yticks(np.arange(cv_scale[0], cv_scale[1]+cv_scale[2], cv_scale[2]))
     ax1.tick_params(axis='y', labelcolor=color)
-    # ax2 = ax1.twinx()
-    # color = 'tab:blue'
-    # ax2.set_ylabel('mean headway (seconds)', color=color)
-    # ax2.plot(x, y2, color=color)
-    # ax2.set_yticks(np.arange(hw_scale[0], hw_scale[1]+hw_scale[2], hw_scale[2]))
-    # ax2.tick_params(axis='y', labelcolor=color)
 
     if controlled_stops:
         for cs in controlled_stops:
@@ -314,7 +305,7 @@ def get_headway_from_trajectory_set(trajectory_set, idx_ons, idx_denied, first_t
         cv_headway = headway.std() / mean_headway
         wait_time_from_hw[s] = (mean_headway / 2) * (1 + (cv_headway * cv_headway))
 
-    return recorded_headway, wait_time, wait_time_from_hw
+    return recorded_headway, wait_time
 
 
 def pax_per_trip_from_trajectory_set(trajectory_set, idx_load, idx_ons, idx_offs, first_trip):
@@ -676,7 +667,7 @@ def plot_difference_od(od, ordered_stops, pathname=None, clim=None, controlled_s
 def process_od_level_data(pax_set, ordered_stops, focus_trip_ids):
     # we add all data points to a dataframe
     # then we convert into an od matrix
-    # journey times only from completed pax
+
     journey_times = {'o': [], 'd': [], 'jt': []}
     wait_times = {'o': [], 'd': [], 'wt': []}
     for replication in pax_set:
@@ -701,32 +692,29 @@ def process_od_level_data(pax_set, ordered_stops, focus_trip_ids):
     od_journey_time_std[:] = np.nan
     od_journey_time_rbt = np.zeros(shape=(n,)*2)
     od_journey_time_rbt[:] = np.nan
+    od_count = np.zeros(shape=(n,)*2)
     for i in range(n):
         for j in range(i + 1, n):
             jt = journey_times_df[(journey_times_df['o'] == i) & (journey_times_df['d'] == j)]['jt']
             wt = wait_times_df[(wait_times_df['o'] == i) & (wait_times_df['d'] == j)]['wt']
             if not jt.empty:
+                od_count[i, j] = len(jt)
                 od_journey_time_mean[i, j] = jt.mean()
                 od_journey_time_std[i, j] = jt.std()
                 od_journey_time_rbt[i, j] = jt.quantile(0.8) - jt.median()
                 od_wait_time_mean[i, j] = wt.mean()
                 od_wait_time_std[i, j] = wt.std()
-    return od_journey_time_mean, od_journey_time_std, od_wait_time_mean, od_wait_time_std, od_journey_time_rbt
+    return od_journey_time_mean, od_journey_time_std, od_wait_time_mean, od_wait_time_std, od_journey_time_rbt, od_count
 
 
-def plot_travel_time(times, pathname):
-    sns.kdeplot(np.array(times))
-    if pathname:
-        plt.savefig(pathname)
-    else:
-        plt.show()
-    plt.close()
-    return
-
-
-def plot_travel_time_benchmark(tt_set, pathname=None):
+def plot_travel_time_benchmark(tt_set, lbls, pathname=None):
+    color = ['tab:red', 'tab:blue', 'tab:green']
+    i = 0
     for tt in tt_set:
-        sns.kdeplot(np.array(tt))
+        sns.kdeplot(np.array(tt), label=lbls[i], color=color[i])
+        i += 1
+    plt.xlabel('seconds')
+    plt.legend()
     if pathname:
         plt.savefig(pathname)
     else:
@@ -735,11 +723,11 @@ def plot_travel_time_benchmark(tt_set, pathname=None):
     return
 
 
-def plot_headway_benchmark(hw_set, ordered_stops, pathname=None, controlled_stops=None, min_size_for_cv=1, cv_scale=(0,1,0.1)):
+def plot_headway_benchmark(hw_set, ordered_stops, lbls, pathname=None, controlled_stops=None, min_size_for_cv=1, cv_scale=(0,1,0.1)):
     fig, ax1 = plt.subplots()
     color = ['tab:red', 'tab:blue', 'tab:green']
 
-    color_count = 0
+    j = 0
     for hs in hw_set:
         x = []
         y1 = []
@@ -753,9 +741,9 @@ def plot_headway_benchmark(hw_set, ordered_stops, pathname=None, controlled_stop
                     cv = std / mean
                     x.append(i)
                     y1.append(cv) if mean else y1.append(0)
-                    # y2.append(mean)
-        ax1.plot(x, y1, color=color[color_count])
-        color_count += 1
+
+        ax1.plot(x, y1, color=color[j], label=lbls[j])
+        j += 1
 
     ax1.set_xlabel('stop id')
     ax1.set_ylabel('coefficient of variation')
@@ -767,10 +755,12 @@ def plot_headway_benchmark(hw_set, ordered_stops, pathname=None, controlled_stop
     x1 = np.arange(len(ordered_stops))
     ax1.set_xticks(x1)
     ax1.set_xticklabels(ordered_stops, fontsize=6, rotation=90)
+    plt.legend()
     plt.tight_layout()
     if pathname:
         plt.savefig(pathname)
     else:
         plt.show()
+    plt.close()
     return
 

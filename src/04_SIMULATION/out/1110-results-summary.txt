@@ -1,8 +1,0 @@
-1417 no control but with the first trip counted to show that it is introducing bias in the results
-
-1447 no control but first trip is ignored
-
-1502 even headway
-
-deep rl reward 1
-
