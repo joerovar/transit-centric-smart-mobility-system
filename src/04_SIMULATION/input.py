@@ -70,11 +70,11 @@ def visualize_for_validation():
     link_times_mean = load(path_link_times_mean)
     link_times_sd = load(path_link_times_sd)
     odt = load(path_odt_xtr)
-    plot_od(odt[0], path_odt_fig)
-    plot_od(odt[1], path_odt_fig.replace('0', '1'))
-    plot_od(odt[2], path_odt_fig.replace('0', '2'))
-    plot_od(odt[3], path_odt_fig.replace('0', '3'))
-    plot_od(odt[4], path_odt_fig.replace('0', '4'))
+    plot_od(odt[0], stops, path_odt_fig)
+    plot_od(odt[1], stops, path_odt_fig.replace('0', '1'))
+    plot_od(odt[2], stops, path_odt_fig.replace('0', '2'))
+    plot_od(odt[3], stops, path_odt_fig.replace('0', '3'))
+    plot_od(odt[4], stops, path_odt_fig.replace('0', '4'))
 
     arrivals_per_trip = get_pax_per_trip(arrival_rates, FOCUS_START_TIME_SEC / 3600, FOCUS_END_TIME_SEC / 3600,
                                          DEM_START_INTERVAL, DEM_INTERVAL_LENGTH_MINS / 60, avg_headway / 3600)
@@ -87,11 +87,11 @@ def visualize_for_validation():
 
     ordered_trips_array = np.array(ordered_trips)
     scheduled_departures_array = np.array(scheduled_departures)
-    subset_ordered_trips = ordered_trips_array[(scheduled_departures_array >= START_TIME_SEC) & (
-            scheduled_departures_array <= FOCUS_END_TIME_SEC)].tolist()
-    historical_headway = get_historical_headway(path_stop_times, DATES, stops, subset_ordered_trips,
-                                                FOCUS_START_TIME_SEC, FOCUS_END_TIME_SEC)
-    plot_headway(path_historical_headway, historical_headway, stops)
+    focus_trips = ordered_trips_array[(scheduled_departures_array <= FOCUS_END_TIME_SEC) & (scheduled_departures_array >= FOCUS_START_TIME_SEC)].tolist()
+    historical_headway = get_historical_headway(path_stop_times, DATES, stops, focus_trips)
+    plot_histogram(historical_headway['443'], 'in/vis/hw_at_443.png')
+    plot_histogram(historical_headway['448'], 'in/vis/hw_at_448.png')
+    plot_headway(path_historical_headway, historical_headway, stops, cv_scale=(0, 1.8, 0.1))
 
     single_link_time_mean = {}
     single_link_time_sd = {}
@@ -107,7 +107,7 @@ def visualize_for_validation():
 
 
 # extract_params()
-# visualize_for_validation()
+visualize_for_validation()
 
 STOPS, LINK_TIMES_MEAN, LINK_TIMES_SD, NR_TIME_DPOINTS, ORDERED_TRIPS, ARRIVAL_RATES, ALIGHT_FRACTIONS, SCHEDULED_DEPARTURES, INIT_HEADWAY, ODT = get_params()
 SCHEDULED_DEPARTURES = [SCHEDULED_DEPARTURES[0]] + [t+INIT_HEADWAY for t in SCHEDULED_DEPARTURES[:-1]]

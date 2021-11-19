@@ -549,9 +549,8 @@ def plot_dwell_times(dwell_times_mean, dwell_times_std, ordered_stops, pathname,
 
 
 def plot_histogram(data, pathname):
-    plt.hist(data, density=True)
+    plt.hist(data, ec='black')
     plt.xlabel('seconds')
-    plt.ylabel('frequency')
     if pathname:
         plt.savefig(pathname)
     else:
@@ -578,15 +577,13 @@ def load(pathname):
     return var
 
 
-def get_historical_headway(pathname, dates, all_stops, trips, start_time, end_time, early_departure=0.5*60,
+def get_historical_headway(pathname, dates, all_stops, trips, early_departure=0.5*60,
                            sch_dev_tolerance=6*60):
     whole_df = pd.read_csv(pathname)
     df_period = whole_df[whole_df['trip_id'].isin(trips)]
     headway = {}
     for d in dates:
         df_temp = df_period[df_period['event_time'].astype(str).str[:10] == d]
-        df_temp = df_temp[df_temp['avl_sec'] % 86400 <= end_time]
-        df_temp = df_temp[df_temp['avl_sec'] % 86400 >= start_time]
         for s in all_stops:
             df_stop = df_temp[df_temp['stop_id'] == int(s)]
             for i, j in zip(trips, trips[1:]):
@@ -597,17 +594,17 @@ def get_historical_headway(pathname, dates, all_stops, trips, start_time, end_ti
                     t2_avl = float(t2_df['avl_sec']) % 86400
                     t1_schd = float(t1_df['schd_sec'])
                     t2_schd = float(t2_df['schd_sec'])
-                    condition1 = s == all_stops[0]
-                    condition2 = t1_schd - t1_avl > early_departure or t2_schd - t2_avl > early_departure
-                    sch_dev_condition = abs(t1_schd - t1_avl) > sch_dev_tolerance or abs(t2_schd-t2_avl) > sch_dev_tolerance
-                    faulty = condition1 and condition2
-
-                    if not faulty and not sch_dev_condition:
-                        hw = t2_avl - t1_avl
-                        if s in headway:
-                            headway[s].append(hw)
-                        else:
-                            headway[s] = [hw]
+                    # condition1 = s == all_stops[0]
+                    # condition2 = t1_schd - t1_avl > early_departure or t2_schd - t2_avl > early_departure
+                    # sch_dev_condition = abs(t1_schd - t1_avl) > sch_dev_tolerance or abs(t2_schd-t2_avl) > sch_dev_tolerance
+                    # faulty = condition1 and condition2
+                    #
+                    # if not faulty and not sch_dev_condition:
+                    hw = t2_avl - t1_avl
+                    if s in headway:
+                        headway[s].append(hw)
+                    else:
+                        headway[s] = [hw]
     return headway
 
 
@@ -633,9 +630,10 @@ def plot_od(od, ordered_stops, pathname=None, clim=None, controlled_stops=None):
     x = np.array(ordered_stops)
     plt.xticks(bar, x, rotation=90, fontsize=6)
     plt.yticks(bar, x, fontsize=6)
-    for c in controlled_stops:
-        idx = ordered_stops.index(c)
-        plt.axhline(y=idx, color='gray', alpha=0.5, linestyle='dashed')
+    if controlled_stops:
+        for c in controlled_stops:
+            idx = ordered_stops.index(c)
+            plt.axhline(y=idx, color='gray', alpha=0.5, linestyle='dashed')
     if pathname:
         plt.savefig(pathname)
     else:
@@ -645,7 +643,7 @@ def plot_od(od, ordered_stops, pathname=None, clim=None, controlled_stops=None):
 
 
 def plot_difference_od(od, ordered_stops, pathname=None, clim=None, controlled_stops=None):
-    plt.imshow(od, cmap='BrBG',interpolation='nearest')
+    plt.imshow(od, cmap='BrBG', interpolation='nearest')
     if clim:
         plt.clim(clim)
     plt.colorbar()
