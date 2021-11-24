@@ -88,9 +88,8 @@ def get_results(tstamps):
     if len(tstamps) > 1:
         t = tstamps[-1]
 
-        headway_comb, wait_time_comb = get_headway_from_trajectory_set(trajectories_set,
-                                                                                              IDX_PICK, IDX_DENIED,
-                                                                                              first_trip_id)
+        headway_comb, wait_time_comb = get_headway_from_trajectory_set(trajectories_set, IDX_PICK, IDX_DENIED,
+                                                                       IDX_ARR_T,first_trip_id)
         stops_loc = get_stop_loc(path_stops_loc)
 
         # ------------------------------------------------ LINK TIMES/DWELL TIMES -------------------------------------
@@ -181,8 +180,8 @@ def get_base_control_results(tstamps):
     if len(tstamps) > 1:
         t = tstamps[-1]
 
-        headway_comb, wait_time_comb = get_headway_from_trajectory_set(trajectories_set,
-                                                                       IDX_PICK, IDX_DENIED, first_trip_id)
+        headway_comb, wait_time_comb = get_headway_from_trajectory_set(trajectories_set,IDX_PICK, IDX_DENIED,
+                                                                       IDX_ARR_T, first_trip_id)
         stops_loc = get_stop_loc(path_stops_loc)
 
         # ------------------------------------------ LINK TIMES ----------------------------------------------------
@@ -293,7 +292,7 @@ def get_rl_results(tstamps):
     if len(tstamps) > 1:
         t = tstamps[-1]
         headway_comb, wait_time_comb = get_headway_from_trajectory_set(trajectories_set, IDX_PICK, IDX_DENIED,
-                                                                       first_trip_id)
+                                                                       IDX_ARR_T, first_trip_id)
         stops_loc = get_stop_loc(path_stops_loc)
 
         # ------------------------------------------ LINK/DWELL TIMES ----------------------------------------------
