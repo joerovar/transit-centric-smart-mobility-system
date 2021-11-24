@@ -45,7 +45,7 @@ def run_base_control_detailed(episodes=2, save=False, plot=False, time_dep_tt=Tr
     return
 
 
-# run_base_detailed(episodes=10, save=True, plot=True)
+run_base_detailed(episodes=10, save=True, plot=True)
 # run_base_control_detailed(episodes=10, save=True, plot=True)
 output.benchmark_comparisons()
 print("ran in %.2f seconds" % (time.time()-st))

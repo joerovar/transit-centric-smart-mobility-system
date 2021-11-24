@@ -55,6 +55,10 @@ rl_hold_time_varname = 'rl_hold_time'
 nc_od_count_varname = 'nc_od_count'
 eh_od_count_varname = 'eh_od_count'
 rl_od_count_varname = 'rl_od_count'
+# db counts
+nc_db_varname = 'nc_db'
+eh_db_varname = 'eh_db'
+rl_db_varname = 'rl_db'
 
 
 def get_results(tstamps):
@@ -147,6 +151,7 @@ def get_results(tstamps):
         save(path_to_outs + dir_var + od_jts_nc_varname + ext_var, od_journey_time_std)
         save(path_to_outs + dir_var + od_jtr_nc_varname + ext_var, od_journey_time_rbt)
         save(path_to_outs + dir_var + nc_od_count_varname + ext_var, od_count)
+        save(path_to_outs + dir_var + nc_db_varname + ext_var, denied_boardings_comb)
     return
 
 
@@ -251,6 +256,7 @@ def get_base_control_results(tstamps):
         save(path_to_outs + dir_var + od_jtr_eh_varname + ext_var, od_journey_time_rbt)
         save(path_to_outs + dir_var + eh_hold_time_varname + ext_var, hold_time_comb)
         save(path_to_outs + dir_var + eh_od_count_varname + ext_var, od_count)
+        save(path_to_outs + dir_var + eh_db_varname + ext_var, denied_boardings_comb)
     return
 
 
@@ -362,7 +368,8 @@ def get_rl_results(tstamps):
         save(path_to_outs + dir_var + od_jtr_rl_varname + ext_var, od_journey_time_rbt)
         save(path_to_outs + dir_var + rl_hold_time_varname + ext_var, hold_time_comb)
         save(path_to_outs + dir_var + rl_od_count_varname + ext_var, od_count)
-        return mean_load_comb
+        save(path_to_outs + dir_var + rl_db_varname + ext_var, denied_boardings_comb)
+        return mean_load_comb, ons_comb
 
     else:
         return
@@ -384,19 +391,27 @@ def benchmark_comparisons():
     wt_nc = load(path_to_outs + dir_var + od_wtm_nc_varname + ext_var)
     wt_eh = load(path_to_outs + dir_var + od_wtm_eh_varname + ext_var)
     wt_rl = load(path_to_outs + dir_var + od_wtm_rl_varname + ext_var)
+    db_nc = load(path_to_outs + dir_var + nc_db_varname + ext_var)
+    db_eh = load(path_to_outs + dir_var + eh_db_varname + ext_var)
+    db_rl = load(path_to_outs + dir_var + rl_db_varname + ext_var)
     od_count_nc = load(path_to_outs + dir_var + nc_od_count_varname + ext_var)
     od_count_eh = load(path_to_outs + dir_var + eh_od_count_varname + ext_var)
     od_count_rl = load(path_to_outs + dir_var + rl_od_count_varname + ext_var)
 
     plot_headway_benchmark([hw_nc, hw_eh, hw_rl], STOPS, lbls, pathname='out/benchmark/hw.png')
     plot_travel_time_benchmark([tt_nc, tt_eh, tt_rl], lbls, pathname='out/benchmark/ttd.png')
-    plot_multiple_bar_charts(ht_eh, ht_rl, lbls[1:], STOPS, pathname='out/benchmark/hold.png')
+    plot_multiple_bar_charts(ht_eh, ht_rl, lbls[1:], STOPS, pathname='out/benchmark/hold.png',
+                             x_y_lbls=['stop id', 'seconds per trip'])
+    plot_multiple_bar_charts(db_nc, db_rl, [lbls[0], lbls[2]], STOPS, pathname='out/benchmark/denied.png',
+                             x_y_lbls=['stop id', 'per 1,000 pax'])
     plot_od(rbt_nc, STOPS, clim=(0, 400), pathname='out/benchmark/rbt_nc.png',controlled_stops=CONTROLLED_STOPS)
     plot_od(rbt_eh, STOPS, clim=(0, 400), pathname='out/benchmark/rbt_eh.png', controlled_stops=CONTROLLED_STOPS)
     plot_od(rbt_rl, STOPS, clim=(0, 400), pathname='out/benchmark/rbt_rl.png', controlled_stops=CONTROLLED_STOPS)
-    plot_difference_od(wt_nc-wt_rl, STOPS, controlled_stops=CONTROLLED_STOPS, pathname='out/benchmark/wt_diff_nc_rl.png')
-    plot_difference_od(wt_eh-wt_rl, STOPS, controlled_stops=CONTROLLED_STOPS, pathname='out/benchmark/wt_diff_eh_rl.png')
-    plot_od(od_count_nc, STOPS, controlled_stops=CONTROLLED_STOPS, pathname='out/benchmark/odc_nc.png')
-    plot_od(od_count_eh, STOPS, controlled_stops=CONTROLLED_STOPS, pathname='out/benchmark/odc_eh.png')
-    plot_od(od_count_rl, STOPS, controlled_stops=CONTROLLED_STOPS, pathname='out/benchmark/odc_rl.png')
+    plot_difference_od(wt_nc-wt_rl, STOPS, controlled_stops=CONTROLLED_STOPS,
+                       pathname='out/benchmark/wt_diff_nc_rl.png', clim=(-250, 250))
+    plot_difference_od(wt_eh-wt_rl, STOPS, controlled_stops=CONTROLLED_STOPS,
+                       pathname='out/benchmark/wt_diff_eh_rl.png', clim=(-250, 250))
+    # plot_od(od_count_nc, STOPS, controlled_stops=CONTROLLED_STOPS, pathname='out/benchmark/odc_nc.png')
+    # plot_od(od_count_eh, STOPS, controlled_stops=CONTROLLED_STOPS, pathname='out/benchmark/odc_eh.png')
+    # plot_od(od_count_rl, STOPS, controlled_stops=CONTROLLED_STOPS, pathname='out/benchmark/odc_rl.png')
     return

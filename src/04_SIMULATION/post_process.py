@@ -6,6 +6,7 @@ import pickle
 from copy import deepcopy
 import seaborn as sns
 from datetime import timedelta
+import matplotlib
 
 
 def write_trajectories(trip_data, pathname, idx_arr_t, idx_dep_t, header=None):
@@ -622,10 +623,13 @@ def get_input_boardings(arrival_rates, dem_interval_len_min, start_time_sec, end
 
 
 def plot_od(od, ordered_stops, pathname=None, clim=None, controlled_stops=None):
-    plt.imshow(od, cmap='Reds', interpolation='nearest')
+    plt.imshow(od, interpolation='nearest')
+    current_cmap = matplotlib.cm.get_cmap().copy()
+    current_cmap.set_bad(color='white')
     if clim:
         plt.clim(clim)
-    plt.colorbar()
+    cbar = plt.colorbar()
+    cbar.ax.set_ylabel('seconds', rotation=270)
     bar = np.arange(len(ordered_stops))
     x = np.array(ordered_stops)
     plt.xticks(bar, x, rotation=90, fontsize=6)
@@ -634,6 +638,7 @@ def plot_od(od, ordered_stops, pathname=None, clim=None, controlled_stops=None):
         for c in controlled_stops:
             idx = ordered_stops.index(c)
             plt.axhline(y=idx, color='gray', alpha=0.5, linestyle='dashed')
+    plt.tight_layout()
     if pathname:
         plt.savefig(pathname)
     else:
@@ -643,10 +648,13 @@ def plot_od(od, ordered_stops, pathname=None, clim=None, controlled_stops=None):
 
 
 def plot_difference_od(od, ordered_stops, pathname=None, clim=None, controlled_stops=None):
-    plt.imshow(od, cmap='BrBG', interpolation='nearest')
+    plt.imshow(od, interpolation='nearest', cmap='coolwarm')
+    current_cmap = matplotlib.cm.get_cmap().copy()
+    current_cmap.set_bad(color='white')
     if clim:
         plt.clim(clim)
-    plt.colorbar()
+    cbar = plt.colorbar()
+    cbar.ax.set_ylabel('seconds', rotation=270)
     bar = np.arange(len(ordered_stops))
     x = np.array(ordered_stops)
     plt.xticks(bar, x, rotation=90, fontsize=6)
@@ -654,6 +662,7 @@ def plot_difference_od(od, ordered_stops, pathname=None, clim=None, controlled_s
     for c in controlled_stops:
         idx = ordered_stops.index(c)
         plt.axhline(y=idx, color='gray', alpha=0.5, linestyle='dashed')
+    plt.tight_layout()
     if pathname:
         plt.savefig(pathname)
     else:
@@ -744,7 +753,7 @@ def plot_headway_benchmark(hw_set, ordered_stops, lbls, pathname=None, controlle
         j += 1
 
     ax1.set_xlabel('stop id')
-    ax1.set_ylabel('coefficient of variation')
+    ax1.set_ylabel('coefficient of variation of headway')
     ax1.set_yticks(np.arange(cv_scale[0], cv_scale[1] + cv_scale[2], cv_scale[2]))
     if controlled_stops:
         for cs in controlled_stops:

@@ -140,6 +140,7 @@ def get_demand(path, stops, nr_intervals, start_interval, new_nr_intervals, new_
     viable_orig = {}
     grouping = int(nr_intervals / new_nr_intervals)
     od_set = np.zeros(shape=(new_nr_intervals, len(stops), len(stops)))
+    od_set[:] = np.nan
 
     for i in range(len(stops)):
         for j in range(i+1, len(stops)):
@@ -152,7 +153,8 @@ def get_demand(path, stops, nr_intervals, start_interval, new_nr_intervals, new_
                     mean_interval_pax = pax_df[pax_df['bin_5'] == m]['mean']
                     if not mean_interval_pax.empty:
                         temp_pax += float(mean_interval_pax)
-                od_set[counter, i, j] = temp_pax * 60 / new_interval_length # pax per hr
+                if temp_pax:
+                    od_set[counter, i, j] = temp_pax * 60 / new_interval_length # pax per hr
                 counter += 1
 
     # since stops are ordered, stop n is allowed to pair with stop n+1 until N

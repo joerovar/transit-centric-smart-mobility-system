@@ -31,6 +31,7 @@ class SimulationEnv:
         self.arr_t = []
         self.offs = []
         self.ons = []
+        self.pax_at_stop = []
         self.denied = []
         self.load = []
         self.bus_idx = 0
@@ -53,7 +54,7 @@ class SimulationEnv:
     def create_trip(self):
         trip_file = [
             self.next_instance_time, self.last_stop, self.next_stop, self.load,
-            self.dep_t, self.arr_t, self.ons, self.offs, self.denied
+            self.dep_t, self.arr_t, self.ons, self.offs, self.denied, self.pax_at_stop
         ]
         for tf in trip_file:
             tf.append(0)
@@ -62,7 +63,7 @@ class SimulationEnv:
     def remove_trip(self):
         trip_file = [
             self.active_trips, self.next_instance_time, self.last_stop, self.next_stop, self.load,
-            self.dep_t, self.arr_t, self.ons, self.offs, self.denied
+            self.dep_t, self.arr_t, self.ons, self.offs, self.denied, self.pax_at_stop
         ]
         for tf in trip_file:
             tf.pop(self.bus_idx)
@@ -175,11 +176,19 @@ class SimulationEnv:
             headway = INIT_HEADWAY
             p_arrivals = self.get_arrivals_start(headway)
             prev_denied = 0
-        pax_at_stop = p_arrivals + prev_denied
+        self.pax_at_stop[i] = p_arrivals + prev_denied
+        return
+
+    def fixed_stop_load(self):
+        i = self.bus_idx
+        bus_load = self.load[i]
+        s = self.last_stop[i]
+        pax_at_stop = self.pax_at_stop[i]
         allowed = CAPACITY - bus_load
         self.ons[i] = min(allowed, pax_at_stop)
         self.denied[i] = pax_at_stop - self.ons[i]
         self.track_denied_boardings[s] = self.denied[i]
+        self.load[i] += self.ons[i]
         return
 
     def fixed_stop_depart(self):
@@ -193,7 +202,6 @@ class SimulationEnv:
         # herein we zero dwell time if no pax boarded
         dwell_time = (ons + offs > 0) * dwell_time
 
-        self.load[i] += ons
         self.dep_t[i] = self.time + dwell_time
 
         if self.no_overtake_policy and self.last_bus_time[s]:
@@ -289,6 +297,7 @@ class SimulationEnv:
         self.offs = []
         self.ons = []
         self.denied = []
+        self.pax_at_stop = []
         self.event_type = 0
         # stop-level data
         for s in STOPS:
@@ -312,6 +321,7 @@ class SimulationEnv:
         if self.event_type == 1:
             self.fixed_stop_unload()
             self.fixed_stop_arrivals()
+            self.fixed_stop_load()
             self.fixed_stop_depart()
             return False
 
@@ -377,7 +387,6 @@ class SimulationEnvWithControl(SimulationEnv):
             # herein we zero dwell time if no pax boarded
             dwell_time = (ons + offs > 0) * dwell_time
 
-        self.load[i] += ons
         self.dep_t[i] = self.time + dwell_time
 
         if self.no_overtake_policy and self.last_bus_time[s]:
@@ -418,15 +427,17 @@ class SimulationEnvWithControl(SimulationEnv):
 
         follow_trip_arrival_time = estimate_arrival_time(dep_t, stop0, stop1, self.time_dependent_travel_time)
         backward_headway = follow_trip_arrival_time - t
+
         if backward_headway < 0:
             backward_headway = 0
 
+        self.fixed_stop_arrivals()
+        self.fixed_stop_load()
+
         if backward_headway > forward_headway:
             holding_time = min(LIMIT_HOLDING, backward_headway - forward_headway)
-            self.fixed_stop_arrivals()
             self.fixed_stop_depart(hold=holding_time)
         else:
-            self.fixed_stop_arrivals()
             self.fixed_stop_depart()
         return
 
@@ -451,6 +462,7 @@ class SimulationEnvWithControl(SimulationEnv):
                     return False
             self.fixed_stop_unload()
             self.fixed_stop_arrivals()
+            self.fixed_stop_load()
             self.fixed_stop_depart()
             return False
 
@@ -459,7 +471,7 @@ class SimulationEnvWithControl(SimulationEnv):
             return False
 
 
-def _compute_reward(action, fw_h, bw_h, trip_id, prev_bw_h, prev_fw_h, is_headway_constant):
+def _compute_reward(action, fw_h, bw_h, trip_id, prev_bw_h, prev_fw_h, is_headway_constant, prev_pax_at_s):
     trip_idx = ORDERED_TRIPS.index(trip_id)
     # follow_trip_id = ORDERED_TRIPS[trip_idx + 1]
     # lead_trip_id = ORDERED_TRIPS[trip_idx - 1]
@@ -473,6 +485,8 @@ def _compute_reward(action, fw_h, bw_h, trip_id, prev_bw_h, prev_fw_h, is_headwa
     hw_diff0 = abs(prev_fw_h - prev_bw_h)
     hw_diff1 = abs(fw_h - bw_h)
     reward = hw_diff0 - hw_diff1
+    if prev_pax_at_s and action == SKIP_ACTION:
+        reward -= 0.5*prev_bw_h
 
     # fw_h_diff0 = abs(prev_fw_h - planned_fw_h)
     # fw_h_diff1 = abs(fw_h - planned_fw_h)
@@ -530,6 +544,7 @@ class SimulationEnvDeepRL(SimulationEnv):
         self.offs = []
         self.ons = []
         self.denied = []
+        self.pax_at_stop = []
         self.event_type = 0
 
         # stop-level data
@@ -555,13 +570,12 @@ class SimulationEnvDeepRL(SimulationEnv):
         self.trajectories[trip_id].append(trajectory)
         return
 
-    def fixed_stop_arrivals(self, skip=False):
+    def fixed_stop_arrivals(self):
         i = self.bus_idx
         bus_load = self.load[i]
         s = self.last_stop[i]
         last_bus_time = self.last_bus_time[s]
         assert bus_load >= 0
-
         if last_bus_time:
             headway = self.time - last_bus_time
             if headway < 0:
@@ -572,16 +586,24 @@ class SimulationEnvDeepRL(SimulationEnv):
             headway = INIT_HEADWAY
             p_arrivals = self.get_arrivals_start(headway)
             prev_denied = 0
+        self.pax_at_stop[i] = p_arrivals + prev_denied
+        return
 
+    def fixed_stop_load(self, skip=False):
+        i = self.bus_idx
+        bus_load = self.load[i]
+        pax_at_stop = self.pax_at_stop[i]
+        s = self.last_stop[i]
+        ons = self.ons[i]
         if skip:
             self.ons[i] = 0
-            self.denied[i] = p_arrivals + prev_denied
+            self.denied[i] = pax_at_stop
         else:
-            pax_at_stop = p_arrivals + prev_denied
             allowed = CAPACITY - bus_load
             self.ons[i] = min(allowed, pax_at_stop)
             self.denied[i] = pax_at_stop - self.ons[i]
         self.track_denied_boardings[s] = self.denied[i]
+        self.load[i] += ons
         return
 
     def take_action(self, action):
@@ -591,10 +613,10 @@ class SimulationEnvDeepRL(SimulationEnv):
         self.trips_sars[trip_id][-1][1] = action
 
         if action:
-            self.fixed_stop_arrivals()
+            self.fixed_stop_load()
             self.fixed_stop_depart(hold=(action - 1) * BASE_HOLDING_TIME)
         else:
-            self.fixed_stop_arrivals(skip=True)
+            self.fixed_stop_load(skip=True)
             self.fixed_stop_depart(skip=True)
         return
 
@@ -616,7 +638,6 @@ class SimulationEnvDeepRL(SimulationEnv):
             # herein we zero dwell time if no pax boarded
             dwell_time = (ons + offs > 0) * dwell_time
 
-        self.load[i] += ons
         self.dep_t[i] = self.time + dwell_time
 
         if self.no_overtake_policy and self.last_bus_time[s]:
@@ -664,14 +685,17 @@ class SimulationEnvDeepRL(SimulationEnv):
             backward_headway = 0
 
         route_progress = stop_idx/len(STOPS)
-        new_state = [route_progress, bus_load, forward_headway, backward_headway]
+        new_state = [route_progress, bus_load, forward_headway, backward_headway, self.pax_at_stop[i]]
 
         if trip_sars:
-            previous_action = self.trips_sars[trip_id][-1][1]
-            previous_backward_headway = self.trips_sars[trip_id][-1][0][IDX_BW_H]
-            prev_fw_h = self.trips_sars[trip_id][-1][0][IDX_FW_H]
+            prev_sars = self.trips_sars[trip_id][-1]
+            previous_action = prev_sars[1]
+            previous_backward_headway = prev_sars[0][IDX_BW_H]
+            prev_fw_h = prev_sars[0][IDX_FW_H]
+            prev_pax_at_stop = prev_sars[0][IDX_PAX_AT_STOP]
             self.trips_sars[trip_id][-1][2] = _compute_reward(previous_action, forward_headway, backward_headway,
-                                                              trip_id, previous_backward_headway, prev_fw_h, self.uniform_schedule)
+                                                              trip_id, previous_backward_headway, prev_fw_h,
+                                                              self.uniform_schedule, prev_pax_at_stop)
             self.trips_sars[trip_id][-1][3] = new_state
         if not self.bool_terminal_state:
             new_sars = [new_state, 0, 0, []]
@@ -698,14 +722,17 @@ class SimulationEnvDeepRL(SimulationEnv):
                         self.fixed_stop_unload()
                         self._add_observations()
                         self.fixed_stop_arrivals()
+                        self.fixed_stop_load()
                         self.fixed_stop_depart()
                     else:
                         self.bool_terminal_state = False
                         self.fixed_stop_unload()
+                        self.fixed_stop_arrivals()
                         self._add_observations()
                     return False
             self.fixed_stop_unload()
             self.fixed_stop_arrivals()
+            self.fixed_stop_load()
             self.fixed_stop_depart()
             return self.prep()
 
@@ -744,6 +771,7 @@ class DetailedSimulationEnv(SimulationEnv):
         self.offs = []
         self.ons = []
         self.denied = []
+        self.pax_at_stop = []
         self.event_type = 0
 
         # stop-level data
@@ -779,21 +807,22 @@ class DetailedSimulationEnv(SimulationEnv):
                     start_edge_interval = k * DEM_INTERVAL_LENGTH_MINS * 60
                     end_edge_interval = start_edge_interval + DEM_INTERVAL_LENGTH_MINS * 60
                     od_rate = ODT[k - DEM_START_INTERVAL, i, j]
-                    max_size = int(od_rate * (DEM_INTERVAL_LENGTH_MINS / 60) * 3)
-                    if od_rate:
-                        temp_pax_interarr_times = np.random.exponential(3600 / od_rate, size=max_size)
-                        temp_pax_arr_times = np.cumsum(temp_pax_interarr_times)
-                        if k == DEM_START_INTERVAL:
-                            temp_pax_arr_times += pax_initialize_time[i]
-                        else:
-                            temp_pax_arr_times += max(start_edge_interval, pax_initialize_time[i])
-                        temp_pax_arr_times = temp_pax_arr_times[
-                            temp_pax_arr_times <= min(END_TIME_SEC, end_edge_interval)]
-                        temp_pax_arr_times = temp_pax_arr_times.tolist()
-                        if len(temp_pax_arr_times):
-                            pax_info['arr_times'] += temp_pax_arr_times
-                            pax_info['o_stop_idx'] += [i] * len(temp_pax_arr_times)
-                            pax_info['d_stop_idx'] += [j] * len(temp_pax_arr_times)
+                    if not np.isnan(od_rate):
+                        max_size = int(od_rate * (DEM_INTERVAL_LENGTH_MINS / 60) * 3)
+                        if od_rate > 0:
+                            temp_pax_interarr_times = np.random.exponential(3600 / od_rate, size=max_size)
+                            temp_pax_arr_times = np.cumsum(temp_pax_interarr_times)
+                            if k == DEM_START_INTERVAL:
+                                temp_pax_arr_times += pax_initialize_time[i]
+                            else:
+                                temp_pax_arr_times += max(start_edge_interval, pax_initialize_time[i])
+                            temp_pax_arr_times = temp_pax_arr_times[
+                                temp_pax_arr_times <= min(END_TIME_SEC, end_edge_interval)]
+                            temp_pax_arr_times = temp_pax_arr_times.tolist()
+                            if len(temp_pax_arr_times):
+                                pax_info['arr_times'] += temp_pax_arr_times
+                                pax_info['o_stop_idx'] += [i] * len(temp_pax_arr_times)
+                                pax_info['d_stop_idx'] += [j] * len(temp_pax_arr_times)
             df = pd.DataFrame(pax_info).sort_values(by='arr_times')
             pax_sorted_info = df.to_dict('list')
             for o, d, at in zip(pax_sorted_info['o_stop_idx'], pax_sorted_info['d_stop_idx'],
@@ -822,6 +851,17 @@ class DetailedSimulationEnv(SimulationEnv):
 
     def fixed_stop_arrivals(self):
         i = self.bus_idx
+        curr_stop_idx = STOPS.index(self.last_stop[i])
+        self.pax_at_stop[i] = 0
+        for p in self.stops[curr_stop_idx].pax.copy():
+            if p.arr_time <= self.time:
+                self.pax_at_stop[i] += 1
+            else:
+                break
+        return
+
+    def fixed_stop_load(self):
+        i = self.bus_idx
         bus_load = self.load[i]
         curr_stop_idx = STOPS.index(self.last_stop[i])
         curr_trip_idx = ORDERED_TRIPS.index(self.active_trips[i])
@@ -842,6 +882,7 @@ class DetailedSimulationEnv(SimulationEnv):
                     self.denied[i] += 1
             else:
                 break
+        self.load[i] += self.ons[i]
         return
 
     def terminal_departure(self):
@@ -927,7 +968,6 @@ class DetailedSimulationEnvWithControl(DetailedSimulationEnv):
             # herein we zero dwell time if no pax boarded
             dwell_time = (ons + offs > 0) * dwell_time
 
-        self.load[i] += ons
         self.dep_t[i] = self.time + dwell_time
 
         if self.no_overtake_policy and self.last_bus_time[s]:
@@ -970,13 +1010,12 @@ class DetailedSimulationEnvWithControl(DetailedSimulationEnv):
         backward_headway = follow_trip_arrival_time - t
         if backward_headway < 0:
             backward_headway = 0
-
+        self.fixed_stop_arrivals()
+        self.fixed_stop_load()
         if backward_headway > forward_headway:
             holding_time = min(LIMIT_HOLDING, backward_headway - forward_headway)
-            self.fixed_stop_arrivals()
             self.fixed_stop_depart(hold=holding_time)
         else:
-            self.fixed_stop_arrivals()
             self.fixed_stop_depart()
         return
 
@@ -1001,6 +1040,7 @@ class DetailedSimulationEnvWithControl(DetailedSimulationEnv):
                     return False
             self.fixed_stop_unload()
             self.fixed_stop_arrivals()
+            self.fixed_stop_load()
             self.fixed_stop_depart()
             return False
 
@@ -1038,6 +1078,7 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
         self.offs = []
         self.ons = []
         self.denied = []
+        self.pax_at_stop = []
         self.event_type = 0
 
         # stop-level data
@@ -1072,7 +1113,18 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
         self.trajectories[trip_id].append(trajectory)
         return
 
-    def fixed_stop_arrivals(self, skip=False):
+    def fixed_stop_arrivals(self):
+        i = self.bus_idx
+        curr_stop_idx = STOPS.index(self.last_stop[i])
+        self.pax_at_stop[i] = 0
+        for p in self.stops[curr_stop_idx].pax.copy():
+            if p.arr_time <= self.time:
+                self.pax_at_stop[i] += 1
+            else:
+                break
+        return
+
+    def fixed_stop_load(self, skip=False):
         i = self.bus_idx
         bus_load = self.load[i]
         s = self.last_stop[i]
@@ -1096,7 +1148,7 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
             else:
                 break
         self.track_denied_boardings[s] = self.denied[i]
-
+        self.load[i] += self.ons[i]
         return
 
     def take_action(self, action):
@@ -1106,10 +1158,10 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
         self.trips_sars[trip_id][-1][1] = action
 
         if action:
-            self.fixed_stop_arrivals()
+            self.fixed_stop_load()
             self.fixed_stop_depart(hold=(action - 1) * BASE_HOLDING_TIME)
         else:
-            self.fixed_stop_arrivals(skip=True)
+            self.fixed_stop_load(skip=True)
             self.fixed_stop_depart(skip=True)
         return
 
@@ -1131,7 +1183,6 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
             # herein we zero dwell time if no pax boarded
             dwell_time = (ons + offs > 0) * dwell_time
 
-        self.load[i] += ons
         self.dep_t[i] = self.time + dwell_time
 
         if self.no_overtake_policy and self.last_bus_time[s]:
@@ -1179,14 +1230,17 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
             backward_headway = 0
 
         route_progress = stop_idx/len(STOPS)
-        new_state = [route_progress, bus_load, forward_headway, backward_headway]
+        new_state = [route_progress, bus_load, forward_headway, backward_headway, self.pax_at_stop[i]]
 
         if trip_sars:
-            previous_action = self.trips_sars[trip_id][-1][1]
-            previous_backward_headway = self.trips_sars[trip_id][-1][0][IDX_BW_H]
-            prev_fw_h = self.trips_sars[trip_id][-1][0][IDX_FW_H]
+            prev_sars = self.trips_sars[trip_id][-1]
+            previous_action = prev_sars[1]
+            previous_backward_headway = prev_sars[0][IDX_BW_H]
+            prev_fw_h = prev_sars[0][IDX_FW_H]
+            prev_pax_at_stop = prev_sars[0][IDX_PAX_AT_STOP]
             self.trips_sars[trip_id][-1][2] = _compute_reward(previous_action, forward_headway, backward_headway,
-                                                              trip_id, previous_backward_headway, prev_fw_h, self.uniform_schedule)
+                                                              trip_id, previous_backward_headway, prev_fw_h,
+                                                              self.uniform_schedule, prev_pax_at_stop)
             self.trips_sars[trip_id][-1][3] = new_state
         if not self.bool_terminal_state:
             new_sars = [new_state, 0, 0, []]
@@ -1214,14 +1268,17 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
                         self.fixed_stop_unload()
                         self._add_observations()
                         self.fixed_stop_arrivals()
+                        self.fixed_stop_load()
                         self.fixed_stop_depart()
                     else:
                         self.bool_terminal_state = False
                         self.fixed_stop_unload()
+                        self.fixed_stop_arrivals()
                         self._add_observations()
                     return False
             self.fixed_stop_unload()
             self.fixed_stop_arrivals()
+            self.fixed_stop_load()
             self.fixed_stop_depart()
             return self.prep()
 

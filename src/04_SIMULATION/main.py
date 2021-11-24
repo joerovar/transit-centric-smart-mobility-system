@@ -50,7 +50,7 @@ if __name__ == '__main__':
     agent = agent_(gamma=args.gamma,
                    epsilon=args.eps,
                    lr=args.lr,
-                   input_dims=[4],
+                   input_dims=[5],
                    n_actions=N_ACTIONS_RL,
                    mem_size=args.max_mem,
                    eps_min=args.eps_min,
@@ -145,7 +145,7 @@ if __name__ == '__main__':
             path_completed_pax = path_to_outs + dir_var + 'completed_pax_' + tstamps[-1] + ext_var
             post_process.save(path_completed_pax, env.completed_pax)
 
-        load_mean = output.get_rl_results(tstamps)
+        load_mean, ons_mean = output.get_rl_results(tstamps)
 
         fw_headway_scenarios = np.arange(HEADWAY_UNIFORM+60, HEADWAY_UNIFORM-80, -20)
         bw_headway_scenarios = np.flip(fw_headway_scenarios, axis=0)
@@ -155,7 +155,8 @@ if __name__ == '__main__':
         for i in range(fw_headway_scenarios.size):
             for j in range(route_progress_scenarios.size):
                 obs = np.array([route_progress_scenarios[j], int(load_mean[CONTROLLED_STOPS[j]]),
-                                fw_headway_scenarios[i], bw_headway_scenarios[i]], dtype=np.float32)
+                                fw_headway_scenarios[i], bw_headway_scenarios[i],
+                                int(ons_mean[CONTROLLED_STOPS[j]])], dtype=np.float32)
                 action_grid[i, j] = agent.choose_action(obs)
 
         fig, ax = plt.subplots()
