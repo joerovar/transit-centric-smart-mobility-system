@@ -1,5 +1,4 @@
 import pandas as pd
-
 from input import *
 import numpy as np
 from scipy.stats import lognorm
@@ -12,6 +11,69 @@ def get_interval(t, interval_length):
     # time in seconds, interval length in minutes
     interval = int(t / (interval_length * 60))
     return interval
+
+
+def estimate_arrival_time(start_time, start_stop, end_stop, time_dependent_tt):
+    time_control = start_time
+    start_stop_idx = STOPS.index(start_stop)
+    end_stop_idx = STOPS.index(end_stop)
+    for i in range(start_stop_idx, end_stop_idx):
+        stop0 = STOPS[i]
+        stop1 = STOPS[i + 1]
+        if time_dependent_tt:
+            interv = get_interval(time_control, TIME_INTERVAL_LENGTH_MINS)
+            interv_idx = interv - TIME_START_INTERVAL
+            mean_runtime = LINK_TIMES_MEAN[stop0 + '-' + stop1][interv_idx]
+        else:
+            mean_runtime = SINGLE_LINK_TIMES_MEAN[stop0 + '-' + stop1]
+        time_control += mean_runtime
+        assert mean_runtime
+    arrival_time = time_control
+    return arrival_time
+
+
+def _compute_reward(action, fw_h, bw_h, trip_id, prev_bw_h, prev_fw_h, is_headway_constant, prev_pax_at_s):
+    trip_idx = ORDERED_TRIPS.index(trip_id)
+    # follow_trip_id = ORDERED_TRIPS[trip_idx + 1]
+    # lead_trip_id = ORDERED_TRIPS[trip_idx - 1]
+    # if is_headway_constant:
+    #     planned_fw_h = CONSTANT_HEADWAY
+    #     planned_bw_h = CONSTANT_HEADWAY
+    # else:
+    #     planned_fw_h = PLANNED_HEADWAY[str(lead_trip_id) + '-' + str(trip_id)]
+    #     planned_bw_h = PLANNED_HEADWAY[str(trip_id) + '-' + str(follow_trip_id)]
+
+    hw_diff0 = abs(prev_fw_h - prev_bw_h)
+    hw_diff1 = abs(fw_h - bw_h)
+    reward = hw_diff0 - hw_diff1
+    if prev_pax_at_s and action == SKIP_ACTION:
+        reward -= 0.5*prev_bw_h
+
+    # fw_h_diff0 = abs(prev_fw_h - planned_fw_h)
+    # fw_h_diff1 = abs(fw_h - planned_fw_h)
+    # reward = fw_h_diff0 - fw_h_diff1
+
+    # fw_h_diff0 = abs(prev_fw_h - planned_fw_h)
+    # fw_h_diff1 = abs(fw_h - planned_fw_h)
+    # bw_h_diff0 = abs(prev_bw_h - planned_bw_h)
+    # bw_h_diff1 = abs(bw_h - planned_bw_h)
+    # reward = fw_h_diff0 - fw_h_diff1 + bw_h_diff0 - bw_h_diff1
+
+    # reward = - abs(fw_h - bw_h)
+
+    # specific reward for skipping and weighted reward
+    # dev_fw_h = fw_h - planned_fw_h
+    # dev_bw_h = bw_h - planned_bw_h
+    # reward_h = - dev_fw_h * dev_fw_h / (planned_fw_h * planned_fw_h)
+    # reward_h -= dev_bw_h * dev_bw_h / (planned_bw_h * planned_bw_h)
+
+    # if action > 0:
+    #     reward_pax = -(action-1) * BASE_HOLDING_TIME
+    #     reward = C_REW_HW_HOLD * reward_h + C_REW_PAX_HOLD * reward_pax
+    # else:
+    #     reward_pax = -prev_bw_h
+    #     reward = C_REW_HW_SKIP * reward_h + C_REW_PAX_SKIP * reward_pax
+    return reward
 
 
 class SimulationEnv:
@@ -43,11 +105,11 @@ class SimulationEnv:
         # RECORDINGS
         self.trajectories = {}
 
-    def record_trajectories(self, pickups=0, offs=0, denied_board=0):
+    def record_trajectories(self, pickups=0, offs=0, denied_board=0, hold=0, skip=False):
         i = self.bus_idx
         trip_id = self.active_trips[i]
         trajectory = [self.last_stop[i], round(self.arr_t[i], 1), round(self.dep_t[i], 1),
-                      self.load[i], pickups, offs, denied_board]
+                      self.load[i], pickups, offs, denied_board, hold, int(skip)]
         self.trajectories[trip_id].append(trajectory)
         return
 
@@ -340,36 +402,9 @@ class SimulationEnv:
         return
 
 
-def estimate_arrival_time(start_time, start_stop, end_stop, time_dependent_tt):
-    time_control = start_time
-    start_stop_idx = STOPS.index(start_stop)
-    end_stop_idx = STOPS.index(end_stop)
-    for i in range(start_stop_idx, end_stop_idx):
-        stop0 = STOPS[i]
-        stop1 = STOPS[i + 1]
-        if time_dependent_tt:
-            interv = get_interval(time_control, TIME_INTERVAL_LENGTH_MINS)
-            interv_idx = interv - TIME_START_INTERVAL
-            mean_runtime = LINK_TIMES_MEAN[stop0 + '-' + stop1][interv_idx]
-        else:
-            mean_runtime = SINGLE_LINK_TIMES_MEAN[stop0 + '-' + stop1]
-        time_control += mean_runtime
-        assert mean_runtime
-    arrival_time = time_control
-    return arrival_time
-
-
 class SimulationEnvWithControl(SimulationEnv):
     def __init__(self, *args, **kwargs):
         super(SimulationEnvWithControl, self).__init__(*args, **kwargs)
-
-    def record_trajectories(self, pickups=0, offs=0, denied_board=0, hold=0):
-        i = self.bus_idx
-        trip_id = self.active_trips[i]
-        trajectory = [self.last_stop[i], round(self.arr_t[i], 1), round(self.dep_t[i], 1),
-                      self.load[i], pickups, offs, denied_board, hold]
-        self.trajectories[trip_id].append(trajectory)
-        return
 
     def fixed_stop_depart(self, hold=0):
         i = self.bus_idx
@@ -471,50 +506,6 @@ class SimulationEnvWithControl(SimulationEnv):
             return False
 
 
-def _compute_reward(action, fw_h, bw_h, trip_id, prev_bw_h, prev_fw_h, is_headway_constant, prev_pax_at_s):
-    trip_idx = ORDERED_TRIPS.index(trip_id)
-    # follow_trip_id = ORDERED_TRIPS[trip_idx + 1]
-    # lead_trip_id = ORDERED_TRIPS[trip_idx - 1]
-    # if is_headway_constant:
-    #     planned_fw_h = CONSTANT_HEADWAY
-    #     planned_bw_h = CONSTANT_HEADWAY
-    # else:
-    #     planned_fw_h = PLANNED_HEADWAY[str(lead_trip_id) + '-' + str(trip_id)]
-    #     planned_bw_h = PLANNED_HEADWAY[str(trip_id) + '-' + str(follow_trip_id)]
-
-    hw_diff0 = abs(prev_fw_h - prev_bw_h)
-    hw_diff1 = abs(fw_h - bw_h)
-    reward = hw_diff0 - hw_diff1
-    if prev_pax_at_s and action == SKIP_ACTION:
-        reward -= 0.5*prev_bw_h
-
-    # fw_h_diff0 = abs(prev_fw_h - planned_fw_h)
-    # fw_h_diff1 = abs(fw_h - planned_fw_h)
-    # reward = fw_h_diff0 - fw_h_diff1
-
-    # fw_h_diff0 = abs(prev_fw_h - planned_fw_h)
-    # fw_h_diff1 = abs(fw_h - planned_fw_h)
-    # bw_h_diff0 = abs(prev_bw_h - planned_bw_h)
-    # bw_h_diff1 = abs(bw_h - planned_bw_h)
-    # reward = fw_h_diff0 - fw_h_diff1 + bw_h_diff0 - bw_h_diff1
-
-    # reward = - abs(fw_h - bw_h)
-
-    # specific reward for skipping and weighted reward
-    # dev_fw_h = fw_h - planned_fw_h
-    # dev_bw_h = bw_h - planned_bw_h
-    # reward_h = - dev_fw_h * dev_fw_h / (planned_fw_h * planned_fw_h)
-    # reward_h -= dev_bw_h * dev_bw_h / (planned_bw_h * planned_bw_h)
-
-    # if action > 0:
-    #     reward_pax = -(action-1) * BASE_HOLDING_TIME
-    #     reward = C_REW_HW_HOLD * reward_h + C_REW_PAX_HOLD * reward_pax
-    # else:
-    #     reward_pax = -prev_bw_h
-    #     reward = C_REW_HW_SKIP * reward_h + C_REW_PAX_SKIP * reward_pax
-    return reward
-
-
 class SimulationEnvDeepRL(SimulationEnv):
     def __init__(self, *args, **kwargs):
         super(SimulationEnvDeepRL, self).__init__(*args, **kwargs)
@@ -562,12 +553,54 @@ class SimulationEnvDeepRL(SimulationEnv):
         self.bool_terminal_state = False
         return False
 
-    def record_trajectories(self, pickups=0, offs=0, denied_board=0, hold=0, skip=False):
+    def _add_observations(self):
+        t = self.time
         i = self.bus_idx
+        stop_id = self.last_stop[i]
+        stop_idx = STOPS.index(self.last_stop[i])
         trip_id = self.active_trips[i]
-        trajectory = [self.last_stop[i], round(self.arr_t[i], 1), round(self.dep_t[i], 1),
-                      self.load[i], pickups, offs, denied_board, hold, int(skip)]
-        self.trajectories[trip_id].append(trajectory)
+        trip_sars = self.trips_sars[trip_id]
+
+        bus_load = self.load[i]
+        forward_headway = t - self.last_bus_time[stop_id]
+
+        # for previous trip
+        if i < len(self.active_trips) - 1:
+            dep_t = self.dep_t[i + 1]
+            stop0 = self.last_stop[i + 1]
+            stop1 = stop_id
+        else:
+            # in case there is no trip before we can look at future departures which always exist
+            # we look at scheduled departures and not actual which include distributed delays
+            trip_idx = ORDERED_TRIPS.index(trip_id) + 1
+            if self.uniform_schedule:
+                dep_t = UNIFORM_SCHEDULED_DEPARTURES[trip_idx]
+            else:
+                dep_t = SCHEDULED_DEPARTURES[trip_idx]
+            stop0 = STOPS[0]
+            stop1 = stop_id
+
+        follow_trip_arrival_time = estimate_arrival_time(dep_t, stop0, stop1, self.time_dependent_travel_time)
+        backward_headway = follow_trip_arrival_time - t
+        if backward_headway < 0:
+            backward_headway = 0
+
+        route_progress = stop_idx/len(STOPS)
+        new_state = [route_progress, bus_load, forward_headway, backward_headway, self.pax_at_stop[i]]
+
+        if trip_sars:
+            prev_sars = self.trips_sars[trip_id][-1]
+            previous_action = prev_sars[1]
+            previous_backward_headway = prev_sars[0][IDX_BW_H]
+            prev_fw_h = prev_sars[0][IDX_FW_H]
+            prev_pax_at_stop = prev_sars[0][IDX_PAX_AT_STOP]
+            self.trips_sars[trip_id][-1][2] = _compute_reward(previous_action, forward_headway, backward_headway,
+                                                              trip_id, previous_backward_headway, prev_fw_h,
+                                                              self.uniform_schedule, prev_pax_at_stop)
+            self.trips_sars[trip_id][-1][3] = new_state
+        if not self.bool_terminal_state:
+            new_sars = [new_state, 0, 0, []]
+            self.trips_sars[trip_id].append(new_sars)
         return
 
     def fixed_stop_arrivals(self):
@@ -650,56 +683,6 @@ class SimulationEnvDeepRL(SimulationEnv):
             self.next_instance_time[i] = self.no_overtake()
 
         self.record_trajectories(pickups=ons, offs=offs, denied_board=denied, hold=hold, skip=skip)
-        return
-
-    def _add_observations(self):
-        t = self.time
-        i = self.bus_idx
-        stop_id = self.last_stop[i]
-        stop_idx = STOPS.index(self.last_stop[i])
-        trip_id = self.active_trips[i]
-        trip_sars = self.trips_sars[trip_id]
-
-        bus_load = self.load[i]
-        forward_headway = t - self.last_bus_time[stop_id]
-
-        # for previous trip
-        if i < len(self.active_trips) - 1:
-            dep_t = self.dep_t[i + 1]
-            stop0 = self.last_stop[i + 1]
-            stop1 = stop_id
-        else:
-            # in case there is no trip before we can look at future departures which always exist
-            # we look at scheduled departures and not actual which include distributed delays
-            trip_idx = ORDERED_TRIPS.index(trip_id) + 1
-            if self.uniform_schedule:
-                dep_t = UNIFORM_SCHEDULED_DEPARTURES[trip_idx]
-            else:
-                dep_t = SCHEDULED_DEPARTURES[trip_idx]
-            stop0 = STOPS[0]
-            stop1 = stop_id
-
-        follow_trip_arrival_time = estimate_arrival_time(dep_t, stop0, stop1, self.time_dependent_travel_time)
-        backward_headway = follow_trip_arrival_time - t
-        if backward_headway < 0:
-            backward_headway = 0
-
-        route_progress = stop_idx/len(STOPS)
-        new_state = [route_progress, bus_load, forward_headway, backward_headway, self.pax_at_stop[i]]
-
-        if trip_sars:
-            prev_sars = self.trips_sars[trip_id][-1]
-            previous_action = prev_sars[1]
-            previous_backward_headway = prev_sars[0][IDX_BW_H]
-            prev_fw_h = prev_sars[0][IDX_FW_H]
-            prev_pax_at_stop = prev_sars[0][IDX_PAX_AT_STOP]
-            self.trips_sars[trip_id][-1][2] = _compute_reward(previous_action, forward_headway, backward_headway,
-                                                              trip_id, previous_backward_headway, prev_fw_h,
-                                                              self.uniform_schedule, prev_pax_at_stop)
-            self.trips_sars[trip_id][-1][3] = new_state
-        if not self.bool_terminal_state:
-            new_sars = [new_state, 0, 0, []]
-            self.trips_sars[trip_id].append(new_sars)
         return
 
     def prep(self):
@@ -939,18 +922,21 @@ class DetailedSimulationEnv(SimulationEnv):
         self.remove_trip()
         return
 
+    def chop_pax(self):
+        for p in self.completed_pax.copy():
+            if p.trip_id not in FOCUS_TRIPS:
+                self.completed_pax.remove(p)
+        return
+
+    def process_results(self):
+        self.chop_trajectories()
+        self.chop_pax()
+        return
+
 
 class DetailedSimulationEnvWithControl(DetailedSimulationEnv):
     def __init__(self, *args, **kwargs):
         super(DetailedSimulationEnvWithControl, self).__init__(*args, **kwargs)
-
-    def record_trajectories(self, pickups=0, offs=0, denied_board=0, hold=0):
-        i = self.bus_idx
-        trip_id = self.active_trips[i]
-        trajectory = [self.last_stop[i], round(self.arr_t[i], 1), round(self.dep_t[i], 1),
-                      self.load[i], pickups, offs, denied_board, hold]
-        self.trajectories[trip_id].append(trajectory)
-        return
 
     def fixed_stop_depart(self, hold=0):
         i = self.bus_idx
@@ -1104,14 +1090,6 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
             self.trips_sars[trip_id] = []
         self.bool_terminal_state = False
         return False
-
-    def record_trajectories(self, pickups=0, offs=0, denied_board=0, hold=0, skip=False):
-        i = self.bus_idx
-        trip_id = self.active_trips[i]
-        trajectory = [self.last_stop[i], round(self.arr_t[i], 1), round(self.dep_t[i], 1),
-                      self.load[i], pickups, offs, denied_board, hold, int(skip)]
-        self.trajectories[trip_id].append(trajectory)
-        return
 
     def fixed_stop_arrivals(self):
         i = self.bus_idx

@@ -15,8 +15,4 @@ import numpy as np
 # from classes_simul import Passenger, Stop, Trip
 # import seaborn as sns
 # import matplotlib
-
-a = np.nan
-
-if np.isnan(a):
-    print(a)
+print(np.zeros(10))

@@ -41,43 +41,6 @@ def write_sars(trip_data, pathname, header=None):
     return
 
 
-def plot_headway(pathname, hs, ordered_stops, controlled_stops=None, min_size_for_cv=2, cv_scale=(0,1,0.1)):
-    x = []
-    y1 = []
-    for i in range(len(ordered_stops)):
-        s = ordered_stops[i]
-        if s in hs:
-            h = hs[s]
-            if len(h) > min_size_for_cv:
-                mean = np.array(h).mean()
-                std = np.array(h).std()
-                cv = std/mean
-                x.append(i)
-                y1.append(cv) if mean else y1.append(0)
-    fig, ax1 = plt.subplots()
-    color = 'tab:red'
-    ax1.set_xlabel('stop id')
-    ax1.set_ylabel('coefficient of variation', color=color)
-    ax1.plot(x, y1, color=color)
-    ax1.set_yticks(np.arange(cv_scale[0], cv_scale[1]+cv_scale[2], cv_scale[2]))
-    ax1.tick_params(axis='y', labelcolor=color)
-
-    if controlled_stops:
-        for cs in controlled_stops:
-            idx = ordered_stops.index(cs)
-            plt.axvline(x=idx, color='gray', alpha=0.5, linestyle='dashed')
-    x1 = np.arange(len(ordered_stops))
-    ax1.set_xticks(x1)
-    ax1.set_xticklabels(ordered_stops, fontsize=6, rotation=90)
-    plt.tight_layout()
-    if pathname:
-        plt.savefig(pathname)
-    else:
-        plt.show()
-    plt.close()
-    return
-
-
 def plot_trajectories(trip_data, idx_arr_t, idx_dep_t, pathname, ordered_stops, controlled_stops=None):
     for trip in trip_data:
         td = np.array(trip_data[trip])
@@ -264,7 +227,7 @@ def plot_load_profile(bd, al, l, os, l_dev=None, pathname=None, x_y_lbls=None, c
     return
 
 
-def get_headway_from_trajectory_set(trajectory_set, idx_ons, idx_denied, idx_arr_t, first_trip):
+def get_headway_from_trajectory_set(trajectory_set, idx_ons, idx_denied, idx_arr_t):
     recorded_headway = {}
     tot_wait_time = {}
     wait_time = {}
@@ -274,31 +237,30 @@ def get_headway_from_trajectory_set(trajectory_set, idx_ons, idx_denied, idx_arr
         prev_stop_time = {}
         prev_denied = {}
         for trip in trajectories:
-            if trip != first_trip:
-                for stop_details in trajectories[trip]:
-                    stop_id = stop_details[0]
-                    stop_time = stop_details[idx_arr_t]
-                    ons = stop_details[idx_ons]
-                    denied = stop_details[idx_denied]
-                    if stop_id not in prev_stop_time:
-                        prev_stop_time[stop_id] = stop_time
-                        prev_denied[stop_id] = denied
+            for stop_details in trajectories[trip]:
+                stop_id = stop_details[0]
+                stop_time = stop_details[idx_arr_t]
+                ons = stop_details[idx_ons]
+                denied = stop_details[idx_denied]
+                if stop_id not in prev_stop_time:
+                    prev_stop_time[stop_id] = stop_time
+                    prev_denied[stop_id] = denied
+                else:
+                    t1 = prev_stop_time[stop_id]
+                    t2 = stop_time
+                    headway = t2 - t1
+                    prev_denied_ = prev_denied[stop_id]
+                    if stop_id not in recorded_headway:
+                        recorded_headway[stop_id] = [headway]
+                        tot_wait_time[stop_id] = (prev_denied_ + (ons+denied-prev_denied_) * 0.5) * headway
+                        tot_boardings[stop_id] = ons
                     else:
-                        t1 = prev_stop_time[stop_id]
-                        t2 = stop_time
-                        headway = t2 - t1
-                        prev_denied_ = prev_denied[stop_id]
-                        if stop_id not in recorded_headway:
-                            recorded_headway[stop_id] = [headway]
-                            tot_wait_time[stop_id] = (prev_denied_ + (ons+denied-prev_denied_) * 0.5) * headway
-                            tot_boardings[stop_id] = ons
-                        else:
-                            recorded_headway[stop_id].append(headway)
-                            tot_wait_time[stop_id] += (prev_denied_ + (ons+denied-prev_denied_) * 0.5) * headway
-                            tot_boardings[stop_id] += ons
+                        recorded_headway[stop_id].append(headway)
+                        tot_wait_time[stop_id] += (prev_denied_ + (ons+denied-prev_denied_) * 0.5) * headway
+                        tot_boardings[stop_id] += ons
 
-                        prev_stop_time[stop_id] = t2
-                        prev_denied[stop_id] = denied
+                    prev_stop_time[stop_id] = t2
+                    prev_denied[stop_id] = denied
     for s in tot_wait_time:
         wait_time[s] = tot_wait_time[s] / tot_boardings[s] if tot_boardings[s] else 0
         headway = np.array(recorded_headway[s])
@@ -309,40 +271,37 @@ def get_headway_from_trajectory_set(trajectory_set, idx_ons, idx_denied, idx_arr
     return recorded_headway, wait_time
 
 
-def pax_per_trip_from_trajectory_set(trajectory_set, idx_load, idx_ons, idx_offs, first_trip):
+def pax_per_trip_from_trajectory_set(trajectory_set, idx_load, idx_ons, idx_offs):
     bus_load_all = {}
     ons_all = {}
     offs_all = {}
+    total_ons = 0
     for trajectories in trajectory_set:
         for trip in trajectories:
-            if trip != first_trip:
-                for stop_details in trajectories[trip]:
-                    stop_id = stop_details[0]
-                    bus_load = stop_details[idx_load]
-                    ons = stop_details[idx_ons]
-                    offs = stop_details[idx_offs]
+            for stop_details in trajectories[trip]:
+                stop_id = stop_details[0]
+                bus_load = stop_details[idx_load]
+                ons = stop_details[idx_ons]
+                total_ons += ons
+                offs = stop_details[idx_offs]
+                if stop_id not in bus_load_all:
+                    bus_load_all[stop_id] = [bus_load]
+                else:
+                    bus_load_all[stop_id].append(bus_load)
 
-                    if stop_id not in bus_load_all:
-                        bus_load_all[stop_id] = [bus_load]
-                    else:
-                        bus_load_all[stop_id].append(bus_load)
+                if stop_id not in ons_all:
+                    ons_all[stop_id] = [ons]
+                else:
+                    ons_all[stop_id].append(ons)
 
-                    if stop_id not in ons_all:
-                        ons_all[stop_id] = [ons]
-                    else:
-                        ons_all[stop_id].append(ons)
-
-                    if stop_id not in offs_all:
-                        offs_all[stop_id] = [offs]
-                    else:
-                        offs_all[stop_id].append(offs)
-
+                if stop_id not in offs_all:
+                    offs_all[stop_id] = [offs]
+                else:
+                    offs_all[stop_id].append(offs)
     bus_load_mean = {}
     bus_load_std = {}
     ons_mean = {}
-    ons_std = {}
     offs_mean = {}
-    offs_std = {}
     ons_tot = {}
 
     for stop in bus_load_all:
@@ -352,53 +311,53 @@ def pax_per_trip_from_trajectory_set(trajectory_set, idx_load, idx_ons, idx_offs
     for stop in ons_all:
         ons_mean[stop] = np.nan_to_num(np.array(ons_all[stop]).mean())
         ons_tot[stop] = np.nan_to_num(np.array(ons_all[stop]).sum())
-        # ons_std[stop] = np.nan_to_num(np.array(ons_all[stop]).std())
 
     for stop in offs_all:
         offs_mean[stop] = np.nan_to_num(np.array(offs_all[stop]).mean())
-        # offs_std[stop] = np.nan_to_num(np.array(offs_all[stop]).std())
 
-    return bus_load_mean, bus_load_std, ons_mean, offs_mean, ons_tot
+    return bus_load_mean, bus_load_std, ons_mean, offs_mean, ons_tot, total_ons
 
 
-def hold_time_from_trajectory_set(trajectory_set, idx, first_trip, controlled_stops):
-    ht_all_in_one = []
+def hold_time_from_trajectory_set(trajectory_set, idx):
+    tot_hold_times = []
     ht_all = {}
     for trajectories in trajectory_set:
         for trip in trajectories:
-            if trip != first_trip:
-                for stop_details in trajectories[trip]:
-                    stop_id = stop_details[0]
-                    ht = stop_details[idx]
-                    if stop_id in controlled_stops:
-                        ht_all_in_one.append(ht)
-                    if stop_id not in ht_all:
-                        ht_all[stop_id] = [ht]
-                    else:
-                        ht_all[stop_id].append(ht)
+            trip_hold_time = 0
+            for stop_details in trajectories[trip]:
+                stop_id = stop_details[0]
+                ht = stop_details[idx]
+                trip_hold_time += ht
+                if stop_id not in ht_all:
+                    ht_all[stop_id] = [ht]
+                else:
+                    ht_all[stop_id].append(ht)
+            tot_hold_times.append(trip_hold_time)
+    avg_tot_ht = np.array(tot_hold_times).mean()
     ht_mean = {}
     for stop in ht_all:
         ht_mean[stop] = np.nan_to_num(np.array(ht_all[stop]).mean())
-    return ht_mean, ht_all_in_one
+    return ht_mean, avg_tot_ht, tot_hold_times
 
 
-def denied_from_trajectory_set(trajectory_set, idx, tot_ons, first_trip):
-    tot_denied = {}
+def denied_from_trajectory_set(trajectory_set, idx, tot_ons):
+    tot_denied = 0
     for trajectories in trajectory_set:
         for trip in trajectories:
-            if trip != first_trip:
-                for stop_details in trajectories[trip]:
-                    stop_id = stop_details[0]
-                    denied = stop_details[idx]
-                    if stop_id not in tot_denied:
-                        tot_denied[stop_id] = denied
-                    else:
-                        tot_denied[stop_id] += denied
-    per_mil_denied = {}
-    for stop in tot_denied:
-        if tot_ons[stop]:
-            per_mil_denied[stop] = tot_denied[stop] / tot_ons[stop] * 1000
+            for stop_details in trajectories[trip]:
+                denied = stop_details[idx]
+                tot_denied += denied
+    per_mil_denied = tot_denied * 1000 / tot_ons
     return per_mil_denied
+
+
+def tot_trip_times_from_trajectory_set(trajectory_set, idx_dep_t, idx_arr_t):
+    tot_trip_times = []
+    for trajectories in trajectory_set:
+        lst_trips = list(trajectories.keys())
+        trip_times = [trajectories[k][-1][idx_arr_t] - trajectories[k][0][idx_dep_t] for k in lst_trips]
+        tot_trip_times += trip_times
+    return tot_trip_times
 
 
 def travel_times_from_trajectory_set(trajectory_set, idx_dep_t, idx_arr_t, first_trip, tpoint0, tpoint1):
@@ -671,28 +630,38 @@ def plot_difference_od(od, ordered_stops, pathname=None, clim=None, controlled_s
     return
 
 
-def process_od_level_data(pax_set, ordered_stops, focus_trip_ids):
-    # we add all data points to a dataframe
-    # then we convert into an od matrix
-
-    journey_times = {'o': [], 'd': [], 'jt': []}
+def get_wait_times(pax_set, ordered_stops):
     wait_times = {'o': [], 'd': [], 'wt': []}
     for replication in pax_set:
         for p in replication:
-            if p.trip_id in focus_trip_ids:
-                journey_times['o'].append(p.orig_idx)
-                journey_times['d'].append(p.dest_idx)
-                journey_times['jt'].append(p.journey_time)
-                wait_times['o'].append(p.orig_idx)
-                wait_times['d'].append(p.dest_idx)
-                wait_times['wt'].append(p.wait_time)
-    journey_times_df = pd.DataFrame(journey_times)
+            wait_times['o'].append(p.orig_idx)
+            wait_times['d'].append(p.dest_idx)
+            wait_times['wt'].append(p.wait_time)
     wait_times_df = pd.DataFrame(wait_times)
     n = len(ordered_stops)
-    od_wait_time_mean = np.zeros(shape=(n,)*2)
-    od_wait_time_mean[:] = np.nan
-    od_wait_time_std = np.zeros(shape=(n,)*2)
-    od_wait_time_std[:] = np.nan
+    stop_wait_time_mean = np.zeros(n)
+    stop_wait_time_mean[:] = np.nan
+    stop_wait_time_std = np.zeros(n)
+    stop_wait_time_std[:] = np.nan
+    for i in range(n):
+        wt = wait_times_df[(wait_times_df['o'] == i)]['wt']
+        if not wt.empty:
+            stop_wait_time_mean[i] = wt.mean()
+            stop_wait_time_std[i] = wt.std()
+    return stop_wait_time_mean, stop_wait_time_std
+
+
+def get_journey_times(pax_set, ordered_stops):
+    # we add all data points to a dataframe
+    # then we convert into an od matrix
+    journey_times = {'o': [], 'd': [], 'jt': []}
+    for replication in pax_set:
+        for p in replication:
+            journey_times['o'].append(p.orig_idx)
+            journey_times['d'].append(p.dest_idx)
+            journey_times['jt'].append(p.journey_time)
+    journey_times_df = pd.DataFrame(journey_times)
+    n = len(ordered_stops)
     od_journey_time_mean = np.zeros(shape=(n,)*2)
     od_journey_time_mean[:] = np.nan
     od_journey_time_std = np.zeros(shape=(n,)*2)
@@ -703,22 +672,18 @@ def process_od_level_data(pax_set, ordered_stops, focus_trip_ids):
     for i in range(n):
         for j in range(i + 1, n):
             jt = journey_times_df[(journey_times_df['o'] == i) & (journey_times_df['d'] == j)]['jt']
-            wt = wait_times_df[(wait_times_df['o'] == i) & (wait_times_df['d'] == j)]['wt']
             if not jt.empty:
                 od_count[i, j] = len(jt)
                 od_journey_time_mean[i, j] = jt.mean()
                 od_journey_time_std[i, j] = jt.std()
                 od_journey_time_rbt[i, j] = jt.quantile(0.8) - jt.median()
-                od_wait_time_mean[i, j] = wt.mean()
-                od_wait_time_std[i, j] = wt.std()
-    return od_journey_time_mean, od_journey_time_std, od_wait_time_mean, od_wait_time_std, od_journey_time_rbt, od_count
+    return od_journey_time_mean, od_journey_time_std, od_journey_time_rbt, od_count
 
 
-def plot_travel_time_benchmark(tt_set, lbls, pathname=None):
-    color = ['tab:red', 'tab:blue', 'tab:green']
+def plot_travel_time_benchmark(tt_set, lbls, colors, pathname=None):
     i = 0
     for tt in tt_set:
-        sns.kdeplot(np.array(tt), label=lbls[i], color=color[i])
+        sns.kdeplot(np.array(tt), label=lbls[i], color=colors[i])
         i += 1
     plt.xlabel('seconds')
     plt.legend()
@@ -730,9 +695,50 @@ def plot_travel_time_benchmark(tt_set, lbls, pathname=None):
     return
 
 
-def plot_headway_benchmark(hw_set, ordered_stops, lbls, pathname=None, controlled_stops=None, min_size_for_cv=1, cv_scale=(0,1,0.1)):
+def plot_headway(hw_set, ordered_stops, lbls,
+                 pathname=None, controlled_stops=None,
+                 min_size_for_cv=1, cv_scale=(0, 1, 0.1)):
     fig, ax1 = plt.subplots()
     color = ['tab:red', 'tab:blue', 'tab:green']
+    j = 0
+    for hs in hw_set:
+        x = []
+        y1 = []
+        for i in range(len(ordered_stops)):
+            s = ordered_stops[i]
+            if s in hs:
+                h = hs[s]
+                if len(h) > min_size_for_cv:
+                    mean = np.array(h).mean()
+                    std = np.array(h).std()
+                    cv = std / mean
+                    x.append(i)
+                    y1.append(cv) if mean else y1.append(0)
+        ax1.plot(x, y1, color=color[j], label=lbls[j])
+        j += 1
+    ax1.set_xlabel('stop id')
+    ax1.set_ylabel('coefficient of variation of headway')
+    ax1.set_yticks(np.arange(cv_scale[0], cv_scale[1] + cv_scale[2], cv_scale[2]))
+    if controlled_stops:
+        for cs in controlled_stops:
+            idx = ordered_stops.index(cs)
+            plt.axvline(x=idx, color='gray', alpha=0.5, linestyle='dashed')
+    x1 = np.arange(len(ordered_stops))
+    ax1.set_xticks(x1)
+    ax1.set_xticklabels(ordered_stops, fontsize=6, rotation=90)
+    plt.legend()
+    plt.tight_layout()
+    if pathname:
+        plt.savefig(pathname)
+    else:
+        plt.show()
+    plt.close()
+    return
+
+
+def plot_headway_benchmark(hw_set, ordered_stops, lbls, colors, pathname=None, controlled_stops=None,
+                           min_size_for_cv=1, cv_scale=(0, 1, 0.1)):
+    fig, ax1 = plt.subplots()
 
     j = 0
     for hs in hw_set:
@@ -749,7 +755,7 @@ def plot_headway_benchmark(hw_set, ordered_stops, lbls, pathname=None, controlle
                     x.append(i)
                     y1.append(cv) if mean else y1.append(0)
 
-        ax1.plot(x, y1, color=color[j], label=lbls[j])
+        ax1.plot(x, y1, color=colors[j], label=lbls[j])
         j += 1
 
     ax1.set_xlabel('stop id')
@@ -762,6 +768,99 @@ def plot_headway_benchmark(hw_set, ordered_stops, lbls, pathname=None, controlle
     x1 = np.arange(len(ordered_stops))
     ax1.set_xticks(x1)
     ax1.set_xticklabels(ordered_stops, fontsize=6, rotation=90)
+    plt.legend()
+    plt.tight_layout()
+    if pathname:
+        plt.savefig(pathname)
+    else:
+        plt.show()
+    plt.close()
+    return
+
+
+def plot_load_profile_benchmark(load_set, os, lbls, colors, pathname=None, x_y_lbls=None, controlled_stops=None):
+    x1 = np.arange(len(os))
+    fig, ax1 = plt.subplots()
+    j = 0
+    for load_profile in load_set:
+        y = []
+        for stop in os:
+            if stop in load_profile:
+                y.append(load_profile[stop])
+            else:
+                y.append(0)
+        ax1.plot(x1, y, label=lbls[j], color=colors[j])
+        j += 1
+    if controlled_stops:
+        for cs in controlled_stops:
+            idx = os.index(cs)
+            plt.axvline(x=idx, color='gray', alpha=0.5, linestyle='dashed')
+    ax1.set_xticks(x1)
+    ax1.set_xticklabels(os, fontsize=6, rotation=90)
+    # right, left, top, bottom
+    if x_y_lbls:
+        ax1.set_xlabel(x_y_lbls[0])
+        ax1.set_ylabel(x_y_lbls[1])
+    fig.legend(loc='upper center')
+    plt.tight_layout()
+    if pathname:
+        plt.savefig(pathname)
+    else:
+        plt.show()
+    plt.close()
+    return
+
+
+def plot_mean_hold_time_benchmark(ht_set, lbl, colors, pathname=None):
+    w = 0.3
+    for i in range(len(ht_set)):
+        plt.bar(w*i, ht_set[i], label=lbl[i], color=colors[i])
+    plt.tight_layout()
+    if pathname:
+        plt.savefig(pathname)
+    else:
+        plt.show()
+    plt.close()
+    return
+
+
+def plot_hold_time_distribution_benchmark(ht_set, lbl, colors, pathname=None):
+    i = 0
+    for ht in ht_set:
+        sns.kdeplot(np.array(ht), label=lbl[i], color=colors[i])
+        i += 1
+    plt.xlabel('seconds')
+    plt.legend()
+    if pathname:
+        plt.savefig(pathname)
+    else:
+        plt.show()
+    plt.close()
+    return
+
+
+def plot_denied_benchmark(db_set, lbl, colors, pathname=None):
+    w = 0.3
+    for i in range(len(db_set)):
+        plt.bar(w*i, db_set[i], label=lbl[i], color=colors[i])
+    plt.legend()
+    plt.tight_layout()
+    if pathname:
+        plt.savefig(pathname)
+    else:
+        plt.show()
+    plt.close()
+    return
+
+
+def plot_wait_time_benchmark(wt_set, os, lbl, colors, pathname=None):
+    fig, ax = plt.subplots()
+    j = 0
+    for wt in wt_set:
+        ax.plot(np.arange(len(wt)), wt, label=lbl[j], color=colors[j])
+        j += 1
+    ax.set_xticks(np.arange(len(os)))
+    ax.set_xticklabels(os, fontsize=6, rotation=90)
     plt.legend()
     plt.tight_layout()
     if pathname:
