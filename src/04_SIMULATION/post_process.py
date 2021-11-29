@@ -227,12 +227,13 @@ def plot_load_profile(bd, al, l, os, l_dev=None, pathname=None, x_y_lbls=None, c
     return
 
 
-def get_headway_from_trajectory_set(trajectory_set, idx_ons, idx_denied, idx_arr_t):
+def get_headway_from_trajectory_set(trajectory_set, idx_ons, idx_denied, idx_arr_t, controlled_stops=None):
     recorded_headway = {}
     tot_wait_time = {}
     wait_time = {}
     wait_time_from_hw = {}
     tot_boardings = {}
+    hw_at_tp = []
     for trajectories in trajectory_set:
         prev_stop_time = {}
         prev_denied = {}
@@ -249,6 +250,8 @@ def get_headway_from_trajectory_set(trajectory_set, idx_ons, idx_denied, idx_arr
                     t1 = prev_stop_time[stop_id]
                     t2 = stop_time
                     headway = t2 - t1
+                    if stop_id in controlled_stops:
+                        hw_at_tp.append(headway)
                     prev_denied_ = prev_denied[stop_id]
                     if stop_id not in recorded_headway:
                         recorded_headway[stop_id] = [headway]
@@ -268,7 +271,7 @@ def get_headway_from_trajectory_set(trajectory_set, idx_ons, idx_denied, idx_arr
         cv_headway = headway.std() / mean_headway
         wait_time_from_hw[s] = (mean_headway / 2) * (1 + (cv_headway * cv_headway))
 
-    return recorded_headway, wait_time
+    return recorded_headway, wait_time, hw_at_tp
 
 
 def pax_per_trip_from_trajectory_set(trajectory_set, idx_load, idx_ons, idx_offs):
@@ -648,7 +651,10 @@ def get_wait_times(pax_set, ordered_stops):
         if not wt.empty:
             stop_wait_time_mean[i] = wt.mean()
             stop_wait_time_std[i] = wt.std()
-    return stop_wait_time_mean, stop_wait_time_std
+    stop_nr = ordered_stops.index('443')
+    point_wt = wait_times_df[(wait_times_df['o'] == stop_nr)]['wt']
+    point_wt = point_wt.quantile(0.8)
+    return stop_wait_time_mean, stop_wait_time_std, point_wt
 
 
 def get_journey_times(pax_set, ordered_stops):
@@ -668,6 +674,10 @@ def get_journey_times(pax_set, ordered_stops):
     od_journey_time_std[:] = np.nan
     od_journey_time_rbt = np.zeros(shape=(n,)*2)
     od_journey_time_rbt[:] = np.nan
+    od_extr_journey_time_mean = np.zeros(shape=(n,)*2)
+    od_extr_journey_time_mean[:] = np.nan
+    od_journey_time_sum = np.zeros(shape=(n,)*2)
+    od_journey_time_sum[:] = np.nan
     od_count = np.zeros(shape=(n,)*2)
     for i in range(n):
         for j in range(i + 1, n):
@@ -677,7 +687,11 @@ def get_journey_times(pax_set, ordered_stops):
                 od_journey_time_mean[i, j] = jt.mean()
                 od_journey_time_std[i, j] = jt.std()
                 od_journey_time_rbt[i, j] = jt.quantile(0.8) - jt.median()
-    return od_journey_time_mean, od_journey_time_std, od_journey_time_rbt, od_count
+                od_extr_journey_time_mean[i, j] = jt.quantile(0.95)
+                od_journey_time_sum[i, j] = jt.sum()
+    jt_sum = np.nansum(od_journey_time_sum) / 3600
+    extr_jt_sum = np.nansum(od_extr_journey_time_mean) / 3600
+    return od_journey_time_mean, od_journey_time_std, od_journey_time_rbt, od_count, jt_sum, extr_jt_sum
 
 
 def plot_travel_time_benchmark(tt_set, lbls, colors, pathname=None):
@@ -857,7 +871,7 @@ def plot_wait_time_benchmark(wt_set, os, lbl, colors, pathname=None):
     fig, ax = plt.subplots()
     j = 0
     for wt in wt_set:
-        ax.plot(np.arange(len(wt)), wt, label=lbl[j], color=colors[j])
+        ax.scatter(np.arange(len(wt)), wt, label=lbl[j], color=colors[j])
         j += 1
     ax.set_xticks(np.arange(len(os)))
     ax.set_xticklabels(os, fontsize=6, rotation=90)
