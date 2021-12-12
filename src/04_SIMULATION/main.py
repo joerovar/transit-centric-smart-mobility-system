@@ -6,7 +6,6 @@ from utils import plot_learning
 import simulation_env
 import post_process
 from file_paths import *
-import output
 from datetime import datetime
 from constants import *
 import matplotlib.pyplot as plt
@@ -14,7 +13,7 @@ from input import *
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
-                    description='Deep Q Learning: From Paper to Code')
+        description='Deep Q Learning: From Paper to Code')
     # the hyphen makes the argument optional
     parser.add_argument('-n_games', type=int, default=1,
                         help='Number of games to play')
@@ -50,7 +49,7 @@ if __name__ == '__main__':
     agent = agent_(gamma=args.gamma,
                    epsilon=args.eps,
                    lr=args.lr,
-                   input_dims=[4],
+                   input_dims=[5],
                    n_actions=N_ACTIONS_RL,
                    mem_size=args.max_mem,
                    eps_min=args.eps_min,
@@ -65,8 +64,8 @@ if __name__ == '__main__':
         # --------------------------------------------------- TRAINING -----------------------------------------
 
         tstamp_save = time.strftime("%m%d-%H%M")
-        fname = args.algo + '_' + args.env + '_alpha' + str(args.lr) + '_' +\
-            str(args.n_games) + 'eps_' + tstamp_save
+        fname = args.algo + '_' + args.env + '_alpha' + str(args.lr) + '_' + \
+                str(args.n_games) + 'eps_' + tstamp_save
 
         figure_file = 'out/training plots/' + fname + '.png'
         scores_file = fname + '_scores.npy'
@@ -120,7 +119,10 @@ if __name__ == '__main__':
         # --------------------------------- TESTING ----------------------------------------------------------------
 
         agent.load_models()
-        tstamps = []
+        tstamp = datetime.now().strftime('%m%d-%H%M%S%f')[:-4]
+        trajectories_set = []
+        sars_set = []
+        pax_set = []
         for j in range(args.n_games):
             score = 0
             env = simulation_env.DetailedSimulationEnvWithDeepRL()
@@ -135,19 +137,22 @@ if __name__ == '__main__':
                     action = agent.choose_action(observation)
                     env.take_action(action)
                 done = env.prep()
-
             env.process_results()
-            tstamps.append(datetime.now().strftime('%m%d-%H%M%S%f')[:-4])
-            path_trajectories = path_to_outs + dir_var + 'trajectories_' + tstamps[-1] + ext_var
-            path_sars = path_to_outs + dir_var + 'sars_record_' + tstamps[-1] + ext_var
-            post_process.save(path_trajectories, env.trajectories)
-            post_process.save(path_sars, env.trips_sars)
-            path_completed_pax = path_to_outs + dir_var + 'completed_pax_' + tstamps[-1] + ext_var
-            post_process.save(path_completed_pax, env.completed_pax)
+            trajectories_set.append(env.trajectories)
+            sars_set.append(env.trips_sars)
+            pax_set.append(env.completed_pax)
 
-        load_mean = output.get_rl_results(tstamps)
+        path_trajectories = 'out/RL/trajectory_set_' + tstamp + '.pkl'
+        path_sars = 'out/RL/sars_set_' + tstamp + '.pkl'
+        path_completed_pax = 'out/RL/pax_set_' + tstamp + '.pkl'
+        post_process.save(path_trajectories, trajectories_set)
+        post_process.save(path_sars, sars_set)
+        post_process.save(path_completed_pax, pax_set)
 
-        fw_headway_scenarios = np.arange(HEADWAY_UNIFORM+60, HEADWAY_UNIFORM-80, -20)
+        load_mean, _, ons_mean, _, _, _ = pax_per_trip_from_trajectory_set(trajectories_set, IDX_LOAD,
+                                                                           IDX_PICK, IDX_DROP)
+
+        fw_headway_scenarios = np.arange(HEADWAY_UNIFORM + 60, HEADWAY_UNIFORM - 80, -20)
         bw_headway_scenarios = np.flip(fw_headway_scenarios, axis=0)
         route_progress_scenarios = np.array([(STOPS.index(s) / len(STOPS)) for s in CONTROLLED_STOPS[:-1]])
         action_grid = np.zeros(shape=(len(fw_headway_scenarios), len(route_progress_scenarios)))
@@ -155,7 +160,8 @@ if __name__ == '__main__':
         for i in range(fw_headway_scenarios.size):
             for j in range(route_progress_scenarios.size):
                 obs = np.array([route_progress_scenarios[j], int(load_mean[CONTROLLED_STOPS[j]]),
-                                fw_headway_scenarios[i], bw_headway_scenarios[i]], dtype=np.float32)
+                                fw_headway_scenarios[i], bw_headway_scenarios[i],
+                                int(ons_mean[CONTROLLED_STOPS[j]])], dtype=np.float32)
                 action_grid[i, j] = agent.choose_action(obs)
 
         fig, ax = plt.subplots()
@@ -164,7 +170,7 @@ if __name__ == '__main__':
         ms = ax.matshow(action_grid)
         ax.set_xticks(x_axis)
         ax.xaxis.set_ticks_position('bottom')
-        ax.set_xticklabels(np.arange(1, route_progress_scenarios.size+1))
+        ax.set_xticklabels(np.arange(1, route_progress_scenarios.size + 1))
         ax.set_yticks(y_axis)
         ax.set_yticklabels(np.arange(60, -80, -20))
         ax.set_xlabel('control point')
