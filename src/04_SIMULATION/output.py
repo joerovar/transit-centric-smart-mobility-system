@@ -21,7 +21,6 @@ class PostProcessor:
             sd_hw_at_tp.append(np.array(hw_at_tp).std())
         plot_headway_benchmark(hw_set, STOPS, self.cp_tags, self.colors, pathname='out/benchmark/hw.png',
                                controlled_stops=CONTROLLED_STOPS)
-        # print(sd_hw_at_tp)
         return
 
     def total_trip_time_distribution(self):
@@ -35,8 +34,6 @@ class PostProcessor:
             t_arr = np.array(t)
             std_run_times.append(t_arr.std())
             extr_run_times.append(np.percentile(t_arr, 95))
-        # print(std_run_times)
-        # print(extr_run_times)
         plot_travel_time_benchmark(trip_time_set, self.cp_tags, self.colors, pathname='out/benchmark/ttd.png')
         return
 
@@ -100,8 +97,6 @@ class PostProcessor:
             _, _, _, _, jt_sum, extr_jt_sum = get_journey_times(pax, STOPS)
             jt_sums.append(jt_sum)
             extr_jt_sums.append(extr_jt_sum)
-        # print(jt_sums)
-        # print(extr_jt_sums)
         return
 
     def params_for_policy(self, tag='RL'):
