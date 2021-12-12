@@ -6,16 +6,20 @@ from datetime import timedelta
 
 
 def extract_params():
-    stops, link_times, ordered_trips, link_times_true = get_route(path_stop_times, SEC_FOR_TT_EXTRACT, END_TIME_SEC,
-                                                                  TIME_NR_INTERVALS,
-                                                                  TIME_START_INTERVAL, TIME_INTERVAL_LENGTH_MINS,
-                                                                  DATES, TRIP_WITH_FULL_STOP_PATTERN,
-                                                                  path_ordered_dispatching, path_sorted_daily_trips,
-                                                                  path_stop_pattern, START_TIME_SEC,
-                                                                  FOCUS_START_TIME_SEC,
-                                                                  FOCUS_END_TIME_SEC)
-    link_times_mean, link_times_sd, nr_time_dpoints = link_times
-    link_times_mean_true, link_times_sd_true, nr_time_dpoints_true = link_times_true
+    stops, link_times_mean, link_times_sd, nr_time_dpoints, ordered_trips = get_route(path_stop_times,
+                                                                                      SEC_FOR_TT_EXTRACT,
+                                                                                      END_TIME_SEC,
+                                                                                      TIME_NR_INTERVALS,
+                                                                                      TIME_START_INTERVAL,
+                                                                                      TIME_INTERVAL_LENGTH_MINS,
+                                                                                      DATES,
+                                                                                      TRIP_WITH_FULL_STOP_PATTERN,
+                                                                                      path_ordered_dispatching,
+                                                                                      path_sorted_daily_trips,
+                                                                                      path_stop_pattern,
+                                                                                      START_TIME_SEC,
+                                                                                      FOCUS_START_TIME_SEC,
+                                                                                      FOCUS_END_TIME_SEC)
 
     # arrival rates will be in pax/min
     arrival_rates, alight_fractions, alight_rates, dep_vol, odt = get_demand(path_od, stops, PREV_DEM_NR_INTERVALS,
@@ -83,8 +87,7 @@ def visualize_for_validation():
 
     ordered_trips_array = np.array(ordered_trips)
     scheduled_departures_array = np.array(scheduled_departures)
-    focus_trips = ordered_trips_array[(scheduled_departures_array <= FOCUS_END_TIME_SEC) & (
-                scheduled_departures_array >= FOCUS_START_TIME_SEC)].tolist()
+    focus_trips = ordered_trips_array[(scheduled_departures_array <= FOCUS_END_TIME_SEC) & (scheduled_departures_array >= FOCUS_START_TIME_SEC)].tolist()
     historical_headway = get_historical_headway(path_stop_times, DATES, stops, focus_trips)
     plot_histogram(historical_headway['443'], 'in/vis/hw_at_443.png')
     plot_histogram(historical_headway['448'], 'in/vis/hw_at_448.png')
@@ -107,12 +110,12 @@ def visualize_for_validation():
 # visualize_for_validation()
 
 STOPS, LINK_TIMES_MEAN, LINK_TIMES_SD, NR_TIME_DPOINTS, ORDERED_TRIPS, ARRIVAL_RATES, ALIGHT_FRACTIONS, SCHEDULED_DEPARTURES, INIT_HEADWAY, ODT = get_params()
-SCHEDULED_DEPARTURES = [SCHEDULED_DEPARTURES[0]] + [t + INIT_HEADWAY for t in SCHEDULED_DEPARTURES[:-1]]
+SCHEDULED_DEPARTURES = [SCHEDULED_DEPARTURES[0]] + [t+INIT_HEADWAY for t in SCHEDULED_DEPARTURES[:-1]]
 HEADWAY_UNIFORM = 360
 UNIFORM_SCHEDULED_DEPARTURES = [SCHEDULED_DEPARTURES[0] + HEADWAY_UNIFORM * i for i in
                                 range(len(SCHEDULED_DEPARTURES))]
 SCHEDULED_DEPARTURES = UNIFORM_SCHEDULED_DEPARTURES.copy()
-pax_initialize_time = [0] + [LINK_TIMES_MEAN[s0 + '-' + s1][0] for s0, s1 in zip(STOPS, STOPS[1:])]
+pax_initialize_time = [0] + [LINK_TIMES_MEAN[s0+'-'+s1][0] for s0, s1 in zip(STOPS, STOPS[1:])]
 pax_initialize_time = np.array(pax_initialize_time).cumsum()
 pax_initialize_time += SCHEDULED_DEPARTURES[0] - INIT_HEADWAY
 # print([str(timedelta(seconds=i)) for i in SCHEDULED_DEPARTURES])
@@ -121,8 +124,7 @@ pax_initialize_time += SCHEDULED_DEPARTURES[0] - INIT_HEADWAY
 # PLANNED_HEADWAY = {i: j for i, j in zip(planned_headway_lbls, planned_headway_lst)}
 ordered_trips_arr = np.array([ORDERED_TRIPS])
 scheduled_deps_arr = np.array([SCHEDULED_DEPARTURES])
-FOCUS_TRIPS = ordered_trips_arr[
-    (scheduled_deps_arr <= FOCUS_END_TIME_SEC) & (scheduled_deps_arr >= FOCUS_START_TIME_SEC)].tolist()
+FOCUS_TRIPS = ordered_trips_arr[(scheduled_deps_arr <= FOCUS_END_TIME_SEC) & (scheduled_deps_arr >= FOCUS_START_TIME_SEC)].tolist()
 LAST_FOCUS_TRIP = FOCUS_TRIPS[-1]
 # print(ORDERED_TRIPS)
 # print(FOCUS_TRIPS)
@@ -133,3 +135,12 @@ UNIFORM_INTERVAL = 1
 ARRIVAL_RATE = {key: value[UNIFORM_INTERVAL] for (key, value) in ARRIVAL_RATES.items()}
 SINGLE_LINK_TIMES_MEAN = {key: value[UNIFORM_INTERVAL] for (key, value) in LINK_TIMES_MEAN.items()}
 ALIGHT_FRACTION = {key: value[UNIFORM_INTERVAL] for (key, value) in ALIGHT_FRACTIONS.items()}
+
+# print(PLANNED_HEADWAY)
+
+# print(planned_headway_lst[:-6])
+# print(ORDERED_TRIPS[:-6])
+# print(len([str(timedelta(seconds=i)) for i in SCHEDULED_DEPARTURES[:-6]]))
+# print(len(planned_headway_lst[:-6]))
+# print(len(ORDERED_TRIPS[:-6]))
+# print(ORDERED_TRIPS)

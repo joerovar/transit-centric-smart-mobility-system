@@ -28,7 +28,6 @@ def get_route(path_stop_times, start_time_extract, end_time, nr_intervals, start
               focus_start_time, focus_end_time,
               visualize_data=True, tolerance_early_departure=1.5*60):
     link_times = {}
-    link_times_true = {}
     stop_times_df = pd.read_csv(path_stop_times)
 
     df = stop_times_df[stop_times_df['stop_id'] == 386]
@@ -36,6 +35,9 @@ def get_route(path_stop_times, start_time_extract, end_time, nr_intervals, start
     df = df[df['avl_sec'] % 86400 <= end_time]
     df = df[df['avl_sec'] % 86400 >= start_time_extract]
     trip_ids_tt_extract = df['trip_id'].unique().tolist()
+
+    # df_faulty_dispatch_t = df[df['avl_sec'] % 86400 + 120 < df['schd_sec']]
+    # df_faulty_dispatch_t.to_csv('in/vis/faulty_dispatching_times.csv', index=False)
 
     df_dispatching = df[df['schd_sec'] % 86400 >= start_time]
     df_dispatching = df_dispatching.sort_values(by='schd_sec')
@@ -52,7 +54,6 @@ def get_route(path_stop_times, start_time_extract, end_time, nr_intervals, start
             schd_sec = date_specific['schd_sec'].tolist()
             stop_id = date_specific['stop_id'].astype(str).tolist()
             avl_sec = date_specific['avl_sec'].tolist()
-            avl_dep_sec = date_specific['avl_dep_sec'].tolist()
             stop_sequence = date_specific['stop_sequence'].tolist()
             if avl_sec:
                 if stop_sequence[0] == 1:
@@ -70,16 +71,11 @@ def get_route(path_stop_times, start_time_extract, end_time, nr_intervals, start
                         nr_bin = get_interval(avl_sec[i] % 86400, interval_length) - start_interval
                         if 0 <= nr_bin < nr_intervals:
                             lt = avl_sec[i+1] - avl_sec[i]
-                            lt2 = avl_sec[i+1] - avl_dep_sec[i]
                             if lt > 0:
                                 link_times[link][nr_bin].append(lt)
-                                link_times_true[link][nr_bin].append(lt2)
     mean_link_times = {}
-    mean_link_times_true = {}
     stdev_link_times = {}
-    stdev_link_times_true = {}
     nr_dpoints_link_times = {}
-    nr_dpoints_link_times_true = {}
     for link in link_times:
         mean_link_times[link] = []
         stdev_link_times[link] = []
@@ -92,18 +88,6 @@ def get_route(path_stop_times, start_time_extract, end_time, nr_intervals, start
                 mean_link_times[link].append(b_array.mean())
                 stdev_link_times[link].append(b_array.std())
                 nr_dpoints_link_times[link].append(len(b_array))
-    for link in link_times_true:
-        mean_link_times_true[link] = []
-        stdev_link_times_true[link] = []
-        nr_dpoints_link_times_true[link] = []
-        for b in link_times_true[link]:
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", category=RuntimeWarning)
-                b_array = np.array(b)
-                b_array = remove_outliers(b_array)
-                mean_link_times_true[link].append(b_array.mean())
-                stdev_link_times_true[link].append(b_array.std())
-                nr_dpoints_link_times_true[link].append(len(b_array))
 
     df_forstops = stop_times_df[stop_times_df['trip_id'] == trip_choice]
     df_forstops = df_forstops[df_forstops['event_time'].astype(str).str[:10] == dates[0]]
@@ -143,9 +127,8 @@ def get_route(path_stop_times, start_time_extract, end_time, nr_intervals, start
             writer = csv.writer(csv_file)
             for key, value in ordered_trip_stop_pattern.items():
                 writer.writerow([key, value])
-    link_times_info = (mean_link_times, stdev_link_times, nr_dpoints_link_times)
-    link_times_true_info = (mean_link_times_true, stdev_link_times_true, nr_dpoints_link_times_true)
-    return all_stops, link_times_info, trip_ids_simulation, link_times_true_info
+
+    return all_stops, mean_link_times, stdev_link_times, nr_dpoints_link_times, trip_ids_simulation
 
 
 def get_demand(path, stops, nr_intervals, start_interval, new_nr_intervals, new_interval_length):
