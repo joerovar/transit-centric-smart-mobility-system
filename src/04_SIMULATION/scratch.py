@@ -15,8 +15,8 @@ from scipy.stats import lognorm
 from classes_simul import Passenger, Stop, Trip
 import seaborn as sns
 
-a = {'name': ['Joe', 'Haris', 'Milad', 'David'], 'grade': [100, 45, 99, 77]}
-a_df = pd.DataFrame(a)
 
-students_top = len(a_df[a_df['grade'] > 50])
-print(students_top)
+a = (1, 2, 3)
+b, c, d = a
+print(b)
+print(c)
