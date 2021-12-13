@@ -4,6 +4,7 @@ import pandas as pd
 import warnings
 import matplotlib.pyplot as plt
 from copy import deepcopy
+import seaborn as sns
 
 
 def get_interval(t, len_i_mins):
@@ -26,7 +27,7 @@ def remove_outliers(data):
 def get_route(path_stop_times, start_time_extract, end_time, nr_intervals, start_interval, interval_length,
               dates, trip_choice, pathname_dispatching, pathname_sorted_trips, pathname_stop_pattern, start_time,
               focus_start_time, focus_end_time,
-              visualize_data=True, tolerance_early_departure=1.5*60):
+              visualize_data=False, tolerance_early_departure=1.5*60):
     link_times = {}
     link_times_true = {}
     stop_times_df = pd.read_csv(path_stop_times)
@@ -56,7 +57,7 @@ def get_route(path_stop_times, start_time_extract, end_time, nr_intervals, start
             stop_sequence = date_specific['stop_sequence'].tolist()
             if avl_sec:
                 if stop_sequence[0] == 1:
-                    if schd_sec[0] - (avl_sec[0] % 86400) > tolerance_early_departure:
+                    if schd_sec[0] - (avl_dep_sec[0] % 86400) > tolerance_early_departure:
                         schd_sec.pop(0)
                         stop_id.pop(0)
                         avl_sec.pop(0)
@@ -67,6 +68,7 @@ def get_route(path_stop_times, start_time_extract, end_time, nr_intervals, start
                         exists = link in link_times
                         if not exists:
                             link_times[link] = [[] for i in range(nr_intervals)]
+                            link_times_true[link] = [[] for i in range(nr_intervals)]
                         nr_bin = get_interval(avl_sec[i] % 86400, interval_length) - start_interval
                         if 0 <= nr_bin < nr_intervals:
                             lt = avl_sec[i+1] - avl_sec[i]
@@ -89,8 +91,8 @@ def get_route(path_stop_times, start_time_extract, end_time, nr_intervals, start
                 warnings.simplefilter("ignore", category=RuntimeWarning)
                 b_array = np.array(b)
                 b_array = remove_outliers(b_array)
-                mean_link_times[link].append(b_array.mean())
-                stdev_link_times[link].append(b_array.std())
+                mean_link_times[link].append(round(b_array.mean(), 1))
+                stdev_link_times[link].append(round(b_array.std(), 1))
                 nr_dpoints_link_times[link].append(len(b_array))
     for link in link_times_true:
         mean_link_times_true[link] = []
@@ -101,8 +103,8 @@ def get_route(path_stop_times, start_time_extract, end_time, nr_intervals, start
                 warnings.simplefilter("ignore", category=RuntimeWarning)
                 b_array = np.array(b)
                 b_array = remove_outliers(b_array)
-                mean_link_times_true[link].append(b_array.mean())
-                stdev_link_times_true[link].append(b_array.std())
+                mean_link_times_true[link].append(round(b_array.mean(),1))
+                stdev_link_times_true[link].append(round(b_array.std(),1))
                 nr_dpoints_link_times_true[link].append(len(b_array))
 
     df_forstops = stop_times_df[stop_times_df['trip_id'] == trip_choice]
@@ -127,7 +129,7 @@ def get_route(path_stop_times, start_time_extract, end_time, nr_intervals, start
             df_plot.reset_index().groupby(['trip_id']).plot(x='avl_sec', y='stop_sequence', ax=ax,
                                                             legend=False)
             plt.savefig('in/vis/historical_trajectories' + d + '.png')
-
+            plt.close()
         # stop pattern to spot differences
         for t in trip_ids_simulation:
             for d in dates:
@@ -143,6 +145,7 @@ def get_route(path_stop_times, start_time_extract, end_time, nr_intervals, start
             writer = csv.writer(csv_file)
             for key, value in ordered_trip_stop_pattern.items():
                 writer.writerow([key, value])
+
     link_times_info = (mean_link_times, stdev_link_times, nr_dpoints_link_times)
     link_times_true_info = (mean_link_times_true, stdev_link_times_true, nr_dpoints_link_times_true)
     return all_stops, link_times_info, trip_ids_simulation, link_times_true_info
@@ -219,43 +222,26 @@ def get_demand(path, stops, nr_intervals, start_interval, new_nr_intervals, new_
     return arr_rates, alight_fractions, drop_rates, dep_vol, od_set
 
 
-def read_scheduled_departures(path):
-    sch_dep = []
-    with open(path) as f:
-        rf = csv.reader(f, delimiter=' ')
-        for row in rf:
-            sch_dep.append(int(row[0]) / 1e+09)
-    return sch_dep
-
-
 def get_dispatching_from_gtfs(pathname, trip_ids_simulation):
     df = pd.read_csv(pathname)
     scheduled_departures = df[df['trip_id'].isin(trip_ids_simulation)]['schd_sec'].tolist()
     return scheduled_departures
 
 
-def get_pax_per_trip(rates, start_time, end_time, start_interval, interval_length, avg_headway):
-    # time in HOURS
-    single_rate = {}
-    for s in rates:
-        # get interval has unit requirements as t in seconds and interval length in minutes
-        inter1 = get_interval(start_time*3600, interval_length*60)
-        inter2 = get_interval(end_time*3600, interval_length*60)
-        numer = 0
-        denom = 0
-        for i in range(inter1, inter2+1):
-            idx = i - start_interval
-            if i == inter1:
-                length_temp = (i+1) * interval_length - start_time
-                numer += length_temp * rates[s][idx]
-                denom += length_temp
-            elif i == inter2:
-                length_temp = end_time - i * interval_length
-                numer += length_temp * rates[s][idx]
-                denom += length_temp
-            else:
-                numer += interval_length * rates[s][idx]
-                denom += interval_length
-            single_rate[s] = avg_headway * numer/denom
-    return single_rate
-
+def get_trip_times(stop_times_path, focus_trips, dates, tolerance_early_departure=1.5*60):
+    trip_times = []
+    stop_times_df = pd.read_csv(stop_times_path)
+    for t in focus_trips:
+        temp_df = stop_times_df[stop_times_df['trip_id'] == t]
+        for d in dates:
+            df = temp_df[temp_df['event_time'].astype(str).str[:10] == d]
+            df = df.sort_values(by='stop_sequence')
+            stop_seq = df['stop_sequence'].tolist()
+            if stop_seq:
+                if stop_seq[0] == 1 and stop_seq[-1] == 67:
+                    arrival_sec = df['avl_sec'].tolist()
+                    dep_sec = df['avl_dep_sec'].tolist()
+                    schd_sec = df['schd_sec'].tolist()
+                    if schd_sec[0] - (dep_sec[0] % 86400) < tolerance_early_departure:
+                        trip_times.append(arrival_sec[-1] - dep_sec[0])
+    return trip_times

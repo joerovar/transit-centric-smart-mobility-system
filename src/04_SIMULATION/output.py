@@ -28,6 +28,8 @@ class PostProcessor:
         for trip in self.cp_trips:
             trip_time = tot_trip_times_from_trajectory_set(trip, IDX_DEP_T, IDX_ARR_T)
             trip_time_set.append(trip_time)
+        # trip_time_input = load('in/xtr/rt_20-2019-09/trip_times.pkl')
+        # trip_time_set.append(trip_time_input)
         std_run_times = []
         extr_run_times = []
         for t in trip_time_set:

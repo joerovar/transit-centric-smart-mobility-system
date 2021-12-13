@@ -32,58 +32,25 @@ def estimate_arrival_time(start_time, start_stop, end_stop, time_dependent_tt):
     return arrival_time
 
 
-def _compute_reward(action, fw_h, bw_h, trip_id, prev_bw_h, prev_fw_h, is_headway_constant, prev_pax_at_s):
+def _compute_reward(action, fw_h, bw_h, trip_id, prev_bw_h, prev_fw_h, prev_pax_at_s):
     trip_idx = ORDERED_TRIPS.index(trip_id)
     # follow_trip_id = ORDERED_TRIPS[trip_idx + 1]
     # lead_trip_id = ORDERED_TRIPS[trip_idx - 1]
-    # if is_headway_constant:
-    #     planned_fw_h = CONSTANT_HEADWAY
-    #     planned_bw_h = CONSTANT_HEADWAY
-    # else:
-    #     planned_fw_h = PLANNED_HEADWAY[str(lead_trip_id) + '-' + str(trip_id)]
-    #     planned_bw_h = PLANNED_HEADWAY[str(trip_id) + '-' + str(follow_trip_id)]
 
     hw_diff0 = abs(prev_fw_h - prev_bw_h)
     hw_diff1 = abs(fw_h - bw_h)
     reward = hw_diff0 - hw_diff1
     if prev_pax_at_s and action == SKIP_ACTION:
         reward -= 0.5*prev_bw_h
-
-    # fw_h_diff0 = abs(prev_fw_h - planned_fw_h)
-    # fw_h_diff1 = abs(fw_h - planned_fw_h)
-    # reward = fw_h_diff0 - fw_h_diff1
-
-    # fw_h_diff0 = abs(prev_fw_h - planned_fw_h)
-    # fw_h_diff1 = abs(fw_h - planned_fw_h)
-    # bw_h_diff0 = abs(prev_bw_h - planned_bw_h)
-    # bw_h_diff1 = abs(bw_h - planned_bw_h)
-    # reward = fw_h_diff0 - fw_h_diff1 + bw_h_diff0 - bw_h_diff1
-
-    # reward = - abs(fw_h - bw_h)
-
-    # specific reward for skipping and weighted reward
-    # dev_fw_h = fw_h - planned_fw_h
-    # dev_bw_h = bw_h - planned_bw_h
-    # reward_h = - dev_fw_h * dev_fw_h / (planned_fw_h * planned_fw_h)
-    # reward_h -= dev_bw_h * dev_bw_h / (planned_bw_h * planned_bw_h)
-
-    # if action > 0:
-    #     reward_pax = -(action-1) * BASE_HOLDING_TIME
-    #     reward = C_REW_HW_HOLD * reward_h + C_REW_PAX_HOLD * reward_pax
-    # else:
-    #     reward_pax = -prev_bw_h
-    #     reward = C_REW_HW_SKIP * reward_h + C_REW_PAX_SKIP * reward_pax
     return reward
 
 
 class SimulationEnv:
-    def __init__(self, no_overtake_policy=True, time_dependent_travel_time=True, time_dependent_demand=True,
-                 uniform_schedule=False):
+    def __init__(self, no_overtake_policy=True, time_dependent_travel_time=True, time_dependent_demand=True):
         # THE ONLY NECESSARY TRIP INFORMATION TO CARRY THROUGHOUT SIMULATION
         self.no_overtake_policy = no_overtake_policy
         self.time_dependent_travel_time = time_dependent_travel_time
         self.time_dependent_demand = time_dependent_demand
-        self.uniform_schedule = uniform_schedule
         self.next_actual_departures = []
         self.next_trip_ids = []
         self.active_trips = []
@@ -337,13 +304,8 @@ class SimulationEnv:
             return
 
     def reset_simulation(self):
-        if self.uniform_schedule:
-            dep_delays = [max(random.uniform(DEP_DELAY_FROM, DEP_DELAY_TO), 0) for i in
-                          range(len(UNIFORM_SCHEDULED_DEPARTURES))]
-            self.next_actual_departures = [sum(x) for x in zip(UNIFORM_SCHEDULED_DEPARTURES, dep_delays)]
-        else:
-            dep_delays = [max(random.uniform(DEP_DELAY_FROM, DEP_DELAY_TO), 0) for i in range(len(SCHEDULED_DEPARTURES))]
-            self.next_actual_departures = [sum(x) for x in zip(SCHEDULED_DEPARTURES, dep_delays)]
+        dep_delays = [max(random.uniform(DEP_DELAY_FROM, DEP_DELAY_TO), 0) for i in range(len(SCHEDULED_DEPARTURES))]
+        self.next_actual_departures = [sum(x) for x in zip(SCHEDULED_DEPARTURES, dep_delays)]
         self.next_trip_ids = deepcopy(ORDERED_TRIPS)
         self.time = START_TIME_SEC
         self.bus_idx = 0
@@ -453,10 +415,7 @@ class SimulationEnvWithControl(SimulationEnv):
             # in case there is no trip before we can look at future departures which always exist
             # we look at scheduled departures and not actual which include distributed delays
             trip_idx = ORDERED_TRIPS.index(trip_id) + 1
-            if self.uniform_schedule:
-                dep_t = UNIFORM_SCHEDULED_DEPARTURES[trip_idx]
-            else:
-                dep_t = SCHEDULED_DEPARTURES[trip_idx]
+            dep_t = SCHEDULED_DEPARTURES[trip_idx]
             stop0 = STOPS[0]
             stop1 = stop_id
 
@@ -513,13 +472,8 @@ class SimulationEnvDeepRL(SimulationEnv):
         self.bool_terminal_state = False
 
     def reset_simulation(self):
-        if self.uniform_schedule:
-            dep_delays = [max(random.uniform(DEP_DELAY_FROM, DEP_DELAY_TO), 0) for i in
-                          range(len(UNIFORM_SCHEDULED_DEPARTURES))]
-            self.next_actual_departures = [sum(x) for x in zip(UNIFORM_SCHEDULED_DEPARTURES, dep_delays)]
-        else:
-            dep_delays = [max(random.uniform(DEP_DELAY_FROM, DEP_DELAY_TO), 0) for i in range(len(SCHEDULED_DEPARTURES))]
-            self.next_actual_departures = [sum(x) for x in zip(SCHEDULED_DEPARTURES, dep_delays)]
+        dep_delays = [max(random.uniform(DEP_DELAY_FROM, DEP_DELAY_TO), 0) for i in range(len(SCHEDULED_DEPARTURES))]
+        self.next_actual_departures = [sum(x) for x in zip(SCHEDULED_DEPARTURES, dep_delays)]
         self.next_trip_ids = deepcopy(ORDERED_TRIPS)
         self.time = START_TIME_SEC
         self.bus_idx = 0
@@ -573,10 +527,7 @@ class SimulationEnvDeepRL(SimulationEnv):
             # in case there is no trip before we can look at future departures which always exist
             # we look at scheduled departures and not actual which include distributed delays
             trip_idx = ORDERED_TRIPS.index(trip_id) + 1
-            if self.uniform_schedule:
-                dep_t = UNIFORM_SCHEDULED_DEPARTURES[trip_idx]
-            else:
-                dep_t = SCHEDULED_DEPARTURES[trip_idx]
+            dep_t = SCHEDULED_DEPARTURES[trip_idx]
             stop0 = STOPS[0]
             stop1 = stop_id
 
@@ -596,7 +547,7 @@ class SimulationEnvDeepRL(SimulationEnv):
             prev_pax_at_stop = prev_sars[0][IDX_PAX_AT_STOP]
             self.trips_sars[trip_id][-1][2] = _compute_reward(previous_action, forward_headway, backward_headway,
                                                               trip_id, previous_backward_headway, prev_fw_h,
-                                                              self.uniform_schedule, prev_pax_at_stop)
+                                                              prev_pax_at_stop)
             self.trips_sars[trip_id][-1][3] = new_state
         if not self.bool_terminal_state:
             new_sars = [new_state, 0, 0, []]
@@ -732,13 +683,8 @@ class DetailedSimulationEnv(SimulationEnv):
         self.completed_pax = []
 
     def reset_simulation(self):
-        if self.uniform_schedule:
-            dep_delays = [max(random.uniform(DEP_DELAY_FROM, DEP_DELAY_TO), 0) for i in
-                          range(len(UNIFORM_SCHEDULED_DEPARTURES))]
-            self.next_actual_departures = [sum(x) for x in zip(UNIFORM_SCHEDULED_DEPARTURES, dep_delays)]
-        else:
-            dep_delays = [max(random.uniform(DEP_DELAY_FROM, DEP_DELAY_TO), 0) for i in range(len(SCHEDULED_DEPARTURES))]
-            self.next_actual_departures = [sum(x) for x in zip(SCHEDULED_DEPARTURES, dep_delays)]
+        dep_delays = [max(random.uniform(DEP_DELAY_FROM, DEP_DELAY_TO), 0) for i in range(len(SCHEDULED_DEPARTURES))]
+        self.next_actual_departures = [sum(x) for x in zip(SCHEDULED_DEPARTURES, dep_delays)]
         self.next_trip_ids = deepcopy(ORDERED_TRIPS)
         self.time = START_TIME_SEC
         self.bus_idx = 0
@@ -796,9 +742,9 @@ class DetailedSimulationEnv(SimulationEnv):
                             temp_pax_interarr_times = np.random.exponential(3600 / od_rate, size=max_size)
                             temp_pax_arr_times = np.cumsum(temp_pax_interarr_times)
                             if k == DEM_START_INTERVAL:
-                                temp_pax_arr_times += pax_initialize_time[i]
+                                temp_pax_arr_times += PAX_INIT_TIME[i]
                             else:
-                                temp_pax_arr_times += max(start_edge_interval, pax_initialize_time[i])
+                                temp_pax_arr_times += max(start_edge_interval, PAX_INIT_TIME[i])
                             temp_pax_arr_times = temp_pax_arr_times[
                                 temp_pax_arr_times <= min(END_TIME_SEC, end_edge_interval)]
                             temp_pax_arr_times = temp_pax_arr_times.tolist()
@@ -985,10 +931,7 @@ class DetailedSimulationEnvWithControl(DetailedSimulationEnv):
             # in case there is no trip before we can look at future departures which always exist
             # we look at scheduled departures and not actual which include distributed delays
             trip_idx = ORDERED_TRIPS.index(trip_id) + 1
-            if self.uniform_schedule:
-                dep_t = UNIFORM_SCHEDULED_DEPARTURES[trip_idx]
-            else:
-                dep_t = SCHEDULED_DEPARTURES[trip_idx]
+            dep_t = SCHEDULED_DEPARTURES[trip_idx]
             stop0 = STOPS[0]
             stop1 = stop_id
 
@@ -1042,13 +985,8 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
         self.bool_terminal_state = False
 
     def reset_simulation(self):
-        if self.uniform_schedule:
-            dep_delays = [max(random.uniform(DEP_DELAY_FROM, DEP_DELAY_TO), 0) for i in
-                          range(len(UNIFORM_SCHEDULED_DEPARTURES))]
-            self.next_actual_departures = [sum(x) for x in zip(UNIFORM_SCHEDULED_DEPARTURES, dep_delays)]
-        else:
-            dep_delays = [max(random.uniform(DEP_DELAY_FROM, DEP_DELAY_TO), 0) for i in range(len(SCHEDULED_DEPARTURES))]
-            self.next_actual_departures = [sum(x) for x in zip(SCHEDULED_DEPARTURES, dep_delays)]
+        dep_delays = [max(random.uniform(DEP_DELAY_FROM, DEP_DELAY_TO), 0) for i in range(len(SCHEDULED_DEPARTURES))]
+        self.next_actual_departures = [sum(x) for x in zip(SCHEDULED_DEPARTURES, dep_delays)]
         self.next_trip_ids = deepcopy(ORDERED_TRIPS)
         self.time = START_TIME_SEC
         self.bus_idx = 0
@@ -1195,10 +1133,7 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
             # in case there is no trip before we can look at future departures which always exist
             # we look at scheduled departures and not actual which include distributed delays
             trip_idx = ORDERED_TRIPS.index(trip_id) + 1
-            if self.uniform_schedule:
-                dep_t = UNIFORM_SCHEDULED_DEPARTURES[trip_idx]
-            else:
-                dep_t = SCHEDULED_DEPARTURES[trip_idx]
+            dep_t = SCHEDULED_DEPARTURES[trip_idx]
             stop0 = STOPS[0]
             stop1 = stop_id
 
@@ -1218,7 +1153,7 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
             prev_pax_at_stop = prev_sars[0][IDX_PAX_AT_STOP]
             self.trips_sars[trip_id][-1][2] = _compute_reward(previous_action, forward_headway, backward_headway,
                                                               trip_id, previous_backward_headway, prev_fw_h,
-                                                              self.uniform_schedule, prev_pax_at_stop)
+                                                              prev_pax_at_stop)
             self.trips_sars[trip_id][-1][3] = new_state
         if not self.bool_terminal_state:
             new_sars = [new_state, 0, 0, []]

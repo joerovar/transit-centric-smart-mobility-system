@@ -56,16 +56,16 @@ path_tr_eh = 'out/EH/trajectories_set_1127-23142153.pkl'
 path_p_eh = 'out/EH/pax_set_1127-23142153.pkl'
 path_tr_rl = 'out/RL/trajectory_set_1127-23181992.pkl'
 path_p_rl = 'out/RL/pax_set_1127-23181992.pkl'
-path_trips = [path_tr_nc, path_tr_eh, path_tr_rl]
-path_pax = [path_p_nc, path_p_eh, path_p_rl]
-tags = ['NC', 'EH', 'RL']
+path_trips = [path_tr_nc]
+path_pax = [path_p_nc]
+tags = ['NC']
 post_processor = PostProcessor(path_trips, path_pax, tags)
-post_processor.headway()
+# post_processor.headway()
 # post_processor.denied()
 # post_processor.hold_time()
 # post_processor.load_profile()
 # post_processor.wait_times()
-# post_processor.total_trip_time_distribution()
+post_processor.total_trip_time_distribution()
 # post_processor.rbt_difference('NC', 'RL')
 # post_processor.journey_times()
 print("ran in %.2f seconds" % (time.time()-st))
