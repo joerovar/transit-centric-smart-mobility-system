@@ -7,7 +7,7 @@ st = time.time()
 
 
 def run_base_detailed(episodes=2, save=False, time_dep_tt=True, time_dep_dem=True):
-    tstamp = datetime.now().strftime('%m%d-%H%M%S%f')[:-4]
+    tstamp = datetime.now().strftime('%m%d-%H%M%S')
     trajectories_set = []
     pax_set = []
     for i in range(episodes):
@@ -28,7 +28,7 @@ def run_base_detailed(episodes=2, save=False, time_dep_tt=True, time_dep_dem=Tru
 
 
 def run_base_control_detailed(episodes=2, save=False, time_dep_tt=True, time_dep_dem=True):
-    tstamp = datetime.now().strftime('%m%d-%H%M%S%f')[:-4]
+    tstamp = datetime.now().strftime('%m%d-%H%M%S')
     trajectories_set = []
     pax_set = []
     for i in range(episodes):
@@ -50,8 +50,8 @@ def run_base_control_detailed(episodes=2, save=False, time_dep_tt=True, time_dep
 
 # run_base_detailed(episodes=10, save=True)
 # run_base_control_detailed(episodes=10, save=True)
-path_tr_nc = 'out/NC/trajectories_set_1127-23141995.pkl'
-path_p_nc = 'out/NC/pax_set_1127-23141995.pkl'
+path_tr_nc = 'out/NC/trajectories_set_1213-134709.pkl'
+path_p_nc = 'out/NC/pax_set_1213-134709.pkl'
 path_tr_eh = 'out/EH/trajectories_set_1127-23142153.pkl'
 path_p_eh = 'out/EH/pax_set_1127-23142153.pkl'
 path_tr_rl = 'out/RL/trajectory_set_1127-23181992.pkl'
@@ -60,12 +60,15 @@ path_trips = [path_tr_nc]
 path_pax = [path_p_nc]
 tags = ['NC']
 post_processor = PostProcessor(path_trips, path_pax, tags)
+
+post_processor.dwell_time_validation()
+post_processor.trip_time_dist_validation()
+post_processor.load_profile_validation()
 # post_processor.headway()
 # post_processor.denied()
 # post_processor.hold_time()
 # post_processor.load_profile()
 # post_processor.wait_times()
-post_processor.total_trip_time_distribution()
 # post_processor.rbt_difference('NC', 'RL')
 # post_processor.journey_times()
 print("ran in %.2f seconds" % (time.time()-st))

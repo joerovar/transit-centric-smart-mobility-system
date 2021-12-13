@@ -37,13 +37,21 @@ def extract_params(route_params=False, demand=False, validation=False):
     if validation:
         schedule = load(path_departure_times_xtr)
         trip_ids = load(path_ordered_trips)
-        schedule = [schedule[0] + HEADWAY_UNIFORM * i for i in range(len(schedule))]
+        stops = load(path_route_stops)
+        # schedule = [schedule[0] + HEADWAY_UNIFORM * i for i in range(len(schedule))]
         schedule_arr = np.array(schedule)
         trip_ids_arr = np.array(trip_ids)
         focus_trips = trip_ids_arr[
             (schedule_arr <= FOCUS_END_TIME_SEC) & (schedule_arr >= FOCUS_START_TIME_SEC)].tolist()
         trip_times = get_trip_times(path_stop_times, focus_trips, DATES)
-        save('in/xtr/rt_20-2019-09/trip_times.pkl', trip_times)
+        # save('in/xtr/rt_20-2019-09/trip_times.pkl', trip_times)
+        dwell_times_mean, dwell_times_std, dwell_times_tot = get_dwell_times(path_stop_times, focus_trips, stops, DATES)
+        save('in/xtr/rt_20-2019-09/dwell_times_mean.pkl', dwell_times_mean)
+        save('in/xtr/rt_20-2019-09/dwell_times_std.pkl', dwell_times_std)
+        save('in/xtr/rt_20-2019-09/dwell_times_tot.pkl', dwell_times_tot)
+        write_focus_trajectories(path_stop_times, focus_trips)
+        load_profile = get_load_profile(path_stop_times, focus_trips, stops)
+        save('in/xtr/rt_20-2019-09/load_profile.pkl', load_profile)
         # df_ltm = pd.DataFrame(list(link_times_mean.items()), columns=['link', 'mean'])
         # df_lts = pd.DataFrame(list(link_times_sd.items()), columns=['link', 'std'])
         # df_ltc = pd.DataFrame(list(nr_time_dpoints.items()), columns=['link', 'count'])
@@ -66,9 +74,8 @@ def get_params():
     return stops, link_times_mean, ordered_trips, arrival_rates, alight_fractions, scheduled_departures, init_headway, odt
 
 
-# extract_params(route_params=True, validation=True)
-# tt = load('in/xtr/rt_20-2019-09/trip_times.pkl')
-# print(len(tt))
+extract_params(validation=True)
+
 
 STOPS, LINK_TIMES_MEAN, ORDERED_TRIPS, ARRIVAL_RATES, ALIGHT_FRACTIONS, SCHEDULED_DEPARTURES, INIT_HEADWAY, ODT = get_params()
 # scheduled_deps_arr = np.array(SCHEDULED_DEPARTURES)
@@ -77,7 +84,7 @@ STOPS, LINK_TIMES_MEAN, ORDERED_TRIPS, ARRIVAL_RATES, ALIGHT_FRACTIONS, SCHEDULE
 # focus_avg_headway = np.mean(focus_headway)
 UNIFORM_SCHEDULED_DEPARTURES = [SCHEDULED_DEPARTURES[0] + HEADWAY_UNIFORM * i for i in
                                 range(len(SCHEDULED_DEPARTURES))]
-SCHEDULED_DEPARTURES = UNIFORM_SCHEDULED_DEPARTURES.copy()
+# SCHEDULED_DEPARTURES = UNIFORM_SCHEDULED_DEPARTURES.copy()
 PAX_INIT_TIME = [0] + [LINK_TIMES_MEAN[s0 + '-' + s1][0] for s0, s1 in zip(STOPS, STOPS[1:])]
 PAX_INIT_TIME = np.array(PAX_INIT_TIME).cumsum()
 PAX_INIT_TIME += SCHEDULED_DEPARTURES[0] - INIT_HEADWAY

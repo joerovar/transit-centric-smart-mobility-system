@@ -363,35 +363,30 @@ def tot_trip_times_from_trajectory_set(trajectory_set, idx_dep_t, idx_arr_t):
     return tot_trip_times
 
 
-def travel_times_from_trajectory_set(trajectory_set, idx_dep_t, idx_arr_t, first_trip, tpoint0, tpoint1):
+def travel_times_from_trajectory_set(trajectory_set, idx_dep_t, idx_arr_t):
     link_times = {}
     dwell_times = {}
-    segment_times = []
+    dwell_times_tot = []
     for trajectory in trajectory_set:
         for trip in trajectory:
-            if trip != first_trip:
-                trip_data = trajectory[trip]
-                time_tpoint0, time_tpoint1 = 0, 0
-                for i in range(len(trip_data) - 1):
-                    s0 = trip_data[i][0]
-                    if s0 == tpoint0:
-                        time_tpoint0 = trip_data[i][idx_dep_t]
-                    s1 = trip_data[i+1][0]
-                    if s1 == tpoint1:
-                        time_tpoint1 = trip_data[i][idx_arr_t]
-                    link = s0 + '-' + s1
-                    link_time = trip_data[i + 1][idx_arr_t] - trip_data[i][idx_dep_t]
-                    if link in link_times:
-                        link_times[link].append(link_time)
-                    else:
-                        link_times[link] = [link_time]
-                    dwell_time = trip_data[i][idx_dep_t] - trip_data[i][idx_arr_t]
-                    if s0 in dwell_times:
-                        dwell_times[s0].append(dwell_time)
-                    else:
-                        dwell_times[s0] = [dwell_time]
-                if time_tpoint0 and time_tpoint1:
-                    segment_times.append(time_tpoint1 - time_tpoint0)
+            trip_data = trajectory[trip]
+            temp_dwell_t = 0
+            for i in range(len(trip_data) - 1):
+                s0 = trip_data[i][0]
+                s1 = trip_data[i+1][0]
+                link = s0 + '-' + s1
+                link_time = trip_data[i + 1][idx_arr_t] - trip_data[i][idx_dep_t]
+                if link in link_times:
+                    link_times[link].append(link_time)
+                else:
+                    link_times[link] = [link_time]
+                dwell_time = trip_data[i][idx_dep_t] - trip_data[i][idx_arr_t]
+                temp_dwell_t += dwell_time
+                if s0 in dwell_times:
+                    dwell_times[s0].append(dwell_time)
+                else:
+                    dwell_times[s0] = [dwell_time]
+            dwell_times_tot.append(temp_dwell_t)
     mean_link_times = {}
     std_link_times = {}
     mean_dwell_times = {}
@@ -402,7 +397,7 @@ def travel_times_from_trajectory_set(trajectory_set, idx_dep_t, idx_arr_t, first
     for s in dwell_times:
         mean_dwell_times[s] = round(np.array(dwell_times[s]).mean(), 1)
         std_dwell_times[s] = round(np.array(dwell_times[s]).std(), 1)
-    return mean_link_times, std_link_times, mean_dwell_times, std_dwell_times, segment_times
+    return mean_link_times, std_link_times, mean_dwell_times, std_dwell_times, dwell_times_tot
 
 
 def plot_link_times(link_times_mean, link_times_std, ordered_stops, pathname, lbls, x_y_lbls=None, controlled_stops=None):

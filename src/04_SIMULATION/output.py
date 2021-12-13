@@ -28,8 +28,6 @@ class PostProcessor:
         for trip in self.cp_trips:
             trip_time = tot_trip_times_from_trajectory_set(trip, IDX_DEP_T, IDX_ARR_T)
             trip_time_set.append(trip_time)
-        # trip_time_input = load('in/xtr/rt_20-2019-09/trip_times.pkl')
-        # trip_time_set.append(trip_time_input)
         std_run_times = []
         extr_run_times = []
         for t in trip_time_set:
@@ -106,3 +104,74 @@ class PostProcessor:
         mean_load_comb, _, ons_comb, _, _, _ = pax_per_trip_from_trajectory_set(self.cp_trips[idx], IDX_LOAD,
                                                                                 IDX_PICK, IDX_DROP)
         return mean_load_comb, ons_comb
+
+    def dwell_time_validation(self):
+        dt_set = []
+        dt_std_set = []
+        dt_tot_set = []
+        for trip in self.cp_trips:
+            _, _, dt_mean, dt_std, dt_tot = travel_times_from_trajectory_set(trip, IDX_DEP_T, IDX_ARR_T)
+            dt_set.append(dt_mean)
+            dt_std_set.append(dt_std)
+            dt_tot_set.append(dt_tot)
+        paths = ('out/benchmark/dwell_t_mean.png', 'out/benchmark/dwell_t_std.png', 'out/benchmark/dwell_t_tot.png')
+        dt_input_mean = load('in/xtr/rt_20-2019-09/dwell_times_mean.pkl')
+        dt_input_std = load('in/xtr/rt_20-2019-09/dwell_times_std.pkl')
+        dt_input_tot = load('in/xtr/rt_20-2019-09/dwell_times_tot.pkl')
+        dt_set.append(dt_input_mean)
+        dt_std_set.append(dt_input_std)
+        dt_tot_set.append(dt_input_tot)
+        tags = ['simulated', 'observed']
+        i = 0
+        for d in dt_set:
+            plt.plot([i for i in range(1, len(d)+1)], d.values(), color=self.colors[i], label=tags[i])
+            i += 1
+        plt.ylabel('mean dwell time (seconds)')
+        plt.xlabel('stop number')
+        plt.legend()
+        plt.savefig(paths[0])
+        plt.close()
+
+        i = 0
+        for d in dt_std_set:
+            plt.plot([i for i in range(1, len(d)+1)], d.values(), color=self.colors[i], label=tags[i])
+            i += 1
+        plt.ylabel('std dwell time (seconds)')
+        plt.xlabel('stop number')
+        plt.legend()
+        plt.savefig(paths[1])
+        plt.close()
+        i = 0
+        for d in dt_tot_set:
+            sns.kdeplot(d, label=tags[i], color=self.colors[i])
+            i += 1
+        plt.ylabel('total trip dwell time (seconds)')
+        plt.xlabel('stop number')
+        plt.legend()
+        plt.savefig(paths[2])
+        plt.close()
+        return
+
+    def trip_time_dist_validation(self):
+        trip_time_set = []
+        for trip in self.cp_trips:
+            trip_time = tot_trip_times_from_trajectory_set(trip, IDX_DEP_T, IDX_ARR_T)
+            trip_time_set.append(trip_time)
+        trip_time_input = load('in/xtr/rt_20-2019-09/trip_times.pkl')
+        trip_time_set.append(trip_time_input)
+        plot_travel_time_benchmark(trip_time_set, ['simulated', 'observed'], self.colors,
+                                   pathname='out/benchmark/ttd.png')
+        return
+
+    def load_profile_validation(self):
+        load_profile_set = []
+        lp_std_set = []
+        for trips in self.cp_trips:
+            temp_lp, temp_lp_std, _, _, _, _ = pax_per_trip_from_trajectory_set(trips, IDX_LOAD, IDX_PICK, IDX_DROP)
+            load_profile_set.append(temp_lp)
+            lp_std_set.append(temp_lp_std)
+        lp_input = load('in/xtr/rt_20-2019-09/load_profile.pkl')
+        load_profile_set.append(lp_input)
+        plot_load_profile_benchmark(load_profile_set, STOPS, ['simulated', 'observed'], self.colors,
+                                    pathname='out/benchmark/lp.png', x_y_lbls=['stop id', 'avg load per trip'])
+        return

@@ -245,3 +245,45 @@ def get_trip_times(stop_times_path, focus_trips, dates, tolerance_early_departur
                     if schd_sec[0] - (dep_sec[0] % 86400) < tolerance_early_departure:
                         trip_times.append(arrival_sec[-1] - dep_sec[0])
     return trip_times
+
+
+def get_dwell_times(stop_times_path, focus_trips, stops, dates):
+    dwell_times_mean = {}
+    dwell_times_std = {}
+    dwell_times_tot = []
+    stop_times_df = pd.read_csv(stop_times_path)
+    for t in focus_trips:
+        temp_df = stop_times_df[stop_times_df['trip_id'] == t]
+        for s in stops[1:-1]:
+            df = temp_df[temp_df['stop_id'] == int(s)]
+            if not df.empty:
+                dwell_times_mean[s] = df['dwell_time'].mean()
+                dwell_times_std[s] = df['dwell_time'].std()
+        for d in dates:
+            df_date = temp_df[temp_df['event_time'].astype(str).str[:10] == d]
+            df_date = df_date.sort_values(by='stop_sequence')
+            stop_seq = df_date['stop_sequence'].tolist()
+            if stop_seq:
+                if stop_seq[0] == 1 and stop_seq[-1] == 67:
+                    dwell_times = df_date['dwell_time'].tolist()
+                    if len(dwell_times) == 67:
+                        dwell_times_tot.append(sum(dwell_times[1:-1]))
+    return dwell_times_mean, dwell_times_std, dwell_times_tot
+
+
+def write_focus_trajectories(stop_times_path, focus_trips):
+    stop_times_df = pd.read_csv(stop_times_path)
+    stop_times_df = stop_times_df[stop_times_df['trip_id'].isin(focus_trips)]
+    stop_times_df = stop_times_df.sort_values(by='avl_dep_sec')
+    stop_times_df.to_csv('in/vis/focus_trajectories.csv')
+    return
+
+
+def get_load_profile(stop_times_path, focus_trips, stops):
+    lp = {}
+    stop_times_df = pd.read_csv(stop_times_path)
+    stop_times_df = stop_times_df[stop_times_df['trip_id'].isin(focus_trips)]
+    for s in stops:
+        df = stop_times_df[stop_times_df['stop_id'] == int(s)]
+        lp[s] = df['passenger_load'].mean()
+    return lp

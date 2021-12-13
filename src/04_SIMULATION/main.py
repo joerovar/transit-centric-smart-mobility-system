@@ -119,7 +119,7 @@ if __name__ == '__main__':
         # --------------------------------- TESTING ----------------------------------------------------------------
 
         agent.load_models()
-        tstamp = datetime.now().strftime('%m%d-%H%M%S%f')[:-4]
+        tstamp = datetime.now().strftime('%m%d-%H%M%S')
         trajectories_set = []
         sars_set = []
         pax_set = []
@@ -177,7 +177,7 @@ if __name__ == '__main__':
         ax.set_ylabel('dfh=-dbh (seconds)')
         cbar = fig.colorbar(ms, ticks=np.arange(np.min(action_grid), np.max(action_grid) + 1), orientation='horizontal')
         cbar.ax.set_xlabel('best action')
-        path_policy_examination = path_to_outs + dir_figs + 'policy_' + args.env + ext_fig
+        path_policy_examination = path_to_outs + 'RL/' + 'policy_' + args.env + ext_fig
         plt.savefig(path_policy_examination)
 
 # cd src/04_SIMULATION

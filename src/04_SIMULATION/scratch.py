@@ -10,15 +10,13 @@ from datetime import datetime
 from os import listdir
 from os.path import isfile, join
 import post_process
-import datetime
 from scipy.stats import lognorm
 # from classes_simul import Passenger, Stop, Trip
 import seaborn as sns
 
-link = {'1-2': 23, '1-3': 33}
-stdev = {'1-2': 3, '1-3': 5}
-df2 = pd.DataFrame(list(link.items()), columns=['link', 'time'])
-df3 = pd.DataFrame(list(stdev.items()), columns=['link', 'std'])
-df_main = df2.merge(df3, on='link')
+d = {'trip_id': [911, 526, 333], 'avl_sec': [12, 25, 33]}
+df = pd.DataFrame.from_dict(d)
 
-print(df_main)
+trip_ids = [911, 333]
+df = df[df['trip_id'].isin(trip_ids)]
+print(df)
