@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from copy import deepcopy
 import seaborn as sns
 from scipy.stats import norm, lognorm
+from fitter import Fitter
 
 
 def get_interval(t, len_i_mins):
@@ -147,9 +148,9 @@ def get_route(path_stop_times, start_time_extract, end_time, nr_intervals, start
             for key, value in ordered_trip_stop_pattern.items():
                 writer.writerow([key, value])
 
-    link_times_info = (mean_link_times, stdev_link_times, nr_dpoints_link_times)
+    # link_times_info = (mean_link_times, stdev_link_times, nr_dpoints_link_times)
     link_times_true_info = (mean_link_times_true, stdev_link_times_true, nr_dpoints_link_times_true)
-    return all_stops, link_times_info, trip_ids_simulation, link_times_true_info
+    return all_stops, trip_ids_simulation, link_times_true_info
 
 
 def get_demand(path, stops, nr_intervals, start_interval, new_nr_intervals, new_interval_length):
@@ -277,7 +278,7 @@ def get_trip_times(stop_times_path, focus_trips, dates, start_time, end_time,
     plt.xlabel('inbound departure headway (seconds)')
     plt.tight_layout()
     plt.savefig('in/vis/departure_hw.png')
-    return trip_times
+    return trip_times, departure_headway
 
 
 def get_dwell_times(stop_times_path, focus_trips, stops, dates):
@@ -438,12 +439,31 @@ def get_outbound_travel_time(path_stop_times, start_time, end_time, dates, toler
     plt.savefig('in/vis/outbound_dep_delay(short).png')
     plt.close()
 
+    dep_delay1_distribution = Fitter(dep_delay1, distributions=['lognorm', 'gamma'])
+    dep_delay1_distribution.fit()
+    print(dep_delay1_distribution.summary())
+    dep_delay1_params = dep_delay1_distribution.fitted_param['lognorm']
+
+    trip_time1_distribution = Fitter(trip_times1, distributions=['norm', 'lognorm'])
+    trip_time1_distribution.fit()
+    print(trip_time1_distribution.summary())
+    trip_time1_params = trip_time1_distribution.fitted_param['norm']
+
+    dep_delay2_distribution = Fitter(dep_delay2, distributions=['lognorm', 'gamma'])
+    dep_delay2_distribution.fit()
+    print(dep_delay2_distribution.summary())
+    dep_delay2_params = dep_delay2_distribution.fitted_param['lognorm']
+
+    trip_times2_distribution = Fitter(trip_times2, distributions=['norm', 'lognorm'])
+    trip_times2_distribution.fit()
+    print(trip_times2_distribution.summary())
+    trip_times2_params = trip_times2_distribution.fitted_param['norm']
     # print(f'outbound long trip times: \nmean:{np.mean(trip_times1)} \nmedian: {np.median(trip_times1)}\nstd: {np.std(trip_times1)}')
     # print(f'outbound short trip times: \nmean:{np.mean(trip_times2)} \nmedian: {np.median(trip_times2)}\nstd: {np.std(trip_times2)}')
     # print(f'arrival headway: \nmean:{np.mean(arrival_headway)} \nmedian: {np.median(arrival_headway)}\nstd: {np.std(arrival_headway)}')
     # print(f'dep delay (long): \nmean:{np.mean(dep_delay1)} \nmedian: {np.median(dep_delay1)}\nstd: {np.std(dep_delay1)}')
     # print(f'dep delay (short): \nmean:{np.mean(dep_delay2)} \nmedian: {np.median(dep_delay2)}\nstd: {np.std(dep_delay2)}')
-    return
+    return scheduled_departures, scheduled_arrivals
 
 
 def get_scheduled_bus_availability(path_stop_times, dates, start_time, end_time):

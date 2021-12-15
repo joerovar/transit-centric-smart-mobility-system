@@ -15,7 +15,6 @@ from scipy.stats import lognorm
 import seaborn as sns
 
 # extract
-print(datetime.strptime('07:33:30', ))
 
 # for generation of graphs you want:
 # dep_delay1_params = (0, 0)

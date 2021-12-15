@@ -1,4 +1,3 @@
-import pandas as pd
 from input import *
 import numpy as np
 from scipy.stats import lognorm
