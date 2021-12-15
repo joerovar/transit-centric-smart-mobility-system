@@ -40,13 +40,14 @@ def extract_params(route_params=False, demand=False, validation=False):
         schedule = load(path_departure_times_xtr)
         trip_ids = load(path_ordered_trips)
         stops = load(path_route_stops)
+        ordered_trips = load(path_ordered_trips)
         # schedule = [schedule[0] + HEADWAY_UNIFORM * i for i in range(len(schedule))]
         schedule_arr = np.array(schedule)
         trip_ids_arr = np.array(trip_ids)
         focus_trips = trip_ids_arr[
             (schedule_arr <= FOCUS_END_TIME_SEC) & (schedule_arr >= FOCUS_START_TIME_SEC)].tolist()
-        trip_times = get_trip_times(path_stop_times, focus_trips, DATES, START_TIME_SEC, END_SEC_FOR_TT_EXTRACT)
-        # save('in/xtr/rt_20-2019-09/trip_times.pkl', trip_times)
+        trip_times = get_trip_times(path_stop_times, focus_trips, DATES, START_TIME_SEC, END_TIME_SEC)
+        save('in/xtr/rt_20-2019-09/trip_times.pkl', trip_times)
         dwell_times_mean, dwell_times_std, dwell_times_tot = get_dwell_times(path_stop_times, focus_trips, stops, DATES)
         save('in/xtr/rt_20-2019-09/dwell_times_mean.pkl', dwell_times_mean)
         save('in/xtr/rt_20-2019-09/dwell_times_std.pkl', dwell_times_std)

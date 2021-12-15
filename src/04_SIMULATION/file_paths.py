@@ -21,7 +21,7 @@ path_stop_times = path_to_ins + dir_raw + 'route20_stop_time_merged.csv'
 path_stops_loc = path_to_ins + dir_raw + 'gtfs/stops.txt'
 path_od = path_to_ins + dir_raw + 'odt_for_opt.csv'
 path_dispatching_times = path_to_ins + dir_raw + 'dispatching_time.csv'
-path_ordered_dispatching = path_to_ins + dir_raw + 'ordered_dispatching.csv'
+path_ordered_dispatching = path_to_ins + dir_raw + 'inbound_ordered_dispatching.csv'
 
 # EXTRACT NETWORK PARAMS
 
