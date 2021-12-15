@@ -12,12 +12,13 @@ from os.path import isfile, join
 import post_process
 from scipy.stats import lognorm
 # from classes_simul import Passenger, Stop, Trip
-import seaborn as sns
+import seaborn as sn
+from post_process import *
 
 # extract
 
 # for generation of graphs you want:
-# dep_delay1_params = (0, 0)
+# dep_delay1_params = load('in/xtr/rt_20-2019-09/dep')
 # trip_time1_params = (1, 1)
 # dep_delay2_params = (0, 0)
 # trip_time2_params = (1, 1)
