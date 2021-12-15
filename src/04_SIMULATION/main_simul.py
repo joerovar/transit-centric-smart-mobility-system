@@ -59,11 +59,11 @@ path_p_rl = 'out/RL/pax_set_1127-23181992.pkl'
 path_trips = [path_tr_nc]
 path_pax = [path_p_nc]
 tags = ['NC']
-post_processor = PostProcessor(path_trips, path_pax, tags)
-
-post_processor.dwell_time_validation()
-post_processor.trip_time_dist_validation()
-post_processor.load_profile_validation()
+# post_processor = PostProcessor(path_trips, path_pax, tags)
+#
+# post_processor.dwell_time_validation()
+# post_processor.trip_time_dist_validation()
+# post_processor.load_profile_validation()
 # post_processor.headway()
 # post_processor.denied()
 # post_processor.hold_time()

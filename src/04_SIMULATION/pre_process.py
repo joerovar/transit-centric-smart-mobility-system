@@ -1,10 +1,12 @@
 import csv
+from datetime import datetime
 import numpy as np
 import pandas as pd
 import warnings
 import matplotlib.pyplot as plt
 from copy import deepcopy
 import seaborn as sns
+from scipy.stats import norm, lognorm
 
 
 def get_interval(t, len_i_mins):
@@ -38,10 +40,10 @@ def get_route(path_stop_times, start_time_extract, end_time, nr_intervals, start
     df = df[df['schd_sec'] % 86400 >= start_time_extract]
     trip_ids_tt_extract = df['trip_id'].unique().tolist()
 
-    df_dispatching = df.sort_values(by='schd_sec')
+    df_dispatching = df[df['schd_sec'] % 86400 >= start_time]
+    df_dispatching = df_dispatching.sort_values(by='schd_sec')
     df_dispatching = df_dispatching.drop_duplicates(subset='schd_trip_id')
     trip_ids_simulation = df_dispatching['schd_trip_id'].tolist()
-
     df_dispatching.to_csv(pathname_dispatching, index=False)
 
     for t in trip_ids_tt_extract:
@@ -328,30 +330,18 @@ def get_outbound_travel_time(path_stop_times, start_time, end_time, dates, toler
     df = df[df['schd_sec'] <= end_time]
     df = df[df['schd_sec'] >= start_time - 360]
     df = df.sort_values(by='schd_sec')
-    ordered_trip_ids = df['trip_id'].unique().tolist()
+    ordered_arriving_trip_ids = df['trip_id'].unique().tolist()
 
     df_arrivals = df.drop_duplicates(subset='trip_id')
     scheduled_arrivals = df_arrivals['schd_sec'].tolist()
-    dep_trip_ids = df_arrivals['trip_id'].tolist()
-    print(df_arrivals['trip_id'].tolist())
-    print([i - j for i, j in zip(scheduled_arrivals[1:], scheduled_arrivals[:-1])])
-    df_departures = stop_times_df[stop_times_df['trip_id'].isin(ordered_trip_ids)]
+    df_departures = stop_times_df[stop_times_df['trip_id'].isin(ordered_arriving_trip_ids)]
     df_departures = df_departures[df_departures['stop_sequence'] == 1]
     df_departures = df_departures.sort_values(by='schd_sec')
     df_departures = df_departures.drop_duplicates(subset='trip_id')
     scheduled_departures = df_departures['schd_sec'].tolist()
-    print(len(scheduled_departures))
-    print([i - j for i, j in zip(scheduled_departures[1:], scheduled_departures[:-1])])
-    print(df_departures['trip_id'].tolist())
-    arr_trip_ids = df_departures['trip_id'].tolist()
-    sus = []
-    for a in arr_trip_ids:
-        if a not in dep_trip_ids:
-            sus.append(a)
-    for d in dep_trip_ids:
-        if d not in arr_trip_ids:
-            sus.append(d)
-    print(sus)
+    add_sched_dep_time = (datetime.strptime('7:33:30', '%H:%M:%S')-datetime(1900, 1, 1)).total_seconds()
+    scheduled_departures.append(int(add_sched_dep_time))
+    scheduled_departures.sort()
     df1 = stop_times_df[stop_times_df['stop_sequence'] == 63]
     df1 = df1[df1['stop_id'] == 386]
     df1 = df1[df1['schd_sec'] <= end_time]
@@ -401,7 +391,7 @@ def get_outbound_travel_time(path_stop_times, start_time, end_time, dates, toler
 
     arrival_headway = []
 
-    df = stop_times_df[stop_times_df['trip_id'].isin(ordered_trip_ids)]
+    df = stop_times_df[stop_times_df['trip_id'].isin(ordered_arriving_trip_ids)]
     df = df.sort_values(by=['stop_sequence', 'schd_sec'])
     df.to_csv('in/vis/outbound_trajectories.csv', index=False)
     df_arrivals = df[df['stop_id'] == 386]
@@ -416,8 +406,8 @@ def get_outbound_travel_time(path_stop_times, start_time, end_time, dates, toler
         if avl_sec:
             temp_arr_hw = []
             for i in range(len(avl_sec)-1):
-                ordered_trip_idx = ordered_trip_ids.index(trip_ids[i])
-                if trip_ids[i + 1] == ordered_trip_ids[ordered_trip_idx + 1]:
+                ordered_trip_idx = ordered_arriving_trip_ids.index(trip_ids[i])
+                if trip_ids[i + 1] == ordered_arriving_trip_ids[ordered_trip_idx + 1]:
                     temp_arr_hw.append(avl_sec[i+1] - avl_sec[i])
             arrival_headway += temp_arr_hw
     sns.kdeplot(trip_times1)
