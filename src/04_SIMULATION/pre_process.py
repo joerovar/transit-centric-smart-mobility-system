@@ -228,7 +228,8 @@ def get_dispatching_from_gtfs(pathname, trip_ids_simulation):
     return scheduled_departures
 
 
-def get_trip_times(stop_times_path, focus_trips, dates, tolerance_early_departure=1.5*60):
+def get_trip_times(stop_times_path, focus_trips, dates, start_time_sec, focus_end_time,
+                   tolerance_early_departure=1.5*60, max_scheduled_headway=9*60):
     trip_times = []
     stop_times_df = pd.read_csv(stop_times_path)
     for t in focus_trips:
@@ -244,6 +245,34 @@ def get_trip_times(stop_times_path, focus_trips, dates, tolerance_early_departur
                     schd_sec = df['schd_sec'].tolist()
                     if schd_sec[0] - (dep_sec[0] % 86400) < tolerance_early_departure:
                         trip_times.append(arrival_sec[-1] - dep_sec[0])
+
+    departure_headway = []
+    df = stop_times_df[stop_times_df['stop_id'] == 386]
+    df = df[df['stop_sequence'] == 1]
+    df = df[df['avl_sec'] % 86400 <= focus_end_time]
+    df = df[df['avl_sec'] % 86400 >= start_time_sec]
+    trip_ids = df['trip_id'].unique().tolist()
+    df = stop_times_df[stop_times_df['trip_id'].isin(trip_ids)]
+    for d in dates:
+        temp_df = df[df['event_time'].astype(str).str[:10] == d]
+        temp_df = temp_df[temp_df['stop_id'] == 386]
+        temp_df = temp_df.sort_values(by='schd_sec')
+        schd_sec = temp_df['schd_sec'].tolist()
+        avl_sec = temp_df['avl_dep_sec'].tolist()
+        if avl_sec:
+            temp_dep_hw = []
+            for i in range(len(avl_sec) - 1):
+                sched_dep_hw = schd_sec[i + 1] - schd_sec[i]
+                if sched_dep_hw <= max_scheduled_headway:
+                    temp_dep_hw.append(avl_sec[i + 1] - avl_sec[i])
+            departure_headway += temp_dep_hw
+    nr_bins = 15
+    plt.hist(departure_headway, ec='black', bins=nr_bins)
+    # plt.xticks(range(-1000, 2200, 200), rotation='vertical')
+    plt.xlabel('inbound departure headway (seconds)')
+    plt.tight_layout()
+    plt.savefig('in/vis/departure_hw.png')
+    # print(f'departure headway: \nmean:{np.mean(departure_headway)} \nmedian: {np.median(departure_headway)}\nstd: {np.std(departure_headway)}')
     return trip_times
 
 
@@ -271,11 +300,11 @@ def get_dwell_times(stop_times_path, focus_trips, stops, dates):
     return dwell_times_mean, dwell_times_std, dwell_times_tot
 
 
-def write_focus_trajectories(stop_times_path, focus_trips):
+def write_inbound_trajectories(stop_times_path, ordered_trips):
     stop_times_df = pd.read_csv(stop_times_path)
-    stop_times_df = stop_times_df[stop_times_df['trip_id'].isin(focus_trips)]
-    stop_times_df = stop_times_df.sort_values(by='avl_dep_sec')
-    stop_times_df.to_csv('in/vis/focus_trajectories.csv')
+    stop_times_df = stop_times_df[stop_times_df['trip_id'].isin(ordered_trips)]
+    stop_times_df = stop_times_df.sort_values(by=['stop_sequence', 'schd_sec'])
+    stop_times_df.to_csv('in/vis/inbound_trajectories.csv', index=False)
     return
 
 
@@ -287,3 +316,145 @@ def get_load_profile(stop_times_path, focus_trips, stops):
         df = stop_times_df[stop_times_df['stop_id'] == int(s)]
         lp[s] = df['passenger_load'].mean()
     return lp
+
+
+def get_outbound_travel_time(path_stop_times, start_time, end_time, dates, tolerance_early_dep=1*60,
+                             max_scheduled_headway=13*60):
+    stop_times_df = pd.read_csv(path_stop_times)
+    # we choose the outbound trips that matter: whose arrivals fall between the period of study
+
+    df1 = stop_times_df[stop_times_df['stop_sequence'] == 63]
+    df1 = df1[df1['stop_id'] == 386]
+    df1 = df1[df1['schd_sec'] <= end_time]
+    df1 = df1[df1['schd_sec'] >= start_time - 360]
+    trip_ids1 = df1['trip_id'].unique().tolist()
+
+    df2 = stop_times_df[stop_times_df['stop_sequence'] == 23]
+    df2 = df2[df2['stop_id'] == 386]
+    df2 = df2[df2['schd_sec'] <= end_time]
+    df2 = df2[df2['schd_sec'] >= start_time - 360]
+    trip_ids2 = df2['trip_id'].unique().tolist()
+
+    trip_times1 = []
+    dep_delay1 = []
+    for t in trip_ids1:
+        temp_df = stop_times_df[stop_times_df['trip_id'] == t]
+        for d in dates:
+            df = temp_df[temp_df['event_time'].astype(str).str[:10] == d]
+            df = df.sort_values(by='stop_sequence')
+            stop_seq = df['stop_sequence'].tolist()
+            if stop_seq:
+                if stop_seq[0] == 1 and stop_seq[-1] == 63:
+                    arrival_sec = df['avl_sec'].tolist()
+                    dep_sec = df['avl_dep_sec'].tolist()
+                    schd_sec = df['schd_sec'].tolist()
+                    dep_delay = schd_sec[0] - (dep_sec[0] % 86400)
+                    dep_delay1.append(-dep_delay)
+                    if dep_delay < tolerance_early_dep:
+                        trip_times1.append(arrival_sec[-1] - dep_sec[0])
+    trip_times2 = []
+    dep_delay2 = []
+    for t in trip_ids2:
+        temp_df = stop_times_df[stop_times_df['trip_id'] == t]
+        for d in dates:
+            df = temp_df[temp_df['event_time'].astype(str).str[:10] == d]
+            df = df.sort_values(by='stop_sequence')
+            stop_seq = df['stop_sequence'].tolist()
+            if stop_seq:
+                if stop_seq[0] == 1 and stop_seq[-1] == 23:
+                    arrival_sec = df['avl_sec'].tolist()
+                    dep_sec = df['avl_dep_sec'].tolist()
+                    schd_sec = df['schd_sec'].tolist()
+                    dep_delay = schd_sec[0] - (dep_sec[0] % 86400)
+                    dep_delay2.append(-dep_delay)
+                    if dep_delay < tolerance_early_dep:
+                        trip_times2.append(arrival_sec[-1] - dep_sec[0])
+
+    arrival_headway = []
+    trip_ids = trip_ids1 + trip_ids2
+    df = stop_times_df[stop_times_df['trip_id'].isin(trip_ids)]
+    df = df.sort_values(by=['stop_sequence', 'schd_sec'])
+    df.to_csv('in/vis/outbound_trajectories.csv', index=False)
+    df_arrivals = df[df['stop_id'] == 386]
+    df_arrivals = df_arrivals.sort_values(by='schd_sec')
+    df_arrivals.to_csv('in/vis/outbound_arrivals.csv', index=False)
+    for d in dates:
+        temp_df = df[df['event_time'].astype(str).str[:10] == d]
+        temp_df = temp_df[temp_df['stop_id'] == 386]
+        temp_df = temp_df.sort_values(by='schd_sec')
+        schd_sec = temp_df['schd_sec'].tolist()
+        avl_sec = temp_df['avl_sec'].tolist()
+        if avl_sec:
+            temp_arr_hw = []
+            for i in range(len(avl_sec)-1):
+                arr_sched_hw = schd_sec[i+1] - schd_sec[i]
+                if arr_sched_hw <= max_scheduled_headway:
+                    temp_arr_hw.append(avl_sec[i+1] - avl_sec[i])
+            arrival_headway += temp_arr_hw
+    sns.kdeplot(trip_times1)
+    plt.xlabel('total trip time (seconds)')
+    plt.savefig('in/vis/outbound_trip_time(long).png')
+    plt.close()
+    sns.kdeplot(trip_times2)
+    plt.xlabel('total trip time (seconds)')
+    plt.savefig('in/vis/outbound_trip_time(short).png')
+    plt.close()
+    nr_bins = 15
+    plt.hist(arrival_headway, ec='black', bins=nr_bins)
+    plt.xticks(range(-1000, 2200, 250), rotation='vertical')
+    plt.xlabel('outbound arrival headway (seconds)')
+    plt.tight_layout()
+    plt.savefig('in/vis/outbound_arrival_hw.png')
+    plt.close()
+    plt.hist(dep_delay1, ec='black', bins=15)
+    plt.xticks(range(-200, 1300, 100), rotation='vertical')
+    plt.xlabel('outbound (long) departure delay (seconds)')
+    plt.tight_layout()
+    plt.savefig('in/vis/outbound_dep_delay(long).png')
+    plt.close()
+    plt.hist(dep_delay2, ec='black', bins=15)
+    plt.xticks(range(-200, 1300, 100), rotation='vertical')
+    plt.xlabel('outbound (short) departure delay (seconds)')
+    plt.tight_layout()
+    plt.savefig('in/vis/outbound_dep_delay(short).png')
+    plt.close()
+    # print(f'outbound long trip times: \nmean:{np.mean(trip_times1)} \nmedian: {np.median(trip_times1)}\nstd: {np.std(trip_times1)}')
+    # print(f'outbound short trip times: \nmean:{np.mean(trip_times2)} \nmedian: {np.median(trip_times2)}\nstd: {np.std(trip_times2)}')
+    # print(f'arrival headway: \nmean:{np.mean(arrival_headway)} \nmedian: {np.median(arrival_headway)}\nstd: {np.std(arrival_headway)}')
+    # print(f'dep delay (long): \nmean:{np.mean(dep_delay1)} \nmedian: {np.median(dep_delay1)}\nstd: {np.std(dep_delay1)}')
+    # print(f'dep delay (short): \nmean:{np.mean(dep_delay2)} \nmedian: {np.median(dep_delay2)}\nstd: {np.std(dep_delay2)}')
+    return
+
+
+def get_scheduled_bus_availability(path_stop_times, dates, start_time, end_time):
+    stop_times_df = pd.read_csv(path_stop_times)
+    date = dates[3]
+    stop_times_df = stop_times_df[stop_times_df['event_time'].astype(str).str[:10] == date]
+    df_outbound = stop_times_df[stop_times_df['stop_sequence'].isin([23, 63])]
+    df_outbound = df_outbound[df_outbound['stop_id'] == 386]
+    df_outbound = df_outbound[df_outbound['schd_sec'] >= start_time - 360]
+    df_outbound = df_outbound[df_outbound['schd_sec'] <= end_time]
+    df_outbound = df_outbound.sort_values(by='schd_sec')
+    scheduled_arrivals = df_outbound['schd_sec'].tolist()
+    actual_arrivals = df_outbound['avl_sec'] % 86400
+    actual_arrivals = actual_arrivals.tolist()
+
+    df_inbound = stop_times_df[stop_times_df['stop_sequence'] == 1]
+    df_inbound = df_inbound[df_inbound['stop_id'] == 386]
+    df_inbound = df_inbound[df_inbound['schd_sec'] >= start_time]
+    df_inbound = df_inbound[df_inbound['schd_sec'] <= end_time]
+    df_inbound = df_inbound.sort_values(by='schd_sec')
+    scheduled_departures = df_inbound['schd_sec'].tolist()
+    actual_departures = df_inbound['avl_dep_sec'] % 86400
+    actual_departures = actual_departures.tolist()
+    plt.plot(scheduled_departures, [i for i in range(1, len(scheduled_departures)+1)], '--', label='scheduled_departures', color='red')
+    plt.plot(scheduled_arrivals, [i for i in range(1, len(scheduled_arrivals)+1)], '--', label='scheduled arrivals', color='green')
+    plt.plot(actual_arrivals, [i for i in range(1, len(actual_arrivals)+1)], label='avl arrivals')
+    plt.plot(actual_departures, [i for i in range(1, len(actual_departures) + 1)], label='avl departures')
+    plt.xlabel('time (seconds)')
+    plt.ylabel('number of buses')
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(f'in/vis/bus_availability_{date}.png')
+    plt.close()
+    return

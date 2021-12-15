@@ -4,12 +4,13 @@ import numpy as np
 
 START_TIME = datetime.strptime('07:00:00', "%H:%M:%S")
 END_TIME = datetime.strptime('10:00:00', "%H:%M:%S")
-T_TRAVEL_TIME_EXTRACT = datetime.strptime('06:00:00', "%H:%M:%S")
-SEC_FOR_TT_EXTRACT = (T_TRAVEL_TIME_EXTRACT - datetime(1900, 1, 1)).total_seconds()
 START_TIME_SEC = (START_TIME - datetime(1900, 1, 1)).total_seconds()
 END_TIME_SEC = (END_TIME - datetime(1900, 1, 1)).total_seconds()
-TOTAL_MIN = END_TIME - START_TIME
-TOTAL_MIN = TOTAL_MIN.total_seconds() / 60
+START_TRAVEL_TIME_EXTRACT = datetime.strptime('06:00:00', "%H:%M:%S")
+SEC_FOR_TT_EXTRACT = (START_TRAVEL_TIME_EXTRACT - datetime(1900, 1, 1)).total_seconds()
+END_TRAVEL_TIME_EXTRACT = datetime.strptime('08:30:00', "%H:%M:%S")
+END_SEC_FOR_TT_EXTRACT = (END_TRAVEL_TIME_EXTRACT - datetime(1900, 1, 1)).total_seconds()
+TOTAL_MIN = (END_TIME - START_TIME).total_seconds() / 60
 FOCUS_START_TIME = datetime.strptime('07:30:00', "%H:%M:%S")
 FOCUS_END_TIME = datetime.strptime('08:30:00', "%H:%M:%S")
 FOCUS_START_TIME_SEC = (FOCUS_START_TIME - datetime(1900, 1, 1)).total_seconds()

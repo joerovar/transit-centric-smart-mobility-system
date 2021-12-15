@@ -16,7 +16,9 @@ def extract_params(route_params=False, demand=False, validation=False):
                                                                       path_sorted_daily_trips, path_stop_pattern,
                                                                       START_TIME_SEC, FOCUS_START_TIME_SEC,
                                                                       FOCUS_END_TIME_SEC)
+        get_outbound_travel_time(path_stop_times, START_TIME_SEC, END_TIME_SEC, DATES)
         scheduled_departures = get_dispatching_from_gtfs(path_ordered_dispatching, ordered_trips)
+        get_scheduled_bus_availability(path_stop_times, DATES, START_TIME_SEC, END_TIME_SEC)
         link_times_mean, link_times_sd, nr_time_dpoints = link_times
         link_times_mean_true, link_times_sd_true, nr_time_dpoints_true = link_times_true
         save(path_route_stops, stops)
@@ -43,13 +45,13 @@ def extract_params(route_params=False, demand=False, validation=False):
         trip_ids_arr = np.array(trip_ids)
         focus_trips = trip_ids_arr[
             (schedule_arr <= FOCUS_END_TIME_SEC) & (schedule_arr >= FOCUS_START_TIME_SEC)].tolist()
-        trip_times = get_trip_times(path_stop_times, focus_trips, DATES)
+        trip_times = get_trip_times(path_stop_times, focus_trips, DATES, START_TIME_SEC, END_SEC_FOR_TT_EXTRACT)
         # save('in/xtr/rt_20-2019-09/trip_times.pkl', trip_times)
         dwell_times_mean, dwell_times_std, dwell_times_tot = get_dwell_times(path_stop_times, focus_trips, stops, DATES)
         save('in/xtr/rt_20-2019-09/dwell_times_mean.pkl', dwell_times_mean)
         save('in/xtr/rt_20-2019-09/dwell_times_std.pkl', dwell_times_std)
         save('in/xtr/rt_20-2019-09/dwell_times_tot.pkl', dwell_times_tot)
-        write_focus_trajectories(path_stop_times, focus_trips)
+        write_inbound_trajectories(path_stop_times, ordered_trips)
         load_profile = get_load_profile(path_stop_times, focus_trips, stops)
         save('in/xtr/rt_20-2019-09/load_profile.pkl', load_profile)
         # df_ltm = pd.DataFrame(list(link_times_mean.items()), columns=['link', 'mean'])
@@ -74,7 +76,7 @@ def get_params():
     return stops, link_times_mean, ordered_trips, arrival_rates, alight_fractions, scheduled_departures, init_headway, odt
 
 
-extract_params(validation=True)
+extract_params(route_params=True, validation=True)
 
 
 STOPS, LINK_TIMES_MEAN, ORDERED_TRIPS, ARRIVAL_RATES, ALIGHT_FRACTIONS, SCHEDULED_DEPARTURES, INIT_HEADWAY, ODT = get_params()
