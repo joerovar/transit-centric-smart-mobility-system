@@ -382,10 +382,11 @@ def travel_times_from_trajectory_set(trajectory_set, idx_dep_t, idx_arr_t):
                     link_times[link] = [link_time]
                 dwell_time = trip_data[i][idx_dep_t] - trip_data[i][idx_arr_t]
                 temp_dwell_t += dwell_time
-                if s0 in dwell_times:
-                    dwell_times[s0].append(dwell_time)
-                else:
-                    dwell_times[s0] = [dwell_time]
+                if i:
+                    if s0 in dwell_times:
+                        dwell_times[s0].append(dwell_time)
+                    else:
+                        dwell_times[s0] = [dwell_time]
             dwell_times_tot.append(temp_dwell_t)
     mean_link_times = {}
     std_link_times = {}
@@ -694,7 +695,7 @@ def plot_travel_time_benchmark(tt_set, lbls, colors, pathname=None):
     for tt in tt_set:
         sns.kdeplot(np.array(tt), label=lbls[i], color=colors[i])
         i += 1
-    plt.xlabel('seconds')
+    plt.xlabel('total trip time (seconds)')
     plt.legend()
     if pathname:
         plt.savefig(pathname)

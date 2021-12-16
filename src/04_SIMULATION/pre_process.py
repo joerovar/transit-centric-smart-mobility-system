@@ -276,6 +276,7 @@ def get_trip_times(stop_times_path, focus_trips, dates, start_time, end_time,
     plt.xlabel('inbound departure headway (seconds)')
     plt.tight_layout()
     plt.savefig('in/vis/departure_headway_inbound.png')
+    plt.close()
     # print(f'departure headway: \nmean:{np.mean(departure_headway)} \nmedian: {np.median(departure_headway)}\nstd: {np.std(departure_headway)}')
     return trip_times, departure_headway
 

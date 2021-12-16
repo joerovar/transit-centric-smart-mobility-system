@@ -226,7 +226,8 @@ class SimulationEnv:
         denied = self.denied[i]
         s = self.last_stop[i]
 
-        dwell_time = ACC_DEC_TIME + max(ons * BOARDING_TIME, offs * ALIGHTING_TIME)
+        dwell_time_error = max(random.uniform(-DWELL_TIME_ERROR, DWELL_TIME_ERROR), 0)
+        dwell_time = ACC_DEC_TIME + max(ons * BOARDING_TIME, offs * ALIGHTING_TIME) + dwell_time_error
         # herein we zero dwell time if no pax boarded
         dwell_time = (ons + offs > 0) * dwell_time
 
@@ -373,13 +374,13 @@ class SimulationEnvWithControl(SimulationEnv):
         offs = self.offs[i]
         denied = self.denied[i]
         s = self.last_stop[i]
-
+        dwell_time_error = max(random.uniform(-DWELL_TIME_ERROR, DWELL_TIME_ERROR), 0)
         if hold:
-            dwell_time_pax = max(ACC_DEC_TIME + ons * BOARDING_TIME, ACC_DEC_TIME + offs * ALIGHTING_TIME)
+            dwell_time_pax = max(ACC_DEC_TIME + ons * BOARDING_TIME, ACC_DEC_TIME + offs * ALIGHTING_TIME) + dwell_time_error
             dwell_time_pax = (ons + offs > 0) * dwell_time_pax
             dwell_time = max(hold, dwell_time_pax)
         else:
-            dwell_time = ACC_DEC_TIME + max(ons * BOARDING_TIME, offs * ALIGHTING_TIME)
+            dwell_time = ACC_DEC_TIME + max(ons * BOARDING_TIME, offs * ALIGHTING_TIME) + dwell_time_error
             # herein we zero dwell time if no pax boarded
             dwell_time = (ons + offs > 0) * dwell_time
 
@@ -609,15 +610,16 @@ class SimulationEnvDeepRL(SimulationEnv):
         offs = self.offs[i]
         denied = self.denied[i]
         s = self.last_stop[i]
+        dwell_time_error = max(random.uniform(-DWELL_TIME_ERROR, DWELL_TIME_ERROR), 0)
         if skip:
-            dwell_time = ACC_DEC_TIME + ALIGHTING_TIME * offs
+            dwell_time = ACC_DEC_TIME + ALIGHTING_TIME * offs + dwell_time_error
             dwell_time = (offs > 0) * dwell_time
         elif hold:
-            dwell_time_pax = max(ACC_DEC_TIME + ons * BOARDING_TIME, ACC_DEC_TIME + offs * ALIGHTING_TIME)
+            dwell_time_pax = max(ACC_DEC_TIME + ons * BOARDING_TIME, ACC_DEC_TIME + offs * ALIGHTING_TIME) + dwell_time_error
             dwell_time_pax = (ons + offs > 0) * dwell_time_pax
             dwell_time = max(hold, dwell_time_pax)
         else:
-            dwell_time = ACC_DEC_TIME + max(ons * BOARDING_TIME, offs * ALIGHTING_TIME)
+            dwell_time = ACC_DEC_TIME + max(ons * BOARDING_TIME, offs * ALIGHTING_TIME) + dwell_time_error
             # herein we zero dwell time if no pax boarded
             dwell_time = (ons + offs > 0) * dwell_time
 
@@ -889,13 +891,13 @@ class DetailedSimulationEnvWithControl(DetailedSimulationEnv):
         offs = self.offs[i]
         denied = self.denied[i]
         s = self.last_stop[i]
-
+        dwell_time_error = max(random.uniform(-DWELL_TIME_ERROR, DWELL_TIME_ERROR), 0)
         if hold:
-            dwell_time_pax = max(ACC_DEC_TIME + ons * BOARDING_TIME, ACC_DEC_TIME + offs * ALIGHTING_TIME)
+            dwell_time_pax = max(ACC_DEC_TIME + ons * BOARDING_TIME, ACC_DEC_TIME + offs * ALIGHTING_TIME) + dwell_time_error
             dwell_time_pax = (ons + offs > 0) * dwell_time_pax
             dwell_time = max(hold, dwell_time_pax)
         else:
-            dwell_time = ACC_DEC_TIME + max(ons * BOARDING_TIME, offs * ALIGHTING_TIME)
+            dwell_time = ACC_DEC_TIME + max(ons * BOARDING_TIME, offs * ALIGHTING_TIME) + dwell_time_error
             # herein we zero dwell time if no pax boarded
             dwell_time = (ons + offs > 0) * dwell_time
 
@@ -1086,15 +1088,16 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
         offs = self.offs[i]
         denied = self.denied[i]
         s = self.last_stop[i]
+        dwell_time_error = max(random.uniform(-DWELL_TIME_ERROR, DWELL_TIME_ERROR), 0)
         if skip:
-            dwell_time = ACC_DEC_TIME + ALIGHTING_TIME * offs
+            dwell_time = ACC_DEC_TIME + ALIGHTING_TIME * offs + dwell_time_error
             dwell_time = (offs > 0) * dwell_time
         elif hold:
-            dwell_time_pax = max(ACC_DEC_TIME + ons * BOARDING_TIME, ACC_DEC_TIME + offs * ALIGHTING_TIME)
+            dwell_time_pax = max(ACC_DEC_TIME + ons * BOARDING_TIME, ACC_DEC_TIME + offs * ALIGHTING_TIME) + dwell_time_error
             dwell_time_pax = (ons + offs > 0) * dwell_time_pax
             dwell_time = max(hold, dwell_time_pax)
         else:
-            dwell_time = ACC_DEC_TIME + max(ons * BOARDING_TIME, offs * ALIGHTING_TIME)
+            dwell_time = ACC_DEC_TIME + max(ons * BOARDING_TIME, offs * ALIGHTING_TIME) + dwell_time_error
             # herein we zero dwell time if no pax boarded
             dwell_time = (ons + offs > 0) * dwell_time
 

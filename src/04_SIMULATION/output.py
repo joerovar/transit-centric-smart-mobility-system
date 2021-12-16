@@ -145,8 +145,7 @@ class PostProcessor:
         for d in dt_tot_set:
             sns.kdeplot(d, label=tags[i], color=self.colors[i])
             i += 1
-        plt.ylabel('total trip dwell time (seconds)')
-        plt.xlabel('stop number')
+        plt.xlabel('total trip dwell time (seconds)')
         plt.legend()
         plt.savefig(paths[2])
         plt.close()
