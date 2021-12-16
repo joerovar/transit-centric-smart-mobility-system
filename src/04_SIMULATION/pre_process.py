@@ -328,7 +328,7 @@ def get_outbound_travel_time(path_stop_times, start_time, end_time, dates, toler
     df = stop_times_df[stop_times_df['stop_sequence'].isin([23, 63])]
     df = df[df['stop_id'] == 386]
     df = df[df['schd_sec'] <= end_time]
-    df = df[df['schd_sec'] >= start_time - 360]
+    df = df[df['schd_sec'] >= start_time]
     df = df.sort_values(by='schd_sec')
     ordered_arriving_trip_ids = df['trip_id'].unique().tolist()
 
@@ -338,7 +338,7 @@ def get_outbound_travel_time(path_stop_times, start_time, end_time, dates, toler
     df1 = stop_times_df[stop_times_df['stop_sequence'] == 63]
     df1 = df1[df1['stop_id'] == 386]
     df1 = df1[df1['schd_sec'] <= end_time]
-    df1 = df1[df1['schd_sec'] >= start_time - 360]
+    df1 = df1[df1['schd_sec'] >= start_time]
     trip_ids1 = df1['trip_id'].unique().tolist()
 
     df_deps1 = stop_times_df[stop_times_df['trip_id'].isin(trip_ids1)]
@@ -352,7 +352,7 @@ def get_outbound_travel_time(path_stop_times, start_time, end_time, dates, toler
     df2 = stop_times_df[stop_times_df['stop_sequence'] == 23]
     df2 = df2[df2['stop_id'] == 386]
     df2 = df2[df2['schd_sec'] <= end_time]
-    df2 = df2[df2['schd_sec'] >= start_time - 360]
+    df2 = df2[df2['schd_sec'] >= start_time]
     trip_ids2 = df2['trip_id'].unique().tolist()
 
     df_deps2 = stop_times_df[stop_times_df['trip_id'].isin(trip_ids2)]
@@ -400,10 +400,10 @@ def get_outbound_travel_time(path_stop_times, start_time, end_time, dates, toler
 
     df = stop_times_df[stop_times_df['trip_id'].isin(ordered_arriving_trip_ids)]
     df = df.sort_values(by=['stop_sequence', 'schd_sec'])
-    df.to_csv('in/vis/outbound_trajectories.csv', index=False)
+    df.to_csv('in/vis/trajectories_outbound.csv', index=False)
     df_arrivals = df[df['stop_id'] == 386]
     df_arrivals = df_arrivals.sort_values(by='schd_sec')
-    df_arrivals.to_csv('in/vis/outbound_arrivals.csv', index=False)
+    df_arrivals.to_csv('in/vis/arrivals_outbound.csv', index=False)
     for d in dates:
         temp_df = df[df['event_time'].astype(str).str[:10] == d]
         temp_df = temp_df[temp_df['stop_id'] == 386]
@@ -474,11 +474,12 @@ def get_outbound_travel_time(path_stop_times, start_time, end_time, dates, toler
 
 def get_scheduled_bus_availability(path_stop_times, dates, start_time, end_time):
     stop_times_df = pd.read_csv(path_stop_times)
-    date = dates[0]
+    date = dates[2]
     stop_times_df = stop_times_df[stop_times_df['event_time'].astype(str).str[:10] == date]
+
     df_outbound = stop_times_df[stop_times_df['stop_sequence'].isin([23, 63])]
     df_outbound = df_outbound[df_outbound['stop_id'] == 386]
-    df_outbound = df_outbound[df_outbound['schd_sec'] >= start_time - 360]
+    df_outbound = df_outbound[df_outbound['schd_sec'] >= start_time]
     df_outbound = df_outbound[df_outbound['schd_sec'] <= end_time]
     df_outbound = df_outbound.sort_values(by='avl_sec')
     actual_arrivals = df_outbound['avl_sec'] % 86400
@@ -490,7 +491,7 @@ def get_scheduled_bus_availability(path_stop_times, dates, start_time, end_time)
     df_inbound = df_inbound[df_inbound['stop_id'] == 386]
     df_inbound = df_inbound[df_inbound['schd_sec'] >= start_time]
     df_inbound = df_inbound[df_inbound['schd_sec'] <= end_time]
-    df_inbound = df_inbound.sort_values(by='avl_sec')
+    df_inbound = df_inbound.sort_values(by='avl_dep_sec')
     actual_departures = df_inbound['avl_dep_sec'] % 86400
     actual_departures = actual_departures.tolist()
     df_inbound = df_inbound.sort_values(by='schd_sec')
