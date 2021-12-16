@@ -17,9 +17,11 @@ def extract_params(route_params=False, demand=False, validation=False):
                                                           path_sorted_daily_trips, path_stop_pattern,
                                                           START_TIME_SEC, FOCUS_START_TIME_SEC,
                                                           FOCUS_END_TIME_SEC)
-        scheduled_departures_out, scheduled_arrivals_out = get_outbound_travel_time(path_stop_times,
-                                                                                    START_TIME_SEC,
-                                                                                    END_TIME_SEC, DATES)
+        sched_dep1_out, sched_dep2_out, sched_arr_out, delay1_params, \
+        triptime1_params, delay2_params, triptime2_params, arrival_hw_out = get_outbound_travel_time(
+            path_stop_times,
+            START_TIME_SEC,
+            END_TIME_SEC, DATES)
         scheduled_departures_in = get_dispatching_from_gtfs(path_ordered_dispatching, ordered_trips)
         get_scheduled_bus_availability(path_stop_times, DATES, START_TIME_SEC, END_TIME_SEC)
         link_times_mean_true, link_times_sd_true, nr_time_dpoints_true = link_times_true
@@ -27,8 +29,14 @@ def extract_params(route_params=False, demand=False, validation=False):
         save(path_link_times_mean, link_times_mean_true)
         save(path_ordered_trips, ordered_trips)
         save(path_departure_times_xtr, scheduled_departures_in)
-        save('in/xtr/rt_20-2019-09/scheduled_departures_outbound.pkl', scheduled_departures_out)
-        save('in/xtr/rt_20-2019-09/scheduled_arrivals_outbound.pkl', scheduled_arrivals_out)
+        save('in/xtr/rt_20-2019-09/scheduled_departures_outbound1.pkl', sched_dep1_out)
+        save('in/xtr/rt_20-2019-09/scheduled_departures_outbound2.pkl', sched_dep2_out)
+        save('in/xtr/rt_20-2019-09/scheduled_arrivals_outbound.pkl', sched_arr_out)
+        save('in/xtr/rt_20-2019-09/dep_delay1_params.pkl', delay1_params)
+        save('in/xtr/rt_20-2019-09/dep_delay2_params.pkl', delay2_params)
+        save('in/xtr/rt_20-2019-09/trip_time1_params.pkl', triptime1_params)
+        save('in/xtr/rt_20-2019-09/trip_time2_params.pkl', triptime2_params)
+        save('in/xtr/rt_20-2019-09/arrival_headway_outbound.pkl', arrival_hw_out)
     if demand:
         stops = load(path_route_stops)
         # arrival rates will be in pax/min
@@ -51,7 +59,8 @@ def extract_params(route_params=False, demand=False, validation=False):
         trip_ids_arr = np.array(trip_ids)
         focus_trips = trip_ids_arr[
             (schedule_arr <= FOCUS_END_TIME_SEC) & (schedule_arr >= FOCUS_START_TIME_SEC)].tolist()
-        trip_times, departure_headway_in = get_trip_times(path_stop_times, focus_trips, DATES, START_TIME_SEC, END_TIME_SEC)
+        trip_times, departure_headway_in = get_trip_times(path_stop_times, focus_trips, DATES, START_TIME_SEC,
+                                                          END_TIME_SEC)
         save('in/xtr/rt_20-2019-09/trip_times.pkl', trip_times)
         dwell_times_mean, dwell_times_std, dwell_times_tot = get_dwell_times(path_stop_times, focus_trips, stops, DATES)
         save('in/xtr/rt_20-2019-09/dwell_times_mean.pkl', dwell_times_mean)
@@ -61,12 +70,6 @@ def extract_params(route_params=False, demand=False, validation=False):
         write_inbound_trajectories(path_stop_times, ordered_trips)
         load_profile = get_load_profile(path_stop_times, focus_trips, stops)
         save('in/xtr/rt_20-2019-09/load_profile.pkl', load_profile)
-        # df_ltm = pd.DataFrame(list(link_times_mean.items()), columns=['link', 'mean'])
-        # df_lts = pd.DataFrame(list(link_times_sd.items()), columns=['link', 'std'])
-        # df_ltc = pd.DataFrame(list(nr_time_dpoints.items()), columns=['link', 'count'])
-        # df1 = df_ltm.merge(df_lts, on='link')
-        # df1 = df1.merge(df_ltc, on='link')
-        # df1.to_csv('in/vis/link_times_before.csv', index=False)
     return
 
 
