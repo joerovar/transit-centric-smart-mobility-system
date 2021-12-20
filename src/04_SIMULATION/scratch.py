@@ -16,17 +16,25 @@ import seaborn as sn
 from post_process import *
 
 
+df = pd.read_csv('in/raw/odt_for_opt.csv')
+stops = ['386', '388', '389']
+input_start_interval = 84
+start_interval = 14
+end_interval = 20
+input_end_interval = 120
+step_intervals = 6
+input_interval_groups = []
+for i in range(input_start_interval, input_end_interval, step_intervals):
+    input_interval_groups.append([j for j in range(i, i + step_intervals)])
+od = np.zeros(shape=(end_interval-start_interval, len(stops), len(stops)))
+for i in range(len(stops)):
+    for j in range(i+1, len(stops)):
+        temp_df = df[df['BOARDING_STOP'] == float(stops[i])]
+        temp_df = temp_df[temp_df['INFERRED_ALIGHTING_GTFS_STOP'] == float(stops[i+1])]
+        for g in input_interval_groups:
+            pax_df = temp_df[temp_df['bin_5'].isin(g)]
+            time_idx = input_interval_groups.index(g)
+            pax = pax_df['mean'].sum()
+            od[time_idx, i, j] = pax
 
-
-# print([np.mean(sim_dep_hws), np.median(sim_dep_hws), np.std(sim_dep_hws)])
-#
-# # pattern 1 (long)
-# scheduled_departures1 = np.array([])
-# scheduled_arrivals1 = np.array([])
-# dep_delays1 = np.random.lognormal(dep_delay1_params[0], dep_delay1_params[1], size=scheduled_departures1.size)
-# trip_times1 = np.random.normal(trip_time1_params[0], trip_time1_params[1], size=scheduled_departures1.size)
-# actual_departures1 = scheduled_departures1 + dep_delays1
-# actual_arrivals1 = actual_departures1 + trip_times1
-
-
-
+print(od)

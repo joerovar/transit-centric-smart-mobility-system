@@ -17,11 +17,7 @@ def extract_params(route_params=False, demand=False, validation=False):
                                                           path_sorted_daily_trips, path_stop_pattern,
                                                           START_TIME_SEC, FOCUS_START_TIME_SEC,
                                                           FOCUS_END_TIME_SEC)
-        sched_dep1_out, sched_dep2_out, sched_arr_out, delay1_params, \
-        triptime1_params, delay2_params, triptime2_params, arrival_hw_out = get_outbound_travel_time(
-            path_stop_times,
-            START_TIME_SEC,
-            END_TIME_SEC, DATES)
+
         scheduled_departures_in = get_dispatching_from_gtfs(path_ordered_dispatching, ordered_trips)
         get_scheduled_bus_availability(path_stop_times, DATES, START_TIME_SEC, END_TIME_SEC)
         link_times_mean_true, link_times_sd_true, nr_time_dpoints_true = link_times_true
@@ -29,6 +25,11 @@ def extract_params(route_params=False, demand=False, validation=False):
         save(path_link_times_mean, link_times_mean_true)
         save(path_ordered_trips, ordered_trips)
         save(path_departure_times_xtr, scheduled_departures_in)
+        sched_dep1_out, sched_dep2_out, sched_arr_out, delay1_params, \
+        triptime1_params, delay2_params, triptime2_params, arrival_hw_out = get_outbound_travel_time(
+            path_stop_times,
+            START_TIME_SEC,
+            END_TIME_SEC, DATES)
         save('in/xtr/rt_20-2019-09/scheduled_departures_outbound1.pkl', sched_dep1_out)
         save('in/xtr/rt_20-2019-09/scheduled_departures_outbound2.pkl', sched_dep2_out)
         save('in/xtr/rt_20-2019-09/scheduled_arrivals_outbound.pkl', sched_arr_out)
@@ -40,15 +41,10 @@ def extract_params(route_params=False, demand=False, validation=False):
     if demand:
         stops = load(path_route_stops)
         # arrival rates will be in pax/min
-        arrival_rates, alight_fractions, alight_rates, dep_vol, odt = get_demand(path_od, stops, PREV_DEM_NR_INTERVALS,
-                                                                                 PREV_DEM_START_INTERVAL,
-                                                                                 DEM_NR_INTERVALS,
-                                                                                 DEM_INTERVAL_LENGTH_MINS)
+        arrival_rates, alight_rates, odt = get_demand(path_od, path_stop_times, stops, INPUT_DEM_START_INTERVAL,
+                                                      INPUT_DEM_END_INTERVAL, DEM_START_INTERVAL, DEM_END_INTERVAL,
+                                                      DEM_PROPORTION_INTERVALS, DEM_INTERVAL_LENGTH_MINS, DATES)
         save(path_odt_xtr, odt)
-        save(path_alight_rates, alight_rates)
-        save(path_arr_rates, arrival_rates)
-        save(path_alight_fractions, alight_fractions)
-
     if validation:
         schedule = load(path_departure_times_xtr)
         trip_ids = load(path_ordered_trips)
@@ -77,18 +73,21 @@ def get_params():
     stops = load(path_route_stops)
     link_times_mean = load(path_link_times_mean)
     ordered_trips = load(path_ordered_trips)
-    arrival_rates = load(path_arr_rates)
-    alight_fractions = load(path_alight_fractions)
     scheduled_departures = load(path_departure_times_xtr)
     init_headway = scheduled_departures[1] - scheduled_departures[0]
     odt = load(path_odt_xtr)
     # initial headway helps calculate loads for the first trip
-    return stops, link_times_mean, ordered_trips, arrival_rates, alight_fractions, scheduled_departures, init_headway, odt
+    return stops, link_times_mean, ordered_trips, scheduled_departures, init_headway, odt
 
 
-extract_params(route_params=True, validation=True)
+extract_params(demand=True)
 
-STOPS, LINK_TIMES_MEAN, ORDERED_TRIPS, ARRIVAL_RATES, ALIGHT_FRACTIONS, SCHEDULED_DEPARTURES, INIT_HEADWAY, ODT = get_params()
+STOPS, LINK_TIMES_MEAN, ORDERED_TRIPS, SCHEDULED_DEPARTURES, INIT_HEADWAY, ODT = get_params()
+for i in range(ODT.shape[0]):
+    plt.imshow(ODT[i])
+    plt.colorbar()
+    plt.savefig('in/vis/odt' + str(i) + '.png')
+    plt.close()
 # scheduled_deps_arr = np.array(SCHEDULED_DEPARTURES)
 # focus_dep = scheduled_deps_arr[(scheduled_deps_arr <= FOCUS_END_TIME_SEC)].tolist()
 # focus_headway = [i-j for i, j in zip(focus_dep[1:], focus_dep[:-1])]
@@ -107,6 +106,5 @@ FOCUS_TRIPS = ordered_trips_arr[
 LAST_FOCUS_TRIP = FOCUS_TRIPS[-1]
 # FOR UNIFORM CONDITIONS: TO USE - SET TIME-DEPENDENT TRAVEL TIME AND DEMAND TO FALSE
 UNIFORM_INTERVAL = 1
-ARRIVAL_RATE = {key: value[UNIFORM_INTERVAL] for (key, value) in ARRIVAL_RATES.items()}
 SINGLE_LINK_TIMES_MEAN = {key: value[UNIFORM_INTERVAL] for (key, value) in LINK_TIMES_MEAN.items()}
-ALIGHT_FRACTION = {key: value[UNIFORM_INTERVAL] for (key, value) in ALIGHT_FRACTIONS.items()}
+

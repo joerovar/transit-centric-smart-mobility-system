@@ -74,7 +74,7 @@ if __name__ == '__main__':
         n_steps = 0
         for j in range(args.n_games):
             score = 0
-            env = simulation_env.SimulationEnvDeepRL()
+            env = simulation_env.DetailedSimulationEnvWithDeepRL()
             done = env.reset_simulation()
             done = env.prep()
             while not done:

@@ -43,15 +43,15 @@ def get_route(path_stop_times, start_time_extract, end_time, nr_intervals, start
 
     df_dispatching = df[df['schd_sec'] % 86400 >= start_time]
     df_dispatching = df_dispatching.sort_values(by='schd_sec')
-    df_dispatching = df_dispatching.drop_duplicates(subset='schd_trip_id')
-    trip_ids_simulation = df_dispatching['schd_trip_id'].tolist()
+    df_dispatching = df_dispatching.drop_duplicates(subset='trip_id')
+    trip_ids_simulation = df_dispatching['trip_id'].tolist()
     df_dispatching.to_csv(pathname_dispatching, index=False)
 
     for t in trip_ids_tt_extract:
         temp = stop_times_df[stop_times_df['trip_id'] == t]
         temp = temp.sort_values(by='stop_sequence')
         for d in dates:
-            date_specific = temp[temp['event_time'].astype(str).str[:10] == d]
+            date_specific = temp[temp['avl_arr_time'].astype(str).str[:10] == d]
             schd_sec = date_specific['schd_sec'].tolist()
             stop_id = date_specific['stop_id'].astype(str).tolist()
             avl_sec = date_specific['avl_sec'].tolist()
@@ -110,7 +110,7 @@ def get_route(path_stop_times, start_time_extract, end_time, nr_intervals, start
                 nr_dpoints_link_times_true[link].append(len(b_array))
 
     df_forstops = stop_times_df[stop_times_df['trip_id'] == trip_choice]
-    df_forstops = df_forstops[df_forstops['event_time'].astype(str).str[:10] == dates[0]]
+    df_forstops = df_forstops[df_forstops['avl_arr_time'].astype(str).str[:10] == dates[0]]
     df_forstops = df_forstops.sort_values(by='stop_sequence')
     all_stops = df_forstops['stop_id'].astype(str).tolist()
 
@@ -120,7 +120,7 @@ def get_route(path_stop_times, start_time_extract, end_time, nr_intervals, start
         # daily trips, optional to visualize future trips
         for d in dates:
             df_day_trips = stop_times_df[stop_times_df['trip_id'].isin(trip_ids_tt_extract)]
-            df_day_trips = df_day_trips[df_day_trips['event_time'].astype(str).str[:10] == d]
+            df_day_trips = df_day_trips[df_day_trips['avl_arr_time'].astype(str).str[:10] == d]
             df_day_trips = df_day_trips.sort_values(by='avl_sec')
             df_day_trips.to_csv(pathname_sorted_trips + str(d) + '.csv', index=False)
             df_day_trips['avl_sec'] = df_day_trips['avl_sec'] % 86400
@@ -136,7 +136,7 @@ def get_route(path_stop_times, start_time_extract, end_time, nr_intervals, start
         for t in trip_ids_simulation:
             for d in dates:
                 single = stop_times_df[stop_times_df['trip_id'] == t]
-                single = single[single['event_time'].astype(str).str[:10] == d]
+                single = single[single['avl_arr_time'].astype(str).str[:10] == d]
                 single = single.sort_values(by='stop_sequence')
                 stop_sequence = single['stop_sequence'].tolist()
                 res = all(i == j-1 for i, j in zip(stop_sequence, stop_sequence[1:]))
@@ -153,75 +153,58 @@ def get_route(path_stop_times, start_time_extract, end_time, nr_intervals, start
     return all_stops, trip_ids_simulation, link_times_true_info
 
 
-def get_demand(path, stops, nr_intervals, start_interval, new_nr_intervals, new_interval_length):
-    arr_rates = {}
-    drop_rates = {}
-    alight_fractions = {}
-    od_pairs = pd.read_csv(path)
-    viable_dest = {}
-    viable_orig = {}
-    grouping = int(nr_intervals / new_nr_intervals)
-    od_set = np.zeros(shape=(new_nr_intervals, len(stops), len(stops)))
+def get_demand(path_odt, path_stop_times, stops, input_start_interval, input_end_interval, start_interval,
+               end_interval, proportion_intervals, interval_length, dates):
+    arr_rates = np.zeros(shape=(end_interval - start_interval, len(stops)))
+    drop_rates = np.zeros(shape=(end_interval - start_interval, len(stops)))
+    apc_df = pd.read_csv(path_stop_times)
+    inbound_df = apc_df[apc_df['stop_id'] == int(stops[0])]
+    inbound_df = inbound_df[inbound_df['stop_sequence'] == 1]
+    inbound_trips = inbound_df['trip_id'].unique().tolist()
+    apc_df = apc_df[apc_df['trip_id'].isin(inbound_trips)]
+    for i in range(len(stops)):
+        temp_df = apc_df[apc_df['stop_id'] == int(stops[i])]
+        for j in range(start_interval, end_interval):
+            t_edge0 = j * interval_length * 60
+            t_edge1 = (j + 1) * interval_length * 60
+            pax_df = temp_df[temp_df['avl_dep_sec'] <= t_edge1]
+            pax_df = pax_df[pax_df['avl_dep_sec'] >= t_edge0]
+            if i < len(stops) - 1:
+                ons_rate = (pax_df['ron'].sum() + pax_df['fon'].sum()) * 60 / interval_length
+                arr_rates[j - start_interval, i] = ons_rate
+            if i:
+                offs_rate = (pax_df['roff'].sum() + pax_df['foff'].sum()) * 60 / interval_length
+                drop_rates[j - start_interval, i] = offs_rate
+    odt_df = pd.read_csv(path_odt)
+    input_interval_groups = []
+    for i in range(input_start_interval, input_end_interval, proportion_intervals):
+        input_interval_groups.append([j for j in range(i, i + proportion_intervals)])
+    od_set = np.zeros(shape=(end_interval - start_interval, len(stops), len(stops)))
     od_set[:] = np.nan
-
     for i in range(len(stops)):
-        for j in range(i+1, len(stops)):
-            pax_df = od_pairs[od_pairs['BOARDING_STOP'].astype(str).str[:-2] == stops[i]].reset_index()
-            pax_df = pax_df[pax_df['INFERRED_ALIGHTING_GTFS_STOP'].astype(str).str[:-2] == stops[j]].reset_index()
-            counter = 0
-            for k in range(start_interval, start_interval + nr_intervals, grouping):
-                temp_pax = 0
-                for m in range(k, k + grouping):
-                    mean_interval_pax = pax_df[pax_df['bin_5'] == m]['mean']
-                    if not mean_interval_pax.empty:
-                        temp_pax += float(mean_interval_pax)
-                if temp_pax:
-                    od_set[counter, i, j] = temp_pax * 60 / new_interval_length # pax per hr
-                counter += 1
+        for j in range(i + 1, len(stops)):
+            temp_df = odt_df[odt_df['BOARDING_STOP'] == float(stops[i])]
+            temp_df = temp_df[temp_df['INFERRED_ALIGHTING_GTFS_STOP'] == float(stops[j])]
+            for g in input_interval_groups:
+                pax_df = temp_df[temp_df['bin_5'].isin(g)]
+                pax = pax_df['mean'].sum()
+                if pax:
+                    time_idx = input_interval_groups.index(g)
+                    od_set[time_idx, i, j] = pax * 60 / interval_length
+    return arr_rates, drop_rates, od_set
 
-    # since stops are ordered, stop n is allowed to pair with stop n+1 until N
-    for i in range(len(stops)):
-        if i == 0:
-            viable_dest[stops[i]] = stops[i+1:]
-        elif i == len(stops) - 1:
-            viable_orig[stops[i]] = stops[:i]
-        else:
-            viable_dest[stops[i]] = stops[i + 1:]
-            viable_orig[stops[i]] = stops[:i]
 
-    for s in stops:
-        # record arrival rate
-        arrivals = od_pairs[od_pairs['BOARDING_STOP'].astype(str).str[:-2] == s].reset_index()
-        arrivals = arrivals[arrivals['INFERRED_ALIGHTING_GTFS_STOP'].astype(str).str[:-2].isin(viable_dest.get(s, []))].reset_index()
-        # record drop-offs
-        dropoffs = od_pairs[od_pairs['INFERRED_ALIGHTING_GTFS_STOP'].astype(str).str[:-2] == s].reset_index()
-        dropoffs = dropoffs[dropoffs['BOARDING_STOP'].astype(str).str[:-2].isin(viable_orig.get(s, []))].reset_index()
+def get_pax_counts_apc(path_apc, stops):
+    # both will be ordered by stop sequence
+    on_rates = []
+    off_rates = []
+    return on_rates, off_rates
 
-        arr_pax = []
-        drop_pax = []
-        for i in range(start_interval, start_interval + nr_intervals, grouping):
-            temp_arr_pax = 0
-            temp_drop_pax = 0
-            for j in range(i, i+grouping):
-                temp_arr_pax += sum(arrivals[arrivals['bin_5'] == j]['mean'].tolist())
-                temp_drop_pax += sum(dropoffs[dropoffs['bin_5'] == j]['mean'].tolist())
-            arr_pax.append(float(temp_arr_pax*60 / new_interval_length)) # convert each rate to pax/hr, more intuitive
-            drop_pax.append(float(temp_drop_pax*60 / new_interval_length))
-        arr_rates[s] = arr_pax
-        drop_rates[s] = drop_pax
 
-    dep_vol = {}
-    prev_vol = [0] * new_nr_intervals
-    for i in range(len(stops)):
-        j = 0
-        alight_fractions[stops[i]] = []
-        for pv, a, d in zip(prev_vol, arr_rates[stops[i]], drop_rates[stops[i]]):
-            af = d / pv if pv else 0
-            alight_fractions[stops[i]].append(af)
-            prev_vol[j] = pv + a - d
-            j += 1
-        dep_vol[stops[i]] = deepcopy(prev_vol)
-    return arr_rates, alight_fractions, drop_rates, dep_vol, od_set
+def biproportional_fitting(od_set, on_rates_set, off_rates_set):
+    scaled_od_set = np.array(od_set)
+
+    return scaled_od_set
 
 
 def get_dispatching_from_gtfs(pathname, trip_ids_simulation):
@@ -239,7 +222,7 @@ def get_trip_times(stop_times_path, focus_trips, dates, start_time, end_time,
     for t in focus_trips:
         temp_df = stop_times_df[stop_times_df['trip_id'] == t]
         for d in dates:
-            df = temp_df[temp_df['event_time'].astype(str).str[:10] == d]
+            df = temp_df[temp_df['avl_arr_time'].astype(str).str[:10] == d]
             df = df.sort_values(by='stop_sequence')
             stop_seq = df['stop_sequence'].tolist()
             if stop_seq:
@@ -260,7 +243,7 @@ def get_trip_times(stop_times_path, focus_trips, dates, start_time, end_time,
     ordered_trip_ids = df['trip_id'].unique().tolist()
     df = stop_times_df[stop_times_df['trip_id'].isin(ordered_trip_ids)]
     for d in dates:
-        temp_df = df[df['event_time'].astype(str).str[:10] == d]
+        temp_df = df[df['avl_arr_time'].astype(str).str[:10] == d]
         temp_df = temp_df[temp_df['stop_id'] == 386]
         temp_df = temp_df.sort_values(by='schd_sec')
         avl_sec = temp_df['avl_dep_sec'].tolist()
@@ -294,7 +277,7 @@ def get_dwell_times(stop_times_path, focus_trips, stops, dates):
                 dwell_times_mean[s] = df['dwell_time'].mean()
                 dwell_times_std[s] = df['dwell_time'].std()
         for d in dates:
-            df_date = temp_df[temp_df['event_time'].astype(str).str[:10] == d]
+            df_date = temp_df[temp_df['avl_arr_time'].astype(str).str[:10] == d]
             df_date = df_date.sort_values(by='stop_sequence')
             stop_seq = df_date['stop_sequence'].tolist()
             if stop_seq:
@@ -367,7 +350,7 @@ def get_outbound_travel_time(path_stop_times, start_time, end_time, dates, toler
     for t in trip_ids1:
         temp_df = stop_times_df[stop_times_df['trip_id'] == t]
         for d in dates:
-            df = temp_df[temp_df['event_time'].astype(str).str[:10] == d]
+            df = temp_df[temp_df['avl_arr_time'].astype(str).str[:10] == d]
             df = df.sort_values(by='stop_sequence')
             stop_seq = df['stop_sequence'].tolist()
             if stop_seq:
@@ -384,7 +367,7 @@ def get_outbound_travel_time(path_stop_times, start_time, end_time, dates, toler
     for t in trip_ids2:
         temp_df = stop_times_df[stop_times_df['trip_id'] == t]
         for d in dates:
-            df = temp_df[temp_df['event_time'].astype(str).str[:10] == d]
+            df = temp_df[temp_df['avl_arr_time'].astype(str).str[:10] == d]
             df = df.sort_values(by='stop_sequence')
             stop_seq = df['stop_sequence'].tolist()
             if stop_seq:
@@ -406,7 +389,7 @@ def get_outbound_travel_time(path_stop_times, start_time, end_time, dates, toler
     df_arrivals = df_arrivals.sort_values(by='schd_sec')
     df_arrivals.to_csv('in/vis/arrivals_outbound.csv', index=False)
     for d in dates:
-        temp_df = df[df['event_time'].astype(str).str[:10] == d]
+        temp_df = df[df['avl_arr_time'].astype(str).str[:10] == d]
         temp_df = temp_df[temp_df['stop_id'] == 386]
         temp_df = temp_df.sort_values(by='schd_sec')
         # trip_ids = temp_df['trip_id'].tolist()
@@ -476,7 +459,7 @@ def get_outbound_travel_time(path_stop_times, start_time, end_time, dates, toler
 def get_scheduled_bus_availability(path_stop_times, dates, start_time, end_time):
     stop_times_df = pd.read_csv(path_stop_times)
     date = dates[2]
-    stop_times_df = stop_times_df[stop_times_df['event_time'].astype(str).str[:10] == date]
+    stop_times_df = stop_times_df[stop_times_df['avl_arr_time'].astype(str).str[:10] == date]
 
     df_outbound = stop_times_df[stop_times_df['stop_sequence'].isin([23, 63])]
     df_outbound = df_outbound[df_outbound['stop_id'] == 386]
