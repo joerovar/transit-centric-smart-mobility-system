@@ -304,8 +304,8 @@ class SimulationEnv:
             return
 
     def reset_simulation(self):
-        dep_delays = [max(random.uniform(DEP_DELAY_FROM, DEP_DELAY_TO), 0) for i in range(len(SCHEDULED_DEPARTURES))]
-        self.next_actual_departures = [sum(x) for x in zip(SCHEDULED_DEPARTURES, dep_delays)]
+        dep_delays = [max(random.uniform(DEP_DELAY_FROM, DEP_DELAY_TO), 0) for i in range(len(SCHED_DEP_IN))]
+        self.next_actual_departures = [sum(x) for x in zip(SCHED_DEP_IN, dep_delays)]
         self.next_trip_ids = deepcopy(ORDERED_TRIPS)
         self.time = START_TIME_SEC
         self.bus_idx = 0
@@ -372,8 +372,8 @@ class DetailedSimulationEnv(SimulationEnv):
         self.completed_pax = []
 
     def reset_simulation(self):
-        dep_delays = [max(random.uniform(DEP_DELAY_FROM, DEP_DELAY_TO), 0) for i in range(len(SCHEDULED_DEPARTURES))]
-        self.next_actual_departures = [sum(x) for x in zip(SCHEDULED_DEPARTURES, dep_delays)]
+        dep_delays = [max(random.uniform(DEP_DELAY_FROM, DEP_DELAY_TO), 0) for i in range(len(SCHED_DEP_IN))]
+        self.next_actual_departures = [sum(x) for x in zip(SCHED_DEP_IN, dep_delays)]
         self.next_trip_ids = deepcopy(ORDERED_TRIPS)
         self.time = START_TIME_SEC
         self.bus_idx = 0
@@ -421,10 +421,10 @@ class DetailedSimulationEnv(SimulationEnv):
             pax_info['o_stop_idx'] = []
             pax_info['d_stop_idx'] = []
             for j in range(i + 1, len(STOPS)):
-                for k in range(DEM_START_INTERVAL, DEM_END_INTERVAL):
+                for k in range(POST_PROCESSED_DEM_START_INTERVAL, POST_PROCESSED_DEM_END_INTERVAL):
                     start_edge_interval = k * DEM_INTERVAL_LENGTH_MINS * 60
                     end_edge_interval = start_edge_interval + DEM_INTERVAL_LENGTH_MINS * 60
-                    od_rate = ODT[k - DEM_START_INTERVAL, i, j]
+                    od_rate = ODT[k - POST_PROCESSED_DEM_START_INTERVAL, i, j]
                     if not np.isnan(od_rate):
                         max_size = int(od_rate * (DEM_INTERVAL_LENGTH_MINS / 60) * 3)
                         if od_rate > 0:
@@ -620,7 +620,7 @@ class DetailedSimulationEnvWithControl(DetailedSimulationEnv):
             # in case there is no trip before we can look at future departures which always exist
             # we look at scheduled departures and not actual which include distributed delays
             trip_idx = ORDERED_TRIPS.index(trip_id) + 1
-            dep_t = SCHEDULED_DEPARTURES[trip_idx]
+            dep_t = SCHED_DEP_IN[trip_idx]
             stop0 = STOPS[0]
             stop1 = stop_id
 
@@ -674,8 +674,8 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
         self.bool_terminal_state = False
 
     def reset_simulation(self):
-        dep_delays = [max(random.uniform(DEP_DELAY_FROM, DEP_DELAY_TO), 0) for i in range(len(SCHEDULED_DEPARTURES))]
-        self.next_actual_departures = [sum(x) for x in zip(SCHEDULED_DEPARTURES, dep_delays)]
+        dep_delays = [max(random.uniform(DEP_DELAY_FROM, DEP_DELAY_TO), 0) for i in range(len(SCHED_DEP_IN))]
+        self.next_actual_departures = [sum(x) for x in zip(SCHED_DEP_IN, dep_delays)]
         self.next_trip_ids = deepcopy(ORDERED_TRIPS)
         self.time = START_TIME_SEC
         self.bus_idx = 0
@@ -823,7 +823,7 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
             # in case there is no trip before we can look at future departures which always exist
             # we look at scheduled departures and not actual which include distributed delays
             trip_idx = ORDERED_TRIPS.index(trip_id) + 1
-            dep_t = SCHEDULED_DEPARTURES[trip_idx]
+            dep_t = SCHED_DEP_IN[trip_idx]
             stop0 = STOPS[0]
             stop1 = stop_id
 
@@ -896,8 +896,8 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
 #         self.bool_terminal_state = False
 #
 #     def reset_simulation(self):
-#         dep_delays = [max(random.uniform(DEP_DELAY_FROM, DEP_DELAY_TO), 0) for i in range(len(SCHEDULED_DEPARTURES))]
-#         self.next_actual_departures = [sum(x) for x in zip(SCHEDULED_DEPARTURES, dep_delays)]
+#         dep_delays = [max(random.uniform(DEP_DELAY_FROM, DEP_DELAY_TO), 0) for i in range(len(SCHED_DEP_IN))]
+#         self.next_actual_departures = [sum(x) for x in zip(SCHED_DEP_IN, dep_delays)]
 #         self.next_trip_ids = deepcopy(ORDERED_TRIPS)
 #         self.time = START_TIME_SEC
 #         self.bus_idx = 0
@@ -951,7 +951,7 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
 #             # in case there is no trip before we can look at future departures which always exist
 #             # we look at scheduled departures and not actual which include distributed delays
 #             trip_idx = ORDERED_TRIPS.index(trip_id) + 1
-#             dep_t = SCHEDULED_DEPARTURES[trip_idx]
+#             dep_t = SCHED_DEP_IN[trip_idx]
 #             stop0 = STOPS[0]
 #             stop1 = stop_id
 #
