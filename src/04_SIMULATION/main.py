@@ -23,7 +23,7 @@ if __name__ == '__main__':
                         help='Minimum value for epsilon in epsilon-greedy action selection')
     parser.add_argument('-gamma', type=float, default=0.99,
                         help='Discount factor for update equation.')
-    parser.add_argument('-eps_dec', type=float, default=1e-4,
+    parser.add_argument('-eps_dec', type=float, default=9e-5,
                         help='Linear factor for decreasing epsilon')
     parser.add_argument('-eps', type=float, default=1.0,
                         help='Starting value for epsilon in epsilon-greedy action selection')
@@ -31,7 +31,7 @@ if __name__ == '__main__':
                         help='Maximum size for memory replay buffer')
     parser.add_argument('-bs', type=int, default=32,
                         help='Batch size for replay memory sampling')
-    parser.add_argument('-replace', type=int, default=800,
+    parser.add_argument('-replace', type=int, default=600,
                         help='interval for replacing target network')
     parser.add_argument('-env', type=str, default='BusControl',
                         help='environment')
@@ -77,42 +77,48 @@ if __name__ == '__main__':
             env = simulation_env.DetailedSimulationEnvWithDeepRL()
             done = env.reset_simulation()
             done = env.prep()
+            # temp_n_steps = 0
             while not done:
-                i = env.bus_idx
-                trip_id = env.active_trips[i]
+                trip_id = env.bus.active_trip[0].trip_id
                 all_sars = env.trips_sars[trip_id]
-
-                if len(all_sars) > 1:
-                    if env.bool_terminal_state:
-                        prev_sars = all_sars[-1]
-                    else:
-                        prev_sars = all_sars[-2]
-                    observation, action, reward, observation_ = prev_sars
-                    observation = np.array(observation, dtype=np.float32)
-                    observation_ = np.array(observation_, dtype=np.float32)
-                    score += reward
-                    agent.store_transition(observation, action, reward, observation_, int(env.bool_terminal_state))
-                    agent.learn()
-
+                # if len(all_sars) > 1:
+                #     if env.bool_terminal_state:
+                #         prev_sars = all_sars[-1]
+                #     else:
+                #         prev_sars = all_sars[-2]
+                    # observation, action, reward, observation_ = prev_sars
+                    # observation = np.array(observation, dtype=np.float32)
+                    # observation_ = np.array(observation_, dtype=np.float32)
+                    # score += reward
+                    # agent.store_transition(observation, action, reward, observation_, int(env.bool_terminal_state))
                 if not env.bool_terminal_state:
                     observation = np.array(all_sars[-1][0], dtype=np.float32)
                     action = agent.choose_action(observation)
                     env.take_action(action)
-
+                env.update_rewards()
+                # temp_n_steps += 1
                 done = env.prep()
-                n_steps += 1
-            if not args.load_checkpoint:
-                scores.append(score)
-                steps_array.append(n_steps)
-                avg_score = np.mean(scores[-100:])
-                print('episode ', j, 'score %.2f' % score, 'average score %.2f' % avg_score,
-                      'epsilon %.2f' % agent.epsilon, 'steps ', n_steps)
-                if avg_score > best_score:
-                    if not args.load_checkpoint:
-                        agent.save_models()
-                    best_score = avg_score
+            nr_valuable_experiences = len(env.pool_sars)
+            for i in range(nr_valuable_experiences):
+                observation, action, reward, observation_, terminal = env.pool_sars[i]
+                observation = np.array(observation, dtype=np.float32)
+                observation_ = np.array(observation_, dtype=np.float32)
+                score += reward
+                terminal = int(terminal)
+                agent.store_transition(observation, action, reward, observation_, terminal)
+                agent.learn()
+            n_steps += nr_valuable_experiences
+            scores.append(score)
+            steps_array.append(n_steps)
+            avg_score = np.mean(scores[-100:])
+            print('episode ', j, 'score %.2f' % score, 'average score %.2f' % avg_score,
+                  'epsilon %.2f' % agent.epsilon, 'steps ', n_steps)
+            if avg_score > best_score:
+                if not args.load_checkpoint:
+                    agent.save_models()
+                best_score = avg_score
 
-                eps_history.append(agent.epsilon)
+            eps_history.append(agent.epsilon)
         plot_learning(steps_array, scores, eps_history, figure_file)
     else:
 
@@ -130,8 +136,7 @@ if __name__ == '__main__':
             done = env.prep()
             while not done:
                 if not env.bool_terminal_state:
-                    i = env.bus_idx
-                    trip_id = env.active_trips[i]
+                    trip_id = env.bus.active_trip[0].trip_id
                     all_sars = env.trips_sars[trip_id]
                     observation = np.array(all_sars[-1][0], dtype=np.float32)
                     action = agent.choose_action(observation)
@@ -149,36 +154,36 @@ if __name__ == '__main__':
         post_process.save(path_sars, sars_set)
         post_process.save(path_completed_pax, pax_set)
 
-        load_mean, _, ons_mean, _, _, _ = pax_per_trip_from_trajectory_set(trajectories_set, IDX_LOAD,
-                                                                           IDX_PICK, IDX_DROP)
+        # load_mean, _, ons_mean, _, _, _ = pax_per_trip_from_trajectory_set(trajectories_set, IDX_LOAD,
+        #                                                                    IDX_PICK, IDX_DROP)
 
-        fw_headway_scenarios = np.arange(HEADWAY_UNIFORM + 60, HEADWAY_UNIFORM - 80, -20)
-        bw_headway_scenarios = np.flip(fw_headway_scenarios, axis=0)
-        route_progress_scenarios = np.array([(STOPS.index(s) / len(STOPS)) for s in CONTROLLED_STOPS[:-1]])
-        action_grid = np.zeros(shape=(len(fw_headway_scenarios), len(route_progress_scenarios)))
-
-        for i in range(fw_headway_scenarios.size):
-            for j in range(route_progress_scenarios.size):
-                obs = np.array([route_progress_scenarios[j], int(load_mean[CONTROLLED_STOPS[j]]),
-                                fw_headway_scenarios[i], bw_headway_scenarios[i],
-                                int(ons_mean[CONTROLLED_STOPS[j]])], dtype=np.float32)
-                action_grid[i, j] = agent.choose_action(obs)
-
-        fig, ax = plt.subplots()
-        x_axis = np.arange(route_progress_scenarios.size)
-        y_axis = np.arange(fw_headway_scenarios.size)
-        ms = ax.matshow(action_grid)
-        ax.set_xticks(x_axis)
-        ax.xaxis.set_ticks_position('bottom')
-        ax.set_xticklabels(np.arange(1, route_progress_scenarios.size + 1))
-        ax.set_yticks(y_axis)
-        ax.set_yticklabels(np.arange(60, -80, -20))
-        ax.set_xlabel('control point')
-        ax.set_ylabel('dfh=-dbh (seconds)')
-        cbar = fig.colorbar(ms, ticks=np.arange(np.min(action_grid), np.max(action_grid) + 1), orientation='horizontal')
-        cbar.ax.set_xlabel('best action')
-        path_policy_examination = path_to_outs + 'RL/' + 'policy_' + args.env + ext_fig
-        plt.savefig(path_policy_examination)
+        # fw_headway_scenarios = np.arange(HEADWAY_UNIFORM + 60, HEADWAY_UNIFORM - 80, -20)
+        # bw_headway_scenarios = np.flip(fw_headway_scenarios, axis=0)
+        # route_progress_scenarios = np.array([(STOPS.index(s) / len(STOPS)) for s in CONTROLLED_STOPS[:-1]])
+        # action_grid = np.zeros(shape=(len(fw_headway_scenarios), len(route_progress_scenarios)))
+        #
+        # for i in range(fw_headway_scenarios.size):
+        #     for j in range(route_progress_scenarios.size):
+        #         obs = np.array([route_progress_scenarios[j], int(load_mean[CONTROLLED_STOPS[j]]),
+        #                         fw_headway_scenarios[i], bw_headway_scenarios[i],
+        #                         int(ons_mean[CONTROLLED_STOPS[j]])], dtype=np.float32)
+        #         action_grid[i, j] = agent.choose_action(obs)
+        #
+        # fig, ax = plt.subplots()
+        # x_axis = np.arange(route_progress_scenarios.size)
+        # y_axis = np.arange(fw_headway_scenarios.size)
+        # ms = ax.matshow(action_grid)
+        # ax.set_xticks(x_axis)
+        # ax.xaxis.set_ticks_position('bottom')
+        # ax.set_xticklabels(np.arange(1, route_progress_scenarios.size + 1))
+        # ax.set_yticks(y_axis)
+        # ax.set_yticklabels(np.arange(60, -80, -20))
+        # ax.set_xlabel('control point')
+        # ax.set_ylabel('dfh=-dbh (seconds)')
+        # cbar = fig.colorbar(ms, ticks=np.arange(np.min(action_grid), np.max(action_grid) + 1), orientation='horizontal')
+        # cbar.ax.set_xlabel('best action')
+        # path_policy_examination = path_to_outs + 'RL/' + 'policy_' + args.env + ext_fig
+        # plt.savefig(path_policy_examination)
 
 # cd src/04_SIMULATION
 # train

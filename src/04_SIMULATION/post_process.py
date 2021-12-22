@@ -867,10 +867,12 @@ def plot_wait_time_benchmark(wt_set, os, lbl, colors, pathname=None):
     fig, ax = plt.subplots()
     j = 0
     for wt in wt_set:
-        ax.scatter(np.arange(len(wt)), wt, label=lbl[j], color=colors[j])
+        ax.bar(np.arange(len(wt)), wt, label=lbl[j], color=colors[j])
         j += 1
     ax.set_xticks(np.arange(len(os)))
     ax.set_xticklabels(os, fontsize=6, rotation=90)
+    ax.set_xlabel('stop')
+    ax.set_ylabel('wait time (seconds)')
     plt.legend()
     plt.tight_layout()
     if pathname:

@@ -92,9 +92,9 @@ STOPS, LINK_TIMES_MEAN, TRIP_IDS_IN, SCHED_DEP_IN, ODT, SCHED_ARRS_IN, TRIP_TIME
 TRIP_TIMES1_PARAMS, TRIP_TIMES2_PARAMS, TRIPS1_INFO_OUT, TRIPS2_INFO_OUT, DEADHEAD_TIME_PARAMS, SCHED_ARRS_OUT = get_params_outbound()
 
 trips_in = [(x, y, str(timedelta(seconds=y)), z, 0) for x, y, z in zip(TRIP_IDS_IN, SCHED_DEP_IN, BUS_IDS_IN)]
+# print(trips_in)
 trips_out1 = [(x, y, str(timedelta(seconds=y)), z, 1) for x, y, z in TRIPS1_INFO_OUT]
 trips_out2 = [(x, y, str(timedelta(seconds=y)), z, 2) for x, y, z in TRIPS2_INFO_OUT]
-
 trips_df = pd.DataFrame(trips_in + trips_out1 + trips_out2, columns=['trip_id', 'schd_sec', 'schd_time', 'block_id', 'route_type'])
 trips_df['block_id'] = trips_df['block_id'].astype(str).str[6:].astype(int)
 trips_df = trips_df.sort_values(by=['block_id', 'schd_sec'])
@@ -107,16 +107,16 @@ for b in block_ids:
     trip_routes = block_df['route_type'].tolist()
     BLOCK_TRIPS_INFO.append((b, list(zip(trip_ids, sched_deps, trip_routes))))
 
-warm_up_odt = ODT[4]
+warm_up_odt = np.multiply(ODT[4], 1.0)
 for i in range(4):
     ODT = np.insert(ODT, 0, warm_up_odt, axis=0)
-cool_down_odt = ODT[4]
+cool_down_odt = np.multiply(ODT[4], 1.0)
 ODT = np.insert(ODT, -1, cool_down_odt, axis=0)
 # print(ODT.shape)
 # SCHEDULED_DEPARTURES = UNIFORM_SCHEDULED_DEPARTURES.copy()
 PAX_INIT_TIME = [0] + [LINK_TIMES_MEAN[s0 + '-' + s1][0] for s0, s1 in zip(STOPS, STOPS[1:])]
 PAX_INIT_TIME = np.array(PAX_INIT_TIME).cumsum()
-PAX_INIT_TIME += SCHED_DEP_IN[0] - (SCHED_DEP_IN[1] - SCHED_DEP_IN[0])
+PAX_INIT_TIME += SCHED_DEP_IN[0] - ((SCHED_DEP_IN[1] - SCHED_DEP_IN[0])/2)
 # print([str(timedelta(seconds=i)) for i in SCHEDULED_DEPARTURES])
 ordered_trips_arr = np.array([TRIP_IDS_IN])
 scheduled_deps_arr = np.array([SCHED_DEP_IN])
