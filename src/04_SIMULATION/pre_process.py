@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 import numpy as np
 import pandas as pd
 import warnings
@@ -34,12 +34,17 @@ def get_route(path_stop_times, start_time_sec, end_time_sec, nr_intervals, start
     df = df[df['stop_sequence'] == 1]
     df = df[df['schd_sec'] % 86400 <= end_time_sec]
     df = df[df['schd_sec'] % 86400 >= start_time_sec]
-    trip_ids = df['trip_id'].unique().tolist()
-
-    df_dispatching = df.sort_values(by='schd_sec')
-    df_dispatching = df_dispatching.drop_duplicates(subset='trip_id')
-    ordered_trip_ids = df_dispatching['trip_id'].tolist()
-    scheduled_departures = df_dispatching[df_dispatching['trip_id'].isin(ordered_trip_ids)]['schd_sec'].tolist()
+    df = df.sort_values(by='schd_sec')
+    df = df.drop_duplicates(subset='trip_id')
+    ordered_trip_ids = df['trip_id'].tolist()
+    scheduled_departures = df['schd_sec'].tolist()
+    ordered_block_ids = df['block_id'].tolist()
+    # date_for_bus_id = dates[1]
+    # temp_df = stop_times_df[stop_times_df['trip_id'].isin(ordered_trip_ids)]
+    # temp_df = temp_df[temp_df['avl_arr_time'].astype(str).str[:10] == date_for_bus_id]
+    # temp_df = temp_df[temp_df['stop_sequence'] == 1]
+    # temp_df = temp_df.sort_values(by='schd_sec')
+    # bus_ids = temp_df['bus_id'].tolist()
 
     df_arrivals = stop_times_df[stop_times_df['trip_id'].isin(ordered_trip_ids)]
     df_arrivals = df_arrivals[df_arrivals['stop_sequence'] == 67]
@@ -47,7 +52,7 @@ def get_route(path_stop_times, start_time_sec, end_time_sec, nr_intervals, start
     df_arrivals = df_arrivals.drop_duplicates(subset='trip_id')
     sched_arrivals = df_arrivals['schd_sec'].tolist()
 
-    for t in trip_ids:
+    for t in ordered_trip_ids:
         temp = stop_times_df[stop_times_df['trip_id'] == t]
         temp = temp.sort_values(by='stop_sequence')
         for d in dates:
@@ -116,9 +121,9 @@ def get_route(path_stop_times, start_time_sec, end_time_sec, nr_intervals, start
     #             stdev_link_times[link].append(round(b_array.std(), 1))
     #             nr_dpoints_link_times[link].append(len(b_array))
     # link_times_info = (mean_link_times, stdev_link_times, nr_dpoints_link_times)
-
+    # print([len(ordered_trip_ids), len(scheduled_departures), len(ordered_block_ids)])
     link_times_true_info = (mean_link_times_true, stdev_link_times_true, nr_dpoints_link_times_true)
-    return all_stops, ordered_trip_ids, link_times_true_info, scheduled_departures, sched_arrivals
+    return all_stops, ordered_trip_ids, link_times_true_info, scheduled_departures, sched_arrivals, ordered_block_ids
 
 
 def get_demand(path_odt, path_stop_times, stops, input_start_interval, input_end_interval, start_interval,
@@ -197,29 +202,70 @@ def get_outbound_travel_time(path_stop_times, start_time, end_time, dates, nr_in
     df1 = df1[df1['stop_id'] == 8613]
     df1 = df1[df1['schd_sec'] <= end_time]
     df1 = df1[df1['schd_sec'] >= start_time]
-    trip_ids1 = df1['trip_id'].unique().tolist()
+    df1 = df1.drop_duplicates(subset='trip_id')
+    df1 = df1.sort_values(by='schd_sec')
+    ordered_trip_ids1 = df1['trip_id'].tolist()
+    ordered_deps1 = df1['schd_sec'].tolist()
+    ordered_block_ids1 = df1['block_id'].tolist()
+    # date_for_bus_id = dates[1]
+    # temp_df = stop_times_df[stop_times_df['trip_id'].isin(ordered_trip_ids1)]
+    # temp_df = temp_df[temp_df['avl_arr_time'].astype(str).str[:10] == date_for_bus_id]
+    # temp_df = temp_df[temp_df['stop_sequence'] == 1]
+    # temp_df = temp_df.sort_values(by='schd_sec')
+    # ordered_bus_ids1 = temp_df['bus_id'].tolist()
 
-    df_deps1 = stop_times_df[stop_times_df['trip_id'].isin(trip_ids1)]
-    df_deps1 = df_deps1[df_deps1['stop_sequence'] == 1]
-    df_deps1 = df_deps1.sort_values(by='schd_sec')
-    df_deps1 = df_deps1.drop_duplicates(subset='trip_id')
-    sched_deps1 = df_deps1['schd_sec'].tolist()
     add_sched_dep_time = (datetime.strptime('7:33:30', '%H:%M:%S') - datetime(1900, 1, 1)).total_seconds()
-    sched_deps1.append(int(add_sched_dep_time))
+    add_trip_id = 911266020
+    add_block_id_df = stop_times_df[stop_times_df['trip_id'] == add_trip_id]
+    # add_bus_id_df = add_bus_id_df[add_bus_id_df['avl_arr_time'].astype(str).str[:10] == date_for_bus_id]
+    add_block_id = int(add_block_id_df['block_id'].mean())
+    for i in range(1, len(ordered_trip_ids1)-1):
+        if ordered_deps1[i - 1] < add_sched_dep_time < ordered_deps1[i]:
+            idx_insert = i - 1
+            break
+    ordered_trip_ids1.insert(idx_insert, add_trip_id)
+    ordered_deps1.insert(idx_insert, add_sched_dep_time)
+    ordered_block_ids1.insert(idx_insert, add_block_id)
+
+    # this was used to find the missing trip departure
+    # df_bonus = stop_times_df[stop_times_df['stop_sequence'] == 2]
+    # df_bonus = df_bonus[df_bonus['stop_id'] == 6360]
+    # df_bonus = df_bonus[df_bonus['schd_sec'] <= end_time]
+    # df_bonus = df_bonus[df_bonus['schd_sec'] >= start_time]
+    # trip_ids_bonus = df_bonus['trip_id'].unique().tolist()
+    # for t in trip_ids_bonus:
+    #     if t not in ordered_trip_ids1:
+    #         temp = df_bonus[df_bonus['trip_id'] == t]
+    #         temp = temp.drop_duplicates(subset='trip_id')
+    #         schd_sec = temp['schd_sec'].mean()
+    #         print([t, str(timedelta(seconds=schd_sec))])
+
+    # df_deps1 = stop_times_df[stop_times_df['trip_id'].isin(ordered_trip_ids1)]
+    # df_deps1 = df_deps1[df_deps1['stop_sequence'] == 1]
+    # df_deps1 = df_deps1.sort_values(by='schd_sec')
+    # df_deps1 = df_deps1.drop_duplicates(subset='trip_id')
+    # sched_deps1 = df_deps1['schd_sec'].tolist()
+    # add_sched_dep_time = (datetime.strptime('7:33:30', '%H:%M:%S') - datetime(1900, 1, 1)).total_seconds()
+    # sched_deps1.append(int(add_sched_dep_time))
 
     df2 = stop_times_df[stop_times_df['stop_sequence'] == 1]
     df2 = df2[df2['stop_id'] == 15136]
     df2 = df2[df2['schd_sec'] <= end_time]
     df2 = df2[df2['schd_sec'] >= start_time]
-    trip_ids2 = df2['trip_id'].unique().tolist()
+    df2 = df2.sort_values(by='schd_sec')
+    df2 = df2.drop_duplicates(subset='trip_id')
+    ordered_trip_ids2 = df2['trip_id'].tolist()
+    ordered_deps2 = df2['schd_sec'].tolist()
+    ordered_block_ids2 = df2['block_id'].tolist()
+    # temp_df = stop_times_df[stop_times_df['trip_id'].isin(ordered_trip_ids2)]
+    # temp_df = temp_df[temp_df['avl_arr_time'].astype(str).str[:10] == date_for_bus_id]
+    # temp_df = temp_df[temp_df['stop_sequence'] == 1]
+    # temp_df = temp_df.sort_values(by='schd_sec')
+    # ordered_bus_ids2 = temp_df['bus_id'].tolist()
+    # df_deps2 = stop_times_df[stop_times_df['trip_id'].isin(trip_ids2)]
+    # df_deps2 = df_deps2[df_deps2['stop_sequence'] == 1]
 
-    df_deps2 = stop_times_df[stop_times_df['trip_id'].isin(trip_ids2)]
-    df_deps2 = df_deps2[df_deps2['stop_sequence'] == 1]
-    df_deps2 = df_deps2.sort_values(by='schd_sec')
-    df_deps2 = df_deps2.drop_duplicates(subset='trip_id')
-    sched_deps2 = df_deps2['schd_sec'].tolist()
-
-    all_trip_ids = trip_ids1 + trip_ids2
+    all_trip_ids = ordered_trip_ids1 + ordered_trip_ids2
     df_arrivals = stop_times_df[stop_times_df['trip_id'].isin(all_trip_ids)]
     df_arrivals = df_arrivals[df_arrivals['stop_sequence'].isin([23, 63])]
     df_arrivals = df_arrivals.sort_values(by='schd_sec')
@@ -232,7 +278,7 @@ def get_outbound_travel_time(path_stop_times, start_time, end_time, dates, nr_in
     deadhead_times = [[] for _ in range(nr_intervals)]
     stop_seq_terminal2 = 41
     dep_delay1 = []
-    for t in trip_ids1:
+    for t in ordered_trip_ids1:
         temp_df = stop_times_df[stop_times_df['trip_id'] == t]
         for d in dates:
             df = temp_df[temp_df['avl_arr_time'].astype(str).str[:10] == d]
@@ -262,7 +308,7 @@ def get_outbound_travel_time(path_stop_times, start_time, end_time, dates, nr_in
                         deadhead_times[idx].append(deadhead_time)
     trip_times2 = [[] for _ in range(nr_intervals)]
     dep_delay2 = []
-    for t in trip_ids2:
+    for t in ordered_trip_ids2:
         temp_df = stop_times_df[stop_times_df['trip_id'] == t]
         for d in dates:
             df = temp_df[temp_df['avl_arr_time'].astype(str).str[:10] == d]
@@ -341,8 +387,11 @@ def get_outbound_travel_time(path_stop_times, start_time, end_time, dates, nr_in
 
     # dep_delay1_params = lognorm.fit(dep_delay1, loc=0)
     # dep_delay2_params = lognorm.fit(dep_delay2, loc=0)
-
-    return sched_deps1, sched_deps2, sched_arrivals, trip_times1_params, trip_times2_params, deadhead_times_params
+    # print([len(ordered_trip_ids1), len(ordered_deps1), len(ordered_block_ids1)])
+    # print([len(ordered_trip_ids2), len(ordered_deps2), len(ordered_block_ids2)])
+    trips1_info = [(x, y, z) for x, y, z in zip(ordered_trip_ids1, ordered_deps1, ordered_block_ids1)]
+    trips2_info = [(x, y, z) for x, y, z in zip(ordered_trip_ids2, ordered_deps2, ordered_block_ids2)]
+    return trips1_info, trips2_info, sched_arrivals, trip_times1_params, trip_times2_params, deadhead_times_params
 
 
 def get_trip_times(stop_times_path, focus_trips, dates, start_time, end_time,

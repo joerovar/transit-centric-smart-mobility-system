@@ -850,7 +850,7 @@ def plot_hold_time_distribution_benchmark(ht_set, lbl, colors, pathname=None):
 
 
 def plot_denied_benchmark(db_set, lbl, colors, pathname=None):
-    w = 0.3
+    w = 0.15
     for i in range(len(db_set)):
         plt.bar(w*i, db_set[i], label=lbl[i], color=colors[i])
     plt.legend()

@@ -7,26 +7,29 @@ from constants import *
 
 def extract_params(route_params=False, demand=False, validation=False):
     if route_params:
-        stops, ordered_trips, link_times_true, sched_deps_in, sched_arrs_in = get_route(path_stop_times, START_TIME_SEC,
-                                                                                        END_TIME_SEC, TIME_NR_INTERVALS,
-                                                                                        TIME_START_INTERVAL,
-                                                                                        TIME_INTERVAL_LENGTH_MINS,
-                                                                                        DATES,
-                                                                                        TRIP_WITH_FULL_STOP_PATTERN)
-        get_scheduled_bus_availability(path_stop_times, DATES, START_TIME_SEC, END_TIME_SEC)
+        stops, ordered_trips, link_times_true, sched_deps_in, sched_arrs_in, bus_ids_in = get_route(path_stop_times,
+                                                                                                    START_TIME_SEC,
+                                                                                                    END_TIME_SEC,
+                                                                                                    TIME_NR_INTERVALS,
+                                                                                                    TIME_START_INTERVAL,
+                                                                                                    TIME_INTERVAL_LENGTH_MINS,
+                                                                                                    DATES,
+                                                                                                    TRIP_WITH_FULL_STOP_PATTERN)
+
         link_times_mean_true, link_times_sd_true, nr_time_dpoints_true = link_times_true
         save(path_route_stops, stops)
         save(path_link_times_mean, link_times_mean_true)
         save(path_ordered_trips, ordered_trips)
         save(path_departure_times_xtr, sched_deps_in)
         save('in/xtr/rt_20-2019-09/scheduled_arrivals_inbound.pkl', sched_arrs_in)
-        sched_dep1_out, sched_dep2_out, sched_arr_out, trip_times1_params, trip_times2_params, \
+        save('in/xtr/rt_20-2019-09/bus_ids_inbound.pkl', bus_ids_in)
+        trips1_info_out, trips2_info_out, sched_arrs_out, trip_times1_params, trip_times2_params, \
         deadhead_time_params = get_outbound_travel_time(
             path_stop_times, START_TIME_SEC, END_TIME_SEC, DATES, TRIP_TIME_NR_INTERVALS, TRIP_TIME_START_INTERVAL,
             TRIP_TIME_INTERVAL_LENGTH_MINS)
-        save('in/xtr/rt_20-2019-09/scheduled_departures_outbound1.pkl', sched_dep1_out)
-        save('in/xtr/rt_20-2019-09/scheduled_departures_outbound2.pkl', sched_dep2_out)
-        save('in/xtr/rt_20-2019-09/scheduled_arrivals_outbound.pkl', sched_arr_out)
+        save('in/xtr/rt_20-2019-09/trips1_info_outbound.pkl', trips1_info_out)
+        save('in/xtr/rt_20-2019-09/trips2_info_outbound.pkl', trips2_info_out)
+        save('in/xtr/rt_20-2019-09/scheduled_arrivals_outbound.pkl', sched_arrs_out)
         save('in/xtr/rt_20-2019-09/trip_time1_params.pkl', trip_times1_params)
         save('in/xtr/rt_20-2019-09/trip_time2_params.pkl', trip_times2_params)
         save('in/xtr/rt_20-2019-09/deadhead_times_params.pkl', deadhead_time_params)
@@ -69,58 +72,59 @@ def get_params_inbound():
     odt = load(path_odt_xtr)
     sched_arrivals = load('in/xtr/rt_20-2019-09/scheduled_arrivals_inbound.pkl')
     trip_times = load('in/xtr/rt_20-2019-09/trip_times_inbound.pkl')
-    return stops, link_times_mean, ordered_trips, scheduled_departures, odt, sched_arrivals, trip_times
+    bus_ids = load('in/xtr/rt_20-2019-09/bus_ids_inbound.pkl')
+    return stops, link_times_mean, ordered_trips, scheduled_departures, odt, sched_arrivals, trip_times, bus_ids
 
 
 def get_params_outbound():
     trip_times1_params = load('in/xtr/rt_20-2019-09/trip_time1_params.pkl')
     trip_times2_params = load('in/xtr/rt_20-2019-09/trip_time2_params.pkl')
-    sched_deps1 = load('in/xtr/rt_20-2019-09/scheduled_departures_outbound1.pkl')
-    sched_deps2 = load('in/xtr/rt_20-2019-09/scheduled_departures_outbound2.pkl')
+    trips1_out_info = load('in/xtr/rt_20-2019-09/trips1_info_outbound.pkl')
+    trips2_out_info = load('in/xtr/rt_20-2019-09/trips2_info_outbound.pkl')
     deadhead_times_params = load('in/xtr/rt_20-2019-09/deadhead_times_params.pkl')
     sched_arrs = load('in/xtr/rt_20-2019-09/scheduled_arrivals_outbound.pkl')
-    return trip_times1_params, trip_times2_params, sched_deps1, sched_deps2, deadhead_times_params, sched_arrs
+    return trip_times1_params, trip_times2_params, trips1_out_info, trips2_out_info, deadhead_times_params, sched_arrs
 
 
 # extract_params(route_params=True, validation=True)
 
-STOPS, LINK_TIMES_MEAN, ORDERED_TRIPS, SCHED_DEP_IN, ODT, SCHED_ARRS_IN, TRIP_TIMES_INPUT = get_params_inbound()
-TRIP_TIMES1_PARAMS, TRIP_TIMES2_PARAMS, SCHED_DEP_OUT1, SCHED_DEP_OUT2, DEADHEAD_TIME_PARAMS, SCHED_ARRS_OUT = get_params_outbound()
-print([str(timedelta(seconds=x)) for x in SCHED_ARRS_OUT])
-print([str(timedelta(seconds=x)) for x in SCHED_DEP_IN])
+STOPS, LINK_TIMES_MEAN, TRIP_IDS_IN, SCHED_DEP_IN, ODT, SCHED_ARRS_IN, TRIP_TIMES_INPUT, BUS_IDS_IN = get_params_inbound()
+TRIP_TIMES1_PARAMS, TRIP_TIMES2_PARAMS, TRIPS1_INFO_OUT, TRIPS2_INFO_OUT, DEADHEAD_TIME_PARAMS, SCHED_ARRS_OUT = get_params_outbound()
 
-print([str(timedelta(seconds=x)) for x in SCHED_ARRS_IN])
-print([str(timedelta(seconds=x)) for x in sorted(SCHED_DEP_OUT1 + SCHED_DEP_OUT2)])
-sched_dep_out_id = np.array([1] * len(SCHED_DEP_OUT1) + [2] * len(SCHED_DEP_OUT2))
-sched_dep_out_t = np.array(SCHED_DEP_OUT1 + SCHED_DEP_OUT2)
-idx_sorted_t = sched_dep_out_t.argsort()
-sorted_id = sched_dep_out_id[idx_sorted_t]
-sorted_t = sched_dep_out_t[idx_sorted_t]
-print(sorted_id.tolist())
+trips_in = [(x, y, str(timedelta(seconds=y)), z, 0) for x, y, z in zip(TRIP_IDS_IN, SCHED_DEP_IN, BUS_IDS_IN)]
+trips_out1 = [(x, y, str(timedelta(seconds=y)), z, 1) for x, y, z in TRIPS1_INFO_OUT]
+trips_out2 = [(x, y, str(timedelta(seconds=y)), z, 2) for x, y, z in TRIPS2_INFO_OUT]
 
-print(DEADHEAD_TIME_PARAMS)
-
-
-
+trips_df = pd.DataFrame(trips_in + trips_out1 + trips_out2, columns=['trip_id', 'schd_sec', 'schd_time', 'block_id', 'route_type'])
+trips_df['block_id'] = trips_df['block_id'].astype(str).str[6:].astype(int)
+trips_df = trips_df.sort_values(by=['block_id', 'schd_sec'])
+block_ids = trips_df['block_id'].unique().tolist()
+BLOCK_TRIPS_INFO = []
+for b in block_ids:
+    block_df = trips_df[trips_df['block_id'] == b]
+    trip_ids = block_df['trip_id'].tolist()
+    sched_deps = block_df['schd_sec'].tolist()
+    trip_routes = block_df['route_type'].tolist()
+    BLOCK_TRIPS_INFO.append((b, list(zip(trip_ids, sched_deps, trip_routes))))
 
 warm_up_odt = ODT[4]
 for i in range(4):
     ODT = np.insert(ODT, 0, warm_up_odt, axis=0)
-# for i in range(ODT.shape[0]):
-#     plt.imshow(ODT[i])
-#     plt.colorbar()
-#     plt.savefig('in/vis/odt' + str(i) + '.png')
-#     plt.close()
+cool_down_odt = ODT[4]
+ODT = np.insert(ODT, -1, cool_down_odt, axis=0)
+# print(ODT.shape)
 # SCHEDULED_DEPARTURES = UNIFORM_SCHEDULED_DEPARTURES.copy()
 PAX_INIT_TIME = [0] + [LINK_TIMES_MEAN[s0 + '-' + s1][0] for s0, s1 in zip(STOPS, STOPS[1:])]
 PAX_INIT_TIME = np.array(PAX_INIT_TIME).cumsum()
 PAX_INIT_TIME += SCHED_DEP_IN[0] - (SCHED_DEP_IN[1] - SCHED_DEP_IN[0])
 # print([str(timedelta(seconds=i)) for i in SCHEDULED_DEPARTURES])
-ordered_trips_arr = np.array([ORDERED_TRIPS])
+ordered_trips_arr = np.array([TRIP_IDS_IN])
 scheduled_deps_arr = np.array([SCHED_DEP_IN])
 FOCUS_TRIPS = ordered_trips_arr[
     (scheduled_deps_arr <= FOCUS_END_TIME_SEC) & (scheduled_deps_arr >= FOCUS_START_TIME_SEC)].tolist()
 LAST_FOCUS_TRIP = FOCUS_TRIPS[-1]
+LAST_FOCUS_TRIP_BLOCK = trips_df[trips_df['trip_id'] == LAST_FOCUS_TRIP]['block_id'].tolist()[0]
+LAST_FOCUS_TRIP_BLOCK_IDX = block_ids.index(LAST_FOCUS_TRIP_BLOCK)
 # FOR UNIFORM CONDITIONS: TO USE - SET TIME-DEPENDENT TRAVEL TIME AND DEMAND TO FALSE
 UNIFORM_INTERVAL = 1
 SINGLE_LINK_TIMES_MEAN = {key: value[UNIFORM_INTERVAL] for (key, value) in LINK_TIMES_MEAN.items()}
