@@ -39,12 +39,6 @@ def get_route(path_stop_times, start_time_sec, end_time_sec, nr_intervals, start
     ordered_trip_ids = df['trip_id'].tolist()
     scheduled_departures = df['schd_sec'].tolist()
     ordered_block_ids = df['block_id'].tolist()
-    # date_for_bus_id = dates[1]
-    # temp_df = stop_times_df[stop_times_df['trip_id'].isin(ordered_trip_ids)]
-    # temp_df = temp_df[temp_df['avl_arr_time'].astype(str).str[:10] == date_for_bus_id]
-    # temp_df = temp_df[temp_df['stop_sequence'] == 1]
-    # temp_df = temp_df.sort_values(by='schd_sec')
-    # bus_ids = temp_df['bus_id'].tolist()
 
     df_arrivals = stop_times_df[stop_times_df['trip_id'].isin(ordered_trip_ids)]
     df_arrivals = df_arrivals[df_arrivals['stop_sequence'] == 67]
@@ -143,11 +137,17 @@ def get_demand(path_odt, path_stop_times, stops, input_start_interval, input_end
             pax_df = temp_df[temp_df['avl_dep_sec'] <= t_edge1]
             pax_df = pax_df[pax_df['avl_dep_sec'] >= t_edge0]
             if i < len(stops) - 1:
-                ons_rate = (pax_df['ron'].sum() + pax_df['fon'].sum()) * 60 / interval_length
-                arr_rates[j - start_interval, i] = ons_rate
+                ons_rate_by_date = np.zeros(len(dates))
+                for k in range(len(dates)):
+                    day_df = pax_df[pax_df['avl_arr_time'].astype(str).str[:10] == dates[k]]
+                    ons_rate_by_date[k] = (day_df['ron'].sum() + day_df['fon'].sum()) * 60 / interval_length
+                arr_rates[j - start_interval, i] = np.mean(ons_rate_by_date)
             if i:
-                offs_rate = (pax_df['roff'].sum() + pax_df['foff'].sum()) * 60 / interval_length
-                drop_rates[j - start_interval, i] = offs_rate
+                offs_rate_by_date = np.zeros(len(dates))
+                for k in range(len(dates)):
+                    day_df = pax_df[pax_df['avl_arr_time'].astype(str).str[:10] == dates[k]]
+                    offs_rate_by_date[k] = (day_df['roff'].sum() + day_df['foff'].sum()) * 60 / interval_length
+                drop_rates[j - start_interval, i] = np.mean(offs_rate_by_date)
     odt_df = pd.read_csv(path_odt)
     input_interval_groups = []
     for i in range(input_start_interval, input_end_interval, proportion_intervals):
@@ -170,12 +170,18 @@ def get_demand(path_odt, path_stop_times, stops, input_start_interval, input_end
     ridership_non_scaled = np.nansum(od_set, axis=(1, -1))
     ridership_scaled = np.nansum(od_scaled_set, axis=(1, -1))
     ridership_apc = np.nansum(arr_rates, axis=-1)
+    offs_apc = np.nansum(drop_rates, axis=-1)
+    print(ridership_non_scaled)
+    print(ridership_scaled)
+    print(ridership_apc)
+    print(offs_apc)
     return arr_rates, drop_rates, od_scaled_set
 
 
 def biproportional_fitting(od, target_ons, target_offs):
-    balance_target = np.sum(target_ons) / np.sum(target_offs)
-    balanced_target_offs = target_offs * balance_target
+    balance_target_factor = np.sum(target_ons) / np.sum(target_offs)
+    print(balance_target_factor)
+    balanced_target_offs = target_offs * balance_target_factor
     for i in range(15):
         # balance rows
         actual_ons = np.nansum(od, axis=1)
@@ -207,12 +213,6 @@ def get_outbound_travel_time(path_stop_times, start_time, end_time, dates, nr_in
     ordered_trip_ids1 = df1['trip_id'].tolist()
     ordered_deps1 = df1['schd_sec'].tolist()
     ordered_block_ids1 = df1['block_id'].tolist()
-    # date_for_bus_id = dates[1]
-    # temp_df = stop_times_df[stop_times_df['trip_id'].isin(ordered_trip_ids1)]
-    # temp_df = temp_df[temp_df['avl_arr_time'].astype(str).str[:10] == date_for_bus_id]
-    # temp_df = temp_df[temp_df['stop_sequence'] == 1]
-    # temp_df = temp_df.sort_values(by='schd_sec')
-    # ordered_bus_ids1 = temp_df['bus_id'].tolist()
 
     add_sched_dep_time = (datetime.strptime('7:33:30', '%H:%M:%S') - datetime(1900, 1, 1)).total_seconds()
     add_trip_id = 911266020
@@ -240,14 +240,6 @@ def get_outbound_travel_time(path_stop_times, start_time, end_time, dates, nr_in
     #         schd_sec = temp['schd_sec'].mean()
     #         print([t, str(timedelta(seconds=schd_sec))])
 
-    # df_deps1 = stop_times_df[stop_times_df['trip_id'].isin(ordered_trip_ids1)]
-    # df_deps1 = df_deps1[df_deps1['stop_sequence'] == 1]
-    # df_deps1 = df_deps1.sort_values(by='schd_sec')
-    # df_deps1 = df_deps1.drop_duplicates(subset='trip_id')
-    # sched_deps1 = df_deps1['schd_sec'].tolist()
-    # add_sched_dep_time = (datetime.strptime('7:33:30', '%H:%M:%S') - datetime(1900, 1, 1)).total_seconds()
-    # sched_deps1.append(int(add_sched_dep_time))
-
     df2 = stop_times_df[stop_times_df['stop_sequence'] == 1]
     df2 = df2[df2['stop_id'] == 15136]
     df2 = df2[df2['schd_sec'] <= end_time]
@@ -257,13 +249,6 @@ def get_outbound_travel_time(path_stop_times, start_time, end_time, dates, nr_in
     ordered_trip_ids2 = df2['trip_id'].tolist()
     ordered_deps2 = df2['schd_sec'].tolist()
     ordered_block_ids2 = df2['block_id'].tolist()
-    # temp_df = stop_times_df[stop_times_df['trip_id'].isin(ordered_trip_ids2)]
-    # temp_df = temp_df[temp_df['avl_arr_time'].astype(str).str[:10] == date_for_bus_id]
-    # temp_df = temp_df[temp_df['stop_sequence'] == 1]
-    # temp_df = temp_df.sort_values(by='schd_sec')
-    # ordered_bus_ids2 = temp_df['bus_id'].tolist()
-    # df_deps2 = stop_times_df[stop_times_df['trip_id'].isin(trip_ids2)]
-    # df_deps2 = df_deps2[df_deps2['stop_sequence'] == 1]
 
     all_trip_ids = ordered_trip_ids1 + ordered_trip_ids2
     df_arrivals = stop_times_df[stop_times_df['trip_id'].isin(all_trip_ids)]
@@ -481,7 +466,8 @@ def get_load_profile(stop_times_path, focus_trips, stops):
     stop_times_df = stop_times_df[stop_times_df['trip_id'].isin(focus_trips)]
     for s in stops:
         df = stop_times_df[stop_times_df['stop_id'] == int(s)]
-        lp[s] = df['passenger_load'].mean()
+        load_dataset = remove_outliers(df['passenger_load'].to_numpy())
+        lp[s] = load_dataset.mean()
     return lp
 
 
