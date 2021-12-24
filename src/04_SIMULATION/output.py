@@ -1,3 +1,4 @@
+import matplotlib.pyplot as plt
 from input import *
 
 
@@ -159,7 +160,7 @@ class PostProcessor:
         trip_time_input = load('in/xtr/rt_20-2019-09/trip_times.pkl')
         trip_time_set.append(trip_time_input)
         plot_travel_time_benchmark(trip_time_set, ['simulated', 'observed'], self.colors,
-                                   pathname='out/benchmark/ttd.png')
+                                   pathname='out/validation/ttd.png')
         return
 
     def load_profile_validation(self):
@@ -172,5 +173,15 @@ class PostProcessor:
         lp_input = load('in/xtr/rt_20-2019-09/load_profile.pkl')
         load_profile_set.append(lp_input)
         plot_load_profile_benchmark(load_profile_set, STOPS, ['simulated', 'observed'], self.colors,
-                                    pathname='out/benchmark/lp.png', x_y_lbls=['stop id', 'avg load per trip'])
+                                    pathname='out/validation/lp.png', x_y_lbls=['stop id', 'avg load per trip'])
+        return
+
+    def departure_delay_validation(self):
+        dep_delay_in_input = load('in/xtr/rt_20-2019-09/dep_delay_in.pkl')
+        dep_delay_in_simul = get_departure_delay(self.cp_trips[0], IDX_DEP_T, TRIP_IDS_IN, SCHED_DEP_IN)
+        sns.kdeplot(dep_delay_in_input, label='observed')
+        sns.kdeplot(dep_delay_in_simul, label='simulated')
+        plt.legend()
+        plt.savefig('out/validation/dep_delay.png')
+        plt.close()
         return

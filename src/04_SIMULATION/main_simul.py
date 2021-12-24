@@ -80,8 +80,8 @@ def run_sample_rl():
 # run_base_control_detailed(episodes=10, save=True)
 # other tstamps
 
-path_tr_nc = 'out/NC/trajectories_set_1223-132301.pkl'
-path_p_nc = 'out/NC/pax_set_1223-132301.pkl'
+path_tr_nc = 'out/NC/trajectories_set_1223-170310.pkl'
+path_p_nc = 'out/NC/pax_set_1223-170310.pkl'
 path_tr_eh = 'out/EH/trajectories_set_1222-145437.pkl'
 path_p_eh = 'out/EH/pax_set_1222-145437.pkl'
 path_tr_rl = 'out/RL/trajectory_set_1222-152023.pkl'
@@ -99,11 +99,11 @@ path_p_rl = 'out/RL/pax_set_1222-152023.pkl'
 # post_processor.wait_times()
 
 #
-path_trips = [path_tr_nc]
-path_pax = [path_p_nc]
-tags = ['NC']
-post_processor = PostProcessor(path_trips, path_pax, ['NC'])
-post_processor.dwell_time_validation()
-post_processor.trip_time_dist_validation()
-post_processor.load_profile_validation()
+# path_trips = [path_tr_nc]
+# path_pax = [path_p_nc]
+# post_processor = PostProcessor(path_trips, path_pax, ['NC'])
+# post_processor.departure_delay_validation()
+# post_processor.dwell_time_validation()
+# post_processor.trip_time_dist_validation()
+# post_processor.load_profile_validation()
 print("ran in %.2f seconds" % (time.time()-st))

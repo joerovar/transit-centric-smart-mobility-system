@@ -1,4 +1,7 @@
 from datetime import timedelta
+
+import numpy as np
+
 from pre_process import *
 from post_process import *
 from file_paths import *
@@ -49,8 +52,10 @@ def extract_params(route_params=False, demand=False, validation=False):
         trip_ids_arr = np.array(trip_ids)
         focus_trips = trip_ids_arr[
             (schedule_arr <= FOCUS_END_TIME_SEC) & (schedule_arr >= FOCUS_START_TIME_SEC)].tolist()
-        trip_times, departure_headway_in = get_trip_times(path_stop_times, focus_trips, DATES, START_TIME_SEC,
-                                                          END_TIME_SEC)
+        trip_times, departure_headway_in, dep_delay_in = get_trip_times(path_stop_times, focus_trips, DATES,
+                                                                        START_TIME_SEC,
+                                                                        END_TIME_SEC)
+        save('in/xtr/rt_20-2019-09/dep_delay_in.pkl', dep_delay_in)
         save('in/xtr/rt_20-2019-09/trip_times_inbound.pkl', trip_times)
 
         dwell_times_mean, dwell_times_std, dwell_times_tot = get_dwell_times(path_stop_times, focus_trips, stops, DATES)
@@ -86,7 +91,7 @@ def get_params_outbound():
     return trip_times1_params, trip_times2_params, trips1_out_info, trips2_out_info, deadhead_times_params, sched_arrs
 
 
-extract_params(demand=True, validation=True)
+# extract_params(validation=True)
 
 STOPS, LINK_TIMES_MEAN, TRIP_IDS_IN, SCHED_DEP_IN, ODT, SCHED_ARRS_IN, TRIP_TIMES_INPUT, BUS_IDS_IN = get_params_inbound()
 TRIP_TIMES1_PARAMS, TRIP_TIMES2_PARAMS, TRIPS1_INFO_OUT, TRIPS2_INFO_OUT, DEADHEAD_TIME_PARAMS, SCHED_ARRS_OUT = get_params_outbound()
@@ -95,7 +100,8 @@ trips_in = [(x, y, str(timedelta(seconds=y)), z, 0) for x, y, z in zip(TRIP_IDS_
 # print(trips_in)
 trips_out1 = [(x, y, str(timedelta(seconds=y)), z, 1) for x, y, z in TRIPS1_INFO_OUT]
 trips_out2 = [(x, y, str(timedelta(seconds=y)), z, 2) for x, y, z in TRIPS2_INFO_OUT]
-trips_df = pd.DataFrame(trips_in + trips_out1 + trips_out2, columns=['trip_id', 'schd_sec', 'schd_time', 'block_id', 'route_type'])
+trips_df = pd.DataFrame(trips_in + trips_out1 + trips_out2,
+                        columns=['trip_id', 'schd_sec', 'schd_time', 'block_id', 'route_type'])
 trips_df['block_id'] = trips_df['block_id'].astype(str).str[6:].astype(int)
 trips_df = trips_df.sort_values(by=['block_id', 'schd_sec'])
 block_ids = trips_df['block_id'].unique().tolist()
@@ -107,25 +113,31 @@ for b in block_ids:
     trip_routes = block_df['route_type'].tolist()
     BLOCK_TRIPS_INFO.append((b, list(zip(trip_ids, sched_deps, trip_routes))))
 
-warm_up_odt = np.multiply(ODT[4], 1.0)
-for i in range(4):
-    ODT = np.insert(ODT, 0, warm_up_odt, axis=0)
-cool_down_odt = np.multiply(ODT[4], 1.0)
-ODT = np.insert(ODT, -1, cool_down_odt, axis=0)
-# print(ODT.shape)
-# SCHEDULED_DEPARTURES = UNIFORM_SCHEDULED_DEPARTURES.copy()
+for i in range(ODT.shape[0]):
+    plt.imshow(ODT[i])
+    plt.colorbar()
+    plt.savefig('in/vis/updated_odt' + str(i) + '.png')
+    plt.close()
+warm_up_odt = np.multiply(ODT[0], 0.7)
+ODT = np.insert(ODT, 0, warm_up_odt, axis=0)
+warm_up_odt2 = np.multiply(ODT[0], 0.5)
+ODT = np.insert(ODT, 0, warm_up_odt2, axis=0)
+
 PAX_INIT_TIME = [0] + [LINK_TIMES_MEAN[s0 + '-' + s1][0] for s0, s1 in zip(STOPS, STOPS[1:])]
 PAX_INIT_TIME = np.array(PAX_INIT_TIME).cumsum()
-PAX_INIT_TIME += SCHED_DEP_IN[0] - ((SCHED_DEP_IN[1] - SCHED_DEP_IN[0])/2)
+PAX_INIT_TIME += SCHED_DEP_IN[0] - ((SCHED_DEP_IN[1] - SCHED_DEP_IN[0]) / 2)
 # print([str(timedelta(seconds=i)) for i in SCHEDULED_DEPARTURES])
 ordered_trips_arr = np.array([TRIP_IDS_IN])
 scheduled_deps_arr = np.array([SCHED_DEP_IN])
 FOCUS_TRIPS = ordered_trips_arr[
     (scheduled_deps_arr <= FOCUS_END_TIME_SEC) & (scheduled_deps_arr >= FOCUS_START_TIME_SEC)].tolist()
+FOCUS_TRIPS_SCHED = scheduled_deps_arr[(scheduled_deps_arr <= FOCUS_END_TIME_SEC) & (scheduled_deps_arr >= FOCUS_START_TIME_SEC)].tolist()
+focus_trips_hw = [i - j for i, j in zip(FOCUS_TRIPS_SCHED[1:], FOCUS_TRIPS_SCHED[:-1])]
+FOCUS_TRIPS_HW_CV = round(np.std(focus_trips_hw) / np.mean(focus_trips_hw), 2)
 LAST_FOCUS_TRIP = FOCUS_TRIPS[-1]
 LAST_FOCUS_TRIP_BLOCK = trips_df[trips_df['trip_id'] == LAST_FOCUS_TRIP]['block_id'].tolist()[0]
 LAST_FOCUS_TRIP_BLOCK_IDX = block_ids.index(LAST_FOCUS_TRIP_BLOCK)
+
 # FOR UNIFORM CONDITIONS: TO USE - SET TIME-DEPENDENT TRAVEL TIME AND DEMAND TO FALSE
 UNIFORM_INTERVAL = 1
 SINGLE_LINK_TIMES_MEAN = {key: value[UNIFORM_INTERVAL] for (key, value) in LINK_TIMES_MEAN.items()}
-

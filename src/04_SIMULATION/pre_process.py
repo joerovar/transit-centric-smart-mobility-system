@@ -138,16 +138,20 @@ def get_demand(path_odt, path_stop_times, stops, input_start_interval, input_end
             pax_df = pax_df[pax_df['avl_dep_sec'] >= t_edge0]
             if i < len(stops) - 1:
                 ons_rate_by_date = np.zeros(len(dates))
+                ons_rate_by_date[:] = np.nan
                 for k in range(len(dates)):
                     day_df = pax_df[pax_df['avl_arr_time'].astype(str).str[:10] == dates[k]]
-                    ons_rate_by_date[k] = (day_df['ron'].sum() + day_df['fon'].sum()) * 60 / interval_length
-                arr_rates[j - start_interval, i] = np.mean(ons_rate_by_date)
+                    if not day_df.empty:
+                        ons_rate_by_date[k] = (day_df['ron'].sum() + day_df['fon'].sum()) * 60 / interval_length
+                arr_rates[j - start_interval, i] = np.nanmean(ons_rate_by_date)
             if i:
                 offs_rate_by_date = np.zeros(len(dates))
+                offs_rate_by_date[:] = np.nan
                 for k in range(len(dates)):
                     day_df = pax_df[pax_df['avl_arr_time'].astype(str).str[:10] == dates[k]]
-                    offs_rate_by_date[k] = (day_df['roff'].sum() + day_df['foff'].sum()) * 60 / interval_length
-                drop_rates[j - start_interval, i] = np.mean(offs_rate_by_date)
+                    if not day_df.empty:
+                        offs_rate_by_date[k] = (day_df['roff'].sum() + day_df['foff'].sum()) * 60 / interval_length
+                drop_rates[j - start_interval, i] = np.nanmean(offs_rate_by_date)
     odt_df = pd.read_csv(path_odt)
     input_interval_groups = []
     for i in range(input_start_interval, input_end_interval, proportion_intervals):
@@ -171,16 +175,15 @@ def get_demand(path_odt, path_stop_times, stops, input_start_interval, input_end
     ridership_scaled = np.nansum(od_scaled_set, axis=(1, -1))
     ridership_apc = np.nansum(arr_rates, axis=-1)
     offs_apc = np.nansum(drop_rates, axis=-1)
-    print(ridership_non_scaled)
-    print(ridership_scaled)
-    print(ridership_apc)
-    print(offs_apc)
+    # print(ridership_non_scaled)
+    # print(ridership_scaled)
+    # print(ridership_apc)
+    # print(offs_apc)
     return arr_rates, drop_rates, od_scaled_set
 
 
 def biproportional_fitting(od, target_ons, target_offs):
     balance_target_factor = np.sum(target_ons) / np.sum(target_offs)
-    print(balance_target_factor)
     balanced_target_offs = target_offs * balance_target_factor
     for i in range(15):
         # balance rows
@@ -380,7 +383,7 @@ def get_outbound_travel_time(path_stop_times, start_time, end_time, dates, nr_in
 
 
 def get_trip_times(stop_times_path, focus_trips, dates, start_time, end_time,
-                   tolerance_early_departure=1.5*60):
+                   tolerance_early_departure=1.0*60):
 
     # TRIP TIMES ARE USED FOR CALIBRATION THEREFORE THEY ONLY USE THE FOCUS TRIPS FOR RESULTS ANALYSIS
     trip_times = []
@@ -400,6 +403,7 @@ def get_trip_times(stop_times_path, focus_trips, dates, start_time, end_time,
                         trip_times.append(arrival_sec[-1] - dep_sec[0])
 
     # THIS WE WILL USE TO VALIDATE THE OUTBOUND DIRECTION MODELING HENCE WE TAKE ALL DEPARTURES IN THE PERIOD OF STUDY
+    departure_delay = []
     departure_headway = []
     df = stop_times_df[stop_times_df['stop_id'] == 386]
     df = df[df['stop_sequence'] == 1]
@@ -411,21 +415,28 @@ def get_trip_times(stop_times_path, focus_trips, dates, start_time, end_time,
     for d in dates:
         temp_df = df[df['avl_arr_time'].astype(str).str[:10] == d]
         temp_df = temp_df[temp_df['stop_id'] == 386]
-        temp_df = temp_df.sort_values(by='schd_sec')
-        avl_sec = temp_df['avl_dep_sec'].tolist()
-        if avl_sec:
+        if not temp_df.empty:
+            temp_df = temp_df.sort_values(by='schd_sec')
+            schd_sec = temp_df['schd_sec'].to_numpy()
+            avl_sec = temp_df['avl_dep_sec'].to_numpy()
+            dep_delay = avl_sec % 86400 - schd_sec
+            dep_delay = dep_delay[dep_delay >= 0]
+            departure_delay += dep_delay.tolist()
+            avl_sec = avl_sec.tolist()
             avl_sec.sort()
             temp_dep_hw = [i - j for i, j in zip(avl_sec[1:], avl_sec[:-1])]
             departure_headway += temp_dep_hw
     trip_times = remove_outliers(np.array(trip_times)).tolist()
-    # departure_headway = remove_outliers(np.array(departure_headway)).tolist()
+    departure_headway = remove_outliers(np.array(departure_headway)).tolist()
+    departure_delay = remove_outliers(np.array(departure_delay)).tolist()
+    # print(departure_delay)
     # nr_bins = 15
     # plt.hist(departure_headway, ec='black', bins=nr_bins)
     # plt.xlabel('inbound departure headway (seconds)')
     # plt.tight_layout()
     # plt.savefig('in/vis/departure_headway_inbound.png')
     # plt.close()
-    return trip_times, departure_headway
+    return trip_times, departure_headway, departure_delay
 
 
 def get_dwell_times(stop_times_path, focus_trips, stops, dates):

@@ -690,6 +690,17 @@ def get_journey_times(pax_set, ordered_stops):
     return od_journey_time_mean, od_journey_time_std, od_journey_time_rbt, od_count, jt_sum, extr_jt_sum
 
 
+def get_departure_delay(trajectories_set, idx_dep_t, ordered_trip_ids, sched_departures):
+    departure_delay = []
+    for trajectories in trajectories_set:
+        for trip_id in trajectories:
+            trip_idx = ordered_trip_ids.index(trip_id)
+            sched_dep = sched_departures[trip_idx]
+            actual_dep = trajectories[trip_id][0][idx_dep_t]
+            departure_delay.append(actual_dep - sched_dep)
+    return departure_delay
+
+
 def plot_travel_time_benchmark(tt_set, lbls, colors, pathname=None):
     i = 0
     for tt in tt_set:
