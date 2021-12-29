@@ -6,10 +6,11 @@ class Trip:
         self.trip_id = trip_id
         self.sched_time = sched_time
         self.route_type = route_type
-        # route_type_dict = {0: inbound, 1: outbound long, 2: outbound
-        # short}
-        # event_dict = {0: 'inbound dispatch', 1: 'inbound intermediate', 2: 'inbound arrival', 3: 'outbound dispatch',
-        #               4: 'outbound arrival'}
+        # this will serve as a copy for pax who finished the trip (main one is an attribute of the simulation class)
+        self.completed_pax = []
+        # route_type_dict = {0: inbound, 1: outbound long, 2: outbound short}
+        # event_dict = {0: 'inbound dispatch', 1: 'inbound intermediate', 2: 'inbound arrival',
+        #               3: 'outbound dispatch', 4: 'outbound arrival'}
 
 
 class Passenger:
@@ -30,6 +31,8 @@ class Stop:
         self.stop_id = stop_id
         self.pax = []
         self.last_bus_time = []
+        self.last_arr_times = []
+        self.last_dep_times = []
 
 
 class Bus:
@@ -43,8 +46,8 @@ class Bus:
         self.pax = []
         self.last_stop_id = 0
         self.next_stop_id = 0
-        self.arr_t = 0
-        self.dep_t = 0
-        self.ons = 0
-        self.offs = 0
+        self.arr_t = 0.0
+        self.dep_t = 0.0
+        self.ons = 0.0
+        self.offs = 0.0
         self.denied = 0

@@ -2,7 +2,7 @@ import numpy as np
 import torch as T
 from deep_q_network import DeepQNetwork, DuelingDeepQNetwork
 from replay_memory import ReplayBuffer
-
+from copy import deepcopy
 
 class Agent:
     def __init__(self, gamma, epsilon, lr, n_actions, input_dims,
@@ -78,14 +78,20 @@ class DQNAgent(Agent):
                                    name=self.env_name + '_' + self.algo + '_q_next',
                                    chkpt_dir=self.chkpt_dir)
 
-    def choose_action(self, observation):
+    def choose_action(self, observation, mask_idx=None):
         if np.random.random() > self.epsilon:
             state = T.tensor([observation]).to(self.Q_eval.device)
             actions = self.Q_eval.forward(state)
+            if mask_idx is not None:
+                actions[0][mask_idx] = float('-inf')
             action = T.argmax(actions).item()
         else:
-            action = np.random.choice(self.action_space)
-
+            action_space = np.array(deepcopy(self.action_space))
+            if mask_idx is not None:
+                msk_arr = np.zeros(len(action_space), dtype=bool)
+                msk_arr[mask_idx] = True
+                action_space = action_space[~msk_arr]
+            action = np.random.choice(action_space)
         return action
 
     def learn(self):
@@ -122,13 +128,20 @@ class DDQNAgent(Agent):
                                    name=self.env_name + '_' + self.algo + '_q_next',
                                    chkpt_dir=self.chkpt_dir)
 
-    def choose_action(self, observation):
+    def choose_action(self, observation, mask_idx=None):
         if np.random.random() > self.epsilon:
             state = T.tensor([observation]).to(self.Q_eval.device)
             actions = self.Q_eval.forward(state)
+            if mask_idx is not None:
+                actions[0][mask_idx] = float('-inf')
             action = T.argmax(actions).item()
         else:
-            action = np.random.choice(self.action_space)
+            action_space = np.array(deepcopy(self.action_space))
+            if mask_idx is not None:
+                msk_arr = np.zeros(len(action_space), dtype=bool)
+                msk_arr[mask_idx] = True
+                action_space = action_space[~msk_arr]
+            action = np.random.choice(action_space)
 
         return action
 
@@ -169,13 +182,20 @@ class DuelingDQNAgent(Agent):
                                           name=self.env_name + '_' + self.algo + '_q_next',
                                           chkpt_dir=self.chkpt_dir)
 
-    def choose_action(self, observation):
+    def choose_action(self, observation, mask_idx=None):
         if np.random.random() > self.epsilon:
             state = T.tensor([observation]).to(self.Q_eval.device)
             _, advantage = self.Q_eval.forward(state)
+            if mask_idx is not None:
+                advantage[0][mask_idx] = float('-inf')
             action = T.argmax(advantage).item()
         else:
-            action = np.random.choice(self.action_space)
+            action_space = np.array(deepcopy(self.action_space))
+            if mask_idx is not None:
+                msk_arr = np.zeros(len(action_space), dtype=bool)
+                msk_arr[mask_idx] = True
+                action_space = action_space[~msk_arr]
+            action = np.random.choice(action_space)
 
         return action
 
@@ -220,14 +240,20 @@ class DuelingDDQNAgent(Agent):
                                           name=self.env_name + '_' + self.algo + '_q_next',
                                           chkpt_dir=self.chkpt_dir)
 
-    def choose_action(self, observation):
+    def choose_action(self, observation, mask_idx=None):
         if np.random.random() > self.epsilon:
             state = T.tensor([observation]).to(self.Q_eval.device)
             _, advantage = self.Q_eval.forward(state)
+            if mask_idx is not None:
+                advantage[0][mask_idx] = float('-inf')
             action = T.argmax(advantage).item()
         else:
-            action = np.random.choice(self.action_space)
-
+            action_space = np.array(deepcopy(self.action_space))
+            if mask_idx is not None:
+                msk_arr = np.zeros(len(action_space), dtype=bool)
+                msk_arr[mask_idx] = True
+                action_space = action_space[~msk_arr]
+            action = np.random.choice(action_space)
         return action
 
     def learn(self):

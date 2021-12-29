@@ -1,5 +1,7 @@
 import random
 
+import pandas as pd
+
 from simulation_env import DetailedSimulationEnv, DetailedSimulationEnvWithControl, DetailedSimulationEnvWithDeepRL
 from file_paths import *
 import post_process
@@ -12,9 +14,15 @@ def run_base_detailed(episodes=2, save=False, time_dep_tt=True, time_dep_dem=Tru
     tstamp = datetime.now().strftime('%m%d-%H%M%S')
     trajectories_set = []
     pax_set = []
+    pax_details = []
     for i in range(episodes):
         env = DetailedSimulationEnv(time_dependent_travel_time=time_dep_tt, time_dependent_demand=time_dep_dem)
         done = env.reset_simulation()
+        for s in env.stops:
+            pax = s.pax
+            pax_details += [(s.stop_id, str(timedelta(seconds=round(p.arr_time)))) for p in pax]
+        df_pax = pd.DataFrame(pax_details, columns=['orig_pax', 'arr_time'])
+        df_pax.to_csv('visualize_pax.csv', index=False)
         while not done:
             done = env.prep()
         if save:
@@ -55,48 +63,53 @@ def run_sample_rl():
     trajectories_set = []
     sars_set = []
     pax_set = []
-    for j in range(2):
+    for j in range(20):
         env = DetailedSimulationEnvWithDeepRL()
         done = env.reset_simulation()
         done = env.prep()
         while not done:
             if not env.bool_terminal_state:
-                action = random.randint(0, 2)
+                action = random.randint(0, 4)
                 env.take_action(action)
+            # print('----')
+            # print(env.trips_sars[env.bus.active_trip[0].trip_id][-1])
             env.update_rewards()
             done = env.prep()
         env.process_results()
         trajectories_set.append(env.trajectories)
         sars_set.append(env.trips_sars)
         pax_set.append(env.completed_pax)
-        print(env.pool_sars)
+        # print(env.pool_sars)
 
     # print(list(trajectories_set[0].keys()))
     return
 
 
-# run_sample_rl()
-# run_base_detailed(episodes=10, save=True)
-# run_base_control_detailed(episodes=10, save=True)
+run_sample_rl()
+# run_base_detailed(episodes=15, save=True)
+# run_base_control_detailed(episodes=15, save=True)
 # other tstamps
 
-path_tr_nc = 'out/NC/trajectories_set_1223-170310.pkl'
-path_p_nc = 'out/NC/pax_set_1223-170310.pkl'
-path_tr_eh = 'out/EH/trajectories_set_1222-145437.pkl'
-path_p_eh = 'out/EH/pax_set_1222-145437.pkl'
-path_tr_rl = 'out/RL/trajectory_set_1222-152023.pkl'
-path_p_rl = 'out/RL/pax_set_1222-152023.pkl'
+path_tr_nc = 'out/NC/trajectories_set_1228-174355.pkl'
+path_p_nc = 'out/NC/pax_set_1228-174355.pkl'
+path_tr_eh = 'out/EH/trajectories_set_1228-174400.pkl'
+path_p_eh = 'out/EH/pax_set_1228-174400.pkl'
+path_tr_rl = 'out/RL/trajectory_set_1227-182303.pkl'
+path_p_rl = 'out/RL/pax_set_1227-182303.pkl'
 
-# path_trips = [path_tr_nc, path_tr_eh, path_tr_rl]
-# path_pax = [path_p_nc, path_p_eh, path_p_rl]
-# tags = ['NC', 'EH', 'RL']
+
+# path_trips = [path_tr_nc, path_tr_eh]
+# path_pax = [path_p_nc, path_p_eh]
+# tags = ['NC', 'EH']
 # post_processor = PostProcessor(path_trips, path_pax, tags)
+# post_processor.write_trajectories()
 # post_processor.total_trip_time_distribution()
 # post_processor.headway()
 # post_processor.load_profile()
+# post_processor.wait_times()
 # post_processor.denied()
 # post_processor.hold_time()
-# post_processor.wait_times()
+# post_processor.load_profile_base()
 
 #
 # path_trips = [path_tr_nc]

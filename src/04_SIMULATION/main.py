@@ -23,15 +23,15 @@ if __name__ == '__main__':
                         help='Minimum value for epsilon in epsilon-greedy action selection')
     parser.add_argument('-gamma', type=float, default=0.99,
                         help='Discount factor for update equation.')
-    parser.add_argument('-eps_dec', type=float, default=9e-5,
+    parser.add_argument('-eps_dec', type=float, default=7e-5,
                         help='Linear factor for decreasing epsilon')
     parser.add_argument('-eps', type=float, default=1.0,
                         help='Starting value for epsilon in epsilon-greedy action selection')
-    parser.add_argument('-max_mem', type=int, default=10000,
+    parser.add_argument('-max_mem', type=int, default=5000,
                         help='Maximum size for memory replay buffer')
     parser.add_argument('-bs', type=int, default=32,
                         help='Batch size for replay memory sampling')
-    parser.add_argument('-replace', type=int, default=600,
+    parser.add_argument('-replace', type=int, default=500,
                         help='interval for replacing target network')
     parser.add_argument('-env', type=str, default='BusControl',
                         help='environment')
@@ -49,7 +49,7 @@ if __name__ == '__main__':
     agent = agent_(gamma=args.gamma,
                    epsilon=args.eps,
                    lr=args.lr,
-                   input_dims=[5],
+                   input_dims=[N_STATE_PARAMS_RL],
                    n_actions=N_ACTIONS_RL,
                    mem_size=args.max_mem,
                    eps_min=args.eps_min,
@@ -77,26 +77,19 @@ if __name__ == '__main__':
             env = simulation_env.DetailedSimulationEnvWithDeepRL()
             done = env.reset_simulation()
             done = env.prep()
-            # temp_n_steps = 0
             while not done:
                 trip_id = env.bus.active_trip[0].trip_id
                 all_sars = env.trips_sars[trip_id]
-                # if len(all_sars) > 1:
-                #     if env.bool_terminal_state:
-                #         prev_sars = all_sars[-1]
-                #     else:
-                #         prev_sars = all_sars[-2]
-                    # observation, action, reward, observation_ = prev_sars
-                    # observation = np.array(observation, dtype=np.float32)
-                    # observation_ = np.array(observation_, dtype=np.float32)
-                    # score += reward
-                    # agent.store_transition(observation, action, reward, observation_, int(env.bool_terminal_state))
                 if not env.bool_terminal_state:
                     observation = np.array(all_sars[-1][0], dtype=np.float32)
-                    action = agent.choose_action(observation)
+                    route_progress = observation[IDX_RT_PROGRESS]
+                    pax_at_stop = observation[IDX_PAX_AT_STOP]
+                    if route_progress == 0.0 or pax_at_stop == 0:
+                        action = agent.choose_action(observation, mask_idx=0)
+                    else:
+                        action = agent.choose_action(observation)
                     env.take_action(action)
                 env.update_rewards()
-                # temp_n_steps += 1
                 done = env.prep()
             nr_valuable_experiences = len(env.pool_sars)
             for i in range(nr_valuable_experiences):
@@ -139,7 +132,12 @@ if __name__ == '__main__':
                     trip_id = env.bus.active_trip[0].trip_id
                     all_sars = env.trips_sars[trip_id]
                     observation = np.array(all_sars[-1][0], dtype=np.float32)
-                    action = agent.choose_action(observation)
+                    route_progress = observation[IDX_RT_PROGRESS]
+                    pax_at_stop = observation[IDX_PAX_AT_STOP]
+                    if route_progress == 0.0 or pax_at_stop == 0:
+                        action = agent.choose_action(observation, mask_idx=0)
+                    else:
+                        action = agent.choose_action(observation)
                     env.take_action(action)
                 done = env.prep()
             env.process_results()

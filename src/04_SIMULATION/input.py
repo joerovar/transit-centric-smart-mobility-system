@@ -19,7 +19,17 @@ def extract_params(route_params=False, demand=False, validation=False):
                                                                                                     DATES,
                                                                                                     TRIP_WITH_FULL_STOP_PATTERN)
 
-        link_times_mean_true, link_times_sd_true, nr_time_dpoints_true = link_times_true
+        link_times_mean_true, link_times_cv_true, nr_time_dpoints_true = link_times_true
+        # link_t_mean = [(key, np.around(np.nanmean(value))) for key, value in link_times_mean_true.items()]
+        # link_t_cv = [(key, np.around(np.nanmean(value), decimals=2)) for key, value in link_times_cv_true.items()]
+        # df1 = pd.DataFrame(link_t_mean, columns=['link', 'mean'])
+        # df2 = pd.DataFrame(link_t_cv, columns=['link', 'cv'])
+        # df = df1.merge(df2, on='link')
+        # df.plot(x='mean', y='cv', kind='scatter')
+        # plt.xlabel('mean')
+        # plt.ylabel('cv')
+        # plt.show()
+        # df.to_csv('in/vis/link_times.csv', index=False)
         save(path_route_stops, stops)
         save(path_link_times_mean, link_times_mean_true)
         save(path_ordered_trips, ordered_trips)
@@ -95,7 +105,11 @@ def get_params_outbound():
 
 STOPS, LINK_TIMES_MEAN, TRIP_IDS_IN, SCHED_DEP_IN, ODT, SCHED_ARRS_IN, TRIP_TIMES_INPUT, BUS_IDS_IN = get_params_inbound()
 TRIP_TIMES1_PARAMS, TRIP_TIMES2_PARAMS, TRIPS1_INFO_OUT, TRIPS2_INFO_OUT, DEADHEAD_TIME_PARAMS, SCHED_ARRS_OUT = get_params_outbound()
-
+LINK_TIMES_MEAN['432-15279'][0] = LINK_TIMES_MEAN['432-15279'][1]
+LINK_TIMES_MEAN['3954-8613'][1] = LINK_TIMES_MEAN['3954-8613'][-3]
+LINK_TIMES_MEAN['3954-8613'][2] = LINK_TIMES_MEAN['3954-8613'][-3]
+LINK_TIMES_MEAN['15279-16049'][0] = LINK_TIMES_MEAN['15279-16049'][1]
+LINK_TIMES_MEAN['16049-435'][0] = LINK_TIMES_MEAN['16049-435'][1]
 trips_in = [(x, y, str(timedelta(seconds=y)), z, 0) for x, y, z in zip(TRIP_IDS_IN, SCHED_DEP_IN, BUS_IDS_IN)]
 # print(trips_in)
 trips_out1 = [(x, y, str(timedelta(seconds=y)), z, 1) for x, y, z in TRIPS1_INFO_OUT]
@@ -118,9 +132,9 @@ for i in range(ODT.shape[0]):
     plt.colorbar()
     plt.savefig('in/vis/updated_odt' + str(i) + '.png')
     plt.close()
-warm_up_odt = np.multiply(ODT[0], 0.7)
+warm_up_odt = np.multiply(ODT[0], 0.6)
 ODT = np.insert(ODT, 0, warm_up_odt, axis=0)
-warm_up_odt2 = np.multiply(ODT[0], 0.5)
+warm_up_odt2 = np.multiply(ODT[0], 0.4)
 ODT = np.insert(ODT, 0, warm_up_odt2, axis=0)
 
 PAX_INIT_TIME = [0] + [LINK_TIMES_MEAN[s0 + '-' + s1][0] for s0, s1 in zip(STOPS, STOPS[1:])]
@@ -133,6 +147,9 @@ FOCUS_TRIPS = ordered_trips_arr[
     (scheduled_deps_arr <= FOCUS_END_TIME_SEC) & (scheduled_deps_arr >= FOCUS_START_TIME_SEC)].tolist()
 FOCUS_TRIPS_SCHED = scheduled_deps_arr[(scheduled_deps_arr <= FOCUS_END_TIME_SEC) & (scheduled_deps_arr >= FOCUS_START_TIME_SEC)].tolist()
 focus_trips_hw = [i - j for i, j in zip(FOCUS_TRIPS_SCHED[1:], FOCUS_TRIPS_SCHED[:-1])]
+FOCUS_TRIPS_MEAN_HW = np.mean(focus_trips_hw)
+# print()
+# print(FOCUS_TRIPS_MEAN_HW)
 FOCUS_TRIPS_HW_CV = round(np.std(focus_trips_hw) / np.mean(focus_trips_hw), 2)
 LAST_FOCUS_TRIP = FOCUS_TRIPS[-1]
 LAST_FOCUS_TRIP_BLOCK = trips_df[trips_df['trip_id'] == LAST_FOCUS_TRIP]['block_id'].tolist()[0]
@@ -141,3 +158,28 @@ LAST_FOCUS_TRIP_BLOCK_IDX = block_ids.index(LAST_FOCUS_TRIP_BLOCK)
 # FOR UNIFORM CONDITIONS: TO USE - SET TIME-DEPENDENT TRAVEL TIME AND DEMAND TO FALSE
 UNIFORM_INTERVAL = 1
 SINGLE_LINK_TIMES_MEAN = {key: value[UNIFORM_INTERVAL] for (key, value) in LINK_TIMES_MEAN.items()}
+NO_CONTROL_TRIP_IDS = [TRIP_IDS_IN[0], TRIP_IDS_IN[1], TRIP_IDS_IN[-1]]
+
+# CHOOSING CONTROL POINTS
+# lp = load('in/xtr/rt_20-2019-09/load_profile.pkl')
+# lp_lst = []
+# for s in STOPS:
+#     lp_lst.append(lp[s])
+# avg_odt = np.nanmean(ODT, axis=0)
+# avg_arr_rates = np.nansum(avg_odt, axis=-1)
+# avg_drop_rates = np.nansum(avg_odt, axis=0)
+
+# print([(i-j, str(timedelta(seconds=round(i)))) for i, j in zip(SCHED_DEP_IN[1:], SCHED_DEP_IN[:-1])])
+# plt.plot(avg_arr_rates)
+# plt.plot(avg_drop_rates)
+# plt.plot(lp_lst)
+# controlled_stops_idx = [STOPS.index(cs) for cs in CONTROLLED_STOPS]
+# for csi in controlled_stops_idx:
+#     plt.axvline(csi, color='gray', alpha=0.5, linestyle='dashed')
+# plt.show()
+# plt.close()
+
+
+# trip id 911900030
+# link 15279-16049
+# time 19783.28053003994

@@ -11,16 +11,24 @@ class PostProcessor:
             self.cp_pax.append(load(pax_path))
             self.cp_tags.append(tag)
 
+    def write_trajectories(self):
+        i = 0
+        for trips in self.cp_trips:
+            write_trajectory_set(trips, 'out/trajectories' + str(i) + '.csv', IDX_ARR_T, IDX_DEP_T, IDX_HOLD_TIME,
+                                 header=['trip_id', 'stop_id', 'arr_t', 'dep_t', 'pax_load', 'ons', 'offs', 'denied',
+                                         'hold_time', 'skipped', 'replication'])
+            i += 1
+        return
+
     def headway(self):
-        hw_set = []
+        cv_hw_set = []
         sd_hw_at_tp = []
         for trips in self.cp_trips:
-            temp_hw, _, hw_at_tp = get_headway_from_trajectory_set(trips, IDX_PICK, IDX_DENIED, IDX_ARR_T,
+            temp_cv_hw, hw_at_tp = get_headway_from_trajectory_set(trips, IDX_ARR_T, IDX_DEP_T, STOPS,
                                                                    controlled_stops=CONTROLLED_STOPS)
-            hw_set.append(temp_hw)
-
+            cv_hw_set.append(temp_cv_hw)
             sd_hw_at_tp.append(np.array(hw_at_tp).std())
-        plot_headway_benchmark(hw_set, STOPS, self.cp_tags, self.colors, pathname='out/benchmark/hw.png',
+        plot_headway_benchmark(cv_hw_set, STOPS, self.cp_tags, self.colors, pathname='out/benchmark/hw.png',
                                controlled_stops=CONTROLLED_STOPS)
         return
 
@@ -31,10 +39,15 @@ class PostProcessor:
             trip_time_set.append(trip_time)
         std_run_times = []
         extr_run_times = []
+        mean_run_times = []
         for t in trip_time_set:
             t_arr = np.array(t)
+            mean_run_times.append(t_arr.mean())
             std_run_times.append(t_arr.std())
             extr_run_times.append(np.percentile(t_arr, 95))
+        # print(mean_run_times)
+        # print(std_run_times)
+        # print(extr_run_times)
         plot_travel_time_benchmark(trip_time_set, self.cp_tags, self.colors, pathname='out/benchmark/ttd.png')
         return
 
@@ -42,9 +55,11 @@ class PostProcessor:
         load_profile_set = []
         lp_std_set = []
         for trips in self.cp_trips:
-            temp_lp, temp_lp_std, _, _, _, _ = pax_per_trip_from_trajectory_set(trips, IDX_LOAD, IDX_PICK, IDX_DROP)
+            temp_lp, temp_lp_std, _, _, _ = pax_per_trip_from_trajectory_set(trips, IDX_LOAD, IDX_PICK, IDX_DROP, STOPS)
             load_profile_set.append(temp_lp)
             lp_std_set.append(temp_lp_std)
+        # print(lp_std_set[0])
+        # print(load_profile_set[0])
         plot_load_profile_benchmark(load_profile_set, STOPS, self.cp_tags, self.colors, pathname='out/benchmark/lp.png',
                                     controlled_stops=CONTROLLED_STOPS, x_y_lbls=['stop id', 'avg load per trip'])
         plot_load_profile_benchmark(lp_std_set, STOPS, self.cp_tags, self.colors, pathname='out/benchmark/lp_sd.png',
@@ -66,19 +81,23 @@ class PostProcessor:
     def denied(self):
         denied_set = []
         for trips in self.cp_trips:
-            _, _, _, _, _, tot_ons = pax_per_trip_from_trajectory_set(trips, IDX_LOAD, IDX_PICK, IDX_DROP)
+            _, _, tot_ons, _, _ = pax_per_trip_from_trajectory_set(trips, IDX_LOAD, IDX_PICK, IDX_DROP, STOPS)
             denied_set.append(denied_from_trajectory_set(trips, IDX_DENIED, tot_ons))
         plot_denied_benchmark(denied_set, self.cp_tags, self.colors, pathname='out/benchmark/db.png')
         return
 
     def wait_times(self):
         wait_time_set = []
-        percentile_wt_set = []
+        # percentile_wt_set = []
+        counter = 0
         for pax in self.cp_pax:
-            wt_mean, wt_std, percentile_wt = get_wait_times(pax, STOPS)
+            wt_mean = get_wait_times(pax, STOPS)
             wait_time_set.append(wt_mean)
-            percentile_wt_set.append(percentile_wt)
-        plot_wait_time_benchmark(wait_time_set, STOPS, self.cp_tags, self.colors, pathname='out/benchmark/wt.png')
+            # percentile_wt_set.append(percentile_wt)
+            counter += 1
+        scheduled_avg_wait = FOCUS_TRIPS_MEAN_HW / 2
+        plot_wait_time_benchmark(wait_time_set, STOPS, self.cp_tags, self.colors, pathname='out/benchmark/wt.png',
+                                 scheduled_wait=scheduled_avg_wait, controlled_stops=CONTROLLED_STOPS)
         return
 
     def rbt_difference(self, a, b):
@@ -86,8 +105,8 @@ class PostProcessor:
         idx2 = self.cp_tags.index(b)
         _, _, rbt1, _, _, _ = get_journey_times(self.cp_pax[idx1], STOPS)
         _, _, rbt2, _, _, _ = get_journey_times(self.cp_pax[idx2], STOPS)
-        plot_difference_od(rbt1-rbt2, STOPS, controlled_stops=CONTROLLED_STOPS,
-                           pathname='out/benchmark/rbt_diff_'+self.cp_tags[idx1] + '_' + self.cp_tags[idx2] + '.png',
+        plot_difference_od(rbt1 - rbt2, STOPS, controlled_stops=CONTROLLED_STOPS,
+                           pathname='out/benchmark/rbt_diff_' + self.cp_tags[idx1] + '_' + self.cp_tags[idx2] + '.png',
                            clim=(-250, 250))
         return
 
@@ -100,11 +119,11 @@ class PostProcessor:
             extr_jt_sums.append(extr_jt_sum)
         return
 
-    def params_for_policy(self, tag='RL'):
-        idx = self.cp_tags.index(tag)
-        mean_load_comb, _, ons_comb, _, _, _ = pax_per_trip_from_trajectory_set(self.cp_trips[idx], IDX_LOAD,
-                                                                                IDX_PICK, IDX_DROP)
-        return mean_load_comb, ons_comb
+    # def params_for_policy(self, tag='RL'):
+    #     idx = self.cp_tags.index(tag)
+    #     mean_load_comb, _, ons_comb, _, _, _ = pax_per_trip_from_trajectory_set(self.cp_trips[idx], IDX_LOAD,
+    #                                                                             IDX_PICK, IDX_DROP, STOPS)
+    #     return mean_load_comb, ons_comb
 
     def dwell_time_validation(self):
         dt_set = []
@@ -125,7 +144,7 @@ class PostProcessor:
         tags = ['simulated', 'observed']
         i = 0
         for d in dt_set:
-            plt.plot([i for i in range(1, len(d)+1)], d.values(), color=self.colors[i], label=tags[i])
+            plt.plot([i for i in range(1, len(d) + 1)], d.values(), color=self.colors[i], label=tags[i])
             i += 1
         plt.ylabel('mean dwell time (seconds)')
         plt.xlabel('stop number')
@@ -135,7 +154,7 @@ class PostProcessor:
 
         i = 0
         for d in dt_std_set:
-            plt.plot([i for i in range(1, len(d)+1)], d.values(), color=self.colors[i], label=tags[i])
+            plt.plot([i for i in range(1, len(d) + 1)], d.values(), color=self.colors[i], label=tags[i])
             i += 1
         plt.ylabel('std dwell time (seconds)')
         plt.xlabel('stop number')
@@ -167,7 +186,7 @@ class PostProcessor:
         load_profile_set = []
         lp_std_set = []
         for trips in self.cp_trips:
-            temp_lp, temp_lp_std, _, _, _, _ = pax_per_trip_from_trajectory_set(trips, IDX_LOAD, IDX_PICK, IDX_DROP)
+            temp_lp, temp_lp_std, _, _, _ = pax_per_trip_from_trajectory_set(trips, IDX_LOAD, IDX_PICK, IDX_DROP, STOPS)
             load_profile_set.append(temp_lp)
             lp_std_set.append(temp_lp_std)
         lp_input = load('in/xtr/rt_20-2019-09/load_profile.pkl')
@@ -184,4 +203,13 @@ class PostProcessor:
         plt.legend()
         plt.savefig('out/validation/dep_delay.png')
         plt.close()
+        return
+
+    def load_profile_base(self):
+        lp, _, _, ons, offs = pax_per_trip_from_trajectory_set(self.cp_trips[0], IDX_LOAD, IDX_PICK, IDX_DROP, STOPS)
+        through = np.subtract(lp, offs)
+        through = through.tolist()
+        plot_load_profile(ons, offs, lp, STOPS, through, pathname='out/load_profile_NC.png',
+                          x_y_lbls=['stop id', 'number of passengers', 'number of through passengers and passenger load'],
+                          controlled_stops=CONTROLLED_STOPS)
         return

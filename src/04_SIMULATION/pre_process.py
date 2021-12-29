@@ -63,6 +63,7 @@ def get_route(path_stop_times, start_time_sec, end_time_sec, nr_intervals, start
                         stop_id.pop(0)
                         avl_sec.pop(0)
                         stop_sequence.pop(0)
+                        avl_dep_sec.pop(0)
                 for i in range(len(stop_id)-1):
                     if stop_sequence[i] == stop_sequence[i + 1] - 1:
                         link = stop_id[i]+'-'+stop_id[i+1]
@@ -71,52 +72,34 @@ def get_route(path_stop_times, start_time_sec, end_time_sec, nr_intervals, start
                             link_times_true[link] = [[] for i in range(nr_intervals)]
                         nr_bin = get_interval(avl_sec[i] % 86400, interval_length) - start_interval
                         if 0 <= nr_bin < nr_intervals:
-                            lt = avl_sec[i+1] - avl_sec[i]
+                            # lt = avl_sec[i+1] - avl_sec[i]
                             lt2 = avl_sec[i+1] - avl_dep_sec[i]
-                            if lt > 0:
-                                link_times[link][nr_bin].append(lt)
+                            if lt2 > 0:
+                                # link_times[link][nr_bin].append(lt)
                                 link_times_true[link][nr_bin].append(lt2)
 
     mean_link_times_true = {}
-    stdev_link_times_true = {}
+    cv_link_times_true = {}
     nr_dpoints_link_times_true = {}
 
     for link in link_times_true:
         mean_link_times_true[link] = []
-        stdev_link_times_true[link] = []
+        cv_link_times_true[link] = []
         nr_dpoints_link_times_true[link] = []
         for b in link_times_true[link]:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", category=RuntimeWarning)
                 b_array = np.array(b)
                 b_array = remove_outliers(b_array)
-                mean_link_times_true[link].append(round(b_array.mean(),1))
-                stdev_link_times_true[link].append(round(b_array.std(),1))
+                mean_link_times_true[link].append(round(b_array.mean(), 1))
+                cv_link_times_true[link].append(round(b_array.std() / b_array.mean(), 1))
                 nr_dpoints_link_times_true[link].append(len(b_array))
 
     df_forstops = stop_times_df[stop_times_df['trip_id'] == trip_choice]
     df_forstops = df_forstops[df_forstops['avl_arr_time'].astype(str).str[:10] == dates[0]]
     df_forstops = df_forstops.sort_values(by='stop_sequence')
     all_stops = df_forstops['stop_id'].astype(str).tolist()
-
-    # mean_link_times = {}
-    # stdev_link_times = {}
-    # nr_dpoints_link_times = {}
-    # for link in link_times:
-    #     mean_link_times[link] = []
-    #     stdev_link_times[link] = []
-    #     nr_dpoints_link_times[link] = []
-    #     for b in link_times[link]:
-    #         with warnings.catch_warnings():
-    #             warnings.simplefilter("ignore", category=RuntimeWarning)
-    #             b_array = np.array(b)
-    #             b_array = remove_outliers(b_array)
-    #             mean_link_times[link].append(round(b_array.mean(), 1))
-    #             stdev_link_times[link].append(round(b_array.std(), 1))
-    #             nr_dpoints_link_times[link].append(len(b_array))
-    # link_times_info = (mean_link_times, stdev_link_times, nr_dpoints_link_times)
-    # print([len(ordered_trip_ids), len(scheduled_departures), len(ordered_block_ids)])
-    link_times_true_info = (mean_link_times_true, stdev_link_times_true, nr_dpoints_link_times_true)
+    link_times_true_info = (mean_link_times_true, cv_link_times_true, nr_dpoints_link_times_true)
     return all_stops, ordered_trip_ids, link_times_true_info, scheduled_departures, sched_arrivals, ordered_block_ids
 
 
@@ -134,8 +117,8 @@ def get_demand(path_odt, path_stop_times, stops, input_start_interval, input_end
         for j in range(start_interval, end_interval):
             t_edge0 = j * interval_length * 60
             t_edge1 = (j + 1) * interval_length * 60
-            pax_df = temp_df[temp_df['avl_dep_sec'] <= t_edge1]
-            pax_df = pax_df[pax_df['avl_dep_sec'] >= t_edge0]
+            pax_df = temp_df[temp_df['avl_dep_sec'] % 86400 <= t_edge1]
+            pax_df = pax_df[pax_df['avl_dep_sec'] % 86400 >= t_edge0]
             if i < len(stops) - 1:
                 ons_rate_by_date = np.zeros(len(dates))
                 ons_rate_by_date[:] = np.nan
@@ -175,6 +158,7 @@ def get_demand(path_odt, path_stop_times, stops, input_start_interval, input_end
     ridership_scaled = np.nansum(od_scaled_set, axis=(1, -1))
     ridership_apc = np.nansum(arr_rates, axis=-1)
     offs_apc = np.nansum(drop_rates, axis=-1)
+    # print(arr_rates[:, 1])
     # print(ridership_non_scaled)
     # print(ridership_scaled)
     # print(ridership_apc)
@@ -472,13 +456,13 @@ def write_inbound_trajectories(stop_times_path, ordered_trips):
 
 
 def get_load_profile(stop_times_path, focus_trips, stops):
-    lp = {}
+    lp = []
     stop_times_df = pd.read_csv(stop_times_path)
     stop_times_df = stop_times_df[stop_times_df['trip_id'].isin(focus_trips)]
     for s in stops:
         df = stop_times_df[stop_times_df['stop_id'] == int(s)]
-        load_dataset = remove_outliers(df['passenger_load'].to_numpy())
-        lp[s] = load_dataset.mean()
+        lp_dataset = remove_outliers(df['passenger_load'].to_numpy())
+        lp.append(lp_dataset.mean())
     return lp
 
 
