@@ -19,11 +19,11 @@ if __name__ == '__main__':
                         help='Number of games to play')
     parser.add_argument('-lr', type=float, default=0.0001,
                         help='Learning rate for optimizer')
-    parser.add_argument('-eps_min', type=float, default=0.1,
+    parser.add_argument('-eps_min', type=float, default=0.02,
                         help='Minimum value for epsilon in epsilon-greedy action selection')
     parser.add_argument('-gamma', type=float, default=0.99,
                         help='Discount factor for update equation.')
-    parser.add_argument('-eps_dec', type=float, default=7e-5,
+    parser.add_argument('-eps_dec', type=float, default=4e-5,
                         help='Linear factor for decreasing epsilon')
     parser.add_argument('-eps', type=float, default=1.0,
                         help='Starting value for epsilon in epsilon-greedy action selection')
@@ -64,8 +64,7 @@ if __name__ == '__main__':
         # --------------------------------------------------- TRAINING -----------------------------------------
 
         tstamp_save = time.strftime("%m%d-%H%M")
-        fname = args.algo + '_' + args.env + '_alpha' + str(args.lr) + '_' + \
-                str(args.n_games) + 'eps_' + tstamp_save
+        fname = args.algo + '_' + args.env + '_alpha' + str(args.lr) + '_' + str(args.n_games) + 'eps_' + tstamp_save
 
         figure_file = 'out/training plots/' + fname + '.png'
         scores_file = fname + '_scores.npy'
@@ -77,6 +76,7 @@ if __name__ == '__main__':
             env = simulation_env.DetailedSimulationEnvWithDeepRL()
             done = env.reset_simulation()
             done = env.prep()
+            nr_sars_stored = 0
             while not done:
                 trip_id = env.bus.active_trip[0].trip_id
                 all_sars = env.trips_sars[trip_id]
@@ -90,17 +90,27 @@ if __name__ == '__main__':
                         action = agent.choose_action(observation)
                     env.take_action(action)
                 env.update_rewards()
+                if len(env.pool_sars) > nr_sars_stored:
+                    observation, action, reward, observation_, terminal = env.pool_sars[-1]
+                    observation = np.array(observation, dtype=np.float32)
+                    observation_ = np.array(observation_, dtype=np.float32)
+                    score += reward
+                    terminal = int(terminal)
+                    agent.store_transition(observation, action, reward, observation_, terminal)
+                    agent.learn()
+                    nr_sars_stored += 1
+                    n_steps += 1
                 done = env.prep()
-            nr_valuable_experiences = len(env.pool_sars)
-            for i in range(nr_valuable_experiences):
-                observation, action, reward, observation_, terminal = env.pool_sars[i]
-                observation = np.array(observation, dtype=np.float32)
-                observation_ = np.array(observation_, dtype=np.float32)
-                score += reward
-                terminal = int(terminal)
-                agent.store_transition(observation, action, reward, observation_, terminal)
-                agent.learn()
-            n_steps += nr_valuable_experiences
+            # nr_valuable_experiences = len(env.pool_sars)
+            # for i in range(nr_valuable_experiences):
+            #     observation, action, reward, observation_, terminal = env.pool_sars[i]
+            #     observation = np.array(observation, dtype=np.float32)
+            #     observation_ = np.array(observation_, dtype=np.float32)
+            #     score += reward
+            #     terminal = int(terminal)
+            #     agent.store_transition(observation, action, reward, observation_, terminal)
+            #     agent.learn()
+            # n_steps += nr_valuable_experiences
             scores.append(score)
             steps_array.append(n_steps)
             avg_score = np.mean(scores[-100:])

@@ -28,8 +28,9 @@ class PostProcessor:
                                                                    controlled_stops=CONTROLLED_STOPS)
             cv_hw_set.append(temp_cv_hw)
             sd_hw_at_tp.append(np.array(hw_at_tp).std())
-        plot_headway_benchmark(cv_hw_set, STOPS, self.cp_tags, self.colors, pathname='out/benchmark/hw.png',
-                               controlled_stops=CONTROLLED_STOPS)
+        # plot_headway_benchmark(cv_hw_set, STOPS, self.cp_tags, self.colors, pathname='out/benchmark/hw.png',
+        #                        controlled_stops=CONTROLLED_STOPS)
+        print(print(f'mean cv headway {[np.mean(cv) for cv in cv_hw_set]}'))
         return
 
     def total_trip_time_distribution(self):
@@ -48,7 +49,8 @@ class PostProcessor:
         # print(mean_run_times)
         # print(std_run_times)
         # print(extr_run_times)
-        plot_travel_time_benchmark(trip_time_set, self.cp_tags, self.colors, pathname='out/benchmark/ttd.png')
+        # plot_travel_time_benchmark(trip_time_set, self.cp_tags, self.colors, pathname='out/benchmark/ttd.png')
+        print(f'trip time percentile {[np.percentile(t, 90) for t in trip_time_set]}')
         return
 
     def load_profile(self):
@@ -73,9 +75,10 @@ class PostProcessor:
             ht_per_stop, ht_per_trip, ht_dist_per_trip = hold_time_from_trajectory_set(trips, IDX_HOLD_TIME)
             hold_time_set.append(ht_per_trip)
             hold_time_dist_set.append(ht_dist_per_trip)
-        plot_mean_hold_time_benchmark(hold_time_set, self.cp_tags, self.colors, pathname='out/benchmark/ht.png')
-        plot_hold_time_distribution_benchmark(hold_time_dist_set, self.cp_tags, self.colors,
-                                              pathname='out/benchmark/ht_dist.png')
+        # plot_mean_hold_time_benchmark(hold_time_set, self.cp_tags, self.colors, pathname='out/benchmark/ht.png')
+        # plot_hold_time_distribution_benchmark(hold_time_dist_set, self.cp_tags, self.colors,
+        #                                       pathname='out/benchmark/ht_dist.png')
+        print(f'hold time mean {[np.nanmean(ht) for ht in hold_time_dist_set]}')
         return
 
     def denied(self):
@@ -88,16 +91,16 @@ class PostProcessor:
 
     def wait_times(self):
         wait_time_set = []
-        # percentile_wt_set = []
         counter = 0
         for pax in self.cp_pax:
             wt_mean = get_wait_times(pax, STOPS)
             wait_time_set.append(wt_mean)
-            # percentile_wt_set.append(percentile_wt)
             counter += 1
         scheduled_avg_wait = FOCUS_TRIPS_MEAN_HW / 2
-        plot_wait_time_benchmark(wait_time_set, STOPS, self.cp_tags, self.colors, pathname='out/benchmark/wt.png',
-                                 scheduled_wait=scheduled_avg_wait, controlled_stops=CONTROLLED_STOPS)
+        # plot_wait_time_benchmark(wait_time_set, STOPS, self.cp_tags, self.colors, pathname='out/benchmark/wt.png',
+        #                          scheduled_wait=scheduled_avg_wait, controlled_stops=CONTROLLED_STOPS)
+        print(f'wait time {[np.nanmean(wt) for wt in wait_time_set]}')
+        print(f'wait time percentile {[np.nanpercentile(wt, 90) for wt in wait_time_set]}')
         return
 
     def rbt_difference(self, a, b):

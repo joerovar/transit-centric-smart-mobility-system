@@ -1,7 +1,6 @@
 import random
-
+import numpy as np
 import pandas as pd
-
 from simulation_env import DetailedSimulationEnv, DetailedSimulationEnvWithControl, DetailedSimulationEnvWithDeepRL
 from file_paths import *
 import post_process
@@ -69,22 +68,34 @@ def run_sample_rl():
         done = env.reset_simulation()
         done = env.prep()
         while not done:
+            trip_id = env.bus.active_trip[0].trip_id
+            all_sars = env.trips_sars[trip_id]
             if not env.bool_terminal_state:
-                action = random.randint(0, 1)
+                observation = np.array(all_sars[-1][0], dtype=np.float32)
+                route_progress = observation[0]
+                pax_at_stop = observation[4]
+                if route_progress == 0.0 or pax_at_stop == 0:
+                    action = random.randint(1, 4)
+                else:
+                    action = random.randint(0, 4)
                 # action = random.randint(0, 4)
                 env.take_action(action)
             env.update_rewards()
+            # print(len(env.pool_sars))
             done = env.prep()
         # env.process_results()
         # trajectories_set.append(env.trajectories)
         # sars_set.append(env.trips_sars)
         # pax_set.append(env.completed_pax)
-        for sars in env.pool_sars:
-            print(sars)
-        pax_details += [(p.orig_idx, str(timedelta(seconds=round(p.arr_time))), str(timedelta(seconds=round(p.board_time))),
-                         str(timedelta(seconds=round(p.wait_time))),
-                         p.trip_id, p.denied) for p in env.completed_pax]
-        df_pax = pd.DataFrame(pax_details, columns=['orig_pax', 'arr_time', 'board_time', 'wait_time', 'trip_id', 'denied'])
+        print(len(env.pool_sars))
+        for i in range(len(env.pool_sars)):
+            print(env.pool_sars_trip_id[i])
+            print(env.pool_sars[i])
+        pax_details += [(p.orig_idx, p.trip_id, str(timedelta(seconds=round(p.arr_time))),
+                         str(timedelta(seconds=round(p.board_time))), str(timedelta(seconds=round(p.wait_time))),
+                         p.denied) for p in env.completed_pax]
+        df_pax = pd.DataFrame(pax_details, columns=['orig_pax', 'trip_id', 'arr_time', 'board_time', 'wait_time',  'denied'])
+        df_pax = df_pax.sort_values(by=['trip_id', 'orig_pax'])
         df_pax.to_csv('visualize_pax.csv', index=False)
 
     # print(list(trajectories_set[0].keys()))
@@ -167,16 +178,16 @@ def analyze_delays():
 # run_base_control_detailed(episodes=10, save=True)
 # other tstamps
 
-path_tr_nc = 'out/NC/trajectories_set_1230-000823.pkl'
-path_p_nc = 'out/NC/pax_set_1230-000823.pkl'
-path_tr_eh = 'out/EH/trajectories_set_1230-000827.pkl'
-path_p_eh = 'out/EH/pax_set_1230-000827.pkl'
-path_tr_rl = 'out/RL/trajectory_set_1230-040209.pkl'
-path_p_rl = 'out/RL/pax_set_1230-040209.pkl'
+path_tr_nc = 'out/NC/trajectories_set_1230-180430.pkl'
+path_p_nc = 'out/NC/pax_set_1230-180430.pkl'
+path_tr_eh = 'out/EH/trajectories_set_1230-180433.pkl'
+path_p_eh = 'out/EH/pax_set_1230-180433.pkl'
+path_tr_rl = 'out/RL/trajectory_set_1230-180412.pkl'
+path_p_rl = 'out/RL/pax_set_1230-180412.pkl'
 #
 #
 path_trips = [path_tr_nc, path_tr_eh, path_tr_rl]
-path_pax = [path_p_nc, path_p_eh, path_p_eh]
+path_pax = [path_p_nc, path_p_eh, path_p_rl]
 tags = ['NC', 'EH', 'RL']
 post_processor = PostProcessor(path_trips, path_pax, tags)
 post_processor.write_trajectories()

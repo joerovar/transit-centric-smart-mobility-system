@@ -161,6 +161,37 @@ def get_demand(path_odt, path_stop_times, stops, input_start_interval, input_end
                     if not day_df.empty:
                         offs_rate_by_date[k] = (day_df['roff'].sum() + day_df['foff'].sum()) * 60 / interval_length
                 drop_rates[j - start_interval, i] = np.nanmean(offs_rate_by_date)
+
+    # early_arr_rates = np.zeros(shape=(2, len(stops)))
+    # early_drop_rates = np.zeros(shape=(2, len(stops)))
+    # early_start_interval = 5
+    # early_end_interval = 7
+    # for i in range(len(stops)):
+    #     temp_df = apc_df[apc_df['stop_id'] == int(stops[i])]
+    #     for j in range(early_start_interval, early_end_interval):
+    #         t_edge0 = j * interval_length * 60
+    #         t_edge1 = (j + 1) * interval_length * 60
+    #         pax_df = temp_df[temp_df['avl_dep_sec'] % 86400 <= t_edge1]
+    #         pax_df = pax_df[pax_df['avl_dep_sec'] % 86400 >= t_edge0]
+    #         if i < len(stops) - 1:
+    #             ons_rate_by_date = np.zeros(len(dates))
+    #             ons_rate_by_date[:] = np.nan
+    #             for k in range(len(dates)):
+    #                 day_df = pax_df[pax_df['avl_arr_time'].astype(str).str[:10] == dates[k]]
+    #                 if not day_df.empty:
+    #                     ons_rate_by_date[k] = (day_df['ron'].sum() + day_df['fon'].sum()) * 60 / interval_length
+    #             early_arr_rates[j - early_start_interval, i] = np.nanmean(ons_rate_by_date)
+    #         if i:
+    #             offs_rate_by_date = np.zeros(len(dates))
+    #             offs_rate_by_date[:] = np.nan
+    #             for k in range(len(dates)):
+    #                 day_df = pax_df[pax_df['avl_arr_time'].astype(str).str[:10] == dates[k]]
+    #                 if not day_df.empty:
+    #                     offs_rate_by_date[k] = (day_df['roff'].sum() + day_df['foff'].sum()) * 60 / interval_length
+    #             early_drop_rates[j - early_start_interval, i] = np.nanmean(offs_rate_by_date)
+    # ridership_apc = np.nansum(early_arr_rates, axis=-1)
+    # offs_apc = np.nansum(early_drop_rates, axis=-1)
+
     odt_df = pd.read_csv(path_odt)
     input_interval_groups = []
     for i in range(input_start_interval, input_end_interval, proportion_intervals):

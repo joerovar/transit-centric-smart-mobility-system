@@ -666,11 +666,13 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
         self.trips_sars = {}
         self.bool_terminal_state = False
         self.pool_sars = []
+        self.pool_sars_trip_id = []
 
     def reset_simulation(self):
         self.time = START_TIME_SEC
         self.bool_terminal_state = False
         self.pool_sars = []
+        self.pool_sars_trip_id = []
         self.bus = Bus(0)
 
         # for records
@@ -678,6 +680,7 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
         self.trips_sars = {}
         for trip_id in TRIP_IDS_IN:
             self.trajectories[trip_id] = []
+        for trip_id in CONTROL_TRIP_IDS:
             self.trips_sars[trip_id] = []
 
         # initialize buses (we treat each block as a separate bus)
@@ -705,46 +708,6 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
         self.completed_pax = []
         self.initialize_pax_demand()
         return False
-
-    def wait_time_reward(self, s0, s1, agent_bus=False, prev_hold=0, prev_load=0, prev_pax_at_stop=0):
-        bus = self.bus
-        reward_wait_time = 0
-        reward_ride_time = 0
-        trip_id = bus.active_trip[0].trip_id
-        trip_idx = TRIP_IDS_IN.index(trip_id)
-        scheduled_headway = SCHED_DEP_IN[trip_idx] - SCHED_DEP_IN[trip_idx-1]
-        scheduled_wait = scheduled_headway / 2
-        s0_idx = STOPS.index(s0) # you check from those pax boarding next to the control stop (impacted)
-        s1_idx = STOPS.index(s1) # next control point
-        if agent_bus:
-            # agent bus not considered responsible for the wait time impact in the control point upon arrival to it
-            # only responsible for the impact on wait time at the control point for the following trip
-            # and the riding time impact in case of holding which is accounted for later
-            # for example if there was skipping at that stop previously the penalty would otherwise be tremendous
-            # despite having nothing to do with that decision
-            stop_idx_set = [s for s in range(s0_idx + 1, s1_idx)]
-        else:
-            stop_idx_set = [s for s in range(s0_idx + 1, s1_idx + 1)]
-            # +1 is to catch the index of the control point only if it will be used to update
-            # the reward of the front neighbor
-        # print(f'looking for pax in the stop set {stop_idx_set}')
-        # print(f'scheduled wait is {scheduled_wait}')
-        for pax in bus.pax:
-            if pax.orig_idx in stop_idx_set:
-                excess_wait = max(0, pax.wait_time - scheduled_wait)
-                reward_wait_time += excess_wait
-        for pax in self.completed_pax:
-            if pax.trip_id == trip_id and pax.orig_idx in stop_idx_set:
-                excess_wait = max(0, pax.wait_time - scheduled_wait)
-                reward_wait_time += excess_wait
-        if agent_bus:
-            # hold is from sars and prev load from prev state
-            reward_ride_time += prev_hold * (prev_load + prev_pax_at_stop)
-            # add impact on passengers on board
-        reward = reward_ride_time + reward_wait_time
-        reward = (-reward / 60)
-        # in minutes
-        return reward
 
     def fixed_stop_load(self, skip=False):
         bus = self.bus
@@ -869,66 +832,111 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
                 self.fixed_stop_depart(skip=True)
         return
 
+    def wait_time_reward(self, s0, s1, neighbor_prev_hold, neighbor_prev_load, neighbor_prev_pax_at_stop):
+        bus = self.bus
+        s0_idx = STOPS.index(s0) # you check from those pax boarding next to the control stop (impacted)
+        s1_idx = STOPS.index(s1) # next control point
+        trip_id = bus.active_trip[0].trip_id
+        trip_idx = TRIP_IDS_IN.index(trip_id)
+
+        # FRONT NEIGHBOR'S REWARD
+        neighbor_trip_idx = trip_idx - 1
+        neighbor_trip_id = TRIP_IDS_IN[neighbor_trip_idx]
+        scheduled_headway = SCHED_DEP_IN[neighbor_trip_idx] - SCHED_DEP_IN[neighbor_trip_idx - 1]
+        scheduled_wait = scheduled_headway / 2
+        # agent bus not considered responsible for the wait time impact in the control point upon arrival to it
+        # only responsible for the impact on wait time at the control point for the following trip
+        # and the riding time impact in case of holding which is accounted for later
+        # for example if there was skipping at that stop previously the penalty would otherwise be tremendous
+        # despite having nothing to do with that decision
+        stop_idx_set = [s for s in range(s0_idx + 1, s1_idx)]
+        # NOW TWO SCENARIOS, EITHER THE FRONT BUS ALREADY FINISHED ITS TRIP AND THEREFORE ALL PAX INFO SHOULD BE IN COMPLETED PAX
+        # OR IT IS STILL ACTIVE AND SOME PAX INFO MAY BE INCLUDED INSIDE BUS ATTRIBUTE PAX
+        neighbor_boardings_count = 0
+        sum_reward_neighbor_wait_time = 0
+        for pax in self.completed_pax:
+            if pax.trip_id == neighbor_trip_id and pax.orig_idx in stop_idx_set:
+                excess_wait = max(0, pax.wait_time - scheduled_wait)
+                sum_reward_neighbor_wait_time += excess_wait
+                neighbor_boardings_count += 1
+        active_buses = [bus for bus in self.buses if bus.active_trip]
+        front_active_bus = [bus for bus in active_buses if bus.active_trip[0].trip_id == neighbor_trip_id]
+        if front_active_bus:
+            for pax in front_active_bus[0].pax:
+                if pax.orig_idx in stop_idx_set:
+                    excess_wait = max(0, pax.wait_time - scheduled_wait)
+                    sum_reward_neighbor_wait_time += excess_wait
+                    neighbor_boardings_count += 1
+        sum_reward_neighbor_ride_time = neighbor_prev_hold * (neighbor_prev_load + neighbor_prev_pax_at_stop)
+
+        # CURRENT TRIP'S REWARD CONTRIBUTION
+        scheduled_headway = SCHED_DEP_IN[trip_idx] - SCHED_DEP_IN[trip_idx - 1]
+        scheduled_wait = scheduled_headway / 2
+        stop_idx_set = [s for s in range(s0_idx, s1_idx)]
+        # +1 is to catch the index of the control point only if it will be used to update
+        sum_reward_behind_wait_time = 0
+        behind_boardings_count = 0
+        for pax in bus.pax:
+            if pax.orig_idx in stop_idx_set:
+                excess_wait = max(0, pax.wait_time - scheduled_wait)
+                sum_reward_behind_wait_time += excess_wait
+                behind_boardings_count += 1
+        for pax in self.completed_pax:
+            if pax.trip_id == trip_id and pax.orig_idx in stop_idx_set:
+                excess_wait = max(0, pax.wait_time - scheduled_wait)
+                sum_reward_behind_wait_time += excess_wait
+                behind_boardings_count += 1
+
+        reward = (sum_reward_neighbor_ride_time + 1.5*(sum_reward_neighbor_wait_time + sum_reward_behind_wait_time))
+        ride_time_impacted = neighbor_prev_load + neighbor_prev_pax_at_stop
+        wait_time_impacted = neighbor_boardings_count + behind_boardings_count
+        if sum_reward_neighbor_ride_time:
+            tot_pax = ride_time_impacted + wait_time_impacted
+        else:
+            tot_pax = wait_time_impacted
+        reward = (-reward / tot_pax / 60) if tot_pax else 0
+        # in minutes
+        return reward
+
     def update_rewards(self):
         bus = self.bus
-        if bus.last_stop_id != CONTROLLED_STOPS[0]:
-            trip_id = bus.active_trip[0].trip_id
-            curr_control_stop_idx = CONTROLLED_STOPS.index(bus.last_stop_id)
-            curr_control_stop = CONTROLLED_STOPS[curr_control_stop_idx]
-            prev_control_stop = CONTROLLED_STOPS[curr_control_stop_idx - 1]
-            # print(prev_control_stop)
+        trip_id = bus.active_trip[0].trip_id
+
+        if trip_id != CONTROL_TRIP_IDS[0] and bus.last_stop_id != CONTROLLED_STOPS[0]:
             # KEY STEP: WE NEED TO DO TWO THINGS:
 
             # ONE IS TO FILL IN THE AGENT'S REWARD FOR THE PREVIOUS STEP (IF THERE IS A PREVIOUS STEP)
-            prev_sars = self.trips_sars[trip_id][-2]
+
+            # TWO IS TO FILL THE FRONT NEIGHBOR'S REWARD FOR ITS PREVIOUS STEP (IF THERE IS AN ACTIVE FRONT NEIGHBOR)
+            # TWO ALSO TRIGGERS SENDING THE SARS TUPLE INTO THE POOL OF COMPLETED EXPERIENCES
+            curr_control_stop_idx = CONTROLLED_STOPS.index(bus.last_stop_id)
+            curr_control_stop = CONTROLLED_STOPS[curr_control_stop_idx]
+            prev_control_stop = CONTROLLED_STOPS[curr_control_stop_idx - 1]
+            stop_idx = STOPS.index(self.bus.last_stop_id)
+            route_progress = stop_idx / len(STOPS)
+            trip_idx = TRIP_IDS_IN.index(trip_id)
+            neighbor_trip_id = TRIP_IDS_IN[trip_idx - 1]
+            neighbor_sars_set = self.trips_sars[neighbor_trip_id]
+            find_idx_sars = None
+            for n in range(len(neighbor_sars_set)):
+                if neighbor_sars_set[n][3]:
+                    route_progress_neighbor = neighbor_sars_set[n][3][IDX_RT_PROGRESS]
+                    if round(route_progress_neighbor, 2) == round(route_progress, 2):
+                        find_idx_sars = n
+                        break
+            if find_idx_sars is None:
+                print(f'trip id {trip_id} trying to find trip id {neighbor_trip_id} at time {str(timedelta(seconds=round(self.time)))}'
+                      f'at stop {curr_control_stop}')
+            prev_sars = self.trips_sars[neighbor_trip_id][find_idx_sars]
             prev_action = prev_sars[1]
             prev_hold = (prev_action - 1) * BASE_HOLDING_TIME if prev_action > 1 else 0
             prev_load = prev_sars[0][IDX_LOAD_RL]
             prev_pax_at_stop = prev_sars[0][IDX_PAX_AT_STOP]
-            # print('-----------')
-            # print(f'time {str(timedelta(seconds=round(self.time)))}')
-            # print(f'trip id {trip_id}')
-            # print(f'about to handle immediate reward on action {prev_action} taken at {prev_control_stop} '
-            #       f'yielding hold time {prev_hold}'
-            #       f' on {prev_load} pax on bus and {prev_pax_at_stop} pax to board')
-            self.trips_sars[trip_id][-2][2] = self.wait_time_reward(prev_control_stop, curr_control_stop,
-                                                                    agent_bus=True, prev_hold=prev_hold,
-                                                                    prev_load=prev_load,
-                                                                    prev_pax_at_stop=prev_pax_at_stop)
-            # TWO IS TO FILL THE FRONT NEIGHBOR'S REWARD FOR ITS PREVIOUS STEP (IF THERE IS AN ACTIVE FRONT NEIGHBOR)
-            # TWO ALSO TRIGGERS SENDING THE SARS TUPLE INTO THE POOL OF COMPLETED EXPERIENCES
-            if trip_id != TRIP_IDS_IN[2]:
-                # print('accessed update of front neighbors reward!')
-                stop_idx = STOPS.index(self.bus.last_stop_id)
-                route_progress = stop_idx / len(STOPS)
-                trip_idx = TRIP_IDS_IN.index(trip_id)
-                neighbor_trip_id = TRIP_IDS_IN[trip_idx - 1]
-                neighbor_sars_set = self.trips_sars[neighbor_trip_id]
-                # print(f'this is front neighbors sars {neighbor_sars_set}')
-                find_idx_sars = None
-                # print(f'we will look for route progress {round(route_progress, 2)}')
-                for n in range(len(neighbor_sars_set)):
-                    if neighbor_sars_set[n][3]:
-                        route_progress_neighbor = neighbor_sars_set[n][3][IDX_RT_PROGRESS]
-                        # print(f'neighbor route progress to check is {round(route_progress_neighbor, 2)}')
-                        if round(route_progress_neighbor, 2) == round(route_progress, 2):
-                            # print(f'the same!')
-                            find_idx_sars = n
-                            break
-
-                if find_idx_sars is not None:
-                    # print(find_idx_sars)
-                    # print('-----------')
-                    # print(f'time {str(timedelta(seconds=round(self.time)))}')
-                    # print(f'trip id {trip_id}')
-                    # print(f'about to handle delayed reward on action {prev_action} taken at {prev_control_stop} '
-                    #       f'yielding hold time {prev_hold}'
-                    #       f' on {prev_load} pax on bus and {prev_pax_at_stop} pax to board')
-                    reward = self.wait_time_reward(prev_control_stop, curr_control_stop)
-                    self.trips_sars[neighbor_trip_id][find_idx_sars][2] += reward
-                    # print(route_progress)
-                    # print(self.trips_sars[neighbor_trip_id][find_idx_sars])
-                    self.pool_sars.append(self.trips_sars[neighbor_trip_id][find_idx_sars] + [self.bool_terminal_state])
+            reward = self.wait_time_reward(prev_control_stop, curr_control_stop, prev_hold, prev_load, prev_pax_at_stop)
+            self.trips_sars[neighbor_trip_id][find_idx_sars][2] += reward
+            self.pool_sars.append(self.trips_sars[neighbor_trip_id][find_idx_sars] + [self.bool_terminal_state])
+            self.pool_sars_trip_id.append((neighbor_trip_id, trip_id, str(timedelta(seconds=round(self.time))),
+                                           prev_hold))
         return
 
     def prep(self):

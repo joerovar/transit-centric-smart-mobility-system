@@ -15,5 +15,5 @@ from scipy.stats import lognorm, norm
 import seaborn as sn
 from post_process import *
 
-print(random.randint(0, 2))
+
 
