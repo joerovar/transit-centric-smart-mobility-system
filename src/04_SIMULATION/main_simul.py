@@ -190,13 +190,13 @@ path_trips = [path_tr_nc, path_tr_eh, path_tr_rl]
 path_pax = [path_p_nc, path_p_eh, path_p_rl]
 tags = ['NC', 'EH', 'RL']
 post_processor = PostProcessor(path_trips, path_pax, tags)
-post_processor.write_trajectories()
-post_processor.total_trip_time_distribution()
-post_processor.headway()
-post_processor.load_profile()
-post_processor.wait_times()
+# post_processor.write_trajectories()
+# post_processor.total_trip_time_distribution()
+# post_processor.headway()
+# post_processor.load_profile()
+# post_processor.wait_times()
 post_processor.denied()
-post_processor.hold_time()
+# post_processor.hold_time()
 
 # post_processor.load_profile_base()
 
