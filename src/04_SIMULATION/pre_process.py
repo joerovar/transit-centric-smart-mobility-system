@@ -1,10 +1,9 @@
 from datetime import datetime, timedelta
 import numpy as np
 import pandas as pd
-import warnings
 import matplotlib.pyplot as plt
 import seaborn as sns
-from scipy.stats import norm, lognorm
+from scipy.stats import norm, lognorm, kstest
 
 
 def get_interval(t, len_i_mins):
@@ -26,9 +25,12 @@ def remove_outliers(data):
 
 def get_route(path_stop_times, start_time_sec, end_time_sec, nr_intervals, start_interval, interval_length,
               dates, trip_choice, tolerance_early_departure=1.5*60):
-    link_times = {}
-    link_times_true = {}
     stop_times_df = pd.read_csv(path_stop_times)
+
+    df_forstops = stop_times_df[stop_times_df['trip_id'] == trip_choice]
+    df_forstops = df_forstops[df_forstops['avl_arr_time'].astype(str).str[:10] == dates[0]]
+    df_forstops = df_forstops.sort_values(by='stop_sequence')
+    stops = df_forstops['stop_id'].astype(str).tolist()
 
     df = stop_times_df[stop_times_df['stop_id'] == 386]
     df = df[df['stop_sequence'] == 1]
@@ -45,6 +47,9 @@ def get_route(path_stop_times, start_time_sec, end_time_sec, nr_intervals, start
     df_arrivals = df_arrivals.sort_values(by='schd_sec')
     df_arrivals = df_arrivals.drop_duplicates(subset='trip_id')
     sched_arrivals = df_arrivals['schd_sec'].tolist()
+
+    links = [str(s0) + '-' + str(s1) for s0, s1 in zip(stops[:-1], stops[1:])]
+    link_times = {link: [[] for _ in range(nr_intervals)] for link in links}
 
     for t in ordered_trip_ids:
         temp = stop_times_df[stop_times_df['trip_id'] == t]
@@ -67,40 +72,61 @@ def get_route(path_stop_times, start_time_sec, end_time_sec, nr_intervals, start
                 for i in range(len(stop_id)-1):
                     if stop_sequence[i] == stop_sequence[i + 1] - 1:
                         link = stop_id[i]+'-'+stop_id[i+1]
-                        if link not in link_times:
-                            link_times[link] = [[] for i in range(nr_intervals)]
-                            link_times_true[link] = [[] for i in range(nr_intervals)]
-                        nr_bin = get_interval(avl_sec[i] % 86400, interval_length) - start_interval
-                        if 0 <= nr_bin < nr_intervals:
-                            # lt = avl_sec[i+1] - avl_sec[i]
-                            lt2 = avl_sec[i+1] - avl_dep_sec[i]
-                            if lt2 > 0:
-                                # link_times[link][nr_bin].append(lt)
-                                link_times_true[link][nr_bin].append(lt2)
+                        if link in link_times:
+                            nr_bin = get_interval(avl_sec[i] % 86400, interval_length) - start_interval
+                            if 0 <= nr_bin < nr_intervals:
+                                lt2 = avl_sec[i+1] - avl_dep_sec[i]
+                                if lt2 > 0:
+                                    link_times[link][nr_bin].append(lt2)
 
-    mean_link_times_true = {}
-    cv_link_times_true = {}
-    nr_dpoints_link_times_true = {}
+    mean_link_times = {link: [] for link in link_times}
+    # cv_link_times = {link: [] for link in link_times}
+    extreme_link_times = {link: [] for link in link_times}
+    fit_params_link_t = {link: [] for link in link_times}
+    for link in link_times:
+        # print('--------')
+        # print(f'testing for link {link}')
+        for interval_times in link_times[link]:
+            if len(interval_times) > 1:
+                interval_arr = np.array(interval_times)
+                interval_arr = remove_outliers(interval_arr)
 
-    for link in link_times_true:
-        mean_link_times_true[link] = []
-        cv_link_times_true[link] = []
-        nr_dpoints_link_times_true[link] = []
-        for b in link_times_true[link]:
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", category=RuntimeWarning)
-                b_array = np.array(b)
-                b_array = remove_outliers(b_array)
-                mean_link_times_true[link].append(round(b_array.mean(), 1))
-                cv_link_times_true[link].append(round(b_array.std() / b_array.mean(), 1))
-                nr_dpoints_link_times_true[link].append(len(b_array))
+                fit_params = lognorm.fit(interval_arr, floc=0)
+                fit_params_link_t[link].append(fit_params)
+                # print(f'params {fit_params} {kstest(interval_arr, "lognorm", fit_params)}')
 
-    df_forstops = stop_times_df[stop_times_df['trip_id'] == trip_choice]
-    df_forstops = df_forstops[df_forstops['avl_arr_time'].astype(str).str[:10] == dates[0]]
-    df_forstops = df_forstops.sort_values(by='stop_sequence')
-    all_stops = df_forstops['stop_id'].astype(str).tolist()
-    link_times_true_info = (mean_link_times_true, cv_link_times_true, nr_dpoints_link_times_true)
-    return all_stops, ordered_trip_ids, link_times_true_info, scheduled_departures, sched_arrivals, ordered_block_ids
+                mean = interval_arr.mean()
+                # cv = interval_arr.std() / mean
+                extremes = (round(interval_arr.min()), round(interval_arr.max()))
+                mean_link_times[link].append(mean)
+                extreme_link_times[link].append(extremes)
+                # cv_link_times[link].append(round(cv, 2))
+
+                # print(f'TRUE: mean {round(mean, 1)} cv {round(cv, 2)} extremes {extremes}')
+
+                # logn_s = np.sqrt(np.log(np.power(0.27, 2) + 1))
+                # old_dist = lognorm.rvs(logn_s, scale=mean, size=30)
+                # old_mean = old_dist.mean()
+                # old_cv = np.std(old_dist) / old_mean
+                # old_extremes = (round(old_dist.min()), round(old_dist.max()))
+                # print(f'OLD: mean {round(old_mean, 1)} cv {round(old_cv, 2)} extremes {old_extremes}')
+
+                # new_dist = lognorm.rvs(*fit_params, size=30)
+                # new_mean = new_dist.mean()
+                # new_cv = np.std(new_dist) / new_mean
+                # new_extremes = (round(new_dist.min()), round(new_dist.max()))
+                # print(f'NEW: mean {round(new_mean, 1)} cv {round(new_cv, 2)} extremes {new_extremes}')
+
+                # nr_dpoints_link_times[link].append(interval_arr.size)
+            else:
+                mean_link_times[link].append(np.nan)
+                extreme_link_times[link].append(np.nan)
+                fit_params_link_t[link].append(np.nan)
+                # cv_link_times[link].append(np.nan)
+                # nr_dpoints_link_times[link].append(np.nan)
+
+    link_times_info = (mean_link_times, extreme_link_times, fit_params_link_t)
+    return stops, ordered_trip_ids, link_times_info, scheduled_departures, sched_arrivals, ordered_block_ids
 
 
 def get_demand(path_odt, path_stop_times, stops, input_start_interval, input_end_interval, start_interval,
@@ -309,7 +335,6 @@ def get_outbound_travel_time(path_stop_times, start_time, end_time, dates, nr_in
         temp_df = df[df['avl_arr_time'].astype(str).str[:10] == d]
         temp_df = temp_df[temp_df['stop_id'] == 386]
         temp_df = temp_df.sort_values(by='schd_sec')
-        # trip_ids = temp_df['trip_id'].tolist()
         avl_sec = temp_df['avl_sec'].tolist()
         if avl_sec:
             avl_sec.sort()
@@ -326,41 +351,6 @@ def get_outbound_travel_time(path_stop_times, start_time, end_time, dates, nr_in
         trip_times1_params.append(norm.fit(trip_times1[i]))
         trip_times2_params.append(norm.fit(trip_times2[i]))
         deadhead_times_params.append(norm.fit(deadhead_times[i]))
-    # dep_delay1 = np.array(dep_delay1)
-    # dep_delay1 = dep_delay1[dep_delay1 >= 0].tolist()
-    # dep_delay2 = np.array(dep_delay2)
-    # dep_delay2 = dep_delay2[dep_delay2 >= 0].tolist()
-    # dep_delay1 = remove_outliers(np.array(dep_delay1)).tolist()
-    # dep_delay2 = remove_outliers(np.array(dep_delay2)).tolist()
-    # arrival_headway = remove_outliers(np.array(arrival_headway)).tolist()
-    # sns.kdeplot(trip_times1)
-    # plt.xlabel('total trip time (seconds)')
-    # plt.savefig('in/vis/trip_time_outbound(long).png')
-    # plt.close()
-    # sns.kdeplot(trip_times2)
-    # plt.xlabel('total trip time (seconds)')
-    # plt.savefig('in/vis/trip_time_outbound(short).png')
-    # plt.close()
-    # plt.hist(arrival_headway, ec='black', bins=15)
-    # plt.xlabel('outbound arrival headway (seconds)')
-    # plt.tight_layout()
-    # plt.savefig('in/vis/arrival_hw_outbound.png')
-    # plt.close()
-    # plt.hist(dep_delay1, ec='black', bins=15)
-    # plt.xlabel('outbound (long) departure delay (seconds)')
-    # plt.tight_layout()
-    # plt.savefig('in/vis/dep_delay_outbound(long).png')
-    # plt.close()
-    # plt.hist(dep_delay2, ec='black', bins=15)
-    # plt.xlabel('outbound (short) departure delay (seconds)')
-    # plt.tight_layout()
-    # plt.savefig('in/vis/dep_delay_outbound(short).png')
-    # plt.close()
-
-    # dep_delay1_params = lognorm.fit(dep_delay1, loc=0)
-    # dep_delay2_params = lognorm.fit(dep_delay2, loc=0)
-    # print([len(ordered_trip_ids1), len(ordered_deps1), len(ordered_block_ids1)])
-    # print([len(ordered_trip_ids2), len(ordered_deps2), len(ordered_block_ids2)])
     trips1_info = [(x, y, z) for x, y, z in zip(ordered_trip_ids1, ordered_deps1, ordered_block_ids1)]
     trips2_info = [(x, y, z) for x, y, z in zip(ordered_trip_ids2, ordered_deps2, ordered_block_ids2)]
     return trips1_info, trips2_info, sched_arrivals, trip_times1_params, trip_times2_params, deadhead_times_params
@@ -413,13 +403,6 @@ def get_trip_times(stop_times_path, focus_trips, dates, start_time, end_time,
     trip_times = remove_outliers(np.array(trip_times)).tolist()
     departure_headway = remove_outliers(np.array(departure_headway)).tolist()
     departure_delay = remove_outliers(np.array(departure_delay)).tolist()
-    # print(departure_delay)
-    # nr_bins = 15
-    # plt.hist(departure_headway, ec='black', bins=nr_bins)
-    # plt.xlabel('inbound departure headway (seconds)')
-    # plt.tight_layout()
-    # plt.savefig('in/vis/departure_headway_inbound.png')
-    # plt.close()
     return trip_times, departure_headway, departure_delay
 
 
@@ -519,58 +502,3 @@ def bus_availability(sched_arr, sched_dep, actual_arr, iden):
     actual_dep_hw = [j - k for j, k in zip(actual_dep[1:], actual_dep[:-1])]
     return actual_dep_hw
 
-
-def simple_outbound_modeling(dep_delay1_params, dep_delay2_params, trip_time1_params, trip_time2_params,
-                             sched_deps_out1, sched_deps_out2, sched_arr_out, sched_dep_in, observed_hw,
-                             dep_hw_in):
-    # # for generation of graphs you want:
-    # dep_delay1_params = load('in/xtr/rt_20-2019-09/dep_delay1_params.pkl')
-    # # print(dep_delay1_params)
-    # trip_time1_params = load('in/xtr/rt_20-2019-09/trip_time1_params.pkl')
-    # dep_delay2_params = load('in/xtr/rt_20-2019-09/dep_delay2_params.pkl')
-    # # print(dep_delay2_params)
-    # trip_time2_params = load('in/xtr/rt_20-2019-09/trip_time2_params.pkl')
-    # sched_deps_out1 = load('in/xtr/rt_20-2019-09/scheduled_departures_outbound1.pkl')
-    # sched_deps_out2 = load('in/xtr/rt_20-2019-09/scheduled_departures_outbound2.pkl')
-    sim_arr_hws = []
-    # sched_arr_out = load('in/xtr/rt_20-2019-09/scheduled_arrivals_outbound.pkl')
-    # observed_hw = load('in/xtr/rt_20-2019-09/arrival_headway_outbound.pkl')
-    # sched_dep_in = load('in/xtr/rt_20-2019-09/departure_times_inbound.pkl')
-    sim_dep_hws = []
-    for i in range(4):
-        # long pattern
-        dep_delay1 = lognorm.rvs(dep_delay1_params[0], loc=dep_delay1_params[1], scale=dep_delay1_params[2], size=len(sched_deps_out1))
-        trip_times1 = norm.rvs(loc=trip_time1_params[0], scale=trip_time1_params[1], size=len(sched_deps_out1))
-        sim_arr1 = [i + j + k for i, j, k in zip(sched_deps_out1, dep_delay1, trip_times1)]
-        # plt.hist(dep_delay1, bins=15, ec='black')
-        # plt.show()
-        # plt.close()
-        # short pattern
-        dep_delay2 = lognorm.rvs(dep_delay2_params[0], loc=dep_delay2_params[1], scale=dep_delay2_params[2], size=len(sched_deps_out2))
-        trip_times2 = norm.rvs(loc=trip_time2_params[0], scale=trip_time2_params[1], size=len(sched_deps_out2))
-        sim_arr2 = [i + j + k for i, j, k in zip(sched_deps_out2, dep_delay2, trip_times2)]
-        # plt.hist(dep_delay2, bins=15, ec='black')
-        # plt.show()
-        # plt.close()
-        # join and validate with scheduled arrivals and arrival headway
-        sim_arr = sim_arr1 + sim_arr2
-        sim_arr.sort()
-        sim_arr_hw = [round(i - j) for i, j in zip(sim_arr[1:], sim_arr[:-1])]
-        sim_arr_hws += sim_arr_hw
-        sim_dep_hw = bus_availability(sched_arr_out, sched_dep_in, sim_arr, str(i))
-        sim_dep_hws += sim_dep_hw
-
-    sns.kdeplot(observed_hw, label='observed')
-    sns.kdeplot(sim_arr_hws, label='simulated')
-    plt.xlabel('outbound arrival headway (seconds)')
-    plt.legend()
-    plt.savefig('in/vis/validate_arrival_hw_out.png')
-    plt.close()
-
-    sns.kdeplot(dep_hw_in, label='observed')
-    sns.kdeplot(sim_dep_hws, label='simulated')
-    plt.xlabel('inbound departure headway (seconds)')
-    plt.legend()
-    plt.savefig('in/vis/validate_depart_hw_in.png')
-    plt.close()
-    return

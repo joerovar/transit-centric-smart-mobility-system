@@ -51,3 +51,9 @@ class Bus:
         self.ons = 0.0
         self.offs = 0.0
         self.denied = 0
+
+
+class Log:
+    def __init__(self, trip_identifiers):
+        self.recorded_departures = {t: None for t in trip_identifiers}
+        self.recorded_arrivals = {t: None for t in trip_identifiers}

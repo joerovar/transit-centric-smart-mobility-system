@@ -15,12 +15,5 @@ from scipy.stats import lognorm, norm
 import seaborn as sn
 from post_process import *
 
-arr = np.zeros(shape=(2, 4, 4))
-arr[:] = np.nan
-arr[0, 0, 1] = 3
-arr[1, 0, 1] = 0
-arr[1, 2, 3] = 5
-arr[0, 2, 3] = 0
-means = np.nanmean(arr, axis=0)
-
+print(random.randint(0, 2))
 

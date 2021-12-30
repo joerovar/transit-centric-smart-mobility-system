@@ -26,10 +26,8 @@ path_ordered_dispatching = path_to_ins + dir_raw + 'inbound_ordered_dispatching.
 # EXTRACT NETWORK PARAMS
 
 path_route_stops = path_to_ins + 'xtr/' + dir_project + 'route_stops' + '.pkl'
-path_link_times_mean = path_to_ins + 'xtr/' + dir_project + 'link_times_mean' + '.pkl'
-path_link_times_sd = path_to_ins + 'xtr/' + dir_project + 'link_times_sd' + '.pkl'
-path_link_dpoints = path_to_ins + 'xtr/' + dir_project + 'link_dpoints' + '.pkl'
-path_ordered_trips = path_to_ins + 'xtr/' + dir_project + 'link_dpoints' + '.pkl'
+path_link_times_mean = path_to_ins + 'xtr/' + dir_project + 'link_times_info' + '.pkl'
+path_ordered_trips = path_to_ins + 'xtr/' + dir_project + 'ordered_trips' + '.pkl'
 path_arr_rates = path_to_ins + 'xtr/' + dir_project + 'arr_rates' + '.pkl'
 path_alight_fractions = path_to_ins + 'xtr/' + dir_project + 'alight_fractions' + '.pkl'
 path_departure_times_xtr = path_to_ins + 'xtr/' + dir_project + 'departure_times_inbound' + '.pkl'
