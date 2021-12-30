@@ -741,7 +741,7 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
             # hold is from sars and prev load from prev state
             reward_ride_time += prev_hold * (prev_load + prev_pax_at_stop)
             # add impact on passengers on board
-        reward = reward_ride_time + 1.5 * reward_wait_time
+        reward = reward_ride_time + reward_wait_time
         reward = (-reward / 60)
         # in minutes
         return reward

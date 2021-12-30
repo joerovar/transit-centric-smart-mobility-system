@@ -162,30 +162,30 @@ def analyze_delays():
 
 
 # analyze_delays()
-run_sample_rl()
+# run_sample_rl()
 # run_base_detailed(episodes=10, save=True)
 # run_base_control_detailed(episodes=10, save=True)
 # other tstamps
 
-# path_tr_nc = 'out/NC/trajectories_set_1230-000823.pkl'
-# path_p_nc = 'out/NC/pax_set_1230-000823.pkl'
-# path_tr_eh = 'out/EH/trajectories_set_1230-000827.pkl'
-# path_p_eh = 'out/EH/pax_set_1230-000827.pkl'
-# path_tr_rl = 'out/RL/trajectory_set_1230-023419.pkl'
-# path_p_rl = 'out/RL/pax_set_1230-023419.pkl'
+path_tr_nc = 'out/NC/trajectories_set_1230-000823.pkl'
+path_p_nc = 'out/NC/pax_set_1230-000823.pkl'
+path_tr_eh = 'out/EH/trajectories_set_1230-000827.pkl'
+path_p_eh = 'out/EH/pax_set_1230-000827.pkl'
+path_tr_rl = 'out/RL/trajectory_set_1230-040209.pkl'
+path_p_rl = 'out/RL/pax_set_1230-040209.pkl'
 #
 #
-# path_trips = [path_tr_nc, path_tr_eh, path_tr_rl]
-# path_pax = [path_p_nc, path_p_eh, path_p_eh]
-# tags = ['NC', 'EH', 'RL']
-# post_processor = PostProcessor(path_trips, path_pax, tags)
-# post_processor.write_trajectories()
-# post_processor.total_trip_time_distribution()
-# post_processor.headway()
-# post_processor.load_profile()
-# post_processor.wait_times()
-# post_processor.denied()
-# post_processor.hold_time()
+path_trips = [path_tr_nc, path_tr_eh, path_tr_rl]
+path_pax = [path_p_nc, path_p_eh, path_p_eh]
+tags = ['NC', 'EH', 'RL']
+post_processor = PostProcessor(path_trips, path_pax, tags)
+post_processor.write_trajectories()
+post_processor.total_trip_time_distribution()
+post_processor.headway()
+post_processor.load_profile()
+post_processor.wait_times()
+post_processor.denied()
+post_processor.hold_time()
 
 # post_processor.load_profile_base()
 
