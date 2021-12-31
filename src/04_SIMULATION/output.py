@@ -97,29 +97,25 @@ class PostProcessor:
             wait_time_set.append(wt_mean)
             counter += 1
         scheduled_avg_wait = FOCUS_TRIPS_MEAN_HW / 2
-        # plot_wait_time_benchmark(wait_time_set, STOPS, self.cp_tags, self.colors, pathname='out/benchmark/wt.png',
-        #                          scheduled_wait=scheduled_avg_wait, controlled_stops=CONTROLLED_STOPS)
-        print(f'wait time {[np.nanmean(wt) for wt in wait_time_set]}')
-        print(f'wait time percentile {[np.nanpercentile(wt, 90) for wt in wait_time_set]}')
+        plot_wait_time_benchmark(wait_time_set, STOPS, self.cp_tags, self.colors, pathname='out/benchmark/wt.png',
+                                 scheduled_wait=scheduled_avg_wait, controlled_stops=CONTROLLED_STOPS)
         return
 
-    def rbt_difference(self, a, b):
-        idx1 = self.cp_tags.index(a)
-        idx2 = self.cp_tags.index(b)
-        _, _, rbt1, _, _, _ = get_journey_times(self.cp_pax[idx1], STOPS)
-        _, _, rbt2, _, _, _ = get_journey_times(self.cp_pax[idx2], STOPS)
-        plot_difference_od(rbt1 - rbt2, STOPS, controlled_stops=CONTROLLED_STOPS,
-                           pathname='out/benchmark/rbt_diff_' + self.cp_tags[idx1] + '_' + self.cp_tags[idx2] + '.png',
-                           clim=(-250, 250))
-        return
-
-    def journey_times(self):
-        jt_sums = []
-        extr_jt_sums = []
+    def pax_times(self):
+        jt_mean = []
+        rbt_mean = []
+        wt_mean = []
+        rt_mean = []
         for pax in self.cp_pax:
-            _, _, _, _, jt_sum, extr_jt_sum = get_journey_times(pax, STOPS)
-            jt_sums.append(jt_sum)
-            extr_jt_sums.append(extr_jt_sum)
+            jt, rbt, wt, rt = get_journey_times(pax, STOPS)
+            jt_mean.append(jt)
+            rbt_mean.append(rbt)
+            wt_mean.append(wt)
+            rt_mean.append(rt)
+        print(jt_mean)
+        print(rbt_mean)
+        print(wt_mean)
+        print(rt_mean)
         return
 
     # def params_for_policy(self, tag='RL'):

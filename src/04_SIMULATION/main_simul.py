@@ -195,8 +195,10 @@ post_processor = PostProcessor(path_trips, path_pax, tags)
 # post_processor.headway()
 # post_processor.load_profile()
 # post_processor.wait_times()
-post_processor.denied()
+# post_processor.denied()
 # post_processor.hold_time()
+# post_processor.pax_times()
+# post_processor.rbt_difference()
 
 # post_processor.load_profile_base()
 

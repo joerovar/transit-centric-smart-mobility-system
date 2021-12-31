@@ -624,38 +624,45 @@ def get_wait_times(pax_set, ordered_stops):
 def get_journey_times(pax_set, ordered_stops):
     # we add all data points to a dataframe
     # then we convert into an od matrix
-    journey_times = {'o': [], 'd': [], 'jt': []}
-    for replication in pax_set:
-        for p in replication:
+    nr_replications = len(pax_set)
+    nr_stops = len(ordered_stops)
+    od_journey_times_mean = np.zeros(shape=(nr_replications, nr_stops, nr_stops))
+    od_journey_times_mean[:] = np.nan
+    od_journey_time_rbt = np.zeros(shape=(nr_replications, nr_stops, nr_stops))
+    od_journey_time_rbt[:] = np.nan
+    od_wait_time_mean = np.zeros(shape=(nr_replications, nr_stops, nr_stops))
+    od_wait_time_mean[:] = np.nan
+    od_ride_time_mean = np.zeros(shape=(nr_replications, nr_stops, nr_stops))
+    od_ride_time_mean[:] = np.nan
+    for replication_nr in range(nr_replications):
+        journey_times = {'o': [], 'd': [], 'jt': [], 'wt': [], 'rt':[]}
+        for p in pax_set[replication_nr]:
             journey_times['o'].append(p.orig_idx)
             journey_times['d'].append(p.dest_idx)
             journey_times['jt'].append(p.journey_time)
-    journey_times_df = pd.DataFrame(journey_times)
-    n = len(ordered_stops)
-    od_journey_time_mean = np.zeros(shape=(n,)*2)
-    od_journey_time_mean[:] = np.nan
-    od_journey_time_std = np.zeros(shape=(n,)*2)
-    od_journey_time_std[:] = np.nan
-    od_journey_time_rbt = np.zeros(shape=(n,)*2)
-    od_journey_time_rbt[:] = np.nan
-    od_extr_journey_time_mean = np.zeros(shape=(n,)*2)
-    od_extr_journey_time_mean[:] = np.nan
-    od_journey_time_sum = np.zeros(shape=(n,)*2)
-    od_journey_time_sum[:] = np.nan
-    od_count = np.zeros(shape=(n,)*2)
-    for i in range(n):
-        for j in range(i + 1, n):
-            jt = journey_times_df[(journey_times_df['o'] == i) & (journey_times_df['d'] == j)]['jt']
-            if not jt.empty:
-                od_count[i, j] = len(jt)
-                od_journey_time_mean[i, j] = jt.mean()
-                od_journey_time_std[i, j] = jt.std()
-                od_journey_time_rbt[i, j] = jt.quantile(0.8) - jt.median()
-                od_extr_journey_time_mean[i, j] = jt.quantile(0.95)
-                od_journey_time_sum[i, j] = jt.sum()
-    jt_sum = np.nansum(od_journey_time_sum) / 3600
-    extr_jt_sum = np.nansum(od_extr_journey_time_mean) / 3600
-    return od_journey_time_mean, od_journey_time_std, od_journey_time_rbt, od_count, jt_sum, extr_jt_sum
+            journey_times['wt'].append(p.wait_time)
+            journey_times['rt'].append(p.alight_time - p.board_time)
+        journey_times_df = pd.DataFrame(journey_times)
+        for i in range(nr_stops):
+            for j in range(i + 1, nr_stops):
+                od_pair_df = journey_times_df[(journey_times_df['o'] == i) & (journey_times_df['d'] == j)]
+                jt = od_pair_df['jt']
+                wt = od_pair_df['wt']
+                rt = od_pair_df['rt']
+                if not jt.empty:
+                    od_journey_times_mean[replication_nr, i, j] = jt.mean()
+                    od_journey_time_rbt[replication_nr, i, j] = jt.quantile(0.95) - jt.median()
+                    od_wait_time_mean[replication_nr, i, j] = wt.mean()
+                    od_ride_time_mean[replication_nr, i, j] = rt.mean()
+    od_journey_times_mean_of_reps = np.nanmean(od_journey_times_mean, axis=0)
+    od_journey_time_rbt_mean_of_reps = np.nanmean(od_journey_time_rbt, axis=0)
+    od_wait_times_mean_of_reps = np.nanmean(od_wait_time_mean, axis=0)
+    od_ride_time_mean_of_reps = np.nanmean(od_ride_time_mean, axis=0)
+    journey_times_mean_of_reps = np.nanmean(od_journey_times_mean_of_reps)
+    journey_times_rbt_mean_of_reps = np.nanmean(od_journey_time_rbt_mean_of_reps)
+    wait_times_mean_of_reps = np.nanmean(od_wait_times_mean_of_reps)
+    ride_time_mean_of_reps = np.nanmean(od_ride_time_mean_of_reps)
+    return journey_times_mean_of_reps, journey_times_rbt_mean_of_reps, wait_times_mean_of_reps, ride_time_mean_of_reps
 
 
 def get_departure_delay(trajectories_set, idx_dep_t, ordered_trip_ids, sched_departures):
