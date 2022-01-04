@@ -23,7 +23,7 @@ if __name__ == '__main__':
                         help='Minimum value for epsilon in epsilon-greedy action selection')
     parser.add_argument('-gamma', type=float, default=0.99,
                         help='Discount factor for update equation.')
-    parser.add_argument('-eps_dec', type=float, default=4e-5,
+    parser.add_argument('-eps_dec', type=float, default=2.5e-5,
                         help='Linear factor for decreasing epsilon')
     parser.add_argument('-eps', type=float, default=1.0,
                         help='Starting value for epsilon in epsilon-greedy action selection')

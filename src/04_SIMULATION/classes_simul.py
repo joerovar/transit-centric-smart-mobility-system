@@ -48,8 +48,8 @@ class Bus:
         self.next_stop_id = 0
         self.arr_t = 0.0
         self.dep_t = 0.0
-        self.ons = 0.0
-        self.offs = 0.0
+        self.ons = 0
+        self.offs = 0
         self.denied = 0
 
 

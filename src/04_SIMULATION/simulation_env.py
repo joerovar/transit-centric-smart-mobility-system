@@ -257,12 +257,16 @@ class DetailedSimulationEnv(SimulationEnv):
         self.record_trajectories(pickups=bus.ons, offs=bus.offs, denied_board=bus.denied, hold=hold)
         return
 
-    def inbound_dispatch(self, hold=0):
+    def inbound_ready_to_dispatch(self):
         bus = self.bus
         bus.last_stop_id = STOPS[0]
         bus.next_stop_id = STOPS[1]
         bus.arr_t = self.time
         self.stops[0].last_arr_times.append(self.time)
+        return
+
+    def inbound_dispatch(self, hold=0):
+        bus = self.bus
         bus.denied = 0
         stop = self.stops[0]
         for p in self.stops[0].pax.copy():
@@ -447,7 +451,6 @@ class DetailedSimulationEnv(SimulationEnv):
             prev_trip_id = TRIP_IDS_IN[trip_idx - 1]
             active_buses = [bus for bus in self.buses if bus.active_trip]
             leading_bus = [bus for bus in active_buses if bus.active_trip[0].trip_id == prev_trip_id]
-            # active_neighbors = [bus for bus in active_buses if bus.active_trip[0].route_type == self.bus.active_trip[0].route_type]
             if leading_bus:
                 if self.bus.next_stop_id == leading_bus[0].next_stop_id:
                     next_instance_t = max(next_instance_t, leading_bus[0].next_event_time + NO_OVERTAKE_BUFFER)
@@ -507,6 +510,7 @@ class DetailedSimulationEnv(SimulationEnv):
                 allow_initialized_dispatch = self.allow_initialized_dispatch()
                 if not allow_initialized_dispatch:
                     return False
+            self.inbound_ready_to_dispatch()
             self.inbound_dispatch()
             return False
 
@@ -593,15 +597,15 @@ class DetailedSimulationEnvWithControl(DetailedSimulationEnv):
     def decide_bus_holding(self):
         # for previous trip
         stop = self.stops[STOPS.index(self.bus.last_stop_id)]
-        forward_headway = self.time - stop.last_dep_times[-1]
         backward_headway = self.get_backward_headway()
-
+        forward_headway = self.time - stop.last_arr_times[-2]
         if stop.stop_id == STOPS[0]:
             if backward_headway > forward_headway:
                 holding_time = min(LIMIT_HOLDING, backward_headway - forward_headway)
                 self.inbound_dispatch(hold=holding_time)
             else:
                 self.inbound_dispatch()
+
         else:
             self.fixed_stop_load()
             if backward_headway > forward_headway:
@@ -628,8 +632,10 @@ class DetailedSimulationEnvWithControl(DetailedSimulationEnv):
             trip_id = self.bus.active_trip[0].trip_id
             if trip_id not in NO_CONTROL_TRIP_IDS:
                 if arrival_stop in CONTROLLED_STOPS[:-1]:
+                    self.inbound_ready_to_dispatch()
                     self.decide_bus_holding()
                     return False
+            self.inbound_ready_to_dispatch()
             self.inbound_dispatch()
             return False
 
@@ -780,7 +786,7 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
     def _add_observations(self):
         curr_stop_idx = STOPS.index(self.bus.last_stop_id)
         stop = self.stops[curr_stop_idx]
-        forward_headway = self.time - stop.last_dep_times[-1]
+        forward_headway = self.time - stop.last_arr_times[-2]
         backward_headway = self.get_backward_headway()
 
         stop_idx = STOPS.index(self.bus.last_stop_id)
@@ -795,13 +801,7 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
                 pax_at_stop += 1
             else:
                 break
-        if stop.stop_id == STOPS[0]:
-            # then only inbound dispatch updates arr_times and dep_times so indexes are coordinated
-            prev_fw_h = stop.last_arr_times[-1] - stop.last_dep_times[-2]
-        else:
-            # if it is an intermediate stop then the arrival time was already updated in fixed_stop_unload
-            # so there is one extra arr_time than dep_time
-            prev_fw_h = stop.last_arr_times[-2] - stop.last_dep_times[-2]
+        prev_fw_h = stop.last_arr_times[-2] - stop.last_arr_times[-3]
         new_state = [route_progress, bus_load, forward_headway, backward_headway, pax_at_stop, prev_fw_h]
 
         if trip_sars:
@@ -850,8 +850,8 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
         # for example if there was skipping at that stop previously the penalty would otherwise be tremendous
         # despite having nothing to do with that decision
         stop_idx_set = [s for s in range(s0_idx + 1, s1_idx)]
-        # NOW TWO SCENARIOS, EITHER THE FRONT BUS ALREADY FINISHED ITS TRIP AND THEREFORE ALL PAX INFO SHOULD BE IN COMPLETED PAX
-        # OR IT IS STILL ACTIVE AND SOME PAX INFO MAY BE INCLUDED INSIDE BUS ATTRIBUTE PAX
+        # NOW TWO SCENARIOS: 1. THE FRONT BUS FINISHED ITS TRIP AND THEREFORE ALL PAX INFO SHOULD BE IN COMPLETED PAX
+        # OR 2. IT IS STILL ACTIVE AND SOME PAX INFO MAY BE INCLUDED INSIDE BUS ATTRIBUTE PAX
         neighbor_boardings_count = 0
         sum_reward_neighbor_wait_time = 0
         for pax in self.completed_pax:
@@ -912,29 +912,20 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
             curr_control_stop_idx = CONTROLLED_STOPS.index(bus.last_stop_id)
             curr_control_stop = CONTROLLED_STOPS[curr_control_stop_idx]
             prev_control_stop = CONTROLLED_STOPS[curr_control_stop_idx - 1]
-            stop_idx = STOPS.index(self.bus.last_stop_id)
-            route_progress = stop_idx / len(STOPS)
             trip_idx = TRIP_IDS_IN.index(trip_id)
             neighbor_trip_id = TRIP_IDS_IN[trip_idx - 1]
-            neighbor_sars_set = self.trips_sars[neighbor_trip_id]
-            find_idx_sars = None
-            for n in range(len(neighbor_sars_set)):
-                if neighbor_sars_set[n][3]:
-                    route_progress_neighbor = neighbor_sars_set[n][3][IDX_RT_PROGRESS]
-                    if round(route_progress_neighbor, 2) == round(route_progress, 2):
-                        find_idx_sars = n
-                        break
-            if find_idx_sars is None:
-                print(f'trip id {trip_id} trying to find trip id {neighbor_trip_id} at time {str(timedelta(seconds=round(self.time)))}'
-                      f'at stop {curr_control_stop}')
-            prev_sars = self.trips_sars[neighbor_trip_id][find_idx_sars]
+            sars_idx = curr_control_stop_idx - 1
+            assert sars_idx >= 0
+            assert sars_idx < len(self.trips_sars[neighbor_trip_id])
+            prev_sars = self.trips_sars[neighbor_trip_id][sars_idx]
             prev_action = prev_sars[1]
             prev_hold = (prev_action - 1) * BASE_HOLDING_TIME if prev_action > 1 else 0
             prev_load = prev_sars[0][IDX_LOAD_RL]
             prev_pax_at_stop = prev_sars[0][IDX_PAX_AT_STOP]
             reward = self.wait_time_reward(prev_control_stop, curr_control_stop, prev_hold, prev_load, prev_pax_at_stop)
-            self.trips_sars[neighbor_trip_id][find_idx_sars][2] += reward
-            self.pool_sars.append(self.trips_sars[neighbor_trip_id][find_idx_sars] + [self.bool_terminal_state])
+            assert self.trips_sars[neighbor_trip_id][sars_idx][3]
+            self.trips_sars[neighbor_trip_id][sars_idx][2] += reward
+            self.pool_sars.append(self.trips_sars[neighbor_trip_id][sars_idx] + [self.bool_terminal_state])
             self.pool_sars_trip_id.append((neighbor_trip_id, trip_id, str(timedelta(seconds=round(self.time))),
                                            prev_hold))
         return
@@ -957,10 +948,10 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
             if trip_id not in NO_CONTROL_TRIP_IDS:
                 if arrival_stop in CONTROLLED_STOPS[:-1]:
                     self.bool_terminal_state = False
-                    # print([trip_id, self.trips_sars[trip_id]])
+                    self.inbound_ready_to_dispatch()
                     self._add_observations()
-                    # print([trip_id, self.trips_sars[trip_id]])
                     return False
+            self.inbound_ready_to_dispatch()
             self.inbound_dispatch()
             return self.prep()
 
@@ -969,7 +960,6 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
             trip_id = self.bus.active_trip[0].trip_id
             if trip_id not in NO_CONTROL_TRIP_IDS:
                 if arrival_stop in CONTROLLED_STOPS:
-                    # print([trip_id, self.trips_sars[trip_id]])
                     if arrival_stop == CONTROLLED_STOPS[-1]:
                         self.bool_terminal_state = True
                         self.fixed_stop_unload()

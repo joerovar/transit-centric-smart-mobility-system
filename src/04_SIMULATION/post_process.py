@@ -213,7 +213,7 @@ def plot_load_profile(bd, al, lp, os, through, pathname=None, x_y_lbls=None, con
     return
 
 
-def get_headway_from_trajectory_set(trajectory_set, idx_arr_t, idx_dep_t, stops, controlled_stops=None):
+def get_headway_from_trajectory_set(trajectory_set, idx_arr_t, stops, controlled_stops=None):
     cv_hw = {s: [] for s in stops}
     cv_hw_per_stop = []
     hw_at_tp = []
@@ -225,7 +225,6 @@ def get_headway_from_trajectory_set(trajectory_set, idx_arr_t, idx_dep_t, stops,
             for stop_details in trajectories[trip]:
                 stop_id = stop_details[0]
                 stop_arr_time = stop_details[idx_arr_t]
-                # stop_dep_time = stop_details[idx_dep_t]
                 if stop_id not in prev_stop_time:
                     prev_stop_time[stop_id] = stop_arr_time
                 else:

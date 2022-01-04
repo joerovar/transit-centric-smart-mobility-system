@@ -15,5 +15,8 @@ from scipy.stats import lognorm, norm
 import seaborn as sn
 from post_process import *
 
-
+df = pd.read_csv('out/trajectories1.csv')
+df = df[df['stop_id'] == 386]
+df = df[df['replication'] == 1]
+print(df[''])
 

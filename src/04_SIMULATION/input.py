@@ -101,7 +101,7 @@ def get_params_outbound():
     return trip_times1_params, trip_times2_params, trips1_out_info, trips2_out_info, deadhead_times_params, sched_arrs
 
 
-# extract_params(demand=True)
+# extract_params(route_params=True)
 
 STOPS, LINK_TIMES_INFO, TRIP_IDS_IN, SCHED_DEP_IN, ODT, SCHED_ARRS_IN, TRIP_TIMES_INPUT, BUS_IDS_IN = get_params_inbound()
 TRIP_TIMES1_PARAMS, TRIP_TIMES2_PARAMS, TRIPS1_INFO_OUT, TRIPS2_INFO_OUT, DEADHEAD_TIME_PARAMS, SCHED_ARRS_OUT = get_params_outbound()
@@ -111,6 +111,14 @@ TRIP_TIMES1_PARAMS[-1] = TRIP_TIMES1_PARAMS[-2]
 TRIP_IDS_OUT = [ti[0] for ti in TRIPS1_INFO_OUT]
 TRIP_IDS_OUT += [ti[0] for ti in TRIPS2_INFO_OUT]
 LINK_TIMES_MEAN, LINK_TIMES_EXTREMES, LINK_TIMES_PARAMS = LINK_TIMES_INFO
+# well known outlier link
+LINK_TIMES_MEAN['3954-8613'][1] = LINK_TIMES_MEAN['3954-8613'][3]
+LINK_TIMES_MEAN['3954-8613'][2] = LINK_TIMES_MEAN['3954-8613'][3]
+LINK_TIMES_EXTREMES['3954-8613'][1] = LINK_TIMES_EXTREMES['3954-8613'][3]
+LINK_TIMES_EXTREMES['3954-8613'][2] = LINK_TIMES_EXTREMES['3954-8613'][3]
+LINK_TIMES_PARAMS['3954-8613'][1] = LINK_TIMES_PARAMS['3954-8613'][3]
+LINK_TIMES_PARAMS['3954-8613'][2] = LINK_TIMES_PARAMS['3954-8613'][3]
+# print(STOPS[-6:-3])
 trips_in = [(x, y, str(timedelta(seconds=y)), z, 0) for x, y, z in zip(TRIP_IDS_IN, SCHED_DEP_IN, BUS_IDS_IN)]
 # print(trips_in)
 trips_out1 = [(x, y, str(timedelta(seconds=y)), z, 1) for x, y, z in TRIPS1_INFO_OUT]
