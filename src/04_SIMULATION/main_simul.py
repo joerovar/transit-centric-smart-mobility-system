@@ -63,7 +63,7 @@ def run_sample_rl():
     sars_set = []
     pax_set = []
     pax_details = []
-    for j in range(35):
+    for j in range(1):
         env = DetailedSimulationEnvWithDeepRL()
         done = env.reset_simulation()
         done = env.prep()
@@ -81,7 +81,7 @@ def run_sample_rl():
                 # action = random.randint(0, 4)
                 env.take_action(action)
             env.update_rewards()
-            # print(len(env.pool_sars))
+            # print(env.pool_sars)
             done = env.prep()
         # env.process_results()
         # trajectories_set.append(env.trajectories)
@@ -174,16 +174,16 @@ def analyze_delays():
 
 # analyze_delays()
 # run_sample_rl()
-# run_base_detailed(episodes=15, save=True)
-# run_base_control_detailed(episodes=15, save=True)
+# run_base_detailed(episodes=25, save=True)
+# run_base_control_detailed(episodes=25, save=True)
 # other tstamps
 
-path_tr_nc = 'out/NC/trajectories_set_0103-203715.pkl'
-path_p_nc = 'out/NC/pax_set_0103-203715.pkl'
-path_tr_eh = 'out/EH/trajectories_set_0103-214526.pkl'
-path_p_eh = 'out/EH/pax_set_0103-214526.pkl'
-path_tr_rl = 'out/RL/trajectory_set_0103-221348.pkl'
-path_p_rl = 'out/RL/pax_set_0103-221348.pkl'
+path_tr_nc = 'out/NC/trajectories_set_0104-230449.pkl'
+path_p_nc = 'out/NC/pax_set_0104-230449.pkl'
+path_tr_eh = 'out/EH/trajectories_set_0104-230457.pkl'
+path_p_eh = 'out/EH/pax_set_0104-230457.pkl'
+path_tr_rl = 'out/RL/trajectory_set_0104-232004.pkl'
+path_p_rl = 'out/RL/pax_set_0104-232004.pkl'
 # #
 # #
 path_trips = [path_tr_nc, path_tr_eh, path_tr_rl]

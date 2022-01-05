@@ -410,7 +410,7 @@ class DetailedSimulationEnv(SimulationEnv):
             if pending_neighbor:
                 prev_trip_expected_dispatch_time = pending_neighbor[0].next_event_time
                 if prev_trip_expected_dispatch_time > dispatch_time:
-                    dispatch_time = prev_trip_expected_dispatch_time
+                    dispatch_time = prev_trip_expected_dispatch_time + 2 * NO_OVERTAKE_BUFFER
 
                 # in the extreme case that the previous trip's previous trip is delayed, we can find it in pending buses
                 if trip_idx > 1:

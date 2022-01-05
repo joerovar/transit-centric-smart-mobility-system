@@ -25,6 +25,9 @@ def write_trajectory_set(trajectory_set, pathname, idx_arr_t, idx_dep_t, idx_hol
                     stop_lst[idx_hold] = round(stop_lst[idx_hold])
                     stop_lst.insert(0, trip)
                     stop_lst.append(day)
+                    stop_lst.append(round(stop_info[idx_arr_t]))
+                    stop_lst.append(round(stop_info[idx_dep_t]))
+                    stop_lst.append(round(stop_info[idx_dep_t]-stop_info[idx_arr_t]))
                     wf.writerow(stop_lst)
             i += 1
     return

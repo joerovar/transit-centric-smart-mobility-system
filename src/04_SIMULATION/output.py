@@ -34,11 +34,11 @@ class PostProcessor:
             temp_cv_hw, hw_at_tp = get_headway_from_trajectory_set(trips, IDX_ARR_T, STOPS,
                                                                    controlled_stops=CONTROLLED_STOPS)
             cv_hw_set.append(temp_cv_hw)
-            print([round(c, 2) for c in temp_cv_hw[-15:]])
+            # print([round(c, 2) for c in temp_cv_hw[-15:]])
         plot_headway_benchmark(cv_hw_set, STOPS, self.cp_tags, self.colors, pathname='out/benchmark/hw.png',
                                controlled_stops=CONTROLLED_STOPS)
 
-        print(print(f'mean cv headway {[np.mean(cv) for cv in cv_hw_set]}'))
+        print(f'mean cv headway {[np.mean(cv) for cv in cv_hw_set]}')
         return
 
     def total_trip_time_distribution(self):
@@ -101,7 +101,7 @@ class PostProcessor:
         for trips in self.cp_trips:
             write_trajectory_set(trips, 'out/trajectories' + str(i) + '.csv', IDX_ARR_T, IDX_DEP_T, IDX_HOLD_TIME,
                                  header=['trip_id', 'stop_id', 'arr_t', 'dep_t', 'pax_load', 'ons', 'offs', 'denied',
-                                         'hold_time', 'skipped', 'replication'])
+                                         'hold_time', 'skipped', 'replication', 'arr_sec', 'dep_sec', 'dwell_sec'])
             i += 1
         return
 
