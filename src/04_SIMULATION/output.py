@@ -1,4 +1,6 @@
 import matplotlib.pyplot as plt
+import numpy as np
+
 from input import *
 
 
@@ -16,16 +18,19 @@ class PostProcessor:
         rbt_mean = []
         wt_mean = []
         rt_mean = []
+        pct_ewt_mean = []
         for pax in self.cp_pax:
-            jt, rbt, wt, rt = get_journey_times(pax, STOPS)
+            jt, rbt, wt, rt, pct_ewt = get_pax_times(pax, STOPS, FOCUS_TRIPS_MEAN_HW/2)
             jt_mean.append(jt)
             rbt_mean.append(rbt)
             wt_mean.append(wt)
             rt_mean.append(rt)
+            pct_ewt_mean.append(pct_ewt)
         print(jt_mean)
         print(rbt_mean)
         print(wt_mean)
         print(rt_mean)
+        print(pct_ewt_mean)
         return
 
     def headway(self):
@@ -34,7 +39,6 @@ class PostProcessor:
             temp_cv_hw, hw_at_tp = get_headway_from_trajectory_set(trips, IDX_ARR_T, STOPS,
                                                                    controlled_stops=CONTROLLED_STOPS)
             cv_hw_set.append(temp_cv_hw)
-            # print([round(c, 2) for c in temp_cv_hw[-15:]])
         plot_headway_benchmark(cv_hw_set, STOPS, self.cp_tags, self.colors, pathname='out/benchmark/hw.png',
                                controlled_stops=CONTROLLED_STOPS)
 
@@ -43,11 +47,13 @@ class PostProcessor:
 
     def total_trip_time_distribution(self):
         trip_time_set = []
+        extreme_trip_time_set = []
         for trip in self.cp_trips:
-            trip_time = tot_trip_times_from_trajectory_set(trip, IDX_DEP_T, IDX_ARR_T)
+            trip_time, extreme_trip_time = tot_trip_times_from_trajectory_set(trip, IDX_DEP_T, IDX_ARR_T)
             trip_time_set.append(trip_time)
+            extreme_trip_time_set.append(extreme_trip_time)
         plot_travel_time_benchmark(trip_time_set, self.cp_tags, self.colors, pathname='out/benchmark/ttd.png')
-        print(f'trip time 90th percentile {[np.percentile(t, 90) for t in trip_time_set]}')
+        print(f'trip time 95th percentile {extreme_trip_time_set}')
         return
 
     def load_profile(self):
@@ -61,19 +67,17 @@ class PostProcessor:
                                     controlled_stops=CONTROLLED_STOPS, x_y_lbls=['stop id', 'avg load per trip'])
         plot_load_profile_benchmark(lp_std_set, STOPS, self.cp_tags, self.colors, pathname='out/benchmark/lp_sd.png',
                                     controlled_stops=CONTROLLED_STOPS, x_y_lbls=['stop id', 'sd load per trip'])
+        avg_lp_sd = [np.mean(lp_sd) for lp_sd in lp_std_set]
+        print(f'avg load sd {avg_lp_sd}')
         return
 
     def hold_time(self):
         hold_time_set = []
-        hold_time_dist_set = []
         for trips in self.cp_trips:
-            ht_per_stop, ht_per_trip, ht_dist_per_trip = hold_time_from_trajectory_set(trips, IDX_HOLD_TIME)
-            hold_time_set.append(ht_per_trip)
-            hold_time_dist_set.append(ht_dist_per_trip)
+            tot_ht_mean = hold_time_from_trajectory_set(trips, IDX_HOLD_TIME)
+            hold_time_set.append(tot_ht_mean)
         plot_mean_hold_time_benchmark(hold_time_set, self.cp_tags, self.colors, pathname='out/benchmark/ht.png')
-        plot_hold_time_distribution_benchmark(hold_time_dist_set, self.cp_tags, self.colors,
-                                              pathname='out/benchmark/ht_dist.png')
-        print(f'hold time mean {[np.nanmean(ht) for ht in hold_time_dist_set]}')
+        print(f'hold time mean {hold_time_set}')
         return
 
     def denied(self):
@@ -110,8 +114,12 @@ class PostProcessor:
         for trip in self.cp_trips:
             _, _, _, _, dt_tot = travel_times_from_trajectory_set(trip, IDX_DEP_T, IDX_ARR_T)
             dt_tot_set.append(dt_tot)
+            print(f'output mean {np.mean(dt_tot)}')
+            print(f'output std {np.std(dt_tot)}')
         paths = ('out/benchmark/dwell_t_mean.png', 'out/benchmark/dwell_t_std.png', 'out/benchmark/dwell_t_tot.png')
         dt_input_tot = load('in/xtr/rt_20-2019-09/dwell_times_tot.pkl')
+        print(f'input mean {np.mean(dt_input_tot)}')
+        print(f'input std {np.std(dt_input_tot)}')
         dt_tot_set.append(dt_input_tot)
         tags = ['simulated', 'observed']
         i = 0
@@ -129,7 +137,11 @@ class PostProcessor:
         for trip in self.cp_trips:
             trip_time = tot_trip_times_from_trajectory_set(trip, IDX_DEP_T, IDX_ARR_T)
             trip_time_set.append(trip_time)
+            print(f'output mean {np.mean(trip_time)}')
+            print(f'output std {np.std(trip_time)}')
         trip_time_input = load('in/xtr/rt_20-2019-09/trip_times.pkl')
+        print(f'input mean {np.mean(trip_time_input)}')
+        print(f'input std {np.std(trip_time_input)}')
         trip_time_set.append(trip_time_input)
         plot_travel_time_benchmark(trip_time_set, ['simulated', 'observed'], self.colors,
                                    pathname='out/validation/ttd.png')
@@ -166,3 +178,80 @@ class PostProcessor:
                           x_y_lbls=['stop id', 'number of passengers', 'number of through passengers and passenger load'],
                           controlled_stops=CONTROLLED_STOPS)
         return
+
+
+def dwell_times(stops, df_nc, df_eh, df_rl, nr_replications, header):
+    dwell_df_rows = []
+    for s in stops:
+        dwell_df_row = [int(s)]
+        for df in (df_nc, df_eh, df_rl):
+            dwell_time_means = []
+            dwell_times_sd = []
+            for n in range(1, nr_replications + 1):
+                rep_df = df[df['replication'] == n]
+                stop_dwell_times = rep_df[rep_df['stop_id'] == int(s)]['dwell_sec'].to_numpy()
+                dwell_time_means.append(stop_dwell_times.mean())
+                dwell_times_sd.append(stop_dwell_times.std())
+            dwell_df_row.append(np.around(np.mean(dwell_time_means), decimals=1))
+            dwell_df_row.append(np.around(np.mean(dwell_times_sd), decimals=1))
+        dwell_df_rows.append(dwell_df_row)
+    dwell_df = pd.DataFrame(dwell_df_rows, columns=header)
+    dwell_df.to_csv('out/dwell_times.csv', index=False)
+
+
+def link_times(links, df_nc, df_eh, df_rl, nr_replications, header):
+    link_times_df_rows = []
+    for li in links:
+        link_df_row = [str(li[0]) + '-' + str(li[1])]
+        for df in (df_nc, df_eh, df_rl):
+            link_time_means = []
+            link_times_sd = []
+            for n in range(1, nr_replications + 1):
+                rep_df = df[df['replication'] == n]
+                dep_sec = rep_df[rep_df['stop_id'] == int(li[0])]['dep_sec'].values
+                arr_sec = rep_df[rep_df['stop_id'] == int(li[1])]['arr_sec'].values
+                li_times = arr_sec - dep_sec
+                link_time_means.append(li_times.mean())
+                link_times_sd.append(li_times.std())
+            link_df_row.append(np.around(np.mean(link_time_means), decimals=1))
+            link_df_row.append(np.around(np.mean(link_times_sd), decimals=1))
+        link_times_df_rows.append(link_df_row)
+    link_times_df = pd.DataFrame(link_times_df_rows, columns=header)
+    link_times_df.to_csv('out/link_times.csv', index=False)
+
+
+def headway(stops, df_nc, df_eh, df_rl, nr_replications, header):
+    headway_df_rows = []
+    for s in stops:
+        hw_df_row = [int(s)]
+        for df in (df_nc, df_eh, df_rl):
+            headway_means = []
+            headway_sd = []
+            for n in range(1, nr_replications + 1):
+                rep_df = df[df['replication'] == n]
+                stop_times = rep_df[rep_df['stop_id'] == int(s)]['arr_sec'].to_list()
+                stop_hws = [i - j for i, j in zip(stop_times[1:], stop_times[:-1])]
+                headway_means.append(np.around(np.mean(stop_hws), decimals=1))
+                headway_sd.append(np.around(np.std(stop_hws), decimals=1))
+            hw_df_row.append(np.around(np.mean(headway_means), decimals=1))
+            hw_df_row.append(np.around(np.mean(headway_sd), decimals=1))
+        headway_df_rows.append(hw_df_row)
+    headway_df = pd.DataFrame(headway_df_rows, columns=header)
+    headway_df.to_csv('out/headway.csv', index=False)
+
+
+def error_headway(stops, df_nc, df_eh, df_rl, nr_replications):
+    errors = []
+    for df in (df_nc, df_eh, df_rl):
+        sd_hw_reps = []
+        for n in range(1, nr_replications + 1):
+            all_hw = []
+            rep_df = df[df['replication'] == n]
+            for s in stops:
+                stop_times = rep_df[rep_df['stop_id'] == int(s)]['arr_sec'].to_list()
+                stop_hws = [i - j for i, j in zip(stop_times[1:], stop_times[:-1])]
+                all_hw += stop_hws
+            sd_hw_reps.append(np.std(all_hw))
+        print(sd_hw_reps)
+        errors.append(100 * np.std(sd_hw_reps) / np.mean(sd_hw_reps))
+    print(errors)

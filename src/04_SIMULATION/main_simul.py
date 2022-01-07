@@ -5,6 +5,7 @@ from simulation_env import DetailedSimulationEnv, DetailedSimulationEnvWithContr
 from file_paths import *
 import post_process
 from datetime import datetime, timedelta
+from output import dwell_times, error_headway, link_times
 from output import PostProcessor
 st = time.time()
 
@@ -57,13 +58,13 @@ def run_base_control_detailed(episodes=2, save=False, time_dep_tt=True, time_dep
     return
 
 
-def run_sample_rl():
+def run_sample_rl(episodes=1):
     tstamp = datetime.now().strftime('%m%d-%H%M%S')
     trajectories_set = []
     sars_set = []
     pax_set = []
     pax_details = []
-    for j in range(1):
+    for j in range(episodes):
         env = DetailedSimulationEnvWithDeepRL()
         done = env.reset_simulation()
         done = env.prep()
@@ -74,7 +75,16 @@ def run_sample_rl():
                 observation = np.array(all_sars[-1][0], dtype=np.float32)
                 route_progress = observation[0]
                 pax_at_stop = observation[4]
-                if route_progress == 0.0 or pax_at_stop == 0:
+                curr_stop = [s for s in env.stops if s.stop_id == env.bus.last_stop_id]
+                previous_denied = False
+                for p in curr_stop[0].pax.copy():
+                    if p.arr_time <= env.time:
+                        if p.denied:
+                            previous_denied = True
+                            break
+                    else:
+                        break
+                if route_progress == 0.0 or pax_at_stop == 0 or previous_denied:
                     action = random.randint(1, 4)
                 else:
                     action = random.randint(0, 4)
@@ -173,19 +183,20 @@ def analyze_delays():
 
 
 # analyze_delays()
-# run_sample_rl()
+# run_sample_rl(episodes=1)
 # run_base_detailed(episodes=25, save=True)
 # run_base_control_detailed(episodes=25, save=True)
 # other tstamps
 
-path_tr_nc = 'out/NC/trajectories_set_0104-230449.pkl'
-path_p_nc = 'out/NC/pax_set_0104-230449.pkl'
-path_tr_eh = 'out/EH/trajectories_set_0104-230457.pkl'
-path_p_eh = 'out/EH/pax_set_0104-230457.pkl'
-path_tr_rl = 'out/RL/trajectory_set_0104-232004.pkl'
-path_p_rl = 'out/RL/pax_set_0104-232004.pkl'
+path_tr_nc = 'out/NC/trajectories_set_0106-142857.pkl'
+path_p_nc = 'out/NC/pax_set_0106-142857.pkl'
+path_tr_eh = 'out/EH/trajectories_set_0106-174553.pkl'
+path_p_eh = 'out/EH/pax_set_0106-174553.pkl'
+path_tr_rl = 'out/RL/trajectory_set_0106-191406.pkl'
+path_p_rl = 'out/RL/pax_set_0106-191406.pkl'
 # #
-# #
+
+# PROCESS RAW RESULTS
 path_trips = [path_tr_nc, path_tr_eh, path_tr_rl]
 path_pax = [path_p_nc, path_p_eh, path_p_rl]
 tags = ['NC', 'EH', 'RL']
@@ -196,12 +207,12 @@ post_processor.headway()
 post_processor.load_profile()
 post_processor.denied()
 post_processor.hold_time()
-post_processor.pax_times()
 post_processor.wait_times_per_stop()
+post_processor.pax_times()
 
-# post_processor.load_profile_base()
 
-#
+
+# VALIDATION
 # path_trips = [path_tr_nc]
 # path_pax = [path_p_nc]
 # post_processor = PostProcessor(path_trips, path_pax, ['NC'])
@@ -209,4 +220,20 @@ post_processor.wait_times_per_stop()
 # post_processor.dwell_time_validation()
 # post_processor.trip_time_dist_validation()
 # post_processor.load_profile_validation()
+# post_processor.load_profile_base()
+
+# PROCESS TRAJECTORIES FILE
+# stops = post_process.load('in/xtr/rt_20-2019-09/route_stops.pkl')
+# links = [(i, j) for i, j in zip(stops[:-1], stops[1:])]
+# df_nc = pd.read_csv('out/trajectories0.csv')
+# df_eh = pd.read_csv('out/trajectories1.csv')
+# df_rl = pd.read_csv('out/trajectories2.csv')
+# nr_replications = 25
+# header = ['stop', 'mean1', 'std1', 'mean2', 'std2', 'mean3', 'std3']
+# header_cv = ['stop', 'cv1', 'mean2', 'std2', 'mean3', 'std3']
+
+# dwell_times()
+# link_times()
+# error_headway(stops, df_nc, df_eh, df_rl, nr_replications)
+
 print("ran in %.2f seconds" % (time.time()-st))

@@ -1,3 +1,5 @@
+import pylab as p
+
 from input import *
 import numpy as np
 from scipy.stats import lognorm
@@ -374,74 +376,19 @@ class DetailedSimulationEnv(SimulationEnv):
         # types {1: long, 2: short}
         if route_type == 1:
             interval = get_interval(self.time, TRIP_TIME_INTERVAL_LENGTH_MINS) - TRIP_TIME_START_INTERVAL
-            mean, std = TRIP_TIMES1_PARAMS[interval]
-            run_time = norm.rvs(loc=mean, scale=std)
+            trip_time_params = TRIP_TIMES1_PARAMS[interval]
+            run_time = lognorm.rvs(*trip_time_params)
             arr_time = self.time + run_time
         else:
             assert route_type == 2
             interval = get_interval(self.time, TRIP_TIME_INTERVAL_LENGTH_MINS) - TRIP_TIME_START_INTERVAL
-            mean, std = TRIP_TIMES2_PARAMS[interval]
-            run_time = norm.rvs(loc=mean, scale=std)
+            trip_time_params = TRIP_TIMES2_PARAMS[interval]
+            run_time = lognorm.rvs(*trip_time_params)
             arr_time = self.time + run_time
         bus.dep_t = self.time
         bus.next_event_time = arr_time
         bus.next_event_type = 4
         self.log.recorded_departures[trip.trip_id] = bus.dep_t
-        return
-
-    def no_overtake_dispatch(self):
-        # check if previous trip has departed (NO OVERTAKE AT DISPATCH)
-        bus = self.bus
-        trip = bus.active_trip[0]
-        trip_idx = TRIP_IDS_IN.index(trip.trip_id)
-        # when only considering itself, dispatch time depends on the available time of the bus and the scheduled time
-        dispatch_time = max(self.time, trip.sched_time)
-        if trip_idx:
-            prev_trip_id = TRIP_IDS_IN[trip_idx - 1]
-            # in case the previous trip's bus is still making its way to the terminal this is how we will find it
-            pending_buses = [bus for bus in self.buses if bus.pending_trips]
-            pending_neighbor = [bus for bus in pending_buses if bus.pending_trips[0].trip_id == prev_trip_id]
-
-            # in case the previous trip's bus is in the terminal waiting for its dispatch this is how we will find it
-            # this can affect dispatch time because the twice previous trip bus could be delayed
-            active_buses = [bus for bus in self.buses if bus.active_trip]
-            active_neighbor = [bus for bus in active_buses if bus.active_trip[0].trip_id == prev_trip_id]
-
-            if pending_neighbor:
-                prev_trip_expected_dispatch_time = pending_neighbor[0].next_event_time
-                if prev_trip_expected_dispatch_time > dispatch_time:
-                    dispatch_time = prev_trip_expected_dispatch_time + 2 * NO_OVERTAKE_BUFFER
-
-                # in the extreme case that the previous trip's previous trip is delayed, we can find it in pending buses
-                if trip_idx > 1:
-                    twice_prev_trip_id = TRIP_IDS_IN[trip_idx - 2]
-                    pending_buses = [bus for bus in self.buses if bus.pending_trips]
-                    pending_next_neighbor = [bus for bus in pending_buses if
-                                             bus.pending_trips[0].trip_id == twice_prev_trip_id]
-                    if pending_next_neighbor:
-                        twice_prev_trip_expect_dispatch_time = pending_next_neighbor[0].next_event_time
-                        if twice_prev_trip_expect_dispatch_time > dispatch_time:
-                            dispatch_time = pending_next_neighbor[0].next_event_time + 2 * NO_OVERTAKE_BUFFER
-
-            elif active_neighbor:
-                if active_neighbor[0].next_event_type == 0:
-                    prev_trip_expected_dispatch_time = active_neighbor[0].next_event_time
-                    if prev_trip_expected_dispatch_time > dispatch_time:
-                        dispatch_time = prev_trip_expected_dispatch_time + NO_OVERTAKE_BUFFER
-        return dispatch_time
-
-    def outbound_arrival(self):
-        bus = self.bus
-        bus.finished_trips.append(bus.active_trip[0])
-        bus.active_trip.pop(0)
-        if bus.pending_trips:
-            bus.active_trip.append(bus.pending_trips[0])
-            bus.pending_trips.pop(0)
-            bus.last_stop_id = STOPS[0]
-            bus.next_event_time = self.no_overtake_dispatch()
-            bus.next_event_type = 0
-        bus.arr_t = self.time
-        self.log.recorded_arrivals[self.bus.finished_trips[-1].trip_id] = bus.arr_t
         return
 
     def no_overtake(self):
@@ -456,31 +403,108 @@ class DetailedSimulationEnv(SimulationEnv):
                     next_instance_t = max(next_instance_t, leading_bus[0].next_event_time + NO_OVERTAKE_BUFFER)
         return next_instance_t
 
-    def allow_initialized_dispatch(self):
+    def smart_dispatch(self):
+        # check if previous trip has departed by the ready to dispatch time of the current trip else SWITCH
         bus = self.bus
+        trip = bus.pending_trips[0]
+        trip_idx = TRIP_IDS_IN.index(trip.trip_id)
+        if trip_idx:
+            dispatch_ready_time = max(self.time, trip.sched_time)
+            # when only considering itself, dispatch time depends on the available time of the bus and scheduled time
+            prev_trip_id = TRIP_IDS_IN[trip_idx - 1]
+            # in case the previous trip's bus is still making its way to the terminal this is how we will find it
+            pending_buses = [bus for bus in self.buses if bus.pending_trips]
+            pending_neighbor = [bus for bus in pending_buses if bus.pending_trips[0].trip_id == prev_trip_id]
+
+            # in case the previous trip's bus is in the terminal waiting for its dispatch this is how we will find it
+            # this can affect dispatch time because the twice previous trip bus could be delayed
+            active_buses = [bus for bus in self.buses if bus.active_trip]
+            active_neighbor = [bus for bus in active_buses if bus.active_trip[0].trip_id == prev_trip_id]
+
+            assert pending_neighbor or active_neighbor
+            assert not (pending_neighbor and active_neighbor)
+
+            if pending_neighbor:
+                assert pending_neighbor[0].next_event_type == 4
+                # CHECK CONDITION IF THE READY FOR DISPATCH TIME OF PREVIOUS TRIP'S BUS IS AFTER THE READY FOR DISPATCH
+                # OF CURRENT TRIP
+                if pending_neighbor[0].next_event_time > dispatch_ready_time:
+                    # SWITCH PENDING TRIPS OF CURRENT BUS WITH THE PENDING TRIPS OF THE
+                    # BUS (IR)RESPONSIBLE FOR THE PREVIOUS TRIP
+                    trips_current_bus = deepcopy(self.bus.pending_trips)
+                    id_current_bus = deepcopy(self.bus.bus_id)
+                    trips_pending_neighbor = deepcopy(pending_neighbor[0].pending_trips)
+                    id_pending_neighbor = deepcopy(pending_neighbor[0].bus_id)
+
+                    self.bus.bus_id = id_pending_neighbor
+                    self.bus.pending_trips = trips_pending_neighbor
+
+                    pending_neighbor[0].bus_id = id_current_bus
+                    pending_neighbor[0].pending_trips = trips_current_bus
+                    # print(f'successful switching between trip id {trip.trip_id} and {prev_trip_id} at time'
+                    #       f' {str(timedelta(seconds=round(self.time)))} for ready time'
+                    #       f' {str(timedelta(seconds=round(dispatch_ready_time)))} because irresponsible bus is'
+                    #       f' arriving at {str(timedelta(seconds=round(pending_neighbor[0].next_event_time)))}')
+                    return True
+        return False
+
+    def outbound_arrival(self):
+        bus = self.bus
+        bus.finished_trips.append(bus.active_trip[0])
+        bus.active_trip.pop(0)
+        if bus.pending_trips:
+            switched = self.smart_dispatch()
+            bus.active_trip.append(bus.pending_trips[0])
+            bus.pending_trips.pop(0)
+            bus.last_stop_id = STOPS[0]
+            bus.next_event_time = max(self.time, bus.active_trip[0].sched_time)
+            # if switched:
+            #     print(f'switched trip is now departing at {str(timedelta(seconds=round(bus.next_event_time)))}')
+            bus.next_event_type = 0
+        bus.arr_t = self.time
+        self.log.recorded_arrivals[self.bus.finished_trips[-1].trip_id] = bus.arr_t
+        return
+
+    def smart_dispatch_initialized(self):
         trip = self.bus.active_trip[0]
         trip_idx = TRIP_IDS_IN.index(trip.trip_id)
         if trip_idx:
             # this is only for second trip onwards
+            # we focus on switching the blocks if necessary
+            # this function is for those trips that are initialized (at least we are at it's scheduled time)
+            # so the only condition that matters is
+            # has the previous trip departed? that's a no if it is still on the pending trip of some bus
             prev_trip_id = TRIP_IDS_IN[trip_idx - 1]
+
             pending_buses = [bus for bus in self.buses if bus.pending_trips]
-            pending_bus = [bus for bus in pending_buses if bus.pending_trips[0].trip_id == prev_trip_id]
+            pending_neighbor = [bus for bus in pending_buses if bus.pending_trips[0].trip_id == prev_trip_id]
 
             active_buses = [bus for bus in self.buses if bus.active_trip]
             active_neighbor = [bus for bus in active_buses if bus.active_trip[0].trip_id == prev_trip_id]
 
-            if pending_bus:
-                prev_trip_expected_dispatch_time = pending_bus[0].next_event_time
-                if prev_trip_expected_dispatch_time > self.time:
-                    bus.next_event_time = prev_trip_expected_dispatch_time + NO_OVERTAKE_BUFFER
-                    return False
-            elif active_neighbor:
-                if active_neighbor[0].next_event_type == 0:
-                    prev_trip_expected_dispatch_time = active_neighbor[0].next_event_time
-                    if prev_trip_expected_dispatch_time > self.time:
-                        bus.next_event_time = prev_trip_expected_dispatch_time + NO_OVERTAKE_BUFFER
-                        return False
-        return True
+            assert pending_neighbor or active_neighbor
+            assert not (pending_neighbor and active_neighbor)
+
+            if pending_neighbor:
+                # SWITCH ACTIVE TRIP + PENDING TRIPS OF CURRENT BUS WITH THE PENDING TRIPS OF THE
+                # BUS (IR)RESPONSIBLE FOR THE PREVIOUS TRIP
+                trips_current_bus = self.bus.active_trip[0] + self.bus.pending_trips
+                id_current_bus = deepcopy(self.bus.bus_id)
+                trips_pending_neighbor = deepcopy(pending_neighbor[0].pending_trips)
+                id_pending_neighbor = deepcopy(pending_neighbor[0].bus_id)
+
+                self.bus.bus_id = id_pending_neighbor
+                self.bus.active_trip[0] = trips_pending_neighbor[0]
+                if len(trips_pending_neighbor) > 1:
+                    self.bus.pending_trips = trips_pending_neighbor[1:]
+                else:
+                    self.bus.pending_trips = []
+
+                pending_neighbor[0].bus_id = id_current_bus
+                pending_neighbor[0].pending_trips = trips_current_bus
+                # print(f'successful switching between trip id {trip.trip_id} and {prev_trip_id} at time'
+                #       f'{str(timedelta(seconds=round(self.time)))} for initialized trip')
+        return
 
     def chop_pax(self):
         for p in self.completed_pax.copy():
@@ -491,7 +515,31 @@ class DetailedSimulationEnv(SimulationEnv):
     def next_event(self):
         active_buses = [bus for bus in self.buses if bus.active_trip]
         if active_buses:
-            self.bus = min(active_buses, key=lambda bus: bus.next_event_time)
+            next_event_times = [bus.next_event_time for bus in active_buses]
+            min_event_time = min(next_event_times)
+            min_event_time_idxs = [i for i, x in enumerate(next_event_times) if x == min_event_time]
+            assert min_event_time_idxs
+            if len(min_event_time_idxs) == 1:
+                # self.bus = min(active_buses, key=lambda bus: bus.next_event_time)
+                self.bus = active_buses[min_event_time_idxs[0]]
+            else:
+                coinciding_buses = [active_buses[i] for i in min_event_time_idxs]
+                coinciding_dispatch_buses = [bus for bus in coinciding_buses if bus.next_event_type == 0]
+                if len(coinciding_dispatch_buses) > 1:
+                    # HANDLE THE EDGE CASE IN WHICH TWO (OR MORE)
+                    # INBOUND DISPATCHES ARE SET AT THE SAME TIME
+                    # THIS SCENARIO COULD SLIP THROUGH THE CRACKS IF
+                    # BOTH TRIPS' OUTBOUND ARRIVAL HAPPENED AT THE SAME TIME
+                    # AND BOTH WERE LATE: IN WHICH CASE
+                    # READY FOR DISPATCH TIME = MAX(ARRIVAL TIME, SCHED TIME) = ARRIVAL TIME
+                    # YOU SET AS A PRIORITY TO CALL INBOUND DISPATCH FOR THE FIRST SCHEDULED TRIP
+                    trip_idxs = [TRIP_IDS_IN.index(cdb.active_trip[0].trip_id) for cdb in coinciding_dispatch_buses]
+                    min_trip_idx = min(trip_idxs)
+                    self.bus = coinciding_dispatch_buses[trip_idxs.index(min_trip_idx)]
+                else:
+                    # self.bus = min(active_buses, key=lambda bus: bus.next_event_time)
+                    self.bus = active_buses[min_event_time_idxs[0]]
+
             self.time = float(self.bus.next_event_time)
             return False
         else:
@@ -499,7 +547,8 @@ class DetailedSimulationEnv(SimulationEnv):
 
     def prep(self):
         done = self.next_event()
-        if done or LAST_FOCUS_TRIP in [t.trip_id for t in self.buses[LAST_FOCUS_TRIP_BLOCK_IDX].finished_trips]:
+        last_focus_bus = [bus for bus in self.buses if bus.bus_id == LAST_FOCUS_TRIP_BLOCK]
+        if done or LAST_FOCUS_TRIP in [t.trip_id for t in last_focus_bus[0].finished_trips]:
             return True
 
         if self.bus.next_event_type == 0:
@@ -507,9 +556,7 @@ class DetailedSimulationEnv(SimulationEnv):
             # if there is a time conflict, then update its dispatch time to at least the next dispatch time
             if not self.bus.finished_trips:
                 # this function, if the previous trip hasn't departed, updates the dispatch time and returns False
-                allow_initialized_dispatch = self.allow_initialized_dispatch()
-                if not allow_initialized_dispatch:
-                    return False
+                self.smart_dispatch_initialized()
             self.inbound_ready_to_dispatch()
             self.inbound_dispatch()
             return False
@@ -551,10 +598,17 @@ class DetailedSimulationEnv(SimulationEnv):
             next_trip_id = TRIP_IDS_IN[idx_trip_id + 1]
             active_buses = [bus for bus in self.buses if bus.active_trip]
             next_dispatch_bus = [bus for bus in active_buses if bus.active_trip[0].trip_id == next_trip_id]
+
             if not next_dispatch_bus:
                 pending_bus = [bus for bus in active_buses if bus.pending_trips]
                 if pending_bus:
                     next_dispatch_bus = [bus for bus in pending_bus if bus.pending_trips[0].trip_id == next_trip_id]
+                if not next_dispatch_bus:
+                    print(f'time is {str(timedelta(seconds=round(self.time)))}')
+                    print(f'trip {TRIP_IDS_IN[idx_trip_id]} arriving at stop {stop.stop_id}')
+                    print(f'looking for {next_trip_id} in {[bus.pending_trips[0].trip_id for bus in pending_bus]}')
+                    print(f'previous departures {self.log.recorded_departures}')
+                    print(f'previous arrivals {self.log.recorded_arrivals}')
             next_sched_dep_t = SCHED_DEP_IN[idx_trip_id + 1]
             next_dep_t = max(next_dispatch_bus[0].next_event_time, next_sched_dep_t)
             backward_headway = next_dep_t - self.time
@@ -585,8 +639,8 @@ class DetailedSimulationEnv(SimulationEnv):
             stop1 = self.bus.last_stop_id
             behind_trip_arrival_time = estimate_arrival_time(dep_t, stop0, stop1, self.time_dependent_travel_time)
             backward_headway = behind_trip_arrival_time - self.time
-            if backward_headway < 0:
-                backward_headway = 0
+            if backward_headway < 0.0:
+                backward_headway = 0.0
         return backward_headway
 
 
@@ -617,7 +671,8 @@ class DetailedSimulationEnvWithControl(DetailedSimulationEnv):
 
     def prep(self):
         done = self.next_event()
-        if done or LAST_FOCUS_TRIP in [t.trip_id for t in self.buses[LAST_FOCUS_TRIP_BLOCK_IDX].finished_trips]:
+        last_focus_bus = [bus for bus in self.buses if bus.bus_id == LAST_FOCUS_TRIP_BLOCK]
+        if done or LAST_FOCUS_TRIP in [t.trip_id for t in last_focus_bus[0].finished_trips]:
             return True
 
         if self.bus.next_event_type == 0:
@@ -625,9 +680,7 @@ class DetailedSimulationEnvWithControl(DetailedSimulationEnv):
             # if there is a time conflict, then update its dispatch time to at least the next dispatch time
             if not self.bus.finished_trips:
                 # this function, if the previous trip hasn't departed, updates the dispatch time and returns False
-                allow_initialized_dispatch = self.allow_initialized_dispatch()
-                if not allow_initialized_dispatch:
-                    return False
+                self.smart_dispatch_initialized()
             arrival_stop = STOPS[0]
             trip_id = self.bus.active_trip[0].trip_id
             if trip_id not in NO_CONTROL_TRIP_IDS:
@@ -764,7 +817,7 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
                     if len(bus.pax) + 1 <= CAPACITY:
                         p.trip_id = bus.active_trip[0].trip_id
                         p.board_time = float(p.arr_time)
-                        p.wait_time = float(p.board_time - p.arr_time)
+                        p.wait_time = 0.0
                         bus.pax.append(p)
                         self.stops[curr_stop_idx].pax.remove(p)
                         bus.ons += 1
@@ -786,9 +839,8 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
     def _add_observations(self):
         curr_stop_idx = STOPS.index(self.bus.last_stop_id)
         stop = self.stops[curr_stop_idx]
-        forward_headway = self.time - stop.last_arr_times[-2]
+        forward_headway = self.time - stop.last_dep_times[-1]
         backward_headway = self.get_backward_headway()
-
         stop_idx = STOPS.index(self.bus.last_stop_id)
         trip_id = self.bus.active_trip[0].trip_id
         trip_sars = self.trips_sars[trip_id]
@@ -801,7 +853,7 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
                 pax_at_stop += 1
             else:
                 break
-        prev_fw_h = stop.last_arr_times[-2] - stop.last_arr_times[-3]
+        prev_fw_h = stop.last_arr_times[-2] - stop.last_dep_times[-2]
         new_state = [route_progress, bus_load, forward_headway, backward_headway, pax_at_stop, prev_fw_h]
 
         if trip_sars:
@@ -817,7 +869,6 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
         # record action in sars
         trip_id = bus.active_trip[0].trip_id
         self.trips_sars[trip_id][-1][1] = action
-
         if action:
             if bus.last_stop_id == STOPS[0]:
                 self.inbound_dispatch(hold=(action - 1) * BASE_HOLDING_TIME)
@@ -832,7 +883,7 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
                 self.fixed_stop_depart(skip=True)
         return
 
-    def wait_time_reward(self, s0, s1, neighbor_prev_hold, neighbor_prev_load, neighbor_prev_pax_at_stop):
+    def wait_time_reward(self, s0, s1, neighbor_prev_hold, neighbor_prev_load, neighbor_prev_pax_at_stop, prev_action):
         bus = self.bus
         s0_idx = STOPS.index(s0) # you check from those pax boarding next to the control stop (impacted)
         s1_idx = STOPS.index(s1) # next control point
@@ -840,61 +891,73 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
         trip_idx = TRIP_IDS_IN.index(trip_id)
 
         # FRONT NEIGHBOR'S REWARD
-        neighbor_trip_idx = trip_idx - 1
-        neighbor_trip_id = TRIP_IDS_IN[neighbor_trip_idx]
-        scheduled_headway = SCHED_DEP_IN[neighbor_trip_idx] - SCHED_DEP_IN[neighbor_trip_idx - 1]
-        scheduled_wait = scheduled_headway / 2
+        agent_trip_idx = trip_idx - 1
+        agent_trip_id = TRIP_IDS_IN[agent_trip_idx]
+        # scheduled_headway = SCHED_DEP_IN[neighbor_trip_idx] - SCHED_DEP_IN[neighbor_trip_idx - 1]
+        # scheduled_wait = scheduled_headway / 2
         # agent bus not considered responsible for the wait time impact in the control point upon arrival to it
         # only responsible for the impact on wait time at the control point for the following trip
         # and the riding time impact in case of holding which is accounted for later
         # for example if there was skipping at that stop previously the penalty would otherwise be tremendous
         # despite having nothing to do with that decision
-        stop_idx_set = [s for s in range(s0_idx + 1, s1_idx)]
+        stop_idx_set = [s for s in range(s0_idx, s1_idx)]
         # NOW TWO SCENARIOS: 1. THE FRONT BUS FINISHED ITS TRIP AND THEREFORE ALL PAX INFO SHOULD BE IN COMPLETED PAX
         # OR 2. IT IS STILL ACTIVE AND SOME PAX INFO MAY BE INCLUDED INSIDE BUS ATTRIBUTE PAX
-        neighbor_boardings_count = 0
-        sum_reward_neighbor_wait_time = 0
+        agent_board_count = 0
+        sum_rew_agent_wait_time = 0
         for pax in self.completed_pax:
-            if pax.trip_id == neighbor_trip_id and pax.orig_idx in stop_idx_set:
-                excess_wait = max(0, pax.wait_time - scheduled_wait)
-                sum_reward_neighbor_wait_time += excess_wait
-                neighbor_boardings_count += 1
+            if pax.trip_id == agent_trip_id and pax.orig_idx in stop_idx_set:
+                wait = pax.wait_time
+                if pax.orig_idx == stop_idx_set[0] and pax.wait_time != 0.0:
+                    wait += neighbor_prev_hold
+                sum_rew_agent_wait_time += wait
+                # excess_wait = max(0, pax.wait_time - scheduled_wait)
+                # sum_rew_agent_wait_time += excess_wait
+                agent_board_count += 1
         active_buses = [bus for bus in self.buses if bus.active_trip]
-        front_active_bus = [bus for bus in active_buses if bus.active_trip[0].trip_id == neighbor_trip_id]
+        front_active_bus = [bus for bus in active_buses if bus.active_trip[0].trip_id == agent_trip_id]
         if front_active_bus:
             for pax in front_active_bus[0].pax:
                 if pax.orig_idx in stop_idx_set:
-                    excess_wait = max(0, pax.wait_time - scheduled_wait)
-                    sum_reward_neighbor_wait_time += excess_wait
-                    neighbor_boardings_count += 1
-        sum_reward_neighbor_ride_time = neighbor_prev_hold * (neighbor_prev_load + neighbor_prev_pax_at_stop)
+                    # excess_wait = max(0, pax.wait_time - scheduled_wait)
+                    wait = pax.wait_time
+                    if pax.orig_idx == stop_idx_set[0] and pax.wait_time != 0.0:
+                        wait += neighbor_prev_hold
+                    sum_rew_agent_wait_time += wait
+                    # sum_rew_agent_wait_time += excess_wait
+                    agent_board_count += 1
+        # sum_reward_neighbor_ride_time = neighbor_prev_hold * (neighbor_prev_load + neighbor_prev_pax_at_stop)
 
         # CURRENT TRIP'S REWARD CONTRIBUTION
         scheduled_headway = SCHED_DEP_IN[trip_idx] - SCHED_DEP_IN[trip_idx - 1]
         scheduled_wait = scheduled_headway / 2
         stop_idx_set = [s for s in range(s0_idx, s1_idx)]
         # +1 is to catch the index of the control point only if it will be used to update
-        sum_reward_behind_wait_time = 0
-        behind_boardings_count = 0
+        sum_rew_behind_wait_time = 0
+        behind_board_count = 0
         for pax in bus.pax:
             if pax.orig_idx in stop_idx_set:
-                excess_wait = max(0, pax.wait_time - scheduled_wait)
-                sum_reward_behind_wait_time += excess_wait
-                behind_boardings_count += 1
+                # excess_wait = max(0, pax.wait_time - scheduled_wait)
+                # sum_rew_behind_wait_time += excess_wait
+                behind_board_count += 1
+                sum_rew_behind_wait_time += pax.wait_time
         for pax in self.completed_pax:
             if pax.trip_id == trip_id and pax.orig_idx in stop_idx_set:
-                excess_wait = max(0, pax.wait_time - scheduled_wait)
-                sum_reward_behind_wait_time += excess_wait
-                behind_boardings_count += 1
-
-        reward = (sum_reward_neighbor_ride_time + 1.5*(sum_reward_neighbor_wait_time + sum_reward_behind_wait_time))
-        ride_time_impacted = neighbor_prev_load + neighbor_prev_pax_at_stop
-        wait_time_impacted = neighbor_boardings_count + behind_boardings_count
-        if sum_reward_neighbor_ride_time:
-            tot_pax = ride_time_impacted + wait_time_impacted
-        else:
-            tot_pax = wait_time_impacted
-        reward = (-reward / tot_pax / 60) if tot_pax else 0
+                # excess_wait = max(0, pax.wait_time - scheduled_wait)
+                # sum_rew_behind_wait_time += excess_wait
+                behind_board_count += 1
+                sum_rew_behind_wait_time += pax.wait_time
+        # reward = (sum_reward_neighbor_ride_time + WEIGHT_WAIT_TIME*(sum_reward_neighbor_wait_time + sum_reward_behind_wait_time))
+        # ride_time_impacted = neighbor_prev_load + neighbor_prev_pax_at_stop
+        tot_pax = behind_board_count + agent_board_count
+        reward = (sum_rew_behind_wait_time + sum_rew_agent_wait_time)
+        reward = -reward / 60 / 60
+        # wait_time_impacted = agent_board_count + behind_board_count
+        # if sum_reward_neighbor_ride_time:
+        #     tot_pax = ride_time_impacted + wait_time_impacted
+        # else:
+        #     tot_pax = wait_time_impacted
+        # reward = (-reward / tot_pax / 60) if tot_pax else 0
         # in minutes
         return reward
 
@@ -922,7 +985,7 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
             prev_hold = (prev_action - 1) * BASE_HOLDING_TIME if prev_action > 1 else 0
             prev_load = prev_sars[0][IDX_LOAD_RL]
             prev_pax_at_stop = prev_sars[0][IDX_PAX_AT_STOP]
-            reward = self.wait_time_reward(prev_control_stop, curr_control_stop, prev_hold, prev_load, prev_pax_at_stop)
+            reward = self.wait_time_reward(prev_control_stop, curr_control_stop, prev_hold, prev_load, prev_pax_at_stop, prev_action)
             assert self.trips_sars[neighbor_trip_id][sars_idx][3]
             self.trips_sars[neighbor_trip_id][sars_idx][2] += reward
             self.pool_sars.append(self.trips_sars[neighbor_trip_id][sars_idx] + [self.bool_terminal_state])
@@ -932,17 +995,15 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
 
     def prep(self):
         done = self.next_event()
-        if done or LAST_FOCUS_TRIP in [t.trip_id for t in self.buses[LAST_FOCUS_TRIP_BLOCK_IDX].finished_trips]:
+        last_focus_bus = [bus for bus in self.buses if bus.bus_id == LAST_FOCUS_TRIP_BLOCK]
+        if done or LAST_FOCUS_TRIP in [t.trip_id for t in last_focus_bus[0].finished_trips]:
             return True
-
         if self.bus.next_event_type == 0:
             # if the trip is initialized, check that it does not leave before the trip has departed
             # if there is a time conflict, then update its dispatch time to at least the next dispatch time
             if not self.bus.finished_trips:
                 # this function, if the previous trip hasn't departed, updates the dispatch time and returns False
-                allow_initialized_dispatch = self.allow_initialized_dispatch()
-                if not allow_initialized_dispatch:
-                    return self.prep()
+                self.smart_dispatch_initialized()
             arrival_stop = STOPS[0]
             trip_id = self.bus.active_trip[0].trip_id
             if trip_id not in NO_CONTROL_TRIP_IDS:

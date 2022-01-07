@@ -19,13 +19,13 @@ if __name__ == '__main__':
                         help='Number of games to play')
     parser.add_argument('-lr', type=float, default=0.0001,
                         help='Learning rate for optimizer')
-    parser.add_argument('-eps_min', type=float, default=0.02,
+    parser.add_argument('-eps_min', type=float, default=0.01,
                         help='Minimum value for epsilon in epsilon-greedy action selection')
     parser.add_argument('-gamma', type=float, default=0.99,
                         help='Discount factor for update equation.')
-    parser.add_argument('-eps_dec', type=float, default=2.5e-5,
+    parser.add_argument('-eps_dec', type=float, default=1.4e-5,
                         help='Linear factor for decreasing epsilon')
-    parser.add_argument('-eps', type=float, default=1.0,
+    parser.add_argument('-eps', type=float, default=0.6,
                         help='Starting value for epsilon in epsilon-greedy action selection')
     parser.add_argument('-max_mem', type=int, default=8000,
                         help='Maximum size for memory replay buffer')
@@ -84,7 +84,18 @@ if __name__ == '__main__':
                     observation = np.array(all_sars[-1][0], dtype=np.float32)
                     route_progress = observation[IDX_RT_PROGRESS]
                     pax_at_stop = observation[IDX_PAX_AT_STOP]
-                    if route_progress == 0.0 or pax_at_stop == 0:
+
+                    curr_stop = [s for s in env.stops if s.stop_id == env.bus.last_stop_id]
+                    previous_denied = False
+                    for p in curr_stop[0].pax.copy():
+                        if p.arr_time <= env.time:
+                            if p.denied:
+                                previous_denied = True
+                                break
+                        else:
+                            break
+
+                    if route_progress == 0.0 or pax_at_stop == 0 or previous_denied:
                         action = agent.choose_action(observation, mask_idx=0)
                     else:
                         action = agent.choose_action(observation)
@@ -144,7 +155,18 @@ if __name__ == '__main__':
                     observation = np.array(all_sars[-1][0], dtype=np.float32)
                     route_progress = observation[IDX_RT_PROGRESS]
                     pax_at_stop = observation[IDX_PAX_AT_STOP]
-                    if route_progress == 0.0 or pax_at_stop == 0:
+
+                    curr_stop = [s for s in env.stops if s.stop_id == env.bus.last_stop_id]
+                    previous_denied = False
+                    for p in curr_stop[0].pax.copy():
+                        if p.arr_time <= env.time:
+                            if p.denied:
+                                previous_denied = True
+                                break
+                        else:
+                            break
+
+                    if route_progress == 0.0 or pax_at_stop == 0 or previous_denied:
                         action = agent.choose_action(observation, mask_idx=0)
                     else:
                         action = agent.choose_action(observation)

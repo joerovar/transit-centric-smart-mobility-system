@@ -237,7 +237,6 @@ def get_outbound_travel_time(path_stop_times, start_time, end_time, dates, nr_in
     add_sched_dep_time = (datetime.strptime('7:33:30', '%H:%M:%S') - datetime(1900, 1, 1)).total_seconds()
     add_trip_id = 911266020
     add_block_id_df = stop_times_df[stop_times_df['trip_id'] == add_trip_id]
-    # add_bus_id_df = add_bus_id_df[add_bus_id_df['avl_arr_time'].astype(str).str[:10] == date_for_bus_id]
     add_block_id = int(add_block_id_df['block_id'].mean())
     for i in range(1, len(ordered_trip_ids1)-1):
         if ordered_deps1[i - 1] < add_sched_dep_time < ordered_deps1[i]:
@@ -352,11 +351,41 @@ def get_outbound_travel_time(path_stop_times, start_time, end_time, dates, nr_in
     trip_times2_params = []
     deadhead_times_params = []
     for i in range(nr_intervals):
+        # print('------')
+        # print(f'INTERVAL {i+1}')
+        # print(f'with outliers {trip_times1[i]}')
+        # print(f'with outliers {trip_times2[i]}')
         trip_times1[i] = remove_outliers(np.array(trip_times1[i])).tolist()
         trip_times2[i] = remove_outliers(np.array(trip_times2[i])).tolist()
+        # print(f'without outliers {trip_times1[i]}')
+        # print(f'without outliers {trip_times2[i]}')
         deadhead_times[i] = remove_outliers(np.array(deadhead_times[i])).tolist()
-        trip_times1_params.append(norm.fit(trip_times1[i]))
-        trip_times2_params.append(norm.fit(trip_times2[i]))
+
+        norm_params1 = norm.fit(trip_times1[i])
+        norm_params2 = norm.fit(trip_times2[i])
+
+        lognorm_params1 = lognorm.fit(trip_times1[i], floc=0)
+        lognorm_params2 = lognorm.fit(trip_times2[i], floc=0)
+
+        # if len(trip_times1[i]) > 1:
+        #     print(f'params {norm_params1} {kstest(trip_times1[i],"norm", norm_params1)}')
+        #     print(f'params {lognorm_params1} {kstest(trip_times1[i], "lognorm", lognorm_params1)}')
+        #     print(f'real extremes {(max(trip_times1[i]), min(trip_times1[i]))}')
+        #     sampling_norm = norm.rvs(*norm_params1, size=20)
+        #     print(f'norm extremes {(max(sampling_norm), min(sampling_norm))}')
+        #     sampling_lognorm = lognorm.rvs(*lognorm_params1, size=20)
+        #     print(f'lognorm extremes {max(sampling_lognorm), min(sampling_lognorm)}')
+        # if len(trip_times2[i]) > 1:
+        #     print(f'params {norm_params2} {kstest(trip_times2[i],"norm", norm_params2)}')
+        #     print(f'params {lognorm_params2} {kstest(trip_times2[i], "lognorm", lognorm_params2)}')
+        #     print(f'real extremes {(max(trip_times2[i]), min(trip_times2[i]))}')
+        #     sampling_norm = norm.rvs(*norm_params2, size=20)
+        #     print(f'norm extremes {(max(sampling_norm), min(sampling_norm))}')
+        #     sampling_lognorm = lognorm.rvs(*lognorm_params2, size=20)
+        #     print(f'lognorm extremes {max(sampling_lognorm), min(sampling_lognorm)}')
+
+        trip_times1_params.append(lognorm_params1)
+        trip_times2_params.append(lognorm_params2)
         deadhead_times_params.append(norm.fit(deadhead_times[i]))
     trips1_info = [(x, y, z) for x, y, z in zip(ordered_trip_ids1, ordered_deps1, ordered_block_ids1)]
     trips2_info = [(x, y, z) for x, y, z in zip(ordered_trip_ids2, ordered_deps2, ordered_block_ids2)]

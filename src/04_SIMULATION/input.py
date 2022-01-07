@@ -8,8 +8,8 @@ from file_paths import *
 from constants import *
 
 
-def extract_params(route_params=False, demand=False, validation=False):
-    if route_params:
+def extract_params(inbound_route_params=False, outbound_route_params=False, demand=False, validation=False):
+    if inbound_route_params:
         stops, ordered_trips, link_times_info, sched_deps_in, sched_arrs_in, bus_ids_in = get_route(path_stop_times,
                                                                                                     START_TIME_SEC,
                                                                                                     END_TIME_SEC,
@@ -19,7 +19,7 @@ def extract_params(route_params=False, demand=False, validation=False):
                                                                                                     DATES,
                                                                                                     TRIP_WITH_FULL_STOP_PATTERN)
 
-        link_times_mean, link_times_extremes, link_times_params = link_times_info
+        # link_times_mean, link_times_extremes, link_times_params = link_times_info
         # link_t_mean = [(key, np.around(np.nanmean(value))) for key, value in link_times_mean_true.items()]
         # link_t_cv = [(key, np.around(np.nanmean(value), decimals=2)) for key, value in link_times_cv_true.items()]
         # df1 = pd.DataFrame(link_t_mean, columns=['link', 'mean'])
@@ -36,6 +36,7 @@ def extract_params(route_params=False, demand=False, validation=False):
         save(path_departure_times_xtr, sched_deps_in)
         save('in/xtr/rt_20-2019-09/scheduled_arrivals_inbound.pkl', sched_arrs_in)
         save('in/xtr/rt_20-2019-09/bus_ids_inbound.pkl', bus_ids_in)
+    if outbound_route_params:
         trips1_info_out, trips2_info_out, sched_arrs_out, trip_times1_params, trip_times2_params, \
         deadhead_time_params = get_outbound_travel_time(
             path_stop_times, START_TIME_SEC, END_TIME_SEC, DATES, TRIP_TIME_NR_INTERVALS, TRIP_TIME_START_INTERVAL,
@@ -101,7 +102,7 @@ def get_params_outbound():
     return trip_times1_params, trip_times2_params, trips1_out_info, trips2_out_info, deadhead_times_params, sched_arrs
 
 
-# extract_params(route_params=True)
+# extract_params(outbound_route_params=True)
 
 STOPS, LINK_TIMES_INFO, TRIP_IDS_IN, SCHED_DEP_IN, ODT, SCHED_ARRS_IN, TRIP_TIMES_INPUT, BUS_IDS_IN = get_params_inbound()
 TRIP_TIMES1_PARAMS, TRIP_TIMES2_PARAMS, TRIPS1_INFO_OUT, TRIPS2_INFO_OUT, DEADHEAD_TIME_PARAMS, SCHED_ARRS_OUT = get_params_outbound()
@@ -172,6 +173,14 @@ SINGLE_LINK_TIMES_EXTREMES = {key: value[UNIFORM_INTERVAL] for (key, value) in L
 NO_CONTROL_TRIP_IDS = TRIP_IDS_IN[:9] + TRIP_IDS_IN[-11:]
 NO_CONTROL_SCHED = SCHED_DEP_IN[:9] + SCHED_DEP_IN[-11:]
 CONTROL_TRIP_IDS = TRIP_IDS_IN[9:-11]
+CONTROL_SCHEDULE = SCHED_DEP_IN[9:-11]
+CONTROL_HW = [t1 - t0 for t1, t0 in zip(CONTROL_SCHEDULE[1:], CONTROL_SCHEDULE[:-1])]
+CONTROL_MEAN_HW = sum(CONTROL_HW) / len(CONTROL_HW)
+BASE_HOLDING_TIME = 25
+MIN_HW_THRESHOLD = 0.4
+LIMIT_HOLDING = int(MIN_HW_THRESHOLD*CONTROL_MEAN_HW - MIN_HW_THRESHOLD*CONTROL_MEAN_HW % BASE_HOLDING_TIME)
+N_ACTIONS_RL = int(LIMIT_HOLDING/BASE_HOLDING_TIME) + 2
+# print(TRIP_IDS_IN)
 # CHOOSING CONTROL POINTS
 # lp = load('in/xtr/rt_20-2019-09/load_profile.pkl')
 # lp_lst = []

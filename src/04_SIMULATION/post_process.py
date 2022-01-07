@@ -289,25 +289,18 @@ def pax_per_trip_from_trajectory_set(trajectory_set, idx_load, idx_ons, idx_offs
 
 
 def hold_time_from_trajectory_set(trajectory_set, idx):
-    tot_hold_times = []
-    ht_all = {}
+    tot_hold_times_mean = []
     for trajectories in trajectory_set:
+        tot_hold_times = []
         for trip in trajectories:
             trip_hold_time = 0
             for stop_details in trajectories[trip]:
-                stop_id = stop_details[0]
                 ht = stop_details[idx]
                 trip_hold_time += ht
-                if stop_id not in ht_all:
-                    ht_all[stop_id] = [ht]
-                else:
-                    ht_all[stop_id].append(ht)
             tot_hold_times.append(trip_hold_time)
-    avg_tot_ht = np.array(tot_hold_times).mean()
-    ht_mean = {}
-    for stop in ht_all:
-        ht_mean[stop] = np.nan_to_num(np.array(ht_all[stop]).mean())
-    return ht_mean, avg_tot_ht, tot_hold_times
+        tot_hold_times_mean.append(int(np.mean(tot_hold_times)))
+    tot_hold_time_mean = sum(tot_hold_times_mean) / len(tot_hold_times_mean)
+    return tot_hold_time_mean
 
 
 def denied_from_trajectory_set(trajectory_set, idx, avg_tot_ons):
@@ -326,11 +319,21 @@ def denied_from_trajectory_set(trajectory_set, idx, avg_tot_ons):
 
 def tot_trip_times_from_trajectory_set(trajectory_set, idx_dep_t, idx_arr_t):
     tot_trip_times = []
+    extreme_trip_times = []
+    rep_nr = 1
     for trajectories in trajectory_set:
         lst_trips = list(trajectories.keys())
         trip_times = [trajectories[k][-1][idx_arr_t] - trajectories[k][0][idx_dep_t] for k in lst_trips]
+        extreme_trip_times.append(np.percentile(trip_times, 95))
+        trip_times_long = [t for t in trip_times if t > 5500]
+        if trip_times_long:
+            print('----')
+            print(rep_nr)
+            print(trip_times_long)
         tot_trip_times += trip_times
-    return tot_trip_times
+        rep_nr += 1
+    extreme_trip_times_mean = np.mean(extreme_trip_times)
+    return tot_trip_times, extreme_trip_times_mean
 
 
 def travel_times_from_trajectory_set(trajectory_set, idx_dep_t, idx_arr_t):
@@ -575,30 +578,6 @@ def plot_od(od, ordered_stops, pathname=None, clim=None, controlled_stops=None):
     return
 
 
-def plot_difference_od(od, ordered_stops, pathname=None, clim=None, controlled_stops=None):
-    plt.imshow(od, interpolation='nearest', cmap='coolwarm')
-    current_cmap = matplotlib.cm.get_cmap().copy()
-    current_cmap.set_bad(color='white')
-    if clim:
-        plt.clim(clim)
-    cbar = plt.colorbar()
-    cbar.ax.set_ylabel('seconds', rotation=270)
-    bar = np.arange(len(ordered_stops))
-    x = np.array(ordered_stops)
-    plt.xticks(bar, x, rotation=90, fontsize=6)
-    plt.yticks(bar, x, fontsize=6)
-    for c in controlled_stops:
-        idx = ordered_stops.index(c)
-        plt.axhline(y=idx, color='gray', alpha=0.5, linestyle='dashed')
-    plt.tight_layout()
-    if pathname:
-        plt.savefig(pathname)
-    else:
-        plt.show()
-    plt.close()
-    return
-
-
 def get_wait_times(pax_set, ordered_stops):
     stop_wait_time_mean = np.zeros(shape=(len(pax_set), len(ordered_stops)))
     stop_wait_time_mean[:] = np.nan
@@ -623,48 +602,51 @@ def get_wait_times(pax_set, ordered_stops):
     return stop_wait_time_mean
 
 
-def get_journey_times(pax_set, ordered_stops):
+def get_pax_times(pax_set, ordered_stops, schd_wait):
     # we add all data points to a dataframe
     # then we convert into an od matrix
     nr_replications = len(pax_set)
     nr_stops = len(ordered_stops)
-    od_journey_times_mean = np.zeros(shape=(nr_replications, nr_stops, nr_stops))
-    od_journey_times_mean[:] = np.nan
-    od_journey_time_rbt = np.zeros(shape=(nr_replications, nr_stops, nr_stops))
-    od_journey_time_rbt[:] = np.nan
-    od_wait_time_mean = np.zeros(shape=(nr_replications, nr_stops, nr_stops))
-    od_wait_time_mean[:] = np.nan
-    od_ride_time_mean = np.zeros(shape=(nr_replications, nr_stops, nr_stops))
-    od_ride_time_mean[:] = np.nan
+    jt_rep_mean = []
+    wt_rep_mean = []
+    rt_rep_mean = []
+    rbt_rep_mean = []
+    pct_ewt_rep_mean = []
     for replication_nr in range(nr_replications):
-        journey_times = {'o': [], 'd': [], 'jt': [], 'wt': [], 'rt':[]}
+        pax_times = {'o': [], 'd': [], 'jt': [], 'wt': [], 'rt': []}
         for p in pax_set[replication_nr]:
-            journey_times['o'].append(p.orig_idx)
-            journey_times['d'].append(p.dest_idx)
-            journey_times['jt'].append(p.journey_time)
-            journey_times['wt'].append(p.wait_time)
-            journey_times['rt'].append(p.alight_time - p.board_time)
-        journey_times_df = pd.DataFrame(journey_times)
-        for i in range(nr_stops):
+            pax_times['o'].append(p.orig_idx)
+            pax_times['d'].append(p.dest_idx)
+            pax_times['jt'].append(p.journey_time)
+            pax_times['rt'].append(p.alight_time - p.board_time)
+            pax_times['wt'].append(p.wait_time)
+        jt_rep_mean.append(sum(pax_times['jt']) / len(pax_times['jt']))
+        wt_rep_mean.append(sum(pax_times['wt']) / len(pax_times['wt']))
+        rt_rep_mean.append(sum(pax_times['rt']) / len(pax_times['rt']))
+        pax_times_df = pd.DataFrame(pax_times)
+        ewt_pax = pax_times_df[pax_times_df['wt'] > schd_wait].shape[0]
+        tot_pax = pax_times_df.shape[0]
+        pct_ewt_rep_mean.append(100 * ewt_pax / tot_pax)
+        od_rbt = np.zeros(shape=(nr_stops, nr_stops))
+        od_rbt[:] = np.nan
+        rbt_count = 0
+        for i in range(nr_stops-1):
             for j in range(i + 1, nr_stops):
-                od_pair_df = journey_times_df[(journey_times_df['o'] == i) & (journey_times_df['d'] == j)]
+                od_pair_df = pax_times_df[(pax_times_df['o'] == i) & (pax_times_df['d'] == j)]
                 jt = od_pair_df['jt']
-                wt = od_pair_df['wt']
-                rt = od_pair_df['rt']
                 if not jt.empty:
-                    od_journey_times_mean[replication_nr, i, j] = jt.mean()
-                    od_journey_time_rbt[replication_nr, i, j] = jt.quantile(0.95) - jt.median()
-                    od_wait_time_mean[replication_nr, i, j] = wt.mean()
-                    od_ride_time_mean[replication_nr, i, j] = rt.mean()
-    od_journey_times_mean_of_reps = np.nanmean(od_journey_times_mean, axis=0)
-    od_journey_time_rbt_mean_of_reps = np.nanmean(od_journey_time_rbt, axis=0)
-    od_wait_times_mean_of_reps = np.nanmean(od_wait_time_mean, axis=0)
-    od_ride_time_mean_of_reps = np.nanmean(od_ride_time_mean, axis=0)
-    journey_times_mean_of_reps = np.nanmean(od_journey_times_mean_of_reps)
-    journey_times_rbt_mean_of_reps = np.nanmean(od_journey_time_rbt_mean_of_reps)
-    wait_times_mean_of_reps = np.nanmean(od_wait_times_mean_of_reps)
-    ride_time_mean_of_reps = np.nanmean(od_ride_time_mean_of_reps)
-    return journey_times_mean_of_reps, journey_times_rbt_mean_of_reps, wait_times_mean_of_reps, ride_time_mean_of_reps
+                    rbt = jt.quantile(0.95) - jt.median()
+                    assert rbt >= 0.0
+                    if rbt > 0.0:
+                        od_rbt[i, j] = rbt * jt.shape[0]
+                        rbt_count += jt.shape[0]
+        rbt_rep_mean.append(np.nansum(od_rbt) / rbt_count)
+    jt_mean = np.mean(jt_rep_mean)
+    wt_mean = np.mean(wt_rep_mean)
+    rt_mean = np.mean(rt_rep_mean)
+    rbt_mean = np.mean(rbt_rep_mean)
+    pct_ewt_mean = np.mean(pct_ewt_rep_mean)
+    return jt_mean, rbt_mean, wt_mean, rt_mean, pct_ewt_mean
 
 
 def get_departure_delay(trajectories_set, idx_dep_t, ordered_trip_ids, sched_departures):
@@ -851,7 +833,7 @@ def plot_wait_time_benchmark(wt_set, os, lbl, colors, pathname=None, scheduled_w
     fig, ax = plt.subplots()
     j = 0
     for wt in wt_set:
-        ax.bar(np.arange(len(wt)), wt, label=lbl[j], color=colors[j])
+        ax.plot(np.arange(len(wt)), wt, label=lbl[j], color=colors[j])
         j += 1
     if scheduled_wait:
         plt.axhline(scheduled_wait, linestyle='dashed', color='gray')
@@ -871,4 +853,5 @@ def plot_wait_time_benchmark(wt_set, os, lbl, colors, pathname=None, scheduled_w
         plt.show()
     plt.close()
     return
+
 
