@@ -190,8 +190,8 @@ def analyze_delays():
 
 path_tr_nc = 'out/NC/trajectories_set_0106-142857.pkl'
 path_p_nc = 'out/NC/pax_set_0106-142857.pkl'
-path_tr_eh = 'out/EH/trajectories_set_0106-174553.pkl'
-path_p_eh = 'out/EH/pax_set_0106-174553.pkl'
+path_tr_eh = 'out/EH/trajectories_set_0106-210821.pkl'
+path_p_eh = 'out/EH/pax_set_0106-210821.pkl'
 path_tr_rl = 'out/RL/trajectory_set_0106-191406.pkl'
 path_p_rl = 'out/RL/pax_set_0106-191406.pkl'
 # #
@@ -204,11 +204,11 @@ post_processor = PostProcessor(path_trips, path_pax, tags)
 post_processor.write_trajectories()
 post_processor.total_trip_time_distribution()
 post_processor.headway()
-post_processor.load_profile()
-post_processor.denied()
-post_processor.hold_time()
-post_processor.wait_times_per_stop()
-post_processor.pax_times()
+# post_processor.load_profile()
+# post_processor.denied()
+# post_processor.hold_time()
+# post_processor.wait_times_per_stop()
+# post_processor.pax_times()
 
 
 
