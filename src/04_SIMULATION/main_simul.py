@@ -197,13 +197,13 @@ path_p_rl = 'out/RL/pax_set_0106-191406.pkl'
 # #
 
 # PROCESS RAW RESULTS
-path_trips = [path_tr_nc, path_tr_eh, path_tr_rl]
-path_pax = [path_p_nc, path_p_eh, path_p_rl]
-tags = ['NC', 'EH', 'RL']
-post_processor = PostProcessor(path_trips, path_pax, tags)
-post_processor.write_trajectories()
-post_processor.total_trip_time_distribution()
-post_processor.headway()
+# path_trips = [path_tr_nc, path_tr_eh, path_tr_rl]
+# path_pax = [path_p_nc, path_p_eh, path_p_rl]
+# tags = ['NC', 'EH', 'RL']
+# post_processor = PostProcessor(path_trips, path_pax, tags)
+# post_processor.write_trajectories()
+# post_processor.total_trip_time_distribution()
+# post_processor.headway()
 # post_processor.load_profile()
 # post_processor.denied()
 # post_processor.hold_time()
@@ -213,14 +213,14 @@ post_processor.headway()
 
 
 # VALIDATION
-# path_trips = [path_tr_nc]
-# path_pax = [path_p_nc]
-# post_processor = PostProcessor(path_trips, path_pax, ['NC'])
+path_trips = [path_tr_nc]
+path_pax = [path_p_nc]
+post_processor = PostProcessor(path_trips, path_pax, ['NC'])
 # post_processor.departure_delay_validation()
 # post_processor.dwell_time_validation()
 # post_processor.trip_time_dist_validation()
 # post_processor.load_profile_validation()
-# post_processor.load_profile_base()
+post_processor.load_profile_base()
 
 # PROCESS TRAJECTORIES FILE
 # stops = post_process.load('in/xtr/rt_20-2019-09/route_stops.pkl')

@@ -196,8 +196,11 @@ def plot_load_profile(bd, al, lp, os, through, pathname=None, x_y_lbls=None, con
         for cs in controlled_stops:
             idx = os.index(cs)
             plt.axvline(x=idx, color='gray', alpha=0.5, linestyle='dashed')
-    ax1.set_xticks(x1)
-    ax1.set_xticklabels(os, fontsize=6, rotation=90)
+    x_ticks = np.arange(0, len(os), 5)
+    x_tick_labels = x_ticks + 1
+    ax1.set_xticks(x_ticks)
+    ax1.set_xticklabels(x_tick_labels)
+    # ax1.set_xticklabels(x_ticks, fontsize=6, rotation=90)
     # right, left, top, bottom
     if x_y_lbls:
         ax1.set_xlabel(x_y_lbls[0])

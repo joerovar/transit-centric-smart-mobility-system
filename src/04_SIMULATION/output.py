@@ -175,8 +175,8 @@ class PostProcessor:
         through = np.subtract(lp, offs)
         through = through.tolist()
         plot_load_profile(ons, offs, lp, STOPS, through, pathname='out/load_profile_NC.png',
-                          x_y_lbls=['stop id', 'number of passengers', 'number of through passengers and passenger load'],
-                          controlled_stops=CONTROLLED_STOPS)
+                          x_y_lbls=['stop', 'passengers (per trip)', 'through passengers and passenger load (per trip)'],
+                          controlled_stops=CONTROLLED_STOPS[:-1])
         return
 
 
