@@ -40,7 +40,7 @@ class PostProcessor:
                                                                    controlled_stops=CONTROLLED_STOPS)
             cv_hw_set.append(temp_cv_hw)
         plot_headway_benchmark(cv_hw_set, STOPS, self.cp_tags, self.colors, pathname='out/benchmark/hw.png',
-                               controlled_stops=CONTROLLED_STOPS)
+                               controlled_stops=CONTROLLED_STOPS[:-1])
 
         print(f'mean cv headway {[np.mean(cv) for cv in cv_hw_set]}')
         return

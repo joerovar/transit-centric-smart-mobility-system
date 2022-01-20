@@ -725,24 +725,23 @@ def plot_headway_benchmark(cv_hw_set, ordered_stops, lbls, colors, pathname=None
     x = np.arange(len(ordered_stops))
     j = 0
     for cv in cv_hw_set:
-        # x = []
-        # y = []
-        # for i in range(len(ordered_stops)):
-        #     s = ordered_stops[i]
-        #     y.append(hs[s])
-
         ax1.plot(x, cv, color=colors[j], label=lbls[j])
         j += 1
 
-    ax1.set_xlabel('stop id')
-    ax1.set_ylabel('coefficient of variation of headway')
+    ax1.set_xlabel('stop', fontsize=8)
+    ax1.set_ylabel('coefficient of variation of headway', fontsize=8)
     ax1.set_yticks(np.arange(cv_scale[0], cv_scale[1] + cv_scale[2], cv_scale[2]))
+    ax1.set_yticklabels(np.arange(cv_scale[0], cv_scale[1] + cv_scale[2], cv_scale[2]).round(decimals=1), fontsize=8)
     if controlled_stops:
         for cs in controlled_stops:
             idx = ordered_stops.index(cs)
             plt.axvline(x=idx, color='gray', alpha=0.5, linestyle='dashed')
-    ax1.set_xticks(x)
-    ax1.set_xticklabels(ordered_stops, fontsize=6, rotation=90)
+    # ax1.set_xticks(x)
+    # ax1.set_xticklabels(ordered_stops, fontsize=6, rotation=90)
+    x_ticks = np.arange(0, len(ordered_stops), 5)
+    x_tick_labels = x_ticks + 1
+    ax1.set_xticks(x_ticks)
+    ax1.set_xticklabels(x_tick_labels, fontsize=8)
     plt.legend()
     plt.tight_layout()
     if pathname:

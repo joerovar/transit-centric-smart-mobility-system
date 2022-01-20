@@ -949,7 +949,7 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
                 sum_rew_behind_wait_time += pax.wait_time
         # reward = (sum_reward_neighbor_ride_time + WEIGHT_WAIT_TIME*(sum_reward_neighbor_wait_time + sum_reward_behind_wait_time))
         # ride_time_impacted = neighbor_prev_load + neighbor_prev_pax_at_stop
-        tot_pax = behind_board_count + agent_board_count
+        # tot_pax = behind_board_count + agent_board_count
         reward = (sum_rew_behind_wait_time + sum_rew_agent_wait_time)
         reward = -reward / 60 / 60
         # wait_time_impacted = agent_board_count + behind_board_count
