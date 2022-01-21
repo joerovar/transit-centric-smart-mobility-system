@@ -929,8 +929,6 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
         # sum_reward_neighbor_ride_time = neighbor_prev_hold * (neighbor_prev_load + neighbor_prev_pax_at_stop)
 
         # CURRENT TRIP'S REWARD CONTRIBUTION
-        scheduled_headway = SCHED_DEP_IN[trip_idx] - SCHED_DEP_IN[trip_idx - 1]
-        scheduled_wait = scheduled_headway / 2
         stop_idx_set = [s for s in range(s0_idx, s1_idx)]
         # +1 is to catch the index of the control point only if it will be used to update
         sum_rew_behind_wait_time = 0

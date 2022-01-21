@@ -31,6 +31,9 @@ class Agent:
     def choose_action(self, observation):
         raise NotImplementedError
 
+    def q_values(self, observation):
+        raise NotImplementedError
+
     def replace_target_network(self):
         if self.learn_step_counter % self.replace_target_cnt == 0:
             self.Q_next.load_state_dict(self.Q_eval.state_dict())
@@ -144,6 +147,11 @@ class DDQNAgent(Agent):
             action = np.random.choice(action_space)
 
         return action
+
+    def q_values(self, observation):
+        state = T.tensor([observation]).to(self.Q_eval.device)
+        q_values = self.Q_eval.forward(state)
+        return q_values
 
     def learn(self):
         if self.memory.mem_cntr < self.batch_size:
