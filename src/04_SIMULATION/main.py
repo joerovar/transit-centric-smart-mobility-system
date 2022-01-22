@@ -43,8 +43,8 @@ if __name__ == '__main__':
                         help='DQNAgent/DDQNAgent/DuelingDQNAgent/DuelingDDQNAgent')
     parser.add_argument('-save_folder', type=str, default='RL',
                         help='DDQN-LA/DDQN-HA')
-    parser.add_argument('-rew_type', type=str, default='delayed',
-                        help='delayed/immediate')
+    parser.add_argument('-simple_reward', type=bool, default=False,
+                        help='delayed(false)/simple(true)')
 
     args = parser.parse_args()
 
@@ -99,12 +99,12 @@ if __name__ == '__main__':
                                 break
                         else:
                             break
-                    if route_progress == 0.0 or pax_at_stop == 0 or previous_denied:
+                    if route_progress == 0.0 or pax_at_stop == 0 or previous_denied or args.simple_reward:
                         action = agent.choose_action(observation, mask_idx=0)
                     else:
                         action = agent.choose_action(observation)
                     env.take_action(action)
-                env.update_rewards()
+                env.update_rewards(simple_reward=args.simple_reward)
                 if len(env.pool_sars) > nr_sars_stored:
                     observation, action, reward, observation_, terminal = env.pool_sars[-1]
                     observation = np.array(observation, dtype=np.float32)
@@ -158,8 +158,7 @@ if __name__ == '__main__':
                                 break
                         else:
                             break
-
-                    if route_progress == 0.0 or pax_at_stop == 0 or previous_denied:
+                    if route_progress == 0.0 or pax_at_stop == 0 or previous_denied or args.simple_reward:
                         action = agent.choose_action(observation, mask_idx=0)
                     else:
                         action = agent.choose_action(observation)
@@ -170,9 +169,9 @@ if __name__ == '__main__':
             sars_set.append(env.trips_sars)
             pax_set.append(env.completed_pax)
 
-        path_trajectories = 'out/RL/trajectory_set_' + tstamp + '.pkl'
-        path_sars = 'out/RL/sars_set_' + tstamp + '.pkl'
-        path_completed_pax = 'out/RL/pax_set_' + tstamp + '.pkl'
+        path_trajectories = 'out/' + args.save_folder + '/trajectory_set_' + tstamp + '.pkl'
+        path_sars = 'out/' + args.save_folder + '/sars_set_' + tstamp + '.pkl'
+        path_completed_pax = 'out/' + args.save_folder + '/pax_set_' + tstamp + '.pkl'
         post_process.save(path_trajectories, trajectories_set)
         post_process.save(path_sars, sars_set)
         post_process.save(path_completed_pax, pax_set)
@@ -210,6 +209,6 @@ if __name__ == '__main__':
 
 # cd src/04_SIMULATION
 # train
-# python main.py -env -algo -n_games -rew_type
+# python main.py -env -algo -n_games -simple_reward
 # test
-# python main.py -env -algo -n_games -eps -load_checkpoint -save_folder
+# python main.py -env -algo -n_games -eps -load_checkpoint -save_folder -simple_reward

@@ -725,13 +725,11 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
         self.trips_sars = {}
         self.bool_terminal_state = False
         self.pool_sars = []
-        self.pool_sars_trip_id = []
 
     def reset_simulation(self):
         self.time = START_TIME_SEC
         self.bool_terminal_state = False
         self.pool_sars = []
-        self.pool_sars_trip_id = []
         self.bus = Bus(0)
 
         # for records
@@ -883,7 +881,7 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
                 self.fixed_stop_depart(skip=True)
         return
 
-    def wait_time_reward(self, s0, s1, neighbor_prev_hold, neighbor_prev_load, neighbor_prev_pax_at_stop, prev_action):
+    def delayed_reward(self, s0, s1, neighbor_prev_hold):
         bus = self.bus
         s0_idx = STOPS.index(s0) # you check from those pax boarding next to the control stop (impacted)
         s1_idx = STOPS.index(s1) # next control point
@@ -893,8 +891,6 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
         # FRONT NEIGHBOR'S REWARD
         agent_trip_idx = trip_idx - 1
         agent_trip_id = TRIP_IDS_IN[agent_trip_idx]
-        # scheduled_headway = SCHED_DEP_IN[neighbor_trip_idx] - SCHED_DEP_IN[neighbor_trip_idx - 1]
-        # scheduled_wait = scheduled_headway / 2
         # agent bus not considered responsible for the wait time impact in the control point upon arrival to it
         # only responsible for the impact on wait time at the control point for the following trip
         # and the riding time impact in case of holding which is accounted for later
@@ -911,22 +907,17 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
                 if pax.orig_idx == stop_idx_set[0] and pax.wait_time != 0.0:
                     wait += neighbor_prev_hold
                 sum_rew_agent_wait_time += wait
-                # excess_wait = max(0, pax.wait_time - scheduled_wait)
-                # sum_rew_agent_wait_time += excess_wait
                 agent_board_count += 1
         active_buses = [bus for bus in self.buses if bus.active_trip]
         front_active_bus = [bus for bus in active_buses if bus.active_trip[0].trip_id == agent_trip_id]
         if front_active_bus:
             for pax in front_active_bus[0].pax:
                 if pax.orig_idx in stop_idx_set:
-                    # excess_wait = max(0, pax.wait_time - scheduled_wait)
                     wait = pax.wait_time
                     if pax.orig_idx == stop_idx_set[0] and pax.wait_time != 0.0:
                         wait += neighbor_prev_hold
                     sum_rew_agent_wait_time += wait
-                    # sum_rew_agent_wait_time += excess_wait
                     agent_board_count += 1
-        # sum_reward_neighbor_ride_time = neighbor_prev_hold * (neighbor_prev_load + neighbor_prev_pax_at_stop)
 
         # CURRENT TRIP'S REWARD CONTRIBUTION
         stop_idx_set = [s for s in range(s0_idx, s1_idx)]
@@ -935,31 +926,18 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
         behind_board_count = 0
         for pax in bus.pax:
             if pax.orig_idx in stop_idx_set:
-                # excess_wait = max(0, pax.wait_time - scheduled_wait)
-                # sum_rew_behind_wait_time += excess_wait
                 behind_board_count += 1
                 sum_rew_behind_wait_time += pax.wait_time
         for pax in self.completed_pax:
             if pax.trip_id == trip_id and pax.orig_idx in stop_idx_set:
-                # excess_wait = max(0, pax.wait_time - scheduled_wait)
-                # sum_rew_behind_wait_time += excess_wait
                 behind_board_count += 1
                 sum_rew_behind_wait_time += pax.wait_time
-        # reward = (sum_reward_neighbor_ride_time + WEIGHT_WAIT_TIME*(sum_reward_neighbor_wait_time + sum_reward_behind_wait_time))
-        # ride_time_impacted = neighbor_prev_load + neighbor_prev_pax_at_stop
-        # tot_pax = behind_board_count + agent_board_count
         reward = (sum_rew_behind_wait_time + sum_rew_agent_wait_time)
         reward = -reward / 60 / 60
-        # wait_time_impacted = agent_board_count + behind_board_count
-        # if sum_reward_neighbor_ride_time:
-        #     tot_pax = ride_time_impacted + wait_time_impacted
-        # else:
-        #     tot_pax = wait_time_impacted
-        # reward = (-reward / tot_pax / 60) if tot_pax else 0
         # in minutes
         return reward
 
-    def update_rewards(self):
+    def update_rewards(self, simple_reward=False):
         bus = self.bus
         trip_id = bus.active_trip[0].trip_id
 
@@ -970,25 +948,31 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
 
             # TWO IS TO FILL THE FRONT NEIGHBOR'S REWARD FOR ITS PREVIOUS STEP (IF THERE IS AN ACTIVE FRONT NEIGHBOR)
             # TWO ALSO TRIGGERS SENDING THE SARS TUPLE INTO THE POOL OF COMPLETED EXPERIENCES
-            curr_control_stop_idx = CONTROLLED_STOPS.index(bus.last_stop_id)
-            curr_control_stop = CONTROLLED_STOPS[curr_control_stop_idx]
-            prev_control_stop = CONTROLLED_STOPS[curr_control_stop_idx - 1]
+            k = CONTROLLED_STOPS.index(bus.last_stop_id)
+            curr_control_stop = CONTROLLED_STOPS[k]
+            prev_control_stop = CONTROLLED_STOPS[k - 1]
             trip_idx = TRIP_IDS_IN.index(trip_id)
             neighbor_trip_id = TRIP_IDS_IN[trip_idx - 1]
-            sars_idx = curr_control_stop_idx - 1
+            sars_idx = k - 1
             assert sars_idx >= 0
             assert sars_idx < len(self.trips_sars[neighbor_trip_id])
-            prev_sars = self.trips_sars[neighbor_trip_id][sars_idx]
-            prev_action = prev_sars[1]
-            prev_hold = (prev_action - 1) * BASE_HOLDING_TIME if prev_action > 1 else 0
-            prev_load = prev_sars[0][IDX_LOAD_RL]
-            prev_pax_at_stop = prev_sars[0][IDX_PAX_AT_STOP]
-            reward = self.wait_time_reward(prev_control_stop, curr_control_stop, prev_hold, prev_load, prev_pax_at_stop, prev_action)
-            assert self.trips_sars[neighbor_trip_id][sars_idx][3]
-            self.trips_sars[neighbor_trip_id][sars_idx][2] += reward
-            self.pool_sars.append(self.trips_sars[neighbor_trip_id][sars_idx] + [self.bool_terminal_state])
-            self.pool_sars_trip_id.append((neighbor_trip_id, trip_id, str(timedelta(seconds=round(self.time))),
-                                           prev_hold))
+            assert sars_idx < len(self.trips_sars[trip_id])
+            if simple_reward:
+                prev_sars = self.trips_sars[trip_id][sars_idx]
+                fw_h0 = prev_sars[0][IDX_FW_H]
+                fw_h1 = prev_sars[3][IDX_FW_H]
+                planned_fw_h = SCHED_DEP_IN[trip_idx] - SCHED_DEP_IN[trip_idx - 1]
+                reward = abs(fw_h0-planned_fw_h) - abs(fw_h1-planned_fw_h)
+                self.trips_sars[trip_id][sars_idx][2] = reward
+                self.pool_sars.append(self.trips_sars[trip_id][sars_idx] + [self.bool_terminal_state])
+            else:
+                prev_sars = self.trips_sars[neighbor_trip_id][sars_idx]
+                prev_action = prev_sars[1]
+                prev_hold = (prev_action - 1) * BASE_HOLDING_TIME if prev_action > 1 else 0
+                reward = self.delayed_reward(prev_control_stop, curr_control_stop, prev_hold)
+                assert self.trips_sars[neighbor_trip_id][sars_idx][3]
+                self.trips_sars[neighbor_trip_id][sars_idx][2] = reward
+                self.pool_sars.append(self.trips_sars[neighbor_trip_id][sars_idx] + [self.bool_terminal_state])
         return
 
     def prep(self):

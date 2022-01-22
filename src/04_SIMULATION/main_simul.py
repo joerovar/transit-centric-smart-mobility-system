@@ -58,7 +58,7 @@ def run_base_control_detailed(episodes=2, save=False, time_dep_tt=True, time_dep
     return
 
 
-def run_sample_rl(episodes=1):
+def run_sample_rl(episodes=1, simple_reward=False):
     tstamp = datetime.now().strftime('%m%d-%H%M%S')
     trajectories_set = []
     sars_set = []
@@ -88,10 +88,8 @@ def run_sample_rl(episodes=1):
                     action = random.randint(1, 4)
                 else:
                     action = random.randint(0, 4)
-                # action = random.randint(0, 4)
                 env.take_action(action)
-            env.update_rewards()
-            # print(env.pool_sars)
+            env.update_rewards(simple_reward=simple_reward)
             done = env.prep()
         # env.process_results()
         # trajectories_set.append(env.trajectories)
@@ -183,7 +181,7 @@ def analyze_delays():
 
 
 # analyze_delays()
-# run_sample_rl(episodes=1)
+# run_sample_rl(episodes=5, simple_reward=True)
 # run_base_detailed(episodes=25, save=True)
 # run_base_control_detailed(episodes=25, save=True)
 # other tstamps
@@ -193,8 +191,8 @@ path_p_nc = 'out/NC/pax_set_0106-142857.pkl'
 path_tr_eh = 'out/EH/trajectories_set_0106-210821.pkl'
 path_p_eh = 'out/EH/pax_set_0106-210821.pkl'
 
-path_p_rl2 = 'out/DDQN-LA/'
-path_tr_rl2 = 'out/DDQN-LA/'
+path_p_rl2 = 'out/DDQN-LA/pax_set_0122-145334.pkl'
+path_tr_rl2 = 'out/DDQN-LA/trajectory_set_0122-145334.pkl'
 
 path_tr_rl1 = 'out/DDQN-HA/trajectory_set_0106-191406.pkl'
 path_p_rl1 = 'out/DDQN-HA/pax_set_0106-191406.pkl'
@@ -205,15 +203,15 @@ path_p_rl1 = 'out/DDQN-HA/pax_set_0106-191406.pkl'
 path_trips = [path_tr_nc, path_tr_eh, path_tr_rl1, path_tr_rl2]
 path_pax = [path_p_nc, path_p_eh, path_p_rl1, path_p_rl2]
 tags = ['NC', 'EH', 'DDQN-HA', 'DDQN-LA']
-# post_processor = PostProcessor(path_trips, path_pax, tags)
+post_processor = PostProcessor(path_trips, path_pax, tags)
 # post_processor.write_trajectories()
-# post_processor.total_trip_time_distribution()
-# post_processor.headway()
-# post_processor.load_profile()
+post_processor.total_trip_time_distribution()
+post_processor.headway()
+post_processor.load_profile()
 # post_processor.denied()
 # post_processor.hold_time()
 # post_processor.wait_times_per_stop()
-# post_processor.pax_times()
+post_processor.pax_times()
 
 
 
