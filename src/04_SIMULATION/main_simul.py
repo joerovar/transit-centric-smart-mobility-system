@@ -192,14 +192,19 @@ path_tr_nc = 'out/NC/trajectories_set_0106-142857.pkl'
 path_p_nc = 'out/NC/pax_set_0106-142857.pkl'
 path_tr_eh = 'out/EH/trajectories_set_0106-210821.pkl'
 path_p_eh = 'out/EH/pax_set_0106-210821.pkl'
-path_tr_rl = 'out/RL/trajectory_set_0106-191406.pkl'
-path_p_rl = 'out/RL/pax_set_0106-191406.pkl'
+
+path_p_rl2 = 'out/DDQN-LA/'
+path_tr_rl2 = 'out/DDQN-LA/'
+
+path_tr_rl1 = 'out/DDQN-HA/trajectory_set_0106-191406.pkl'
+path_p_rl1 = 'out/DDQN-HA/pax_set_0106-191406.pkl'
+
 # #
 
 # PROCESS RAW RESULTS
-# path_trips = [path_tr_nc, path_tr_eh, path_tr_rl]
-# path_pax = [path_p_nc, path_p_eh, path_p_rl]
-# tags = ['NC', 'EH', 'DDQN-HA']
+path_trips = [path_tr_nc, path_tr_eh, path_tr_rl1, path_tr_rl2]
+path_pax = [path_p_nc, path_p_eh, path_p_rl1, path_p_rl2]
+tags = ['NC', 'EH', 'DDQN-HA', 'DDQN-LA']
 # post_processor = PostProcessor(path_trips, path_pax, tags)
 # post_processor.write_trajectories()
 # post_processor.total_trip_time_distribution()
