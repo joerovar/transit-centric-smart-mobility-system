@@ -19,18 +19,21 @@ class PostProcessor:
         wt_mean = []
         rt_mean = []
         pct_ewt_mean = []
+        db_wt_all = []
         for pax in self.cp_pax:
-            jt, rbt, wt, rt, pct_ewt = get_pax_times(pax, STOPS, FOCUS_TRIPS_MEAN_HW/2)
+            jt, rbt, wt, rt, pct_ewt, db_wt = get_pax_times(pax, STOPS, FOCUS_TRIPS_MEAN_HW/2)
             jt_mean.append(jt)
             rbt_mean.append(rbt)
             wt_mean.append(wt)
             rt_mean.append(rt)
             pct_ewt_mean.append(pct_ewt)
+            db_wt_all.append(db_wt)
         print(jt_mean)
         print(rbt_mean)
         print(wt_mean)
         print(rt_mean)
         print(pct_ewt_mean)
+        print(db_wt_all)
         return
 
     def headway(self):

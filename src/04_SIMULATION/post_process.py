@@ -615,6 +615,7 @@ def get_pax_times(pax_set, ordered_stops, schd_wait):
     rt_rep_mean = []
     rbt_rep_mean = []
     pct_ewt_rep_mean = []
+    denied_board_wt = []
     for replication_nr in range(nr_replications):
         pax_times = {'o': [], 'd': [], 'jt': [], 'wt': [], 'rt': []}
         for p in pax_set[replication_nr]:
@@ -623,6 +624,8 @@ def get_pax_times(pax_set, ordered_stops, schd_wait):
             pax_times['jt'].append(p.journey_time)
             pax_times['rt'].append(p.alight_time - p.board_time)
             pax_times['wt'].append(p.wait_time)
+            if p.denied:
+                denied_board_wt.append(p.wait_time)
         jt_rep_mean.append(sum(pax_times['jt']) / len(pax_times['jt']))
         wt_rep_mean.append(sum(pax_times['wt']) / len(pax_times['wt']))
         rt_rep_mean.append(sum(pax_times['rt']) / len(pax_times['rt']))
@@ -649,7 +652,7 @@ def get_pax_times(pax_set, ordered_stops, schd_wait):
     rt_mean = np.mean(rt_rep_mean)
     rbt_mean = np.mean(rbt_rep_mean)
     pct_ewt_mean = np.mean(pct_ewt_rep_mean)
-    return jt_mean, rbt_mean, wt_mean, rt_mean, pct_ewt_mean
+    return jt_mean, rbt_mean, wt_mean, rt_mean, pct_ewt_mean, denied_board_wt
 
 
 def get_departure_delay(trajectories_set, idx_dep_t, ordered_trip_ids, sched_departures):

@@ -205,14 +205,13 @@ path_pax = [path_p_nc, path_p_eh, path_p_rl1, path_p_rl2]
 tags = ['NC', 'EH', 'DDQN-HA', 'DDQN-LA']
 post_processor = PostProcessor(path_trips, path_pax, tags)
 # post_processor.write_trajectories()
-post_processor.total_trip_time_distribution()
-post_processor.headway()
-post_processor.load_profile()
+# post_processor.total_trip_time_distribution()
+# post_processor.headway()
+# post_processor.load_profile()
 # post_processor.denied()
 # post_processor.hold_time()
 # post_processor.wait_times_per_stop()
 post_processor.pax_times()
-
 
 
 # VALIDATION
