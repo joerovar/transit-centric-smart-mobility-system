@@ -132,80 +132,80 @@ if __name__ == '__main__':
         # --------------------------------- TESTING ----------------------------------------------------------------
 
         agent.load_models()
-        tstamp = datetime.now().strftime('%m%d-%H%M%S')
-        trajectories_set = []
-        sars_set = []
-        pax_set = []
-        for j in range(args.n_games):
-            score = 0
-            env = simulation_env.DetailedSimulationEnvWithDeepRL()
-            done = env.reset_simulation()
-            done = env.prep()
-            while not done:
-                if not env.bool_terminal_state:
-                    trip_id = env.bus.active_trip[0].trip_id
-                    all_sars = env.trips_sars[trip_id]
-                    observation = np.array(all_sars[-1][0], dtype=np.float32)
-                    route_progress = observation[IDX_RT_PROGRESS]
-                    pax_at_stop = observation[IDX_PAX_AT_STOP]
-
-                    curr_stop = [s for s in env.stops if s.stop_id == env.bus.last_stop_id]
-                    previous_denied = False
-                    for p in curr_stop[0].pax.copy():
-                        if p.arr_time <= env.time:
-                            if p.denied:
-                                previous_denied = True
-                                break
-                        else:
-                            break
-                    if route_progress == 0.0 or pax_at_stop == 0 or previous_denied or args.simple_reward:
-                        action = agent.choose_action(observation, mask_idx=0)
-                    else:
-                        action = agent.choose_action(observation)
-                    env.take_action(action)
-                done = env.prep()
-            env.process_results()
-            trajectories_set.append(env.trajectories)
-            sars_set.append(env.trips_sars)
-            pax_set.append(env.completed_pax)
-
-        path_trajectories = 'out/' + args.save_folder + '/trajectory_set_' + tstamp + '.pkl'
-        path_sars = 'out/' + args.save_folder + '/sars_set_' + tstamp + '.pkl'
-        path_completed_pax = 'out/' + args.save_folder + '/pax_set_' + tstamp + '.pkl'
-        post_process.save(path_trajectories, trajectories_set)
-        post_process.save(path_sars, sars_set)
-        post_process.save(path_completed_pax, pax_set)
-
-        # trajectories_set = load('out/RL/trajectory_set_0106-191406.pkl')
-        # load_mean, _, _, ons_mean, _ = pax_per_trip_from_trajectory_set(trajectories_set, IDX_LOAD,
-        #                                                                 IDX_PICK, IDX_DROP, STOPS)
+        # tstamp = datetime.now().strftime('%m%d-%H%M%S')
+        # trajectories_set = []
+        # sars_set = []
+        # pax_set = []
+        # for j in range(args.n_games):
+        #     score = 0
+        #     env = simulation_env.DetailedSimulationEnvWithDeepRL()
+        #     done = env.reset_simulation()
+        #     done = env.prep()
+        #     while not done:
+        #         if not env.bool_terminal_state:
+        #             trip_id = env.bus.active_trip[0].trip_id
+        #             all_sars = env.trips_sars[trip_id]
+        #             observation = np.array(all_sars[-1][0], dtype=np.float32)
+        #             route_progress = observation[IDX_RT_PROGRESS]
+        #             pax_at_stop = observation[IDX_PAX_AT_STOP]
         #
-        # stable = (FOCUS_TRIPS_MEAN_HW, FOCUS_TRIPS_MEAN_HW, FOCUS_TRIPS_MEAN_HW)
-        # early = (FOCUS_TRIPS_MEAN_HW-FOCUS_TRIPS_MEAN_HW/2, FOCUS_TRIPS_MEAN_HW+FOCUS_TRIPS_MEAN_HW/2, FOCUS_TRIPS_MEAN_HW)
-        # late = (FOCUS_TRIPS_MEAN_HW+FOCUS_TRIPS_MEAN_HW/2, FOCUS_TRIPS_MEAN_HW-FOCUS_TRIPS_MEAN_HW/2, FOCUS_TRIPS_MEAN_HW)
-        # policies = np.zeros((3, len(CONTROLLED_STOPS)-1, N_ACTIONS_RL))
-        # route_progress_scenarios = np.array([(STOPS.index(s) / len(STOPS)) for s in CONTROLLED_STOPS[:-1]])
-        # avg_load = np.array([load_mean[STOPS.index(s)] for s in CONTROLLED_STOPS[:-1]])
-        # avg_ons = np.array([ons_mean[STOPS.index(s)] for s in CONTROLLED_STOPS[:-1]])
-        # k = 0
-        # for scenario in (stable, early, late):
-        #     for i in range(route_progress_scenarios.size):
-        #         obs = np.array([route_progress_scenarios[i], avg_load[i], scenario[0], scenario[1], avg_ons[i], scenario[2]], dtype=np.float32)
-        #         q_values = agent.q_values(obs).detach().numpy()[0]
-        #         temp = np.argsort(q_values)
-        #         rank_q_values = np.empty_like(temp)
-        #         rank_q_values[temp] = np.arange(len(q_values))
-        #         policies[k, i] = rank_q_values
-        #     k += 1
-        # fig_names = ['on time', 'early', 'late']
-        # for i in range(policies.shape[0]):
-        #     plt.imshow(policies[i].T, cmap='Greens')
-        #     plt.xticks(np.arange(len(route_progress_scenarios)), np.arange(len(route_progress_scenarios)) + 1, fontsize=8)
-        #     plt.yticks(np.arange(N_ACTIONS_RL), ['skip', 'no hold', 'hold 25s', 'hold 50s', 'hold 75s', 'hold 100s'], fontsize=8)
-        #     plt.xlabel('control stop', fontsize=8)
-        #     plt.title('policy for ' + fig_names[i] + ' bus')
-        #     plt.savefig('policy_' + fig_names[i] + '.png')
-        #     plt.close()
+        #             curr_stop = [s for s in env.stops if s.stop_id == env.bus.last_stop_id]
+        #             previous_denied = False
+        #             for p in curr_stop[0].pax.copy():
+        #                 if p.arr_time <= env.time:
+        #                     if p.denied:
+        #                         previous_denied = True
+        #                         break
+        #                 else:
+        #                     break
+        #             if route_progress == 0.0 or pax_at_stop == 0 or previous_denied or args.simple_reward:
+        #                 action = agent.choose_action(observation, mask_idx=0)
+        #             else:
+        #                 action = agent.choose_action(observation)
+        #             env.take_action(action)
+        #         done = env.prep()
+        #     env.process_results()
+        #     trajectories_set.append(env.trajectories)
+        #     sars_set.append(env.trips_sars)
+        #     pax_set.append(env.completed_pax)
+        #
+        # path_trajectories = 'out/' + args.save_folder + '/trajectory_set_' + tstamp + '.pkl'
+        # path_sars = 'out/' + args.save_folder + '/sars_set_' + tstamp + '.pkl'
+        # path_completed_pax = 'out/' + args.save_folder + '/pax_set_' + tstamp + '.pkl'
+        # post_process.save(path_trajectories, trajectories_set)
+        # post_process.save(path_sars, sars_set)
+        # post_process.save(path_completed_pax, pax_set)
+
+        trajectories_set = load('out/DDQN-HA/trajectory_set_0106-191406.pkl')
+        load_mean, _, _, ons_mean, _ = pax_per_trip_from_trajectory_set(trajectories_set, IDX_LOAD,
+                                                                        IDX_PICK, IDX_DROP, STOPS)
+
+        stable = (FOCUS_TRIPS_MEAN_HW, FOCUS_TRIPS_MEAN_HW, FOCUS_TRIPS_MEAN_HW)
+        early = (FOCUS_TRIPS_MEAN_HW-FOCUS_TRIPS_MEAN_HW/2, FOCUS_TRIPS_MEAN_HW+FOCUS_TRIPS_MEAN_HW/2, FOCUS_TRIPS_MEAN_HW)
+        late = (FOCUS_TRIPS_MEAN_HW+FOCUS_TRIPS_MEAN_HW/2, FOCUS_TRIPS_MEAN_HW-FOCUS_TRIPS_MEAN_HW/2, FOCUS_TRIPS_MEAN_HW)
+        policies = np.zeros((3, len(CONTROLLED_STOPS)-1, N_ACTIONS_RL))
+        route_progress_scenarios = np.array([(STOPS.index(s) / len(STOPS)) for s in CONTROLLED_STOPS[:-1]])
+        avg_load = np.array([load_mean[STOPS.index(s)] for s in CONTROLLED_STOPS[:-1]])
+        avg_ons = np.array([ons_mean[STOPS.index(s)] for s in CONTROLLED_STOPS[:-1]])
+        k = 0
+        for scenario in (stable, early, late):
+            for i in range(route_progress_scenarios.size):
+                obs = np.array([route_progress_scenarios[i], avg_load[i], scenario[0], scenario[1], avg_ons[i], scenario[2]], dtype=np.float32)
+                q_values = agent.q_values(obs).detach().numpy()[0]
+                temp = np.argsort(q_values)
+                rank_q_values = np.empty_like(temp)
+                rank_q_values[temp] = np.arange(len(q_values))
+                policies[k, i] = rank_q_values
+            k += 1
+        fig_names = ['on time', 'early', 'late']
+        for i in range(policies.shape[0]):
+            plt.imshow(policies[i].T, cmap='Greens')
+            plt.xticks(np.arange(len(route_progress_scenarios)), np.arange(len(route_progress_scenarios)) + 1, fontsize=10)
+            plt.yticks(np.arange(N_ACTIONS_RL), ['skip', '$T_{hold} = 0.0\omega H$', '$T_{hold} = 0.25\omega H$', '$T_{hold} = 0.50\omega H$', '$T_{hold} = 0.75\omega H$', '$T_{hold} = 1.0\omega H$'], fontsize=10)
+            plt.xlabel('control stop', fontsize=10)
+            plt.title(fig_names[i] + ' bus', fontsize=10)
+            plt.savefig('policy_' + fig_names[i] + '.png')
+            plt.close()
 
 # cd src/04_SIMULATION
 # train
