@@ -655,7 +655,7 @@ class DetailedSimulationEnvWithControl(DetailedSimulationEnv):
         forward_headway = self.time - stop.last_arr_times[-2]
         if stop.stop_id == STOPS[0]:
             if backward_headway > forward_headway:
-                holding_time = min(LIMIT_HOLDING, backward_headway - forward_headway)
+                holding_time = min(LIMIT_HOLDING, (backward_headway - forward_headway)/2)
                 self.inbound_dispatch(hold=holding_time)
             else:
                 self.inbound_dispatch()
@@ -663,7 +663,7 @@ class DetailedSimulationEnvWithControl(DetailedSimulationEnv):
         else:
             self.fixed_stop_load()
             if backward_headway > forward_headway:
-                holding_time = min(LIMIT_HOLDING, backward_headway - forward_headway)
+                holding_time = min(LIMIT_HOLDING, (backward_headway - forward_headway)/2)
                 self.fixed_stop_depart(hold=holding_time)
             else:
                 self.fixed_stop_depart()
