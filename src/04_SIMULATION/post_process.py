@@ -291,8 +291,9 @@ def pax_per_trip_from_trajectory_set(trajectory_set, idx_load, idx_ons, idx_offs
     return avg_lp_per_stop, avg_lp_sd_per_stop, avg_tot_ons, avg_ons_per_stop, avg_offs_per_stop
 
 
-def hold_time_from_trajectory_set(trajectory_set, idx):
+def hold_time_from_trajectory_set(trajectory_set, idx, idx_stop, controlled_stops):
     tot_hold_times_mean = []
+    all_ht_per_stop = [[] for cs in controlled_stops]
     for trajectories in trajectory_set:
         tot_hold_times = []
         for trip in trajectories:
@@ -300,10 +301,16 @@ def hold_time_from_trajectory_set(trajectory_set, idx):
             for stop_details in trajectories[trip]:
                 ht = stop_details[idx]
                 trip_hold_time += ht
+                if stop_details[idx_stop] in controlled_stops:
+                    k = controlled_stops.index(stop_details[idx_stop])
+                    all_ht_per_stop[k].append(ht)
             tot_hold_times.append(trip_hold_time)
         tot_hold_times_mean.append(int(np.mean(tot_hold_times)))
+    ht_per_stop = []
+    for k in all_ht_per_stop:
+        ht_per_stop.append(np.mean(k))
     tot_hold_time_mean = sum(tot_hold_times_mean) / len(tot_hold_times_mean)
-    return tot_hold_time_mean
+    return tot_hold_time_mean, ht_per_stop
 
 
 def denied_from_trajectory_set(trajectory_set, idx, avg_tot_ons):

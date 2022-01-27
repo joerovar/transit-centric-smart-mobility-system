@@ -72,15 +72,26 @@ class PostProcessor:
                                     controlled_stops=CONTROLLED_STOPS, x_y_lbls=['stop id', 'sd load per trip'])
         avg_lp_sd = [np.mean(lp_sd) for lp_sd in lp_std_set]
         print(f'avg load sd {avg_lp_sd}')
+        idx_control_stops = [STOPS.index(cs) for cs in CONTROLLED_STOPS]
+        lp_cs = []
+        for lp in load_profile_set:
+            lp_cs.append([])
+            for i in idx_control_stops:
+                lp_cs[-1].append(lp[i])
+        print(f'load per control stop {lp_cs}')
         return
 
     def hold_time(self):
         hold_time_set = []
+        ht_per_stop_set = []
         for trips in self.cp_trips:
-            tot_ht_mean = hold_time_from_trajectory_set(trips, IDX_HOLD_TIME)
+            tot_ht_mean, ht_per_stop = hold_time_from_trajectory_set(trips, IDX_HOLD_TIME, 0, CONTROLLED_STOPS)
             hold_time_set.append(tot_ht_mean)
+            ht_per_stop_set.append(ht_per_stop)
         plot_mean_hold_time_benchmark(hold_time_set, self.cp_tags, self.colors, pathname='out/benchmark/ht.png')
         print(f'hold time mean {hold_time_set}')
+        print(f'control stops {CONTROLLED_STOPS}')
+        print(f'ht mean per control stop {ht_per_stop_set}')
         return
 
     def denied(self):
