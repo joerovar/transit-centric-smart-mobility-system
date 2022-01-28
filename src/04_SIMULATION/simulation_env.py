@@ -89,7 +89,8 @@ class DetailedSimulationEnv(SimulationEnv):
             link_time_params = SINGLE_LINK_TIMES_PARAMS[link]
             link_time_extremes = SINGLE_LINK_TIMES_EXTREMES
         try:
-            runtime = lognorm.rvs(*link_time_params)
+            link_time_params_light = (link_time_params[0]*0.6, link_time_params[1], link_time_params[2])
+            runtime = lognorm.rvs(*link_time_params_light)
             minim, maxim = link_time_extremes
             if runtime > maxim:
                 runtime = min(1.2*maxim, runtime)

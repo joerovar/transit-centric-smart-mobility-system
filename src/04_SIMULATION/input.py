@@ -1,7 +1,5 @@
 from datetime import timedelta
-
 import numpy as np
-
 from pre_process import *
 from post_process import *
 from file_paths import *
@@ -180,27 +178,8 @@ BASE_HOLDING_TIME = 25
 MIN_HW_THRESHOLD = 0.4
 LIMIT_HOLDING = int(MIN_HW_THRESHOLD*CONTROL_MEAN_HW - MIN_HW_THRESHOLD*CONTROL_MEAN_HW % BASE_HOLDING_TIME)
 N_ACTIONS_RL = int(LIMIT_HOLDING/BASE_HOLDING_TIME) + 2
-# print(TRIP_IDS_IN)
-# CHOOSING CONTROL POINTS
-# lp = load('in/xtr/rt_20-2019-09/load_profile.pkl')
-# lp_lst = []
-# for s in STOPS:
-#     lp_lst.append(lp[s])
-# avg_odt = np.nanmean(ODT, axis=0)
-# avg_arr_rates = np.nansum(avg_odt, axis=-1)
-# avg_drop_rates = np.nansum(avg_odt, axis=0)
 
-# print([(i-j, str(timedelta(seconds=round(i)))) for i, j in zip(SCHED_DEP_IN[1:], SCHED_DEP_IN[:-1])])
-# plt.plot(avg_arr_rates)
-# plt.plot(avg_drop_rates)
-# plt.plot(lp_lst)
-# controlled_stops_idx = [STOPS.index(cs) for cs in CONTROLLED_STOPS]
-# for csi in controlled_stops_idx:
-#     plt.axvline(csi, color='gray', alpha=0.5, linestyle='dashed')
-# plt.show()
-# plt.close()
-
-
-# trip id 911900030
-# link 15279-16049
-# time 19783.28053003994
+sample_params = LINK_TIMES_PARAMS['386-388'][0]
+sample_params_light = (sample_params[0]*0.8, sample_params[1], sample_params[2])
+sample = lognorm.rvs(*sample_params, size=30)
+sample_light = lognorm.rvs(*sample_params_light, size=30)

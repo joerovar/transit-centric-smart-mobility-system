@@ -186,32 +186,33 @@ def analyze_delays():
 # run_base_control_detailed(episodes=25, save=True)
 # other tstamps
 
-path_tr_nc = 'out/NC/trajectories_set_0106-142857.pkl'
-path_p_nc = 'out/NC/pax_set_0106-142857.pkl'
-path_tr_eh = 'out/EH/trajectories_set_0126-155451.pkl'
-path_p_eh = 'out/EH/pax_set_0126-155451.pkl'
+path_tr_nc = 'out/NC/trajectories_set_0127-184104.pkl'
+path_p_nc = 'out/NC/pax_set_0127-184104.pkl'
 
-path_p_rl2 = 'out/DDQN-LA/pax_set_0122-145334.pkl'
-path_tr_rl2 = 'out/DDQN-LA/trajectory_set_0122-145334.pkl'
+path_tr_eh = 'out/EH/trajectories_set_0127-184112.pkl'
+path_p_eh = 'out/EH/pax_set_0127-184112.pkl'
 
-path_tr_rl1 = 'out/DDQN-HA/trajectory_set_0106-191406.pkl'
-path_p_rl1 = 'out/DDQN-HA/pax_set_0106-191406.pkl'
+path_p_rl2 = 'out/DDQN-LA/pax_set_0127-184208.pkl'
+path_tr_rl2 = 'out/DDQN-LA/trajectory_set_0127-184208.pkl'
+
+path_tr_rl1 = 'out/DDQN-HA/trajectory_set_0127-190733.pkl'
+path_p_rl1 = 'out/DDQN-HA/pax_set_0127-190733.pkl'
 
 # #
 
 # PROCESS RAW RESULTS
-path_trips = [path_tr_nc, path_tr_eh, path_tr_rl1, path_tr_rl2]
-path_pax = [path_p_nc, path_p_eh, path_p_rl1, path_p_rl2]
-tags = ['NC', 'EH', 'DDQN-HA', 'DDQN-LA']
+path_trips = [path_tr_nc, path_tr_eh, path_tr_rl2, path_tr_rl1]
+path_pax = [path_p_nc, path_p_eh, path_p_rl2, path_p_rl1]
+tags = ['NC', 'EH', 'DDQN-LA', 'DDQN-HA']
 post_processor = PostProcessor(path_trips, path_pax, tags)
 # post_processor.write_trajectories()
 # post_processor.total_trip_time_distribution()
-# post_processor.headway()
-post_processor.load_profile()
+post_processor.headway()
+# post_processor.load_profile()
 # post_processor.denied()
 post_processor.hold_time()
 # post_processor.wait_times_per_stop()
-# post_processor.pax_times()
+post_processor.pax_times()
 
 
 # VALIDATION
