@@ -650,6 +650,8 @@ class DetailedSimulationEnvWithControl(DetailedSimulationEnv):
         super(DetailedSimulationEnvWithControl, self).__init__(*args, **kwargs)
 
     def decide_bus_holding(self):
+        # CHANGE------------
+        # IT SHOULD BE HOLD TIME = MAX(0, MIN(PREV_ARR_T + LIMIT_HOLD - SELF.TIME, (BW_H-FW_H)/2 - SELF.TIME)
         # for previous trip
         stop = self.stops[STOPS.index(self.bus.last_stop_id)]
         backward_headway = self.get_backward_headway()
