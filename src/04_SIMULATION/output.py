@@ -117,7 +117,7 @@ class PostProcessor:
     def write_trajectories(self):
         i = 0
         for trips in self.cp_trips:
-            write_trajectory_set(trips, 'out/trajectories' + str(i) + '.csv', IDX_ARR_T, IDX_DEP_T, IDX_HOLD_TIME,
+            write_trajectory_set(trips, 'out/trajectories_' + self.cp_tags[i] + '.csv', IDX_ARR_T, IDX_DEP_T, IDX_HOLD_TIME,
                                  header=['trip_id', 'stop_id', 'arr_t', 'dep_t', 'pax_load', 'ons', 'offs', 'denied',
                                          'hold_time', 'skipped', 'replication', 'arr_sec', 'dep_sec', 'dwell_sec'])
             i += 1

@@ -222,6 +222,11 @@ def biproportional_fitting(od, target_ons, target_offs):
 
 def get_outbound_travel_time(path_stop_times, start_time, end_time, dates, nr_intervals,
                              start_interval, interval_length, tolerance_early_dep=1 * 60):
+    dep_delay_record_short = []
+    dep_delay_record_long = []
+    trip_time_record_long = []
+    trip_time_record_short = []
+
     stop_times_df = pd.read_csv(path_stop_times)
 
     df1 = stop_times_df[stop_times_df['stop_sequence'] == 1]
@@ -295,6 +300,11 @@ def get_outbound_travel_time(path_stop_times, start_time, end_time, dates, nr_in
                     schd_sec = df['schd_sec'].tolist()
                     dep_delay = schd_sec[0] - (dep_sec[0] % 86400)
                     dep_delay1.append(-dep_delay)
+
+                    if (schd_sec[0] > start_time + 3600) and (schd_sec[0] < end_time - 3600):
+                        dep_delay_record_long.append(dep_delay1[-1])
+                        trip_time_record_long.append(arrival_sec[-1] - dep_sec[0])
+
                     if dep_delay < tolerance_early_dep:
                         idx = get_interval(schd_sec[0], interval_length) - start_interval
                         trip_times1[idx].append(arrival_sec[-1] - dep_sec[0])
@@ -325,6 +335,10 @@ def get_outbound_travel_time(path_stop_times, start_time, end_time, dates, nr_in
                     schd_sec = df['schd_sec'].tolist()
                     dep_delay = schd_sec[0] - (dep_sec[0] % 86400)
                     dep_delay2.append(-dep_delay)
+                    if (schd_sec[0] > start_time + 3600) and (schd_sec[0] < end_time - 3600):
+                        dep_delay_record_short.append(dep_delay2[-1])
+                        trip_time_record_short.append(arrival_sec[-1] - dep_sec[0])
+
                     if dep_delay < tolerance_early_dep:
                         idx = get_interval(schd_sec[0], interval_length) - start_interval
                         trip_times2[idx].append(arrival_sec[-1] - dep_sec[0])
@@ -389,7 +403,10 @@ def get_outbound_travel_time(path_stop_times, start_time, end_time, dates, nr_in
         deadhead_times_params.append(norm.fit(deadhead_times[i]))
     trips1_info = [(x, y, z) for x, y, z in zip(ordered_trip_ids1, ordered_deps1, ordered_block_ids1)]
     trips2_info = [(x, y, z) for x, y, z in zip(ordered_trip_ids2, ordered_deps2, ordered_block_ids2)]
-    return trips1_info, trips2_info, sched_arrivals, trip_times1_params, trip_times2_params, deadhead_times_params
+
+    all_delays = [dep_delay_record_long, dep_delay_record_short]
+    all_trip_times = [trip_time_record_long, trip_time_record_short]
+    return trips1_info, trips2_info, sched_arrivals, trip_times1_params, trip_times2_params, deadhead_times_params, all_delays, all_trip_times
 
 
 def get_trip_times(stop_times_path, focus_trips, dates, start_time, end_time,

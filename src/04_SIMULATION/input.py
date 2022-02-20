@@ -1,5 +1,7 @@
 from datetime import timedelta
 import numpy as np
+import seaborn as sns
+
 from pre_process import *
 from post_process import *
 from file_paths import *
@@ -36,9 +38,23 @@ def extract_params(inbound_route_params=False, outbound_route_params=False, dema
         save('in/xtr/rt_20-2019-09/bus_ids_inbound.pkl', bus_ids_in)
     if outbound_route_params:
         trips1_info_out, trips2_info_out, sched_arrs_out, trip_times1_params, trip_times2_params, \
-        deadhead_time_params = get_outbound_travel_time(
+        deadhead_time_params, all_delays, all_trip_times = get_outbound_travel_time(
             path_stop_times, START_TIME_SEC, END_TIME_SEC, DATES, TRIP_TIME_NR_INTERVALS, TRIP_TIME_START_INTERVAL,
             TRIP_TIME_INTERVAL_LENGTH_MINS)
+        # sns.kdeplot(all_delays[1])
+        # plt.savefig('in/delay_short.png')
+        # plt.close()
+        # sns.kdeplot(all_delays[0])
+        # plt.savefig('in/delay_long.png')
+        # plt.close()
+        # sns.kdeplot(all_trip_times[1])
+        # plt.savefig('in/trip_times_short.png')
+        # plt.close()
+        # sns.kdeplot(all_trip_times[0])
+        # plt.savefig('in/trip_times_long.png')
+        # plt.close()
+        # save('in/all_delays_out.pkl', all_delays)
+        # save('in/all_trip_times_out.pkl', all_trip_times)
         save('in/xtr/rt_20-2019-09/trips1_info_outbound.pkl', trips1_info_out)
         save('in/xtr/rt_20-2019-09/trips2_info_outbound.pkl', trips2_info_out)
         save('in/xtr/rt_20-2019-09/scheduled_arrivals_outbound.pkl', sched_arrs_out)
@@ -107,6 +123,10 @@ TRIP_TIMES1_PARAMS, TRIP_TIMES2_PARAMS, TRIPS1_INFO_OUT, TRIPS2_INFO_OUT, DEADHE
 TRIP_TIMES1_PARAMS[1] = TRIP_TIMES1_PARAMS[2]
 TRIP_TIMES2_PARAMS[-4] = TRIP_TIMES2_PARAMS[-5]
 TRIP_TIMES1_PARAMS[-1] = TRIP_TIMES1_PARAMS[-2]
+FOCUS_TRIP_IDS_OUT_LONG = [ti[0] for ti in TRIPS1_INFO_OUT if (ti[1] > START_TIME_SEC+3600) and (ti[1] < END_TIME_SEC - 3600)]
+FOCUS_TRIP_IDS_OUT_SHORT = [ti[0] for ti in TRIPS2_INFO_OUT if (ti[1] > START_TIME_SEC+3600) and (ti[1] < END_TIME_SEC - 3600)]
+FOCUS_TRIP_DEP_T_OUT_LONG = [ti[1] for ti in TRIPS1_INFO_OUT if (ti[1] > START_TIME_SEC+3600) and (ti[1] < END_TIME_SEC - 3600)]
+FOCUS_TRIP_DEP_T_OUT_SHORT = [ti[1] for ti in TRIPS1_INFO_OUT if (ti[1] > START_TIME_SEC+3600) and (ti[1] < END_TIME_SEC - 3600)]
 TRIP_IDS_OUT = [ti[0] for ti in TRIPS1_INFO_OUT]
 TRIP_IDS_OUT += [ti[0] for ti in TRIPS2_INFO_OUT]
 LINK_TIMES_MEAN, LINK_TIMES_EXTREMES, LINK_TIMES_PARAMS = LINK_TIMES_INFO
@@ -175,10 +195,11 @@ CONTROL_SCHEDULE = SCHED_DEP_IN[9:-11]
 CONTROL_HW = [t1 - t0 for t1, t0 in zip(CONTROL_SCHEDULE[1:], CONTROL_SCHEDULE[:-1])]
 CONTROL_MEAN_HW = sum(CONTROL_HW) / len(CONTROL_HW)
 BASE_HOLDING_TIME = 25
+CONTROL_STRENGTH_PARAMETER = 0.6
+MIN_ALLOWED_HW = CONTROL_STRENGTH_PARAMETER * CONTROL_MEAN_HW
 MIN_HW_THRESHOLD = 0.4
 LIMIT_HOLDING = int(MIN_HW_THRESHOLD*CONTROL_MEAN_HW - MIN_HW_THRESHOLD*CONTROL_MEAN_HW % BASE_HOLDING_TIME)
 N_ACTIONS_RL = int(LIMIT_HOLDING/BASE_HOLDING_TIME) + 2
-
 sample_params = LINK_TIMES_PARAMS['386-388'][0]
 sample_params_light = (sample_params[0]*0.8, sample_params[1], sample_params[2])
 sample = lognorm.rvs(*sample_params, size=30)

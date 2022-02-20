@@ -14,4 +14,10 @@ from scipy.stats import lognorm, norm
 # from classes_simul import Passenger, Stop, Trip
 import seaborn as sn
 from post_process import *
+import os
 
+d = {'sky': 1, 'ground': 0}
+for k in d.copy():
+    if k == 'sky':
+        d.pop(k)
+print(d)

@@ -1,39 +1,36 @@
 import random
 import numpy as np
 import pandas as pd
-from simulation_env import DetailedSimulationEnv, DetailedSimulationEnvWithControl, DetailedSimulationEnvWithDeepRL
+from sim_env import DetailedSimulationEnv, DetailedSimulationEnvWithControl, DetailedSimulationEnvWithDeepRL
 from file_paths import *
 import post_process
 from datetime import datetime, timedelta
 from output import dwell_times, error_headway, link_times
 from output import PostProcessor
+from input import FOCUS_TRIP_IDS_OUT_LONG, FOCUS_TRIP_IDS_OUT_SHORT, FOCUS_TRIP_DEP_T_OUT_LONG, FOCUS_TRIP_DEP_T_OUT_SHORT
 st = time.time()
 
 
-def run_base_detailed(episodes=2, save=False, time_dep_tt=True, time_dep_dem=True):
+def run_base_detailed(episodes=3, save=False, time_dep_tt=True, time_dep_dem=True):
     tstamp = datetime.now().strftime('%m%d-%H%M%S')
     trajectories_set = []
     pax_set = []
-    # pax_details = []
+    all_delays = []
+    all_trip_times = []
     for i in range(episodes):
         env = DetailedSimulationEnv(time_dependent_travel_time=time_dep_tt, time_dependent_demand=time_dep_dem)
         done = env.reset_simulation()
-        # for s in env.stops:
-        #     pax = s.pax
-        #     pax_details += [(s.stop_id, str(timedelta(seconds=round(p.arr_time)))) for p in pax]
-        # df_pax = pd.DataFrame(pax_details, columns=['orig_pax', 'arr_time'])
-        # df_pax.to_csv('visualize_pax.csv', index=False)
         while not done:
             done = env.prep()
         if save:
             env.process_results()
-            trajectories_set.append(env.trajectories)
-            pax_set.append(env.completed_pax)
-    if save:
-        path_trajectories = 'out/NC/trajectories_set_' + tstamp + ext_var
-        path_completed_pax = 'out/NC/pax_set_' + tstamp + ext_var
-        post_process.save(path_trajectories, trajectories_set)
-        post_process.save(path_completed_pax, pax_set)
+            # trajectories_set.append(env.trajectories)
+            # pax_set.append(env.completed_pax)
+    # if save:
+        # path_trajectories = 'out/NC/trajectories_set_' + tstamp + ext_var
+        # path_completed_pax = 'out/NC/pax_set_' + tstamp + ext_var
+        # post_process.save(path_trajectories, trajectories_set)
+        # post_process.save(path_completed_pax, pax_set)
     return
 
 
@@ -91,22 +88,6 @@ def run_sample_rl(episodes=1, simple_reward=False):
                 env.take_action(action)
             env.update_rewards(simple_reward=simple_reward)
             done = env.prep()
-        # env.process_results()
-        # trajectories_set.append(env.trajectories)
-        # sars_set.append(env.trips_sars)
-        # pax_set.append(env.completed_pax)
-        # print(len(env.pool_sars))
-        # for i in range(len(env.pool_sars)):
-        #     print(env.pool_sars_trip_id[i])
-        #     print(env.pool_sars[i])
-        # pax_details += [(p.orig_idx, p.trip_id, str(timedelta(seconds=round(p.arr_time))),
-        #                  str(timedelta(seconds=round(p.board_time))), str(timedelta(seconds=round(p.wait_time))),
-        #                  p.denied) for p in env.completed_pax]
-        # df_pax = pd.DataFrame(pax_details, columns=['orig_pax', 'trip_id', 'arr_time', 'board_time', 'wait_time',  'denied'])
-        # df_pax = df_pax.sort_values(by=['trip_id', 'orig_pax'])
-        # df_pax.to_csv('visualize_pax.csv', index=False)
-
-    # print(list(trajectories_set[0].keys()))
     return
 
 
@@ -180,6 +161,7 @@ def analyze_delays():
     return
 
 
+run_base_detailed(save=True)
 # analyze_delays()
 # run_sample_rl(episodes=5, simple_reward=True)
 # run_base_detailed(episodes=25, save=True)
@@ -201,18 +183,18 @@ path_p_rl1 = 'out/DDQN-HA/pax_set_0127-190733.pkl'
 # #
 
 # PROCESS RAW RESULTS
-path_trips = [path_tr_nc, path_tr_eh, path_tr_rl2, path_tr_rl1]
-path_pax = [path_p_nc, path_p_eh, path_p_rl2, path_p_rl1]
-tags = ['NC', 'EH', 'DDQN-LA', 'DDQN-HA']
-post_processor = PostProcessor(path_trips, path_pax, tags)
+# path_trips = [path_tr_nc, path_tr_eh, path_tr_rl2, path_tr_rl1]
+# path_pax = [path_p_nc, path_p_eh, path_p_rl2, path_p_rl1]
+# tags = ['NC', 'EH', 'DDQN-LA', 'DDQN-HA']
+# post_processor = PostProcessor(path_trips, path_pax, tags)
 # post_processor.write_trajectories()
 # post_processor.total_trip_time_distribution()
-post_processor.headway()
+# post_processor.headway()
 # post_processor.load_profile()
 # post_processor.denied()
-post_processor.hold_time()
+# post_processor.hold_time()
 # post_processor.wait_times_per_stop()
-post_processor.pax_times()
+# post_processor.pax_times()
 
 
 # VALIDATION

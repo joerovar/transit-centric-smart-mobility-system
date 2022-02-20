@@ -1,11 +1,9 @@
-import pylab as p
-
 from input import *
 import numpy as np
 from scipy.stats import lognorm
 import random
 from copy import deepcopy
-from classes_simul import Passenger, Stop, Trip, Bus, Log
+from agents_sim import Passenger, Stop, Trip, Bus, Log, TripLog
 from datetime import timedelta
 
 
@@ -63,6 +61,7 @@ class DetailedSimulationEnv(SimulationEnv):
         self.buses = []
         self.bus = Bus(0)
         self.log = Log(TRIP_IDS_IN + TRIP_IDS_OUT)
+        self.trip_log = []
 
     def record_trajectories(self, pickups=0, offs=0, denied_board=0, hold=0, skip=False):
         bus = self.bus
@@ -115,7 +114,7 @@ class DetailedSimulationEnv(SimulationEnv):
         self.trajectories = {}
         for trip_id in TRIP_IDS_IN:
             self.trajectories[trip_id] = []
-
+            self.trip_log.append(TripLog(trip_id, STOPS))
         # initialize buses (we treat each block as a separate bus)
         self.buses = []
         for block_trip_set in BLOCK_TRIPS_INFO:
@@ -188,6 +187,8 @@ class DetailedSimulationEnv(SimulationEnv):
         bus.next_stop_id = STOPS[curr_stop_idx + 1]
         bus.arr_t = self.time
         self.stops[curr_stop_idx].last_arr_times.append(bus.arr_t)
+        curr_trip_idx = TRIP_IDS_IN.index(bus.active_trip[0].trip_id)
+        self.trip_log[curr_trip_idx].stop_arr_times[STOPS[curr_stop_idx]] = bus.arr_t
         bus.offs = 0
         for p in self.bus.pax.copy():
             if p.dest_idx == curr_stop_idx:
@@ -250,7 +251,8 @@ class DetailedSimulationEnv(SimulationEnv):
             else:
                 break
         self.stops[curr_stop_idx].last_dep_times.append(deepcopy(bus.dep_t))
-
+        curr_trip_idx = TRIP_IDS_IN.index(bus.active_trip[0].trip_id)
+        self.trip_log[curr_trip_idx].stop_dep_times[STOPS[curr_stop_idx]] = bus.dep_t
         runtime = self.get_travel_time()
         bus.next_event_time = bus.dep_t + runtime
         bus.next_event_type = 2 if bus.next_stop_id == STOPS[-1] else 1
@@ -317,6 +319,10 @@ class DetailedSimulationEnv(SimulationEnv):
                     break
 
         self.stops[0].last_dep_times.append(deepcopy(bus.dep_t))
+
+        curr_trip_idx = TRIP_IDS_IN.index(bus.active_trip[0].trip_id)
+        self.trip_log[curr_trip_idx].stop_arr_times[STOPS[0]] = bus.arr_t
+
         self.record_trajectories(pickups=bus.ons, denied_board=bus.denied, hold=hold)
         runtime = self.get_travel_time()
         bus.next_event_time = bus.dep_t + runtime
@@ -368,6 +374,8 @@ class DetailedSimulationEnv(SimulationEnv):
             bus.next_event_time = next_dep_time
             bus.next_event_type = 3
         self.log.recorded_arrivals[self.bus.finished_trips[-1].trip_id] = bus.arr_t
+        trip_idx = TRIP_IDS_IN.index(self.bus.finished_trips[-1].trip_id)
+        self.trip_log[trip_idx].stop_arr_times[STOPS[-1]] = bus.arr_t
         return
 
     def outbound_dispatch(self):
@@ -584,6 +592,10 @@ class DetailedSimulationEnv(SimulationEnv):
         for trip in self.trajectories.copy():
             if trip not in FOCUS_TRIPS:
                 self.trajectories.pop(trip)
+        for trip_id in self.log.recorded_departures.copy():
+            if trip_id not in (FOCUS_TRIP_IDS_OUT_SHORT + FOCUS_TRIP_IDS_OUT_LONG):
+                self.log.recorded_departures.pop(trip_id)
+                self.log.recorded_arrivals.pop(trip_id)
         return
 
     def process_results(self):
@@ -656,9 +668,10 @@ class DetailedSimulationEnvWithControl(DetailedSimulationEnv):
         stop = self.stops[STOPS.index(self.bus.last_stop_id)]
         backward_headway = self.get_backward_headway()
         forward_headway = self.time - stop.last_arr_times[-2]
+        limit_holding = max(0, self.time - (stop.last_arr_times[-2] + MIN_ALLOWED_HW))
         if stop.stop_id == STOPS[0]:
             if backward_headway > forward_headway:
-                holding_time = min(LIMIT_HOLDING, (backward_headway - forward_headway)/2)
+                holding_time = min(limit_holding, (backward_headway - forward_headway)/2)
                 self.inbound_dispatch(hold=holding_time)
             else:
                 self.inbound_dispatch()
@@ -666,7 +679,7 @@ class DetailedSimulationEnvWithControl(DetailedSimulationEnv):
         else:
             self.fixed_stop_load()
             if backward_headway > forward_headway:
-                holding_time = min(LIMIT_HOLDING, (backward_headway - forward_headway)/2)
+                holding_time = min(limit_holding, (backward_headway - forward_headway)/2)
                 self.fixed_stop_depart(hold=holding_time)
             else:
                 self.fixed_stop_depart()
@@ -740,6 +753,7 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
         self.trips_sars = {}
         for trip_id in TRIP_IDS_IN:
             self.trajectories[trip_id] = []
+            self.trip_log.append(TripLog(trip_id, STOPS))
         for trip_id in CONTROL_TRIP_IDS:
             self.trips_sars[trip_id] = []
 
@@ -828,6 +842,8 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
                 else:
                     break
         self.stops[curr_stop_idx].last_dep_times.append(deepcopy(bus.dep_t))
+        curr_trip_idx = TRIP_IDS_IN.index(bus.active_trip[0].trip_id)
+        self.trip_log[curr_trip_idx].stop_arr_times[STOPS[curr_stop_idx]] = bus.dep_t
         runtime = self.get_travel_time()
         bus.next_event_time = bus.dep_t + runtime
 
@@ -884,7 +900,7 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
                 self.fixed_stop_depart(skip=True)
         return
 
-    def delayed_reward(self, s0, s1, neighbor_prev_hold):
+    def delayed_reward(self, s0, s1, neighbor_prev_hold, weight_ride=0):
         bus = self.bus
         s0_idx = STOPS.index(s0) # you check from those pax boarding next to the control stop (impacted)
         s1_idx = STOPS.index(s1) # next control point
@@ -899,48 +915,87 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
         # and the riding time impact in case of holding which is accounted for later
         # for example if there was skipping at that stop previously the penalty would otherwise be tremendous
         # despite having nothing to do with that decision
+        stop_idx_before_set = [s for s in range(0, s0_idx)]
         stop_idx_set = [s for s in range(s0_idx, s1_idx)]
+        pax_count = 0
         # NOW TWO SCENARIOS: 1. THE FRONT BUS FINISHED ITS TRIP AND THEREFORE ALL PAX INFO SHOULD BE IN COMPLETED PAX
         # OR 2. IT IS STILL ACTIVE AND SOME PAX INFO MAY BE INCLUDED INSIDE BUS ATTRIBUTE PAX
         agent_board_count = 0
         sum_rew_agent_wait_time = 0
+        sum_rew_agent_ride_time = 0
+
         for pax in self.completed_pax:
             if pax.trip_id == agent_trip_id and pax.orig_idx in stop_idx_set:
+                pax_count += 1
                 wait = pax.wait_time
+                ride = pax.alight_time - pax.board_time
+                assert ride > 0
                 if pax.orig_idx == stop_idx_set[0] and pax.wait_time != 0.0:
                     wait += neighbor_prev_hold
                 sum_rew_agent_wait_time += wait
+                sum_rew_agent_ride_time += ride
                 agent_board_count += 1
+            elif pax.trip_id == agent_trip_id and pax.dest_idx in stop_idx_set[1:]:
+                pax_count += 1
+                ride = pax.alight_time - self.trip_log[agent_trip_idx].stop_arr_times[s0]
+                assert ride > 0
+                sum_rew_agent_ride_time += ride
         active_buses = [bus for bus in self.buses if bus.active_trip]
         front_active_bus = [bus for bus in active_buses if bus.active_trip[0].trip_id == agent_trip_id]
         if front_active_bus:
             for pax in front_active_bus[0].pax:
                 if pax.orig_idx in stop_idx_set:
+                    pax_count += 1
                     wait = pax.wait_time
+                    ride = self.trip_log[agent_trip_idx].stop_arr_times[s1] - pax.board_time
+                    assert ride > 0
                     if pax.orig_idx == stop_idx_set[0] and pax.wait_time != 0.0:
                         wait += neighbor_prev_hold
                     sum_rew_agent_wait_time += wait
+                    sum_rew_agent_ride_time += ride
                     agent_board_count += 1
+                elif pax.orig_idx in stop_idx_before_set:
+                    pax_count += 1
+                    ride = self.trip_log[agent_trip_idx].stop_arr_times[s1] - self.trip_log[agent_trip_idx].stop_arr_times[s0]
+                    assert ride > 0
+                    sum_rew_agent_ride_time += ride
 
         # CURRENT TRIP'S REWARD CONTRIBUTION
         stop_idx_set = [s for s in range(s0_idx, s1_idx)]
         # +1 is to catch the index of the control point only if it will be used to update
         sum_rew_behind_wait_time = 0
-        behind_board_count = 0
+        sum_rew_behind_ride_time = 0
         for pax in bus.pax:
             if pax.orig_idx in stop_idx_set:
-                behind_board_count += 1
+                pax_count += 1
                 sum_rew_behind_wait_time += pax.wait_time
+                ride = self.trip_log[trip_idx].stop_arr_times[s1] - pax.board_time
+                assert ride > 0
+                sum_rew_behind_ride_time += ride
+            elif pax.orig_idx in stop_idx_before_set:
+                pax_count += 1
+                ride = self.trip_log[trip_idx].stop_arr_times[s1] - self.trip_log[trip_idx].stop_arr_times[s0]
+                assert ride > 0
+                sum_rew_behind_ride_time += ride
         for pax in self.completed_pax:
             if pax.trip_id == trip_id and pax.orig_idx in stop_idx_set:
-                behind_board_count += 1
+                pax_count += 1
                 sum_rew_behind_wait_time += pax.wait_time
-        reward = (sum_rew_behind_wait_time + sum_rew_agent_wait_time)
-        reward = -reward / 60 / 60
-        # in minutes
+                ride = pax.alight_time - pax.board_time
+                assert ride > 0
+                sum_rew_behind_ride_time += ride
+            elif pax.trip_id == trip_id and pax.dest_idx in stop_idx_set[1:]:
+                pax_count += 1
+                ride = pax.alight_time - self.trip_log[trip_idx].stop_arr_times[s0]
+                assert ride > 0
+                sum_rew_behind_ride_time += ride
+        reward_wait = (sum_rew_behind_wait_time + sum_rew_agent_wait_time)
+        reward_ride = (sum_rew_behind_ride_time + sum_rew_agent_ride_time)
+        reward = - (reward_wait + weight_ride * reward_ride) / 60 / 60
+        # in hours
         return reward
 
-    def update_rewards(self, simple_reward=False):
+    def update_rewards(self, simple_reward=False, weight_ride_time=0):
         bus = self.bus
         trip_id = bus.active_trip[0].trip_id
 
@@ -972,7 +1027,7 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
                 prev_sars = self.trips_sars[neighbor_trip_id][sars_idx]
                 prev_action = prev_sars[1]
                 prev_hold = (prev_action - 1) * BASE_HOLDING_TIME if prev_action > 1 else 0
-                reward = self.delayed_reward(prev_control_stop, curr_control_stop, prev_hold)
+                reward = self.delayed_reward(prev_control_stop, curr_control_stop, prev_hold, weight_ride=weight_ride_time)
                 assert self.trips_sars[neighbor_trip_id][sars_idx][3]
                 self.trips_sars[neighbor_trip_id][sars_idx][2] = reward
                 self.pool_sars.append(self.trips_sars[neighbor_trip_id][sars_idx] + [self.bool_terminal_state])

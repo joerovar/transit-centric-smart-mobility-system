@@ -57,3 +57,10 @@ class Log:
     def __init__(self, trip_identifiers):
         self.recorded_departures = {t: None for t in trip_identifiers}
         self.recorded_arrivals = {t: None for t in trip_identifiers}
+
+
+class TripLog:
+    def __init__(self, trip_id, stops):
+        self.trip_id = trip_id
+        self.stop_arr_times = {s: 0 for s in stops}
+        self.stop_dep_times = {s: 0 for s in stops}

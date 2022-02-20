@@ -1,13 +1,14 @@
 import numpy as np
 import torch as T
-from deep_q_network import DeepQNetwork, DuelingDeepQNetwork
-from replay_memory import ReplayBuffer
+from nets import DeepQNetwork, DuelingDeepQNetwork
+# from replay_memory import ReplayBuffer
 from copy import deepcopy
+
 
 class Agent:
     def __init__(self, gamma, epsilon, lr, n_actions, input_dims,
                  mem_size, batch_size, eps_min=0.01, eps_dec=5e-5,
-                 replace=500, algo=None, env_name=None, chkpt_dir='tmp/dqn'):
+                 replace=500, algo=None, env_name=None, chkpt_dir='tmp/dqn', fc_dims=256):
         self.gamma = gamma
         self.epsilon = epsilon
         self.lr = lr
@@ -22,8 +23,8 @@ class Agent:
         self.algo = algo
         self.env_name = env_name
         self.chkpt_dir = chkpt_dir
-
         self.memory = ReplayBuffer(mem_size, input_dims, n_actions)
+        self.fc_dims = fc_dims
 
     def store_transition(self, state, action, reward, state_, done):
         self.memory.store_transition(state, action, reward, state_, done)
@@ -71,14 +72,14 @@ class DQNAgent(Agent):
         super(DQNAgent, self).__init__(*args, **kwargs)
         # elf, lr, input_dims, fc1_dims, fc2_dims, n_actions, chkpt_dir, name
         self.Q_eval = DeepQNetwork(self.lr, self.input_dims,
-                                   fc1_dims=256, fc2_dims=256,
+                                   fc1_dims=self.fc_dims, fc2_dims=self.fc_dims,
                                    n_actions=self.n_actions,
-                                   name=self.env_name+'_'+self.algo+'_q_eval',
+                                   name=self.algo+'_q_eval',
                                    chkpt_dir=self.chkpt_dir)
         self.Q_next = DeepQNetwork(self.lr, self.input_dims,
                                    n_actions=self.n_actions,
-                                   fc1_dims=256, fc2_dims=256,
-                                   name=self.env_name + '_' + self.algo + '_q_next',
+                                   fc1_dims=self.fc_dims, fc2_dims=self.fc_dims,
+                                   name=self.algo + '_q_next',
                                    chkpt_dir=self.chkpt_dir)
 
     def choose_action(self, observation, mask_idx=None):
@@ -123,12 +124,12 @@ class DDQNAgent(Agent):
     def __init__(self, *args, **kwargs):
         super(DDQNAgent, self).__init__(*args, **kwargs)
         self.Q_eval = DeepQNetwork(self.lr, self.input_dims, n_actions=self.n_actions,
-                                   fc1_dims=256, fc2_dims=256,
-                                   name=self.env_name+'_'+self.algo+'_q_eval',
+                                   fc1_dims=self.fc_dims, fc2_dims=self.fc_dims,
+                                   name=self.algo+'_q_eval',
                                    chkpt_dir=self.chkpt_dir)
         self.Q_next = DeepQNetwork(self.lr, self.input_dims, n_actions=self.n_actions,
-                                   fc1_dims=256, fc2_dims=256,
-                                   name=self.env_name + '_' + self.algo + '_q_next',
+                                   fc1_dims=self.fc_dims, fc2_dims=self.fc_dims,
+                                   name=self.algo + '_q_next',
                                    chkpt_dir=self.chkpt_dir)
 
     def choose_action(self, observation, mask_idx=None):
@@ -182,12 +183,12 @@ class DuelingDQNAgent(Agent):
         super(DuelingDQNAgent, self).__init__(*args, **kwargs)
 
         self.Q_eval = DuelingDeepQNetwork(self.lr, self.input_dims,n_actions=self.n_actions,
-                                          fc1_dims=256, fc2_dims=256,
-                                          name=self.env_name + '_' + self.algo + '_q_eval',
+                                          fc1_dims=self.fc_dims, fc2_dims=self.fc_dims,
+                                          name=self.algo + '_q_eval',
                                           chkpt_dir=self.chkpt_dir)
         self.Q_next = DuelingDeepQNetwork(self.lr, self.input_dims,n_actions=self.n_actions,
-                                          fc1_dims=256, fc2_dims=256,
-                                          name=self.env_name + '_' + self.algo + '_q_next',
+                                          fc1_dims=self.fc_dims, fc2_dims=self.fc_dims,
+                                          name=self.algo + '_q_next',
                                           chkpt_dir=self.chkpt_dir)
 
     def choose_action(self, observation, mask_idx=None):
@@ -240,12 +241,12 @@ class DuelingDDQNAgent(Agent):
         super(DuelingDDQNAgent, self).__init__(*args,**kwargs)
 
         self.Q_eval = DuelingDeepQNetwork(self.lr, self.input_dims,n_actions=self.n_actions,
-                                          fc1_dims=256, fc2_dims=256,
-                                          name=self.env_name+'_'+self.algo+'_q_eval',
+                                          fc1_dims=self.fc_dims, fc2_dims=self.fc_dims,
+                                          name=self.algo+'_q_eval',
                                           chkpt_dir=self.chkpt_dir)
         self.Q_next = DuelingDeepQNetwork(self.lr, self.input_dims,n_actions=self.n_actions,
-                                          fc1_dims=256, fc2_dims=256,
-                                          name=self.env_name + '_' + self.algo + '_q_next',
+                                          fc1_dims=self.fc_dims, fc2_dims=self.fc_dims,
+                                          name=self.algo + '_q_next',
                                           chkpt_dir=self.chkpt_dir)
 
     def choose_action(self, observation, mask_idx=None):
@@ -293,3 +294,36 @@ class DuelingDDQNAgent(Agent):
         self.learn_step_counter += 1
         self.decrement_epsilon()
 
+
+class ReplayBuffer:
+    def __init__(self, max_size, input_shape, n_actions):
+        self.mem_size = max_size
+        self.mem_cntr = 0
+        self.state_memory = np.zeros((self.mem_size, *input_shape),
+                                     dtype=np.float32)
+        self.new_state_memory = np.zeros((self.mem_size, *input_shape),
+                                         dtype=np.float32)
+        self.action_memory = np.zeros(self.mem_size, dtype=np.int64)
+        self.reward_memory = np.zeros(self.mem_size, dtype=np.float32)
+        self.terminal_memory = np.zeros(self.mem_size, dtype=np.uint8)
+
+    def store_transition(self, state, action, reward, state_, done):
+        index = self.mem_cntr % self.mem_size
+        self.state_memory[index] = state
+        self.action_memory[index] = action
+        self.reward_memory[index] = reward
+        self.new_state_memory[index] = state_
+        self.terminal_memory[index] = done
+        self.mem_cntr += 1
+
+    def sample_buffer(self, batch_size):
+        max_mem = min(self.mem_cntr, self.mem_size)
+        batch = np.random.choice(max_mem, batch_size, replace=False)
+
+        states = self.state_memory[batch]
+        actions = self.action_memory[batch]
+        rewards = self.reward_memory[batch]
+        states_ = self.new_state_memory[batch]
+        dones = self.terminal_memory[batch]
+
+        return states, actions, rewards, states_, dones
