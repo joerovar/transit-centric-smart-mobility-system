@@ -11,12 +11,12 @@ from input import FOCUS_TRIP_IDS_OUT_LONG, FOCUS_TRIP_IDS_OUT_SHORT, FOCUS_TRIP_
 st = time.time()
 
 
-def run_base_detailed(episodes=3, save=False, time_dep_tt=True, time_dep_dem=True):
+def run_base_detailed(episodes=4, save=False, time_dep_tt=True, time_dep_dem=True):
     tstamp = datetime.now().strftime('%m%d-%H%M%S')
     trajectories_set = []
     pax_set = []
-    all_delays = []
-    all_trip_times = []
+    all_delays = [[], []]
+    all_trip_times = [[], []]
     for i in range(episodes):
         env = DetailedSimulationEnv(time_dependent_travel_time=time_dep_tt, time_dependent_demand=time_dep_dem)
         done = env.reset_simulation()
@@ -24,8 +24,24 @@ def run_base_detailed(episodes=3, save=False, time_dep_tt=True, time_dep_dem=Tru
             done = env.prep()
         if save:
             env.process_results()
+            for j in range(len(FOCUS_TRIP_IDS_OUT_LONG)):
+                sched_dep = FOCUS_TRIP_DEP_T_OUT_LONG[j]
+                actual_dep = env.log.recorded_departures[FOCUS_TRIP_IDS_OUT_LONG[j]]
+                actual_arr = env.log.recorded_arrivals[FOCUS_TRIP_IDS_OUT_LONG[j]]
+                all_delays[0].append(actual_dep-sched_dep)
+                all_trip_times[0].append(actual_arr-actual_dep)
+            for j in range(len(FOCUS_TRIP_IDS_OUT_SHORT)):
+                sched_dep = FOCUS_TRIP_DEP_T_OUT_SHORT[j]
+                actual_dep = env.log.recorded_departures[FOCUS_TRIP_IDS_OUT_SHORT[j]]
+                actual_arr = env.log.recorded_arrivals[FOCUS_TRIP_IDS_OUT_SHORT[j]]
+                all_delays[1].append(actual_dep-sched_dep)
+                all_trip_times[1].append(actual_arr-actual_dep)
+    post_process.save('in/actual_delays_out.pkl', all_delays)
+    post_process.save('in/actual_trip_times_out.pkl', all_trip_times)
             # trajectories_set.append(env.trajectories)
             # pax_set.append(env.completed_pax)
+    # print(all_delays)
+    # print(all_trip_times)
     # if save:
         # path_trajectories = 'out/NC/trajectories_set_' + tstamp + ext_var
         # path_completed_pax = 'out/NC/pax_set_' + tstamp + ext_var

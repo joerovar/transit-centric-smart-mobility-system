@@ -41,20 +41,20 @@ def extract_params(inbound_route_params=False, outbound_route_params=False, dema
         deadhead_time_params, all_delays, all_trip_times = get_outbound_travel_time(
             path_stop_times, START_TIME_SEC, END_TIME_SEC, DATES, TRIP_TIME_NR_INTERVALS, TRIP_TIME_START_INTERVAL,
             TRIP_TIME_INTERVAL_LENGTH_MINS)
-        # sns.kdeplot(all_delays[1])
-        # plt.savefig('in/delay_short.png')
-        # plt.close()
-        # sns.kdeplot(all_delays[0])
-        # plt.savefig('in/delay_long.png')
-        # plt.close()
-        # sns.kdeplot(all_trip_times[1])
-        # plt.savefig('in/trip_times_short.png')
-        # plt.close()
-        # sns.kdeplot(all_trip_times[0])
-        # plt.savefig('in/trip_times_long.png')
-        # plt.close()
-        # save('in/all_delays_out.pkl', all_delays)
-        # save('in/all_trip_times_out.pkl', all_trip_times)
+        sns.kdeplot(all_delays[1])
+        plt.savefig('in/delay_short.png')
+        plt.close()
+        sns.kdeplot(all_delays[0])
+        plt.savefig('in/delay_long.png')
+        plt.close()
+        sns.kdeplot(all_trip_times[1])
+        plt.savefig('in/trip_times_short.png')
+        plt.close()
+        sns.kdeplot(all_trip_times[0])
+        plt.savefig('in/trip_times_long.png')
+        plt.close()
+        save('in/all_delays_out.pkl', all_delays)
+        save('in/all_trip_times_out.pkl', all_trip_times)
         save('in/xtr/rt_20-2019-09/trips1_info_outbound.pkl', trips1_info_out)
         save('in/xtr/rt_20-2019-09/trips2_info_outbound.pkl', trips2_info_out)
         save('in/xtr/rt_20-2019-09/scheduled_arrivals_outbound.pkl', sched_arrs_out)
@@ -123,10 +123,10 @@ TRIP_TIMES1_PARAMS, TRIP_TIMES2_PARAMS, TRIPS1_INFO_OUT, TRIPS2_INFO_OUT, DEADHE
 TRIP_TIMES1_PARAMS[1] = TRIP_TIMES1_PARAMS[2]
 TRIP_TIMES2_PARAMS[-4] = TRIP_TIMES2_PARAMS[-5]
 TRIP_TIMES1_PARAMS[-1] = TRIP_TIMES1_PARAMS[-2]
-FOCUS_TRIP_IDS_OUT_LONG = [ti[0] for ti in TRIPS1_INFO_OUT if (ti[1] > START_TIME_SEC+3600) and (ti[1] < END_TIME_SEC - 3600)]
-FOCUS_TRIP_IDS_OUT_SHORT = [ti[0] for ti in TRIPS2_INFO_OUT if (ti[1] > START_TIME_SEC+3600) and (ti[1] < END_TIME_SEC - 3600)]
-FOCUS_TRIP_DEP_T_OUT_LONG = [ti[1] for ti in TRIPS1_INFO_OUT if (ti[1] > START_TIME_SEC+3600) and (ti[1] < END_TIME_SEC - 3600)]
-FOCUS_TRIP_DEP_T_OUT_SHORT = [ti[1] for ti in TRIPS1_INFO_OUT if (ti[1] > START_TIME_SEC+3600) and (ti[1] < END_TIME_SEC - 3600)]
+FOCUS_TRIP_IDS_OUT_LONG = [ti[0] for ti in TRIPS1_INFO_OUT if (ti[1] > START_TIME_SEC+3600) and (ti[1] < END_TIME_SEC - 6400)]
+FOCUS_TRIP_IDS_OUT_SHORT = [ti[0] for ti in TRIPS2_INFO_OUT if (ti[1] > START_TIME_SEC+3600) and (ti[1] < END_TIME_SEC - 6400)]
+FOCUS_TRIP_DEP_T_OUT_LONG = [ti[1] for ti in TRIPS1_INFO_OUT if (ti[1] > START_TIME_SEC+3600) and (ti[1] < END_TIME_SEC - 6400)]
+FOCUS_TRIP_DEP_T_OUT_SHORT = [ti[1] for ti in TRIPS2_INFO_OUT if (ti[1] > START_TIME_SEC+3600) and (ti[1] < END_TIME_SEC - 6400)]
 TRIP_IDS_OUT = [ti[0] for ti in TRIPS1_INFO_OUT]
 TRIP_IDS_OUT += [ti[0] for ti in TRIPS2_INFO_OUT]
 LINK_TIMES_MEAN, LINK_TIMES_EXTREMES, LINK_TIMES_PARAMS = LINK_TIMES_INFO

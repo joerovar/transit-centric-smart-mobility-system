@@ -301,7 +301,7 @@ def get_outbound_travel_time(path_stop_times, start_time, end_time, dates, nr_in
                     dep_delay = schd_sec[0] - (dep_sec[0] % 86400)
                     dep_delay1.append(-dep_delay)
 
-                    if (schd_sec[0] > start_time + 3600) and (schd_sec[0] < end_time - 3600):
+                    if (schd_sec[0] > start_time + 3600) and (schd_sec[0] < end_time - 6200):
                         dep_delay_record_long.append(dep_delay1[-1])
                         trip_time_record_long.append(arrival_sec[-1] - dep_sec[0])
 
@@ -335,7 +335,7 @@ def get_outbound_travel_time(path_stop_times, start_time, end_time, dates, nr_in
                     schd_sec = df['schd_sec'].tolist()
                     dep_delay = schd_sec[0] - (dep_sec[0] % 86400)
                     dep_delay2.append(-dep_delay)
-                    if (schd_sec[0] > start_time + 3600) and (schd_sec[0] < end_time - 3600):
+                    if (schd_sec[0] > start_time + 3600) and (schd_sec[0] < end_time - 6200):
                         dep_delay_record_short.append(dep_delay2[-1])
                         trip_time_record_short.append(arrival_sec[-1] - dep_sec[0])
 
