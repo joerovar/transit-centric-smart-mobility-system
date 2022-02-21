@@ -234,13 +234,16 @@ path_p_rl1 = 'out/DDQN-HA/pax_set_0127-190733.pkl'
 
 # dwell_times()
 # link_times()
-reps = 100
+# reps = 40
 # run_base_detailed(replications=reps, save=True)
-path_trips = ['out/NC/trajectories_set_0220-210722.pkl']
-path_pax = ['out/NC/pax_set_0220-210722.pkl']
-prc = PostProcessor(path_trips, path_pax, ['NC'])
-prc.write_trajectories()
-df_nc = pd.read_csv('out/NC/trajectories.csv')
-error_headway(STOPS, df_nc, reps)
+# run_base_control_detailed(episodes=reps, save=True)
+# path_trips = ['out/NC/trajectories_set_0220-201317.pkl', 'out/EH/trajectories_set_0221-121745.pkl']
+# path_pax = ['out/NC/pax_set_0220-201317.pkl', 'out/EH/pax_set_0221-121745.pkl']
+# prc = PostProcessor(path_trips, path_pax, ['NC', 'EH'])
+# prc.write_trajectories()
+# prc.pax_times_fast()
+# prc.headway()
+# df_nc = pd.read_csv('out/NC/trajectories.csv')
+# error_headway(STOPS, df_nc, reps)
 
 print("ran in %.2f seconds" % (time.time()-st))

@@ -230,6 +230,6 @@ if __name__ == '__main__':
 
 # cd src/04_SIMULATION
 # train
-# python main.py -algo -n_games -simple_reward
+# python main.py -algo -n_games -simple_reward -weight_ride_time
 # test
 # python main.py -env (tstamp) -algo -n_games -eps -load_checkpoint -test_save_folder  -simple_reward

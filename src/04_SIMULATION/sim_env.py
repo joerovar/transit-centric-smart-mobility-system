@@ -676,7 +676,7 @@ class DetailedSimulationEnvWithControl(DetailedSimulationEnv):
         stop = self.stops[STOPS.index(self.bus.last_stop_id)]
         backward_headway = self.get_backward_headway()
         forward_headway = self.time - stop.last_arr_times[-2]
-        limit_holding = max(0, self.time - (stop.last_arr_times[-2] + MIN_ALLOWED_HW))
+        limit_holding = max(0, (stop.last_arr_times[-2] + MIN_ALLOWED_HW) - self.time)
         if stop.stop_id == STOPS[0]:
             if backward_headway > forward_headway:
                 holding_time = min(limit_holding, (backward_headway - forward_headway)/2)

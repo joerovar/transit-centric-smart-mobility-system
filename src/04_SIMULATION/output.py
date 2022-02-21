@@ -29,11 +29,28 @@ class PostProcessor:
             pct_ewt_mean.append(pct_ewt)
             db_wt_all.append(db_wt)
         print(jt_mean)
-        print(rbt_mean)
+        # print(rbt_mean)
         print(wt_mean)
-        print(rt_mean)
-        print(pct_ewt_mean)
-        print(db_wt_all)
+        # print(rt_mean)
+        # print(pct_ewt_mean)
+        # print(db_wt_all)
+        return
+
+    def pax_times_fast(self):
+        jt_mean = []
+        wt_mean = []
+        db_mean = []
+        dbwt_mean = []
+        for pax in self.cp_pax:
+            jtf, wtf, dbm, dbwt = get_pax_times_fast(pax)
+            jt_mean.append(jtf)
+            wt_mean.append(wtf)
+            db_mean.append(dbm)
+            dbwt_mean.append(dbwt)
+        print(f'journey time: {jt_mean}')
+        print(f'wait time: {wt_mean}')
+        print(f'denied boardings per mil: {[db*1000 for db in db_mean]}')
+        print(f'denied board wait time: {dbwt_mean}')
         return
 
     def headway(self):
