@@ -7,46 +7,46 @@ import post_process
 from datetime import datetime, timedelta
 from output import dwell_times, error_headway, link_times
 from output import PostProcessor
-from input import FOCUS_TRIP_IDS_OUT_LONG, FOCUS_TRIP_IDS_OUT_SHORT, FOCUS_TRIP_DEP_T_OUT_LONG, FOCUS_TRIP_DEP_T_OUT_SHORT
+from input import FOCUS_TRIP_IDS_OUT_LONG, FOCUS_TRIP_IDS_OUT_SHORT, FOCUS_TRIP_DEP_T_OUT_LONG, FOCUS_TRIP_DEP_T_OUT_SHORT, STOPS
 st = time.time()
 
 
-def run_base_detailed(episodes=4, save=False, time_dep_tt=True, time_dep_dem=True):
+def run_base_detailed(replications=4, save=False, time_dep_tt=True, time_dep_dem=True):
     tstamp = datetime.now().strftime('%m%d-%H%M%S')
     trajectories_set = []
     pax_set = []
     all_delays = [[], []]
     all_trip_times = [[], []]
-    for i in range(episodes):
+    for i in range(replications):
         env = DetailedSimulationEnv(time_dependent_travel_time=time_dep_tt, time_dependent_demand=time_dep_dem)
         done = env.reset_simulation()
         while not done:
             done = env.prep()
         if save:
             env.process_results()
-            for j in range(len(FOCUS_TRIP_IDS_OUT_LONG)):
-                sched_dep = FOCUS_TRIP_DEP_T_OUT_LONG[j]
-                actual_dep = env.log.recorded_departures[FOCUS_TRIP_IDS_OUT_LONG[j]]
-                actual_arr = env.log.recorded_arrivals[FOCUS_TRIP_IDS_OUT_LONG[j]]
-                all_delays[0].append(actual_dep-sched_dep)
-                all_trip_times[0].append(actual_arr-actual_dep)
-            for j in range(len(FOCUS_TRIP_IDS_OUT_SHORT)):
-                sched_dep = FOCUS_TRIP_DEP_T_OUT_SHORT[j]
-                actual_dep = env.log.recorded_departures[FOCUS_TRIP_IDS_OUT_SHORT[j]]
-                actual_arr = env.log.recorded_arrivals[FOCUS_TRIP_IDS_OUT_SHORT[j]]
-                all_delays[1].append(actual_dep-sched_dep)
-                all_trip_times[1].append(actual_arr-actual_dep)
-    post_process.save('in/actual_delays_out.pkl', all_delays)
-    post_process.save('in/actual_trip_times_out.pkl', all_trip_times)
-            # trajectories_set.append(env.trajectories)
-            # pax_set.append(env.completed_pax)
+            trajectories_set.append(env.trajectories)
+            pax_set.append(env.completed_pax)
+            # for j in range(len(FOCUS_TRIP_IDS_OUT_LONG)):
+            #     sched_dep = FOCUS_TRIP_DEP_T_OUT_LONG[j]
+            #     actual_dep = env.log.recorded_departures[FOCUS_TRIP_IDS_OUT_LONG[j]]
+            #     actual_arr = env.log.recorded_arrivals[FOCUS_TRIP_IDS_OUT_LONG[j]]
+            #     all_delays[0].append(actual_dep-sched_dep)
+            #     all_trip_times[0].append(actual_arr-actual_dep)
+            # for j in range(len(FOCUS_TRIP_IDS_OUT_SHORT)):
+            #     sched_dep = FOCUS_TRIP_DEP_T_OUT_SHORT[j]
+            #     actual_dep = env.log.recorded_departures[FOCUS_TRIP_IDS_OUT_SHORT[j]]
+            #     actual_arr = env.log.recorded_arrivals[FOCUS_TRIP_IDS_OUT_SHORT[j]]
+            #     all_delays[1].append(actual_dep-sched_dep)
+            #     all_trip_times[1].append(actual_arr-actual_dep)
     # print(all_delays)
-    # print(all_trip_times)
-    # if save:
-        # path_trajectories = 'out/NC/trajectories_set_' + tstamp + ext_var
-        # path_completed_pax = 'out/NC/pax_set_' + tstamp + ext_var
-        # post_process.save(path_trajectories, trajectories_set)
-        # post_process.save(path_completed_pax, pax_set)
+    # post_process.save('in/actual_delays_out.pkl', all_delays)
+    # post_process.save('in/actual_trip_times_out.pkl', all_trip_times)
+
+    if save:
+        path_trajectories = 'out/NC/trajectories_set_' + tstamp + ext_var
+        path_completed_pax = 'out/NC/pax_set_' + tstamp + ext_var
+        post_process.save(path_trajectories, trajectories_set)
+        post_process.save(path_completed_pax, pax_set)
     return
 
 
@@ -177,7 +177,7 @@ def analyze_delays():
     return
 
 
-run_base_detailed(save=True)
+# run_base_detailed(save=True)
 # analyze_delays()
 # run_sample_rl(episodes=5, simple_reward=True)
 # run_base_detailed(episodes=25, save=True)
@@ -224,17 +224,23 @@ path_p_rl1 = 'out/DDQN-HA/pax_set_0127-190733.pkl'
 # post_processor.load_profile_base()
 
 # PROCESS TRAJECTORIES FILE
-# stops = post_process.load('in/xtr/rt_20-2019-09/route_stops.pkl')
 # links = [(i, j) for i, j in zip(stops[:-1], stops[1:])]
-# df_nc = pd.read_csv('out/trajectories0.csv')
+
 # df_eh = pd.read_csv('out/trajectories1.csv')
 # df_rl = pd.read_csv('out/trajectories2.csv')
-# nr_replications = 25
+
 # header = ['stop', 'mean1', 'std1', 'mean2', 'std2', 'mean3', 'std3']
 # header_cv = ['stop', 'cv1', 'mean2', 'std2', 'mean3', 'std3']
 
 # dwell_times()
 # link_times()
-# error_headway(stops, df_nc, df_eh, df_rl, nr_replications)
+reps = 100
+# run_base_detailed(replications=reps, save=True)
+path_trips = ['out/NC/trajectories_set_0220-210722.pkl']
+path_pax = ['out/NC/pax_set_0220-210722.pkl']
+prc = PostProcessor(path_trips, path_pax, ['NC'])
+prc.write_trajectories()
+df_nc = pd.read_csv('out/NC/trajectories.csv')
+error_headway(STOPS, df_nc, reps)
 
 print("ran in %.2f seconds" % (time.time()-st))

@@ -18,6 +18,7 @@ dir_var = 'var/'
 
 path_trips_gtfs = path_to_ins + dir_raw + 'gtfs/trips.txt'
 path_stop_times = path_to_ins + dir_raw + 'route20_stop_time_merged.csv'
+path_extra_stop_times = path_to_ins + dir_raw + 'rt20_extra_stop_times.csv'
 path_stops_loc = path_to_ins + dir_raw + 'gtfs/stops.txt'
 path_od = path_to_ins + dir_raw + 'odt_for_opt.csv'
 path_dispatching_times = path_to_ins + dir_raw + 'dispatching_time.csv'

@@ -17,7 +17,9 @@ def extract_params(inbound_route_params=False, outbound_route_params=False, dema
                                                                                                     TIME_START_INTERVAL,
                                                                                                     TIME_INTERVAL_LENGTH_MINS,
                                                                                                     DATES,
-                                                                                                    TRIP_WITH_FULL_STOP_PATTERN)
+                                                                                                    TRIP_WITH_FULL_STOP_PATTERN,
+                                                                                                    path_extra_stop_times,
+                                                                                                    EXTRA_DATES)
 
         # link_times_mean, link_times_extremes, link_times_params = link_times_info
         # link_t_mean = [(key, np.around(np.nanmean(value))) for key, value in link_times_mean_true.items()]
@@ -70,27 +72,22 @@ def extract_params(inbound_route_params=False, outbound_route_params=False, dema
         save(path_odt_xtr, odt)
     if validation:
         schedule = load(path_departure_times_xtr)
-        trip_ids = load(path_ordered_trips)
         stops = load(path_route_stops)
-        ordered_trips = load(path_ordered_trips)
+        ordered_trips = np.array(load(path_ordered_trips))
         schedule_arr = np.array(schedule)
-        trip_ids_arr = np.array(trip_ids)
-        focus_trips = trip_ids_arr[
+        focus_trips = ordered_trips[
             (schedule_arr <= FOCUS_END_TIME_SEC) & (schedule_arr >= FOCUS_START_TIME_SEC)].tolist()
-        trip_times, departure_headway_in, dep_delay_in = get_trip_times(path_stop_times, focus_trips, DATES,
-                                                                        START_TIME_SEC,
-                                                                        END_TIME_SEC)
-        save('in/xtr/rt_20-2019-09/dep_delay_in.pkl', dep_delay_in)
+        trip_times, headway_in = get_trip_times(path_stop_times, focus_trips, DATES, stops, path_extra_stop_times, EXTRA_DATES)
         save('in/xtr/rt_20-2019-09/trip_times_inbound.pkl', trip_times)
+        save('in/xtr/rt_20-2019-09/departure_headway_inbound.pkl', headway_in)
+        # dwell_times_mean, dwell_times_std, dwell_times_tot = get_dwell_times(path_stop_times, focus_trips, stops, DATES)
+        # save('in/xtr/rt_20-2019-09/dwell_times_mean.pkl', dwell_times_mean)
+        # save('in/xtr/rt_20-2019-09/dwell_times_std.pkl', dwell_times_std)
+        # save('in/xtr/rt_20-2019-09/dwell_times_tot.pkl', dwell_times_tot)
 
-        dwell_times_mean, dwell_times_std, dwell_times_tot = get_dwell_times(path_stop_times, focus_trips, stops, DATES)
-        save('in/xtr/rt_20-2019-09/dwell_times_mean.pkl', dwell_times_mean)
-        save('in/xtr/rt_20-2019-09/dwell_times_std.pkl', dwell_times_std)
-        save('in/xtr/rt_20-2019-09/dwell_times_tot.pkl', dwell_times_tot)
-        save('in/xtr/rt_20-2019-09/departure_headway_inbound.pkl', departure_headway_in)
-        write_inbound_trajectories(path_stop_times, ordered_trips)
-        load_profile = get_load_profile(path_stop_times, focus_trips, stops)
-        save('in/xtr/rt_20-2019-09/load_profile.pkl', load_profile)
+        # write_inbound_trajectories(path_stop_times, ordered_trips)
+        # load_profile = get_load_profile(path_stop_times, focus_trips, stops)
+        # save('in/xtr/rt_20-2019-09/load_profile.pkl', load_profile)
     return
 
 
@@ -116,17 +113,21 @@ def get_params_outbound():
     return trip_times1_params, trip_times2_params, trips1_out_info, trips2_out_info, deadhead_times_params, sched_arrs
 
 
-# extract_params(outbound_route_params=True)
+# extract_params(validation=True)
 
 STOPS, LINK_TIMES_INFO, TRIP_IDS_IN, SCHED_DEP_IN, ODT, SCHED_ARRS_IN, TRIP_TIMES_INPUT, BUS_IDS_IN = get_params_inbound()
 TRIP_TIMES1_PARAMS, TRIP_TIMES2_PARAMS, TRIPS1_INFO_OUT, TRIPS2_INFO_OUT, DEADHEAD_TIME_PARAMS, SCHED_ARRS_OUT = get_params_outbound()
 TRIP_TIMES1_PARAMS[1] = TRIP_TIMES1_PARAMS[2]
 TRIP_TIMES2_PARAMS[-4] = TRIP_TIMES2_PARAMS[-5]
 TRIP_TIMES1_PARAMS[-1] = TRIP_TIMES1_PARAMS[-2]
-FOCUS_TRIP_IDS_OUT_LONG = [ti[0] for ti in TRIPS1_INFO_OUT if (ti[1] > START_TIME_SEC+3600) and (ti[1] < END_TIME_SEC - 6400)]
-FOCUS_TRIP_IDS_OUT_SHORT = [ti[0] for ti in TRIPS2_INFO_OUT if (ti[1] > START_TIME_SEC+3600) and (ti[1] < END_TIME_SEC - 6400)]
-FOCUS_TRIP_DEP_T_OUT_LONG = [ti[1] for ti in TRIPS1_INFO_OUT if (ti[1] > START_TIME_SEC+3600) and (ti[1] < END_TIME_SEC - 6400)]
-FOCUS_TRIP_DEP_T_OUT_SHORT = [ti[1] for ti in TRIPS2_INFO_OUT if (ti[1] > START_TIME_SEC+3600) and (ti[1] < END_TIME_SEC - 6400)]
+FOCUS_TRIP_IDS_OUT_LONG = [ti[0] for ti in TRIPS1_INFO_OUT if
+                           (ti[1] > START_TIME_SEC + 3600) and (ti[1] < END_TIME_SEC - 6400)]
+FOCUS_TRIP_IDS_OUT_SHORT = [ti[0] for ti in TRIPS2_INFO_OUT if
+                            (ti[1] > START_TIME_SEC + 3600) and (ti[1] < END_TIME_SEC - 6400)]
+FOCUS_TRIP_DEP_T_OUT_LONG = [ti[1] for ti in TRIPS1_INFO_OUT if
+                             (ti[1] > START_TIME_SEC + 3600) and (ti[1] < END_TIME_SEC - 6400)]
+FOCUS_TRIP_DEP_T_OUT_SHORT = [ti[1] for ti in TRIPS2_INFO_OUT if
+                              (ti[1] > START_TIME_SEC + 3600) and (ti[1] < END_TIME_SEC - 6400)]
 TRIP_IDS_OUT = [ti[0] for ti in TRIPS1_INFO_OUT]
 TRIP_IDS_OUT += [ti[0] for ti in TRIPS2_INFO_OUT]
 LINK_TIMES_MEAN, LINK_TIMES_EXTREMES, LINK_TIMES_PARAMS = LINK_TIMES_INFO
@@ -154,12 +155,14 @@ for b in block_ids:
     sched_deps = block_df['schd_sec'].tolist()
     trip_routes = block_df['route_type'].tolist()
     BLOCK_TRIPS_INFO.append((b, list(zip(trip_ids, sched_deps, trip_routes))))
-
-for i in range(ODT.shape[0]):
-    plt.imshow(ODT[i])
-    plt.colorbar()
-    plt.savefig('in/vis/updated_odt' + str(i) + '.png')
-    plt.close()
+# for b in BLOCK_TRIPS_INFO:
+#     print(b)
+# print(FOCUS_TRIP_IDS_OUT_LONG)
+# for i in range(ODT.shape[0]):
+#     plt.imshow(ODT[i])
+#     plt.colorbar()
+#     plt.savefig('in/vis/updated_odt' + str(i) + '.png')
+#     plt.close()
 warm_up_odt = np.multiply(ODT[0], 0.4)
 ODT = np.insert(ODT, 0, warm_up_odt, axis=0)
 warm_up_odt2 = np.multiply(ODT[0], 0.2)
@@ -173,7 +176,8 @@ ordered_trips_arr = np.array([TRIP_IDS_IN])
 scheduled_deps_arr = np.array([SCHED_DEP_IN])
 FOCUS_TRIPS = ordered_trips_arr[
     (scheduled_deps_arr <= FOCUS_END_TIME_SEC) & (scheduled_deps_arr >= FOCUS_START_TIME_SEC)].tolist()
-FOCUS_TRIPS_SCHED = scheduled_deps_arr[(scheduled_deps_arr <= FOCUS_END_TIME_SEC) & (scheduled_deps_arr >= FOCUS_START_TIME_SEC)].tolist()
+FOCUS_TRIPS_SCHED = scheduled_deps_arr[
+    (scheduled_deps_arr <= FOCUS_END_TIME_SEC) & (scheduled_deps_arr >= FOCUS_START_TIME_SEC)].tolist()
 focus_trips_hw = [i - j for i, j in zip(FOCUS_TRIPS_SCHED[1:], FOCUS_TRIPS_SCHED[:-1])]
 FOCUS_TRIPS_MEAN_HW = np.mean(focus_trips_hw)
 # print()
@@ -197,10 +201,10 @@ CONTROL_MEAN_HW = sum(CONTROL_HW) / len(CONTROL_HW)
 BASE_HOLDING_TIME = 25
 CONTROL_STRENGTH_PARAMETER = 0.6
 MIN_ALLOWED_HW = CONTROL_STRENGTH_PARAMETER * CONTROL_MEAN_HW
-MIN_HW_THRESHOLD = 0.4
-LIMIT_HOLDING = int(MIN_HW_THRESHOLD*CONTROL_MEAN_HW - MIN_HW_THRESHOLD*CONTROL_MEAN_HW % BASE_HOLDING_TIME)
-N_ACTIONS_RL = int(LIMIT_HOLDING/BASE_HOLDING_TIME) + 2
+MIN_HW_THRESHOLD = 0.5
+LIMIT_HOLDING = int(MIN_HW_THRESHOLD * CONTROL_MEAN_HW - MIN_HW_THRESHOLD * CONTROL_MEAN_HW % BASE_HOLDING_TIME)
+N_ACTIONS_RL = int(LIMIT_HOLDING / BASE_HOLDING_TIME) + 2
 sample_params = LINK_TIMES_PARAMS['386-388'][0]
-sample_params_light = (sample_params[0]*0.8, sample_params[1], sample_params[2])
+sample_params_light = (sample_params[0] * 0.8, sample_params[1], sample_params[2])
 sample = lognorm.rvs(*sample_params, size=30)
 sample_light = lognorm.rvs(*sample_params_light, size=30)

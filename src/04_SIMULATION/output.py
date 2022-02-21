@@ -117,7 +117,7 @@ class PostProcessor:
     def write_trajectories(self):
         i = 0
         for trips in self.cp_trips:
-            write_trajectory_set(trips, 'out/trajectories_' + self.cp_tags[i] + '.csv', IDX_ARR_T, IDX_DEP_T, IDX_HOLD_TIME,
+            write_trajectory_set(trips, 'out/' + self.cp_tags[i] + '/trajectories.csv', IDX_ARR_T, IDX_DEP_T, IDX_HOLD_TIME,
                                  header=['trip_id', 'stop_id', 'arr_t', 'dep_t', 'pax_load', 'ons', 'offs', 'denied',
                                          'hold_time', 'skipped', 'replication', 'arr_sec', 'dep_sec', 'dwell_sec'])
             i += 1
@@ -254,18 +254,14 @@ def headway(stops, df_nc, df_eh, df_rl, nr_replications, header):
     headway_df.to_csv('out/headway.csv', index=False)
 
 
-def error_headway(stops, df_nc, df_eh, df_rl, nr_replications):
-    errors = []
-    for df in (df_nc, df_eh, df_rl):
-        sd_hw_reps = []
-        for n in range(1, nr_replications + 1):
-            all_hw = []
-            rep_df = df[df['replication'] == n]
-            for s in stops:
-                stop_times = rep_df[rep_df['stop_id'] == int(s)]['arr_sec'].to_list()
-                stop_hws = [i - j for i, j in zip(stop_times[1:], stop_times[:-1])]
-                all_hw += stop_hws
-            sd_hw_reps.append(np.std(all_hw))
-        print(sd_hw_reps)
-        errors.append(100 * np.std(sd_hw_reps) / np.mean(sd_hw_reps))
-    print(errors)
+def error_headway(stops, df, nr_replications):
+    sd_hw_reps = []
+    mean_hw_reps = []
+    for n in range(1, nr_replications + 1):
+        rep_df = df[df['replication'] == n]
+        stop_times = rep_df[rep_df['stop_id'] == int(stops[30])]['dep_sec'].to_list()
+        stop_hws = [i - j for i, j in zip(stop_times[1:], stop_times[:-1])]
+        sd_hw_reps.append(np.std(stop_hws))
+        mean_hw_reps.append(np.mean(stop_hws))
+    print(np.mean(sd_hw_reps))
+    print(np.mean(mean_hw_reps))

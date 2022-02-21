@@ -24,8 +24,9 @@ def remove_outliers(data):
 
 
 def get_route(path_stop_times, start_time_sec, end_time_sec, nr_intervals, start_interval, interval_length,
-              dates, trip_choice, tolerance_early_departure=1.5*60):
+              dates, trip_choice, path_extra_stop_times, extra_dates, tolerance_early_departure=1.5*60):
     stop_times_df = pd.read_csv(path_stop_times)
+    extra_stop_times_df = pd.read_csv(path_extra_stop_times)
 
     df_forstops = stop_times_df[stop_times_df['trip_id'] == trip_choice]
     df_forstops = df_forstops[df_forstops['avl_arr_time'].astype(str).str[:10] == dates[0]]
@@ -59,6 +60,32 @@ def get_route(path_stop_times, start_time_sec, end_time_sec, nr_intervals, start
             schd_sec = date_specific['schd_sec'].tolist()
             stop_id = date_specific['stop_id'].astype(str).tolist()
             avl_sec = date_specific['avl_sec'].tolist()
+            avl_dep_sec = date_specific['avl_dep_sec'].tolist()
+            stop_sequence = date_specific['stop_sequence'].tolist()
+            if avl_sec:
+                if stop_sequence[0] == 1:
+                    if schd_sec[0] - (avl_dep_sec[0] % 86400) > tolerance_early_departure:
+                        schd_sec.pop(0)
+                        stop_id.pop(0)
+                        avl_sec.pop(0)
+                        stop_sequence.pop(0)
+                        avl_dep_sec.pop(0)
+                for i in range(len(stop_id)-1):
+                    if stop_sequence[i] == stop_sequence[i + 1] - 1:
+                        link = stop_id[i]+'-'+stop_id[i+1]
+                        if link in link_times:
+                            nr_bin = get_interval(avl_sec[i] % 86400, interval_length) - start_interval
+                            if 0 <= nr_bin < nr_intervals:
+                                lt2 = avl_sec[i+1] - avl_dep_sec[i]
+                                if lt2 > 0:
+                                    link_times[link][nr_bin].append(lt2)
+        temp = extra_stop_times_df[extra_stop_times_df['trip_id'] == t]
+        temp = temp.sort_values(by='stop_sequence')
+        for d in extra_dates:
+            date_specific = temp[temp['avl_arr_time'].astype(str).str[:10] == d]
+            schd_sec = date_specific['schd_sec'].tolist()
+            stop_id = date_specific['stop_id'].astype(str).tolist()
+            avl_sec = date_specific['avl_arr_sec'].tolist()
             avl_dep_sec = date_specific['avl_dep_sec'].tolist()
             stop_sequence = date_specific['stop_sequence'].tolist()
             if avl_sec:
@@ -301,7 +328,7 @@ def get_outbound_travel_time(path_stop_times, start_time, end_time, dates, nr_in
                     dep_delay = schd_sec[0] - (dep_sec[0] % 86400)
                     dep_delay1.append(-dep_delay)
 
-                    if (schd_sec[0] > start_time + 3600) and (schd_sec[0] < end_time - 6200):
+                    if (schd_sec[0] > start_time + 3600) and (schd_sec[0] < end_time - 6400):
                         dep_delay_record_long.append(dep_delay1[-1])
                         trip_time_record_long.append(arrival_sec[-1] - dep_sec[0])
 
@@ -335,7 +362,7 @@ def get_outbound_travel_time(path_stop_times, start_time, end_time, dates, nr_in
                     schd_sec = df['schd_sec'].tolist()
                     dep_delay = schd_sec[0] - (dep_sec[0] % 86400)
                     dep_delay2.append(-dep_delay)
-                    if (schd_sec[0] > start_time + 3600) and (schd_sec[0] < end_time - 6200):
+                    if (schd_sec[0] > start_time + 3600) and (schd_sec[0] < end_time - 6400):
                         dep_delay_record_short.append(dep_delay2[-1])
                         trip_time_record_short.append(arrival_sec[-1] - dep_sec[0])
 
@@ -409,12 +436,13 @@ def get_outbound_travel_time(path_stop_times, start_time, end_time, dates, nr_in
     return trips1_info, trips2_info, sched_arrivals, trip_times1_params, trip_times2_params, deadhead_times_params, all_delays, all_trip_times
 
 
-def get_trip_times(stop_times_path, focus_trips, dates, start_time, end_time,
+def get_trip_times(stop_times_path, focus_trips, dates, stops, path_extra_stop_times, extra_dates,
                    tolerance_early_departure=1.0*60):
 
     # TRIP TIMES ARE USED FOR CALIBRATION THEREFORE THEY ONLY USE THE FOCUS TRIPS FOR RESULTS ANALYSIS
     trip_times = []
     stop_times_df = pd.read_csv(stop_times_path)
+    extra_stop_times_df = pd.read_csv(path_extra_stop_times)
     for t in focus_trips:
         temp_df = stop_times_df[stop_times_df['trip_id'] == t]
         for d in dates:
@@ -430,33 +458,48 @@ def get_trip_times(stop_times_path, focus_trips, dates, start_time, end_time,
                         trip_times.append(arrival_sec[-1] - dep_sec[0])
 
     # THIS WE WILL USE TO VALIDATE THE OUTBOUND DIRECTION MODELING HENCE WE TAKE ALL DEPARTURES IN THE PERIOD OF STUDY
-    departure_delay = []
-    departure_headway = []
-    df = stop_times_df[stop_times_df['stop_id'] == 386]
-    df = df[df['stop_sequence'] == 1]
-    df = df[df['schd_sec'] % 86400 <= end_time]
-    df = df[df['schd_sec'] % 86400 >= start_time]
+    hw = []
+    df = stop_times_df[stop_times_df['stop_id'] == int(stops[30])]
+    df = df[df['stop_sequence'] == 31]
+    df = df[df['trip_id'].isin(focus_trips)]
     df = df.sort_values(by='schd_sec')
-    ordered_trip_ids = df['trip_id'].unique().tolist()
-    df = stop_times_df[stop_times_df['trip_id'].isin(ordered_trip_ids)]
     for d in dates:
         temp_df = df[df['avl_arr_time'].astype(str).str[:10] == d]
-        temp_df = temp_df[temp_df['stop_id'] == 386]
         if not temp_df.empty:
-            temp_df = temp_df.sort_values(by='schd_sec')
-            schd_sec = temp_df['schd_sec'].to_numpy()
-            avl_sec = temp_df['avl_dep_sec'].to_numpy()
-            dep_delay = avl_sec % 86400 - schd_sec
-            dep_delay = dep_delay[dep_delay >= 0]
-            departure_delay += dep_delay.tolist()
-            avl_sec = avl_sec.tolist()
-            avl_sec.sort()
-            temp_dep_hw = [i - j for i, j in zip(avl_sec[1:], avl_sec[:-1])]
-            departure_headway += temp_dep_hw
+            avl_dep_sec = temp_df['avl_dep_sec'].to_list()
+            trip_ids = temp_df['trip_id'].tolist()
+            for i in range(1, len(trip_ids)):
+                idx = focus_trips.index(trip_ids[i])
+                if trip_ids[i-1] == focus_trips[idx-1]:
+                    h = avl_dep_sec[i] - avl_dep_sec[i-1]
+                    if h < 10:
+                        print('base')
+                        print(f'trips {trip_ids[i]} and {trip_ids[i-1]}')
+                        print(f'times {avl_dep_sec[i]} and {avl_dep_sec[i-1]}')
+                    hw.append(h)
+    # dfx = extra_stop_times_df[extra_stop_times_df['stop_id'] == int(stops[30])]
+    # dfx = dfx[dfx['stop_sequence'] == 31]
+    # dfx = dfx[dfx['trip_id'].isin(focus_trips)]
+    # dfx = dfx.sort_values(by='schd_sec')
+    # for d in extra_dates:
+    #     temp_df = dfx[dfx['avl_arr_time'].astype(str).str[:10] == d]
+    #     if not temp_df.empty:
+    #         avl_dep_sec = temp_df['avl_dep_sec'].to_list()
+    #         trip_ids = temp_df['trip_id'].tolist()
+    #         for i in range(1, len(trip_ids)):
+    #             idx = focus_trips.index(trip_ids[i])
+    #             if trip_ids[i-1] == focus_trips[idx-1]:
+    #                 h = avl_dep_sec[i] - avl_dep_sec[i-1]
+    #                 if h < 10:
+    #                     print('EXTRA----')
+    #                     print(f'trips {trip_ids[i]} and {trip_ids[i-1]}')
+    #                     print(f'times {avl_dep_sec[i]} and {avl_dep_sec[i-1]}')
+    #                 hw.append(h)
     trip_times = remove_outliers(np.array(trip_times)).tolist()
-    departure_headway = remove_outliers(np.array(departure_headway)).tolist()
-    departure_delay = remove_outliers(np.array(departure_delay)).tolist()
-    return trip_times, departure_headway, departure_delay
+    hw_arr = np.array(hw)
+    hw_arr = hw_arr[hw_arr >= 15]
+    hw = remove_outliers(hw_arr).tolist()
+    return trip_times, hw
 
 
 def get_dwell_times(stop_times_path, focus_trips, stops, dates):
