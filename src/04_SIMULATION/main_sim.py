@@ -50,11 +50,11 @@ def run_base_detailed(replications=4, save=False, time_dep_tt=True, time_dep_dem
     return
 
 
-def run_base_control_detailed(episodes=2, save=False, time_dep_tt=True, time_dep_dem=True):
+def run_base_control_detailed(replications=2, save=False, time_dep_tt=True, time_dep_dem=True):
     tstamp = datetime.now().strftime('%m%d-%H%M%S')
     trajectories_set = []
     pax_set = []
-    for i in range(episodes):
+    for i in range(replications):
         env = DetailedSimulationEnvWithControl(time_dependent_travel_time=time_dep_tt, time_dependent_demand=time_dep_dem)
         done = env.reset_simulation()
         while not done:
@@ -102,7 +102,7 @@ def run_sample_rl(episodes=1, simple_reward=False):
                 else:
                     action = random.randint(0, 4)
                 env.take_action(action)
-            env.update_rewards(simple_reward=simple_reward)
+            env.update_rewards(simple_reward=simple_reward, weight_ride_time=0.3)
             done = env.prep()
     return
 
@@ -177,73 +177,31 @@ def analyze_delays():
     return
 
 
-# run_base_detailed(save=True)
-# analyze_delays()
-# run_sample_rl(episodes=5, simple_reward=True)
-# run_base_detailed(episodes=25, save=True)
-# run_base_control_detailed(episodes=25, save=True)
-# other tstamps
+# run_sample_rl(simple_reward=True, episodes=35)
+# run_base_detailed(replications=40, save=True)
+# run_base_control_detailed(replications=40, save=True)
 
-path_tr_nc = 'out/NC/trajectories_set_0127-184104.pkl'
-path_p_nc = 'out/NC/pax_set_0127-184104.pkl'
-
-path_tr_eh = 'out/EH/trajectories_set_0127-184112.pkl'
-path_p_eh = 'out/EH/pax_set_0127-184112.pkl'
-
-path_p_rl2 = 'out/DDQN-LA/pax_set_0127-184208.pkl'
-path_tr_rl2 = 'out/DDQN-LA/trajectory_set_0127-184208.pkl'
-
-path_tr_rl1 = 'out/DDQN-HA/trajectory_set_0127-190733.pkl'
-path_p_rl1 = 'out/DDQN-HA/pax_set_0127-190733.pkl'
-
-# #
-
-# PROCESS RAW RESULTS
-# path_trips = [path_tr_nc, path_tr_eh, path_tr_rl2, path_tr_rl1]
-# path_pax = [path_p_nc, path_p_eh, path_p_rl2, path_p_rl1]
-# tags = ['NC', 'EH', 'DDQN-LA', 'DDQN-HA']
-# post_processor = PostProcessor(path_trips, path_pax, tags)
-# post_processor.write_trajectories()
-# post_processor.total_trip_time_distribution()
-# post_processor.headway()
-# post_processor.load_profile()
-# post_processor.denied()
-# post_processor.hold_time()
-# post_processor.wait_times_per_stop()
-# post_processor.pax_times()
-
-
-# VALIDATION
-# path_trips = [path_tr_nc]
-# path_pax = [path_p_nc]
-# post_processor = PostProcessor(path_trips, path_pax, ['NC'])
-# post_processor.departure_delay_validation()
-# post_processor.dwell_time_validation()
-# post_processor.trip_time_dist_validation()
-# post_processor.load_profile_validation()
-# post_processor.load_profile_base()
-
-# PROCESS TRAJECTORIES FILE
-# links = [(i, j) for i, j in zip(stops[:-1], stops[1:])]
-
-# df_eh = pd.read_csv('out/trajectories1.csv')
-# df_rl = pd.read_csv('out/trajectories2.csv')
-
-# header = ['stop', 'mean1', 'std1', 'mean2', 'std2', 'mean3', 'std3']
-# header_cv = ['stop', 'cv1', 'mean2', 'std2', 'mean3', 'std3']
-
-# dwell_times()
-# link_times()
-# reps = 40
-# run_base_detailed(replications=reps, save=True)
-# run_base_control_detailed(episodes=reps, save=True)
-# path_trips = ['out/NC/trajectories_set_0220-201317.pkl', 'out/EH/trajectories_set_0221-121745.pkl']
-# path_pax = ['out/NC/pax_set_0220-201317.pkl', 'out/EH/pax_set_0221-121745.pkl']
-# prc = PostProcessor(path_trips, path_pax, ['NC', 'EH'])
+path_tr_nc = 'out/NC/trajectories_set_0222-211726.pkl'
+path_p_nc = 'out/NC/pax_set_0222-211726.pkl'
+path_tr_eh = 'out/EH/trajectories_set_0222-234859.pkl'
+path_p_eh = 'out/EH/pax_set_0222-234859.pkl'
+path_tr_eh2 = 'out/EH/trajectories_set_0222-212202.pkl'
+path_p_eh2 = 'out/EH/pax_set_0222-212202.pkl'
+path_tr_rl0 = 'out/DDQN-LA/trajectory_set_0222-233445.pkl'
+path_p_rl0 = 'out/DDQN-LA/pax_set_0222-233445.pkl'
+path_tr_rl1 = 'out/DDQN-HA/trajectory_set_0222-233419.pkl'
+path_p_rl1 = 'out/DDQN-HA/pax_set_0222-233419.pkl'
+path_tr_rl2 = 'out/DDQN-HA/trajectory_set_0222-233524.pkl'
+path_p_rl2 = 'out/DDQN-HA/pax_set_0222-233524.pkl'
+path_tr_rl3 = 'out/DDQN-HA/trajectory_set_0222-233609.pkl'
+path_p_rl3 = 'out/DDQN-HA/pax_set_0222-233609.pkl'
+prc = PostProcessor([path_tr_nc, path_tr_eh, path_tr_eh2, path_tr_rl0, path_tr_rl1, path_tr_rl2, path_tr_rl3],
+                    [path_p_nc, path_p_eh, path_p_eh2, path_p_rl0, path_p_rl1, path_p_rl2, path_p_rl3],
+                    ['NC', 'EH(0.6)', 'EH(0.7)', 'DDQN-LA', 'DDQN-HA(0.0)', 'DDQN-HA(0.33)', 'DDQN-HA(0.67)'])
+prc.pax_times_fast()
+prc.headway()
 # prc.write_trajectories()
-# prc.pax_times_fast()
-# prc.headway()
 # df_nc = pd.read_csv('out/NC/trajectories.csv')
-# error_headway(STOPS, df_nc, reps)
+# error_headway(STOPS, df_nc, 40)
 
 print("ran in %.2f seconds" % (time.time()-st))

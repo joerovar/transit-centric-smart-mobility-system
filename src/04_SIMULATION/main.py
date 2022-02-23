@@ -22,7 +22,7 @@ if __name__ == '__main__':
                         help='Minimum value for epsilon in epsilon-greedy action selection')
     parser.add_argument('-gamma', type=float, default=0.99,
                         help='Discount factor for update equation.')
-    parser.add_argument('-eps_dec', type=float, default=1.4e-5,
+    parser.add_argument('-eps_dec', type=float, default=1.5e-5,
                         help='Linear factor for decreasing epsilon')
     parser.add_argument('-eps', type=float, default=0.6,
                         help='Starting value for epsilon in epsilon-greedy action selection')
@@ -186,9 +186,9 @@ if __name__ == '__main__':
             sars_set.append(env.trips_sars)
             pax_set.append(env.completed_pax)
 
-        path_trajectories = 'out/' + args.save_folder + '/trajectory_set_' + tstamp + '.pkl'
-        path_sars = 'out/' + args.save_folder + '/sars_set_' + tstamp + '.pkl'
-        path_completed_pax = 'out/' + args.save_folder + '/pax_set_' + tstamp + '.pkl'
+        path_trajectories = 'out/' + args.test_save_folder + '/trajectory_set_' + tstamp + '.pkl'
+        path_sars = 'out/' + args.test_save_folder + '/sars_set_' + tstamp + '.pkl'
+        path_completed_pax = 'out/' + args.test_save_folder + '/pax_set_' + tstamp + '.pkl'
         post_process.save(path_trajectories, trajectories_set)
         post_process.save(path_sars, sars_set)
         post_process.save(path_completed_pax, pax_set)
@@ -232,4 +232,4 @@ if __name__ == '__main__':
 # train
 # python main.py -algo -n_games -simple_reward -weight_ride_time
 # test
-# python main.py -env (tstamp) -algo -n_games -eps -load_checkpoint -test_save_folder  -simple_reward
+# python main.py -env (tstamp) -algo -n_games -eps -load_checkpoint -test_save_folder -simple_reward

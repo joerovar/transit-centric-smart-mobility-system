@@ -149,12 +149,16 @@ trips_df['block_id'] = trips_df['block_id'].astype(str).str[6:].astype(int)
 trips_df = trips_df.sort_values(by=['block_id', 'schd_sec'])
 block_ids = trips_df['block_id'].unique().tolist()
 BLOCK_TRIPS_INFO = []
+BLOCK_DICT = {}
 for b in block_ids:
     block_df = trips_df[trips_df['block_id'] == b]
     trip_ids = block_df['trip_id'].tolist()
     sched_deps = block_df['schd_sec'].tolist()
+    BLOCK_DICT[b] = trip_ids
     trip_routes = block_df['route_type'].tolist()
     BLOCK_TRIPS_INFO.append((b, list(zip(trip_ids, sched_deps, trip_routes))))
+# print(BLOCK_DICT)
+# print(TRIP_TIMES1_PARAMS)
 # for b in BLOCK_TRIPS_INFO:
 #     print(b)
 # print(FOCUS_TRIP_IDS_OUT_LONG)
@@ -199,9 +203,9 @@ CONTROL_SCHEDULE = SCHED_DEP_IN[9:-11]
 CONTROL_HW = [t1 - t0 for t1, t0 in zip(CONTROL_SCHEDULE[1:], CONTROL_SCHEDULE[:-1])]
 CONTROL_MEAN_HW = sum(CONTROL_HW) / len(CONTROL_HW)
 BASE_HOLDING_TIME = 25
-CONTROL_STRENGTH_PARAMETER = 0.7
+CONTROL_STRENGTH_PARAMETER = 0.6
 MIN_ALLOWED_HW = CONTROL_STRENGTH_PARAMETER * CONTROL_MEAN_HW
-MIN_HW_THRESHOLD = 0.5
+MIN_HW_THRESHOLD = 0.4
 LIMIT_HOLDING = int(MIN_HW_THRESHOLD * CONTROL_MEAN_HW - MIN_HW_THRESHOLD * CONTROL_MEAN_HW % BASE_HOLDING_TIME)
 N_ACTIONS_RL = int(LIMIT_HOLDING / BASE_HOLDING_TIME) + 2
 sample_params = LINK_TIMES_PARAMS['386-388'][0]

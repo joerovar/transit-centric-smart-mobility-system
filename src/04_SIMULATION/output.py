@@ -6,7 +6,7 @@ from input import *
 
 class PostProcessor:
     def __init__(self, cp_trip_paths, cp_pax_paths, cp_tags):
-        self.colors = ['tab:red', 'tab:blue', 'tab:green', 'tab:orange']
+        self.colors = ['tab:red', 'tab:blue', 'tab:green', 'tab:orange', 'black', 'brown', 'purple']
         self.cp_trips, self.cp_pax, self.cp_tags = [], [], []
         for trip_path, pax_path, tag in zip(cp_trip_paths, cp_pax_paths, cp_tags):
             self.cp_trips.append(load(trip_path))
@@ -41,16 +41,19 @@ class PostProcessor:
         wt_mean = []
         db_mean = []
         dbwt_mean = []
+        xjt_mean = []
         for pax in self.cp_pax:
-            jtf, wtf, dbm, dbwt = get_pax_times_fast(pax)
+            jtf, wtf, dbm, dbwt, xjtf = get_pax_times_fast(pax)
             jt_mean.append(jtf)
             wt_mean.append(wtf)
             db_mean.append(dbm)
             dbwt_mean.append(dbwt)
+            xjt_mean.append(xjtf)
         print(f'journey time: {jt_mean}')
         print(f'wait time: {wt_mean}')
         print(f'denied boardings per mil: {[db*1000 for db in db_mean]}')
         print(f'denied board wait time: {dbwt_mean}')
+        print(f'90th journey time {xjt_mean}')
         return
 
     def headway(self):

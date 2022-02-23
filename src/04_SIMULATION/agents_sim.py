@@ -30,15 +30,13 @@ class Stop:
     def __init__(self, stop_id):
         self.stop_id = stop_id
         self.pax = []
-        self.last_bus_time = []
-        self.last_arr_times = []
-        self.last_dep_times = []
+        self.passed_trips = []
 
 
 class Bus:
-    def __init__(self, bus_id):
+    def __init__(self, bus_id, trips_info):
         self.bus_id = bus_id
-        self.pending_trips = []
+        self.pending_trips = [Trip(ti[0], ti[1], ti[2]) for ti in trips_info]
         self.active_trip = []
         self.finished_trips = []
         self.next_event_time = 0.0
@@ -62,5 +60,5 @@ class Log:
 class TripLog:
     def __init__(self, trip_id, stops):
         self.trip_id = trip_id
-        self.stop_arr_times = {s: 0 for s in stops}
-        self.stop_dep_times = {s: 0 for s in stops}
+        self.stop_arr_times = {s: None for s in stops}
+        self.stop_dep_times = {s: None for s in stops}

@@ -1,0 +1,15 @@
+param,value
+n_games,800
+lr,0.0001
+eps_min,0.01
+gamma,0.99
+eps_dec,0.99
+eps,0.6
+max_mem,8000
+bs,32
+replace,600
+algo,DDQNAgent
+simple_rew,False
+fc_dims,256
+weight_ride_time,0.67
+limit_hold,100

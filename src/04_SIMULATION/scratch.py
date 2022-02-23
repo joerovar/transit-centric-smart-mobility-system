@@ -15,29 +15,33 @@ import seaborn as sn
 from post_process import save, load
 from pre_process import remove_outliers
 import os
+from agents_sim import Bus
+from input import BLOCK_TRIPS_INFO, BLOCK_DICT
+from copy import deepcopy
 
+buses = []
+for block_trip_set in BLOCK_TRIPS_INFO:
+    block_id = block_trip_set[0]
+    trip_set = block_trip_set[1]
+    buses.append(Bus(block_id, trip_set))
 
-# base_date = '2019-09-03 00:00:00'
-# for df in (df3, df4, df5, df6):
-#     d = df[df['route_id'] == str(20)]
-#     d = d[['route_id', 'trip_id', 'stop_sequence', 'event_time', 'departure_time',
-#            'dwell_time', 'passenger_load']]
-#     d['base_date'] = [base_date] * len(d.index)
-#     d['avl_sec'] = d['departure_time'].astype('datetime64[ns]') - d['base_date'].astype('datetime64[ns]')
-#     d['avl_sec'] = d['avl_sec'].dt.total_seconds()
-#     d = d.dropna(subset=['avl_sec'])
-#     d['avl_sec'] = d['avl_sec'].round(decimals=1)
-#     d = d.drop('base_date', axis=1)
-#     df_main = df_main.append(d, ignore_index=True)
-
-
-# df_main['trip_id'] = df_main['trip_id'].astype(str).str[:-2]
-# df_main['trip_id'] = df_main['trip_id'].astype(int)
-# df_main['route_id'] = df_main['route_id'].astype(int)
-# df_main.to_csv('route20_stop_time_dwell.csv', index=False)
-# df_dwell = pd.read_csv('route20_stop_time_dwell.csv')
-# df_no_dwell = pd.read_csv('route20_stop_time.csv')
-# df_no_dwell = df_no_dwell[['schd_trip_id', 'stop_id', 'stop_sequence', 'arrival_time', 'schd_sec', 'event_time']]
-# df_main = df_dwell.merge(df_no_dwell, left_on=['trip_id', 'stop_sequence', 'event_time'],
-#                          right_on=['schd_trip_id', 'stop_sequence', 'event_time'])
-# df_main.to_csv('route20_stop_time_final.csv', index=False)
+# switch bus 1 and bus 4
+bus1 = buses[1]
+bus4 = buses[4]
+switch_idx = 3
+copy1 = bus1.pending_trips
+copy4 = bus4.pending_trips
+id1 = bus1.bus_id
+id4 = bus4.bus_id
+print(buses[1].pending_trips)
+print(buses[4].pending_trips)
+print(buses[1].bus_id)
+print(buses[4].bus_id)
+bus1.bus_id = id4
+bus4.bus_id = id1
+bus1.pending_trips = copy4[switch_idx:]
+bus4.pending_trips = copy4[:switch_idx] + copy1
+print(buses[1].pending_trips)
+print(buses[4].pending_trips)
+print(buses[1].bus_id)
+print(buses[4].bus_id)
