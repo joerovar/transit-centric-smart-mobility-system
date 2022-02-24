@@ -1014,7 +1014,7 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
         # in hours
         return reward
 
-    def update_rewards(self, simple_reward=False, weight_ride_time=0):
+    def update_rewards(self, simple_reward=False, weight_ride_time=0, weight_hw=0.7):
         bus = self.bus
         trip_id = bus.active_trip[0].trip_id
 
@@ -1041,7 +1041,7 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
                 fw_h1 = prev_sars[3][IDX_FW_H]
                 planned_fw_h = SCHED_DEP_IN[trip_idx] - SCHED_DEP_IN[trip_idx - 1]
                 hw_variation = (fw_h1 - planned_fw_h)/planned_fw_h
-                reward = - 0.55*hw_variation * hw_variation - 0.45*(prev_hold/LIMIT_HOLDING)
+                reward = - weight_hw*hw_variation * hw_variation - (1-weight_hw)*(prev_hold/LIMIT_HOLDING)
                 self.trips_sars[trip_id][sars_idx][2] = reward
                 self.pool_sars.append(self.trips_sars[trip_id][sars_idx] + [self.bool_terminal_state])
             else:

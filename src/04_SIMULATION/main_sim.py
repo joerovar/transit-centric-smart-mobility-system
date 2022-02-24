@@ -116,21 +116,21 @@ path_tr_nc = 'out/NC/trajectories_set_0222-211726.pkl'
 path_p_nc = 'out/NC/pax_set_0222-211726.pkl'
 path_tr_eh = 'out/EH/trajectories_set_0222-234859.pkl'
 path_p_eh = 'out/EH/pax_set_0222-234859.pkl'
-path_tr_eh2 = 'out/EH/trajectories_set_0222-212202.pkl'
-path_p_eh2 = 'out/EH/pax_set_0222-212202.pkl'
-path_tr_rl0 = 'out/DDQN-LA/trajectory_set_0223-215630.pkl'
-path_p_rl0 = 'out/DDQN-LA/pax_set_0223-215630.pkl'
-path_tr_rl1 = 'out/DDQN-HA/trajectory_set_0222-233419.pkl'
+path_tr_eh2 = 'out/EH/trajectories_set_0222-212202.pkl' # EH(0.7)
+path_p_eh2 = 'out/EH/pax_set_0222-212202.pkl' # EH (0.7)
+path_tr_rl0 = 'out/DDQN-LA/trajectory_set_0224-124312.pkl'
+path_p_rl0 = 'out/DDQN-LA/pax_set_0224-124312.pkl'
+path_tr_rl1 = 'out/DDQN-HA/trajectory_set_0222-233419.pkl' # 0222-2247
 path_p_rl1 = 'out/DDQN-HA/pax_set_0222-233419.pkl'
-path_tr_rl2 = 'out/DDQN-HA/trajectory_set_0223-183027.pkl'
+path_tr_rl2 = 'out/DDQN-HA/trajectory_set_0223-183027.pkl' # 0222-1249
 path_p_rl2 = 'out/DDQN-HA/pax_set_0223-183027.pkl'
-path_tr_rl3 = 'out/DDQN-HA/trajectory_set_0222-233609.pkl'
+path_tr_rl3 = 'out/DDQN-HA/trajectory_set_0222-233609.pkl' # 0222-2315
 path_p_rl3 = 'out/DDQN-HA/pax_set_0222-233609.pkl'
-path_tr_rl4 = 'out/DDQN-HA/trajectory_set_0223-220817.pkl'
+path_tr_rl4 = 'out/DDQN-HA/trajectory_set_0223-220817.pkl' # 0223-2159
 path_p_rl4 = 'out/DDQN-HA/pax_set_0223-220817.pkl'
-tags = ['NC', 'EH(0.6)', 'EH(0.7)', 'DDQN-LA', 'DDQN-HA(0.0)', 'DDQN-HA(0.33)', 'DDQN-HA(0.67)', 'DDQN-HA(1.0)']
-prc = PostProcessor([path_tr_nc, path_tr_eh, path_tr_eh2, path_tr_rl0, path_tr_rl1, path_tr_rl2, path_tr_rl3, path_tr_rl4],
-                    [path_p_nc, path_p_eh, path_p_eh2, path_p_rl0, path_p_rl1, path_p_rl2, path_p_rl3, path_p_rl4], tags)
+tags = ['NC', 'EH(0.6)', 'DDQN-LA', 'DDQN-HA(0.0)', 'DDQN-HA(0.33)', 'DDQN-HA(0.67)', 'DDQN-HA(1.0)']
+prc = PostProcessor([path_tr_nc, path_tr_eh, path_tr_rl0, path_tr_rl1, path_tr_rl2, path_tr_rl3, path_tr_rl4],
+                    [path_p_nc, path_p_eh, path_p_rl0, path_p_rl1, path_p_rl2, path_p_rl3, path_p_rl4], tags)
 results = {}
 results.update(prc.pax_times_fast())
 results.update(prc.headway())
@@ -143,22 +143,24 @@ results_df.to_csv('out/benchmark/numerical_results.csv', index=False)
 # SENSITIVITY ANALYSIS
 
 # PART 1 VARIABILITY INCREASE RUN TIME STDEV BY 20%
-# path_tr_eh = 'out/EH/trajectories_set_0222-234859.pkl'
-# path_p_eh = 'out/EH/pax_set_0222-234859.pkl'
-# path_tr_rl0 = 'out/DDQN-LA/trajectory_set_0223-182845.pkl'
-# path_p_rl0 = 'out/DDQN-LA/pax_set_0223-182845.pkl'
 # path_tr_rl1 = 'out/DDQN-HA/trajectory_set_0222-233419.pkl'
 # path_p_rl1 = 'out/DDQN-HA/pax_set_0222-233419.pkl'
 # path_tr_rl2 = 'out/DDQN-HA/trajectory_set_0223-183027.pkl'
 # path_p_rl2 = 'out/DDQN-HA/pax_set_0223-183027.pkl'
 # path_tr_rl3 = 'out/DDQN-HA/trajectory_set_0222-233609.pkl'
 # path_p_rl3 = 'out/DDQN-HA/pax_set_0222-233609.pkl'
+# path_tr_rl4 = 'out/DDQN-HA/trajectory_set_0223-220817.pkl'
+# path_p_rl4 = 'out/DDQN-HA/pax_set_0223-220817.pkl'
+# tags = ['DDQN-HA(0.0)', 'DDQN-HA(0.33)', 'DDQN-HA(0.67)', 'DDQN-HA(1.0)']
+# prc = PostProcessor([path_tr_rl1, path_tr_rl2, path_tr_rl3, path_tr_rl4],
+#                     [path_p_rl1, path_p_rl2, path_p_rl3, path_p_rl4], tags)
+# results = {}
+# results.update(prc.pax_times_fast())
+# results.update(prc.headway())
+# results_df = pd.DataFrame(results, columns=list(results.keys()))
+# results_df.to_csv('out/benchmark/numerical_results.csv', index=False)
 
 # PART 1 VARIABILITY REDUCE RUN TIME STDEV BY 20%
-# path_tr_eh = 'out/EH/trajectories_set_0222-234859.pkl'
-# path_p_eh = 'out/EH/pax_set_0222-234859.pkl'
-# path_tr_rl0 = 'out/DDQN-LA/trajectory_set_0223-182845.pkl'
-# path_p_rl0 = 'out/DDQN-LA/pax_set_0223-182845.pkl'
 # path_tr_rl1 = 'out/DDQN-HA/trajectory_set_0222-233419.pkl'
 # path_p_rl1 = 'out/DDQN-HA/pax_set_0222-233419.pkl'
 # path_tr_rl2 = 'out/DDQN-HA/trajectory_set_0223-183027.pkl'

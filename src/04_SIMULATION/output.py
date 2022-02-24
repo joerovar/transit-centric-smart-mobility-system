@@ -35,11 +35,11 @@ class PostProcessor:
             rbt_od_mean.append(np.mean(rbt_od))
         results_d = {'method': self.cp_tags, 'journey_t': jt_mean, 'wait_t': wt_mean,
                      'denied_per_mil': [db * 1000 for db in db_mean], 'rbt_od': rbt_od_mean}
-        plt.boxplot(jt_all_set, labels=self.cp_tags, sym='')
-        plt.xticks(rotation=45)
-        plt.tight_layout()
-        plt.savefig('out/benchmark/jt.png')
-        plt.close()
+        # plt.boxplot(jt_all_set, labels=self.cp_tags, sym='')
+        # plt.xticks(rotation=45)
+        # plt.tight_layout()
+        # plt.savefig('out/benchmark/jt.png')
+        # plt.close()
         plt.boxplot(wt_all_set, labels=self.cp_tags, sym='')
         plt.xticks(rotation=45)
         plt.tight_layout()
