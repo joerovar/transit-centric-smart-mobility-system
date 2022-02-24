@@ -19,27 +19,22 @@ class PostProcessor:
         wt_mean = []
         db_mean = []
         dbwt_mean = []
-        xjt_mean = []
         jt_all_set = []
         wt_all_set = []
-        jt_od_set = []
         rbt_od_set = []
-        jt_od_mean = []
         rbt_od_mean = []
         for pax in self.cp_pax:
-            jt_set, wt_set, dbm, dbwt, jt_od, rbt_od = get_pax_times_fast(pax, len(STOPS))
+            jt_set, wt_set, dbm, dbwt, rbt_od = get_pax_times_fast(pax, len(STOPS))
             jt_mean.append(np.mean(jt_set))
             wt_mean.append(np.mean(wt_set))
             jt_all_set.append(jt_set)
             wt_all_set.append(wt_set)
             db_mean.append(dbm)
             dbwt_mean.append(dbwt)
-            jt_od_set.append(jt_od)
-            jt_od_mean.append(np.mean(jt_od))
             rbt_od_set.append(rbt_od)
             rbt_od_mean.append(np.mean(rbt_od))
         results_d = {'method': self.cp_tags, 'journey_t': jt_mean, 'wait_t': wt_mean,
-                     'denied_per_mil': [db * 1000 for db in db_mean], 'jt_od': jt_od_mean, 'rbt_od': rbt_od_mean}
+                     'denied_per_mil': [db * 1000 for db in db_mean], 'rbt_od': rbt_od_mean}
         plt.boxplot(jt_all_set, labels=self.cp_tags, sym='')
         plt.xticks(rotation=45)
         plt.tight_layout()
@@ -50,13 +45,6 @@ class PostProcessor:
         plt.tight_layout()
         plt.savefig('out/benchmark/wt.png')
         plt.close()
-
-        plt.boxplot(jt_od_set, labels=self.cp_tags, sym='')
-        plt.xticks(rotation=45)
-        plt.tight_layout()
-        plt.savefig('out/benchmark/jt_od.png')
-        plt.close()
-        save('out/benchmark/jt_od_benchmark.pkl', jt_od_set)
 
         plt.boxplot(rbt_od_set, labels=self.cp_tags, sym='')
         plt.xticks(rotation=45)
