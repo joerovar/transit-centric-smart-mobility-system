@@ -40,6 +40,12 @@ if __name__ == '__main__':
                         help='fully connected dimensions')
     parser.add_argument('-weight_ride_time', type=float, default=0.0,
                         help='weight for ride time in reward')
+    parser.add_argument('-tt_factor', type=float, default=1.0,
+                        help='dictates factor on variability')
+    parser.add_argument('-compliance_factor', type=float, default=1.0,
+                        help='compliance on holding')
+    parser.add_argument('-estimated_pax', type=float, default=False,
+                        help='make stops be estimated for RL observations')
 
     parser.add_argument('-env', type=str, default=tstamp_save,
                         help='environment')
@@ -155,7 +161,9 @@ if __name__ == '__main__':
         pax_set = []
         for j in range(args.n_games):
             score = 0
-            env = sim_env.DetailedSimulationEnvWithDeepRL()
+            env = sim_env.DetailedSimulationEnvWithDeepRL(tt_factor=args.tt_factor,
+                                                          compliance_factor=args.compliance_factor,
+                                                          estimate_pax=args.estimated_pax)
             done = env.reset_simulation()
             done = env.prep()
             while not done:

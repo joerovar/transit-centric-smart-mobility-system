@@ -223,6 +223,7 @@ def get_headway_from_trajectory_set(trajectory_set, idx_arr_t, stops, controlled
     cv_hw = {s: [] for s in stops}
     cv_hw_per_stop = []
     hw_at_tp = []
+    cv_hw_mean = []
     i = 0
     for trajectories in trajectory_set:
         recorded_hw = {s: [] for s in stops}
@@ -245,10 +246,14 @@ def get_headway_from_trajectory_set(trajectory_set, idx_arr_t, stops, controlled
             headways = np.array(recorded_hw[s])
             # print(headways)
             cv_hw[s].append(headways.std() / headways.mean())
+        cv_rep = []
+        for s in cv_hw:
+            cv_rep.append(cv_hw[s][-1])
+        cv_hw_mean.append(sum(cv_rep) / len(cv_rep))
         i += 1
     for s in stops:
         cv_hw_per_stop.append(np.mean(cv_hw[s]))
-    return cv_hw_per_stop, hw_at_tp
+    return cv_hw_per_stop, hw_at_tp, cv_hw_mean
 
 
 def pax_per_trip_from_trajectory_set(trajectory_set, idx_load, idx_ons, idx_offs, stops):
@@ -612,63 +617,15 @@ def get_wait_times(pax_set, ordered_stops):
     return stop_wait_time_mean
 
 
-def get_pax_times(pax_set, ordered_stops, schd_wait):
-    # we add all data points to a dataframe
-    # then we convert into an od matrix
-    nr_replications = len(pax_set)
-    nr_stops = len(ordered_stops)
-    jt_rep_mean = []
-    wt_rep_mean = []
-    rt_rep_mean = []
-    rbt_rep_mean = []
-    pct_ewt_rep_mean = []
-    denied_board_wt = []
-    for replication_nr in range(nr_replications):
-        pax_times = {'o': [], 'd': [], 'jt': [], 'wt': [], 'rt': []}
-        for p in pax_set[replication_nr]:
-            pax_times['o'].append(p.orig_idx)
-            pax_times['d'].append(p.dest_idx)
-            pax_times['jt'].append(p.journey_time)
-            pax_times['rt'].append(p.alight_time - p.board_time)
-            pax_times['wt'].append(p.wait_time)
-            if p.denied:
-                denied_board_wt.append(p.wait_time)
-        jt_rep_mean.append(sum(pax_times['jt']) / len(pax_times['jt']))
-        wt_rep_mean.append(sum(pax_times['wt']) / len(pax_times['wt']))
-        rt_rep_mean.append(sum(pax_times['rt']) / len(pax_times['rt']))
-        pax_times_df = pd.DataFrame(pax_times)
-        ewt_pax = pax_times_df[pax_times_df['wt'] > schd_wait].shape[0]
-        tot_pax = pax_times_df.shape[0]
-        pct_ewt_rep_mean.append(100 * ewt_pax / tot_pax)
-        od_rbt = np.zeros(shape=(nr_stops, nr_stops))
-        od_rbt[:] = np.nan
-        rbt_count = 0
-        for i in range(nr_stops-1):
-            for j in range(i + 1, nr_stops):
-                od_pair_df = pax_times_df[(pax_times_df['o'] == i) & (pax_times_df['d'] == j)]
-                jt = od_pair_df['jt']
-                if not jt.empty:
-                    rbt = jt.quantile(0.95) - jt.median()
-                    assert rbt >= 0.0
-                    if rbt > 0.0:
-                        od_rbt[i, j] = rbt * jt.shape[0]
-                        rbt_count += jt.shape[0]
-        rbt_rep_mean.append(np.nansum(od_rbt) / rbt_count)
-    jt_mean = np.mean(jt_rep_mean)
-    wt_mean = np.mean(wt_rep_mean)
-    rt_mean = np.mean(rt_rep_mean)
-    rbt_mean = np.mean(rbt_rep_mean)
-    pct_ewt_mean = np.mean(pct_ewt_rep_mean)
-    return jt_mean, rbt_mean, wt_mean, rt_mean, pct_ewt_mean, denied_board_wt
-
-
-def get_pax_times_fast(pax_set):
+def get_pax_times_fast(pax_set, n_stops):
     fields = ['orig_idx', 'dest_idx', 'journey_time', 'wait_time', 'denied']
     journey_time_set = []
     wait_time_set = []
     denied_rate_per_rep = []
     denied_wait_time_set = []
     extreme_jt_set = []
+    jt_od_set = []
+    rbt_od_set = []
     for rep in pax_set:
         df = pd.DataFrame([{f: getattr(p, f) for f in fields} for p in rep])
         journey_time_set.append(df['journey_time'].mean())
@@ -680,12 +637,30 @@ def get_pax_times_fast(pax_set):
         denied_wt = denied_df['wait_time'].mean()
         denied_rate_per_rep.append(denied_pax / tot_pax)
         denied_wait_time_set.append(denied_wt)
-    journey_time_mean = np.mean(journey_time_set)
-    wait_time_mean = np.mean(wait_time_set)
+
+        jt_od = np.zeros(shape=(n_stops, n_stops))
+        jt_od[:] = np.nan
+        rbt_od = np.zeros(shape=(n_stops, n_stops))
+        rbt_od[:] = np.nan
+        pax_count = 0
+        for s0 in range(n_stops-1):
+            o_jt = df[df['orig_idx'] == s0]
+            for s1 in range(s0+1, n_stops):
+                od_jt = o_jt[o_jt['dest_idx'] == s1]
+                if not od_jt.empty:
+                    pax_od = od_jt.shape[0]
+                    pax_count += pax_od
+                    jt_od[s0, s1] = od_jt['journey_time'].mean() * pax_od
+                    rbt_od[s0, s1] = (od_jt['journey_time'].quantile(0.95) - od_jt['journey_time'].median()) * pax_od
+        jt_od_set.append(np.nansum(jt_od) / pax_count)
+        rbt_od_set.append(np.nansum(rbt_od) / pax_count)
+    # journey_time_mean = np.mean(journey_time_set)
+    # wait_time_mean = np.mean(wait_time_set)
     denied_rate = np.mean(denied_rate_per_rep)
     denied_wait_time_mean = np.nanmean(denied_wait_time_set)
-    extreme_jt_mean = np.nanmean(extreme_jt_set)
-    return journey_time_mean, wait_time_mean, denied_rate, denied_wait_time_mean, extreme_jt_mean
+    # extreme_jt_mean = np.nanmean(extreme_jt_set)
+    # jt_od_mean = np.mean(jt_od_set)
+    return journey_time_set, wait_time_set, denied_rate, denied_wait_time_mean, jt_od_set, rbt_od_set
 
 
 def get_departure_delay(trajectories_set, idx_dep_t, ordered_trip_ids, sched_departures):

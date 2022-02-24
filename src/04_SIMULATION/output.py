@@ -1,40 +1,18 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 
 from input import *
 
 
 class PostProcessor:
     def __init__(self, cp_trip_paths, cp_pax_paths, cp_tags):
-        self.colors = ['tab:red', 'tab:blue', 'tab:green', 'tab:orange', 'black', 'brown', 'purple']
+        self.colors = ['tab:red', 'tab:blue', 'tab:green', 'tab:orange', 'black', 'brown', 'purple', 'turquoise']
         self.cp_trips, self.cp_pax, self.cp_tags = [], [], []
         for trip_path, pax_path, tag in zip(cp_trip_paths, cp_pax_paths, cp_tags):
             self.cp_trips.append(load(trip_path))
             self.cp_pax.append(load(pax_path))
             self.cp_tags.append(tag)
-
-    def pax_times(self):
-        jt_mean = []
-        rbt_mean = []
-        wt_mean = []
-        rt_mean = []
-        pct_ewt_mean = []
-        db_wt_all = []
-        for pax in self.cp_pax:
-            jt, rbt, wt, rt, pct_ewt, db_wt = get_pax_times(pax, STOPS, FOCUS_TRIPS_MEAN_HW/2)
-            jt_mean.append(jt)
-            rbt_mean.append(rbt)
-            wt_mean.append(wt)
-            rt_mean.append(rt)
-            pct_ewt_mean.append(pct_ewt)
-            db_wt_all.append(db_wt)
-        print(jt_mean)
-        # print(rbt_mean)
-        print(wt_mean)
-        # print(rt_mean)
-        # print(pct_ewt_mean)
-        # print(db_wt_all)
-        return
 
     def pax_times_fast(self):
         jt_mean = []
@@ -42,31 +20,72 @@ class PostProcessor:
         db_mean = []
         dbwt_mean = []
         xjt_mean = []
+        jt_all_set = []
+        wt_all_set = []
+        jt_od_set = []
+        rbt_od_set = []
+        jt_od_mean = []
+        rbt_od_mean = []
         for pax in self.cp_pax:
-            jtf, wtf, dbm, dbwt, xjtf = get_pax_times_fast(pax)
-            jt_mean.append(jtf)
-            wt_mean.append(wtf)
+            jt_set, wt_set, dbm, dbwt, jt_od, rbt_od = get_pax_times_fast(pax, len(STOPS))
+            jt_mean.append(np.mean(jt_set))
+            wt_mean.append(np.mean(wt_set))
+            jt_all_set.append(jt_set)
+            wt_all_set.append(wt_set)
             db_mean.append(dbm)
             dbwt_mean.append(dbwt)
-            xjt_mean.append(xjtf)
-        print(f'journey time: {jt_mean}')
-        print(f'wait time: {wt_mean}')
-        print(f'denied boardings per mil: {[db*1000 for db in db_mean]}')
-        print(f'denied board wait time: {dbwt_mean}')
-        print(f'90th journey time {xjt_mean}')
-        return
+            jt_od_set.append(jt_od)
+            jt_od_mean.append(np.mean(jt_od))
+            rbt_od_set.append(rbt_od)
+            rbt_od_mean.append(np.mean(rbt_od))
+        results_d = {'method': self.cp_tags, 'journey_t': jt_mean, 'wait_t': wt_mean,
+                     'denied_per_mil': [db * 1000 for db in db_mean], 'jt_od': jt_od_mean, 'rbt_od': rbt_od_mean}
+        plt.boxplot(jt_all_set, labels=self.cp_tags, sym='')
+        plt.xticks(rotation=45)
+        plt.tight_layout()
+        plt.savefig('out/benchmark/jt.png')
+        plt.close()
+        plt.boxplot(wt_all_set, labels=self.cp_tags, sym='')
+        plt.xticks(rotation=45)
+        plt.tight_layout()
+        plt.savefig('out/benchmark/wt.png')
+        plt.close()
+
+        plt.boxplot(jt_od_set, labels=self.cp_tags, sym='')
+        plt.xticks(rotation=45)
+        plt.tight_layout()
+        plt.savefig('out/benchmark/jt_od.png')
+        plt.close()
+        save('out/benchmark/jt_od_benchmark.pkl', jt_od_set)
+
+        plt.boxplot(rbt_od_set, labels=self.cp_tags, sym='')
+        plt.xticks(rotation=45)
+        plt.tight_layout()
+        plt.savefig('out/benchmark/rbt_od.png')
+        plt.close()
+        save('out/benchmark/rbt_od_benchmark.pkl', rbt_od_set)
+        return results_d
 
     def headway(self):
         cv_hw_set = []
+        cv_all_reps = []
         for trips in self.cp_trips:
-            temp_cv_hw, hw_at_tp = get_headway_from_trajectory_set(trips, IDX_ARR_T, STOPS,
-                                                                   controlled_stops=CONTROLLED_STOPS)
+            temp_cv_hw, hw_at_tp, cv_hw_mean = get_headway_from_trajectory_set(trips, IDX_ARR_T, STOPS,
+                                                                               controlled_stops=CONTROLLED_STOPS)
             cv_hw_set.append(temp_cv_hw)
+            cv_all_reps.append(cv_hw_mean)
         plot_headway_benchmark(cv_hw_set, STOPS, self.cp_tags, self.colors, pathname='out/benchmark/hw.png',
                                controlled_stops=CONTROLLED_STOPS[:-1])
 
-        print(f'mean cv headway {[np.mean(cv) for cv in cv_hw_set]}')
-        return
+        results_hw = {'cv_hw': [np.mean(cv) for cv in cv_hw_set]}
+        plt.boxplot(cv_all_reps, labels=self.cp_tags, sym='')
+        plt.xticks(rotation=45)
+        # plt.xticks(np.arange(len(self.cp_tags)), self.cp_tags)
+        plt.tight_layout()
+        plt.savefig('out/benchmark/hw.png')
+
+        plt.close()
+        return results_hw
 
     def total_trip_time_distribution(self):
         trip_time_set = []
@@ -137,7 +156,8 @@ class PostProcessor:
     def write_trajectories(self):
         i = 0
         for trips in self.cp_trips:
-            write_trajectory_set(trips, 'out/' + self.cp_tags[i] + '/trajectories.csv', IDX_ARR_T, IDX_DEP_T, IDX_HOLD_TIME,
+            write_trajectory_set(trips, 'out/' + self.cp_tags[i] + '/trajectories.csv', IDX_ARR_T, IDX_DEP_T,
+                                 IDX_HOLD_TIME,
                                  header=['trip_id', 'stop_id', 'arr_t', 'dep_t', 'pax_load', 'ons', 'offs', 'denied',
                                          'hold_time', 'skipped', 'replication', 'arr_sec', 'dep_sec', 'dwell_sec'])
             i += 1
@@ -209,7 +229,8 @@ class PostProcessor:
         through = np.subtract(lp, offs)
         through = through.tolist()
         plot_load_profile(ons, offs, lp, STOPS, through, pathname='out/load_profile_NC.png',
-                          x_y_lbls=['stop', 'passengers (per trip)', 'through passengers and passenger load (per trip)'],
+                          x_y_lbls=['stop', 'passengers (per trip)',
+                                    'through passengers and passenger load (per trip)'],
                           controlled_stops=CONTROLLED_STOPS[:-1])
         return
 

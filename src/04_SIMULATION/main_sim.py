@@ -78,7 +78,7 @@ def run_sample_rl(episodes=1, simple_reward=False):
     pax_set = []
     pax_details = []
     for j in range(episodes):
-        env = DetailedSimulationEnvWithDeepRL()
+        env = DetailedSimulationEnvWithDeepRL(estimate_pax=True)
         done = env.reset_simulation()
         done = env.prep()
         while not done:
@@ -107,101 +107,63 @@ def run_sample_rl(episodes=1, simple_reward=False):
     return
 
 
-def analyze_delays():
-    nr_replications = 4
-    replication_departures = []
-    replication_arrivals = []
-    for i in range(nr_replications):
-        env = DetailedSimulationEnvWithControl()
-        done = env.reset_simulation()
-        while not done:
-            done = env.prep()
-        replication_arrivals.append(env.log.recorded_arrivals)
-        replication_departures.append(env.log.recorded_departures)
-    dates = ['2019-09-03', '2019-09-04', '2019-09-05', '2019-09-06']
-    outbound_arr_stops = [386]
-    inbound_arr_stops = [8613, 449]
-    df_blocks = pd.read_csv('visual_trips.csv')
-    df_stop_times = pd.read_csv('in/raw/route20_stop_time_merged.csv')
-    trip_info_by_block = []
-    unique_blocks = df_blocks['block_id'].unique().tolist()
-    for block_id in unique_blocks:
-        unique_trip_ids = df_blocks[df_blocks['block_id'] == block_id]['trip_id'].unique().tolist()
-        for trip_id in unique_trip_ids:
-            direction = df_blocks[df_blocks['trip_id'] == trip_id]['direction'].tolist()[0]
-            avl_departures = []
-            avl_arrivals = []
-            trip_df = df_stop_times[df_stop_times['trip_id'] == trip_id]
-            schd_dep_sec = df_blocks[df_blocks['trip_id'] == trip_id]['schd_sec'].tolist()[0]
-            schd_dep_time = str(timedelta(seconds=round(schd_dep_sec)))
-            schd_arr_sec = trip_df.sort_values(by='schd_sec')['schd_sec'].unique().tolist()[-1]
-            schd_arr_time = str(timedelta(seconds=round(schd_arr_sec)))
-            for d in dates:
-                date_df = trip_df[trip_df['avl_arr_time'].astype(str).str[:10] == d]
-                if direction == 'in':
-                    arr_stops = inbound_arr_stops
-                else:
-                    arr_stops = outbound_arr_stops
-                dep_df = date_df[date_df['stop_sequence'] == 1]
-                if not dep_df.empty:
-                    avl_dep_sec = dep_df['avl_dep_sec'].tolist()[0]
-                    avl_departures.append(str(timedelta(seconds=round(avl_dep_sec % 86400))))
-                else:
-                    avl_departures.append('')
-                arr_df = date_df[date_df['stop_id'].isin(arr_stops)]
-                if not arr_df.empty:
-                    avl_arr_sec = arr_df['avl_sec'].tolist()[0]
-                    avl_arrivals.append(str(timedelta(seconds=round(avl_arr_sec%86400))))
-                else:
-                    avl_arrivals.append('')
-            simul_departures = []
-            simul_arrivals = []
-            for replication in replication_departures:
-                simul_dep_sec = replication[trip_id]
-                if simul_dep_sec is not None:
-                    simul_departures.append(str(timedelta(seconds=round(simul_dep_sec))))
-                else:
-                    simul_departures.append('')
-            for replication in replication_arrivals:
-                simul_arr_sec = replication[trip_id]
-                if simul_arr_sec is not None:
-                    simul_arrivals.append(str(timedelta(seconds=round(simul_arr_sec))))
-                else:
-                    simul_arrivals.append('')
-            trip_info_by_block.append((block_id, trip_id, direction, schd_dep_sec, schd_dep_time, *avl_departures, *simul_departures))
-            trip_info_by_block.append((block_id, trip_id, direction, schd_arr_sec, schd_arr_time, *avl_arrivals, *simul_arrivals))
-    header_days = ['day' + str(i) for i in range(1, len(dates) + 1)]
-    header_simul_reps = ['rep' + str(i) for i in range(1, nr_replications + 1)]
-    df = pd.DataFrame(trip_info_by_block, columns=['block_id', 'trip_id', 'direction', 'schd_sec', 'schd_time', *header_days, *header_simul_reps])
-    df.to_csv('delays.csv', index=False)
-    return
-
-
-# run_sample_rl(simple_reward=True, episodes=35)
+# BENCHMARK
+# run_sample_rl(simple_reward=True, episodes=1)
 # run_base_detailed(replications=40, save=True)
 # run_base_control_detailed(replications=40, save=True)
 
-path_tr_nc = 'out/NC/trajectories_set_0222-211726.pkl'
-path_p_nc = 'out/NC/pax_set_0222-211726.pkl'
-path_tr_eh = 'out/EH/trajectories_set_0222-234859.pkl'
-path_p_eh = 'out/EH/pax_set_0222-234859.pkl'
-path_tr_eh2 = 'out/EH/trajectories_set_0222-212202.pkl'
-path_p_eh2 = 'out/EH/pax_set_0222-212202.pkl'
-path_tr_rl0 = 'out/DDQN-LA/trajectory_set_0222-233445.pkl'
-path_p_rl0 = 'out/DDQN-LA/pax_set_0222-233445.pkl'
-path_tr_rl1 = 'out/DDQN-HA/trajectory_set_0222-233419.pkl'
-path_p_rl1 = 'out/DDQN-HA/pax_set_0222-233419.pkl'
-path_tr_rl2 = 'out/DDQN-HA/trajectory_set_0222-233524.pkl'
-path_p_rl2 = 'out/DDQN-HA/pax_set_0222-233524.pkl'
-path_tr_rl3 = 'out/DDQN-HA/trajectory_set_0222-233609.pkl'
-path_p_rl3 = 'out/DDQN-HA/pax_set_0222-233609.pkl'
-prc = PostProcessor([path_tr_nc, path_tr_eh, path_tr_eh2, path_tr_rl0, path_tr_rl1, path_tr_rl2, path_tr_rl3],
-                    [path_p_nc, path_p_eh, path_p_eh2, path_p_rl0, path_p_rl1, path_p_rl2, path_p_rl3],
-                    ['NC', 'EH(0.6)', 'EH(0.7)', 'DDQN-LA', 'DDQN-HA(0.0)', 'DDQN-HA(0.33)', 'DDQN-HA(0.67)'])
-prc.pax_times_fast()
-prc.headway()
+# path_tr_nc = 'out/NC/trajectories_set_0222-211726.pkl'
+# path_p_nc = 'out/NC/pax_set_0222-211726.pkl'
+# path_tr_eh = 'out/EH/trajectories_set_0222-234859.pkl'
+# path_p_eh = 'out/EH/pax_set_0222-234859.pkl'
+# path_tr_eh2 = 'out/EH/trajectories_set_0222-212202.pkl'
+# path_p_eh2 = 'out/EH/pax_set_0222-212202.pkl'
+# path_tr_rl0 = 'out/DDQN-LA/trajectory_set_0223-215630.pkl'
+# path_p_rl0 = 'out/DDQN-LA/pax_set_0223-215630.pkl'
+# path_tr_rl1 = 'out/DDQN-HA/trajectory_set_0222-233419.pkl'
+# path_p_rl1 = 'out/DDQN-HA/pax_set_0222-233419.pkl'
+# path_tr_rl2 = 'out/DDQN-HA/trajectory_set_0223-183027.pkl'
+# path_p_rl2 = 'out/DDQN-HA/pax_set_0223-183027.pkl'
+# path_tr_rl3 = 'out/DDQN-HA/trajectory_set_0222-233609.pkl'
+# path_p_rl3 = 'out/DDQN-HA/pax_set_0222-233609.pkl'
+# path_tr_rl4 = 'out/DDQN-HA/trajectory_set_0223-220817.pkl'
+# path_p_rl4 = 'out/DDQN-HA/pax_set_0223-220817.pkl'
+# tags = ['NC', 'EH(0.6)', 'EH(0.7)', 'DDQN-LA', 'DDQN-HA(0.0)', 'DDQN-HA(0.33)', 'DDQN-HA(0.67)', 'DDQN-HA(1.0)']
+# prc = PostProcessor([path_tr_nc, path_tr_eh, path_tr_eh2, path_tr_rl0, path_tr_rl1, path_tr_rl2, path_tr_rl3, path_tr_rl4],
+#                     [path_p_nc, path_p_eh, path_p_eh2, path_p_rl0, path_p_rl1, path_p_rl2, path_p_rl3, path_p_rl4], tags)
+# results = {}
+# results.update(prc.pax_times_fast())
+# results.update(prc.headway())
+# results_df = pd.DataFrame(results, columns=list(results.keys()))
+# results_df.to_csv('out/benchmark/numerical_results.csv', index=False)
 # prc.write_trajectories()
 # df_nc = pd.read_csv('out/NC/trajectories.csv')
 # error_headway(STOPS, df_nc, 40)
+
+# SENSITIVITY ANALYSIS
+
+# PART 1 VARIABILITY INCREASE RUN TIME STDEV BY 20%
+# path_tr_eh = 'out/EH/trajectories_set_0222-234859.pkl'
+# path_p_eh = 'out/EH/pax_set_0222-234859.pkl'
+# path_tr_rl0 = 'out/DDQN-LA/trajectory_set_0223-182845.pkl'
+# path_p_rl0 = 'out/DDQN-LA/pax_set_0223-182845.pkl'
+# path_tr_rl1 = 'out/DDQN-HA/trajectory_set_0222-233419.pkl'
+# path_p_rl1 = 'out/DDQN-HA/pax_set_0222-233419.pkl'
+# path_tr_rl2 = 'out/DDQN-HA/trajectory_set_0223-183027.pkl'
+# path_p_rl2 = 'out/DDQN-HA/pax_set_0223-183027.pkl'
+# path_tr_rl3 = 'out/DDQN-HA/trajectory_set_0222-233609.pkl'
+# path_p_rl3 = 'out/DDQN-HA/pax_set_0222-233609.pkl'
+
+# PART 1 VARIABILITY REDUCE RUN TIME STDEV BY 20%
+# path_tr_eh = 'out/EH/trajectories_set_0222-234859.pkl'
+# path_p_eh = 'out/EH/pax_set_0222-234859.pkl'
+# path_tr_rl0 = 'out/DDQN-LA/trajectory_set_0223-182845.pkl'
+# path_p_rl0 = 'out/DDQN-LA/pax_set_0223-182845.pkl'
+# path_tr_rl1 = 'out/DDQN-HA/trajectory_set_0222-233419.pkl'
+# path_p_rl1 = 'out/DDQN-HA/pax_set_0222-233419.pkl'
+# path_tr_rl2 = 'out/DDQN-HA/trajectory_set_0223-183027.pkl'
+# path_p_rl2 = 'out/DDQN-HA/pax_set_0223-183027.pkl'
+# path_tr_rl3 = 'out/DDQN-HA/trajectory_set_0222-233609.pkl'
+# path_p_rl3 = 'out/DDQN-HA/pax_set_0222-233609.pkl'
 
 print("ran in %.2f seconds" % (time.time()-st))

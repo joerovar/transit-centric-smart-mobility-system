@@ -113,9 +113,10 @@ def get_params_outbound():
     return trip_times1_params, trip_times2_params, trips1_out_info, trips2_out_info, deadhead_times_params, sched_arrs
 
 
-# extract_params(validation=True)
+# extract_params(demand=True)
 
 STOPS, LINK_TIMES_INFO, TRIP_IDS_IN, SCHED_DEP_IN, ODT, SCHED_ARRS_IN, TRIP_TIMES_INPUT, BUS_IDS_IN = get_params_inbound()
+
 TRIP_TIMES1_PARAMS, TRIP_TIMES2_PARAMS, TRIPS1_INFO_OUT, TRIPS2_INFO_OUT, DEADHEAD_TIME_PARAMS, SCHED_ARRS_OUT = get_params_outbound()
 TRIP_TIMES1_PARAMS[1] = TRIP_TIMES1_PARAMS[2]
 TRIP_TIMES2_PARAMS[-4] = TRIP_TIMES2_PARAMS[-5]
@@ -171,7 +172,7 @@ warm_up_odt = np.multiply(ODT[0], 0.4)
 ODT = np.insert(ODT, 0, warm_up_odt, axis=0)
 warm_up_odt2 = np.multiply(ODT[0], 0.2)
 ODT = np.insert(ODT, 0, warm_up_odt2, axis=0)
-
+ARR_RATES = np.nansum(ODT, axis=-1)
 PAX_INIT_TIME = [0] + [LINK_TIMES_MEAN[s0 + '-' + s1][0] for s0, s1 in zip(STOPS, STOPS[1:])]
 PAX_INIT_TIME = np.array(PAX_INIT_TIME).cumsum()
 PAX_INIT_TIME += SCHED_DEP_IN[0] - ((SCHED_DEP_IN[1] - SCHED_DEP_IN[0]) / 2)

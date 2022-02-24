@@ -43,7 +43,8 @@ def _compute_reward(action, fw_h, bw_h, prev_bw_h, prev_fw_h, prev_pax_at_s):
 
 
 class SimulationEnv:
-    def __init__(self, no_overtake_policy=True, time_dependent_travel_time=True, time_dependent_demand=True):
+    def __init__(self, no_overtake_policy=True, time_dependent_travel_time=True, time_dependent_demand=True,
+                 tt_factor=1.0, compliance_factor=1.0):
         # THE ONLY NECESSARY TRIP INFORMATION TO CARRY THROUGHOUT SIMULATION
         self.no_overtake_policy = no_overtake_policy
         self.time_dependent_travel_time = time_dependent_travel_time
@@ -51,6 +52,8 @@ class SimulationEnv:
         self.time = 0.0
         # RECORDINGS
         self.trajectories = {}
+        self.tt_factor = tt_factor
+        self.compliance_factor = compliance_factor
 
 
 class DetailedSimulationEnv(SimulationEnv):
@@ -71,7 +74,7 @@ class DetailedSimulationEnv(SimulationEnv):
         self.trajectories[trip_id].append(trajectory)
         return
 
-    def get_travel_time(self, tt_factor=1.0):
+    def get_travel_time(self):
         # i = self.bus_idx
         bus = self.bus
         link = str(bus.last_stop_id) + '-' + str(bus.next_stop_id)
@@ -88,7 +91,7 @@ class DetailedSimulationEnv(SimulationEnv):
             link_time_params = SINGLE_LINK_TIMES_PARAMS[link]
             link_time_extremes = SINGLE_LINK_TIMES_EXTREMES
         try:
-            link_time_params_light = (link_time_params[0]*tt_factor, link_time_params[1], link_time_params[2])
+            link_time_params_light = (link_time_params[0]*self.tt_factor, link_time_params[1], link_time_params[2])
             runtime = lognorm.rvs(*link_time_params_light)
             minim, maxim = link_time_extremes
             if runtime > maxim:
@@ -736,11 +739,12 @@ class DetailedSimulationEnvWithControl(DetailedSimulationEnv):
 
 
 class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, estimate_pax=False, *args, **kwargs):
         super(DetailedSimulationEnvWithDeepRL, self).__init__(*args, **kwargs)
         self.trips_sars = {}
         self.bool_terminal_state = False
         self.pool_sars = []
+        self.estimate_pax = estimate_pax
 
     def reset_simulation(self):
         self.time = START_TIME_SEC
@@ -853,32 +857,11 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
         self.record_trajectories(pickups=bus.ons, offs=bus.offs, denied_board=bus.denied, hold=hold, skip=skip)
         return
 
-    def _add_observations(self, estimate_pax=False):
+    def _add_observations(self):
         bus = self.bus
         curr_stop_idx = STOPS.index(bus.last_stop_id)
         trip_idx = TRIP_IDS_IN.index(bus.active_trip[0].trip_id)
         last_arr = self.trip_log[trip_idx-1].stop_arr_times[STOPS[curr_stop_idx]]
-        if last_arr is None:
-            print('---REPORT')
-            print(f'trips in question {TRIP_IDS_IN[trip_idx-1:trip_idx+1]}')
-            print(f'time {round(self.time)}')
-            print(f'stop {curr_stop_idx}')
-            prev_trip_id = TRIP_IDS_IN[trip_idx - 1]
-            lead_bus_id = next(key for key, value_lst in BLOCK_DICT.items() if prev_trip_id in value_lst)
-            lead_bus = next(bu for bu in self.buses if bu.bus_id == lead_bus_id)
-            lead_bus_pending_trip_ids = [t.trip_id for t in lead_bus.pending_trips]
-            print(f'LEAD BUS -------')
-            print(f'next event time {round(lead_bus.next_event_time)} and type {lead_bus.next_event_type} with trip'
-                  f' {lead_bus.active_trip[0].trip_id}')
-            print(f'pending trips {lead_bus_pending_trip_ids}')
-            print(f'schedule of pending trips {[t.sched_time for t in lead_bus.pending_trips]}')
-            print(f'finished trips {[(t.trip_id, t.route_type) for t in lead_bus.finished_trips]}')
-            print(f'BEHIND BUS -------')
-            print(f'next event time {round(bus.next_event_time)} and type {bus.next_event_type} with trip'
-                  f' {bus.active_trip[0].trip_id} scheduled at {bus.active_trip[0].sched_time}')
-            print(f'pending trips {[t.trip_id for t in bus.pending_trips]}')
-            print(f'schedule of pending trips {[t.sched_time for t in bus.pending_trips]}')
-            print(f'finished trips {[(t.trip_id, t.route_type) for t in bus.finished_trips]}')
         second_last_arr = self.trip_log[trip_idx-2].stop_arr_times[STOPS[curr_stop_idx]]
         forward_headway = self.time - last_arr
         backward_headway = self.get_backward_headway()
@@ -888,12 +871,17 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
         bus_load = len(self.bus.pax)
 
         route_progress = stop_idx/len(STOPS)
-        pax_at_stop = 0
-        for p in self.stops[stop_idx].pax.copy():
-            if p.arr_time <= self.time:
-                pax_at_stop += 1
-            else:
-                break
+        if self.estimate_pax:
+            interv = get_interval(self.time, DEM_INTERVAL_LENGTH_MINS)
+            arr_rate = ARR_RATES[interv - POST_PROCESSED_DEM_START_INTERVAL, stop_idx]
+            pax_at_stop = round(forward_headway * (arr_rate / 3600))
+        else:
+            pax_at_stop = 0
+            for p in self.stops[stop_idx].pax.copy():
+                if p.arr_time <= self.time:
+                    pax_at_stop += 1
+                else:
+                    break
         prev_fw_h = last_arr - second_last_arr
         new_state = [route_progress, bus_load, forward_headway, backward_headway, pax_at_stop, prev_fw_h]
 
@@ -912,10 +900,10 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
         self.trips_sars[trip_id][-1][1] = action
         if action:
             if bus.last_stop_id == STOPS[0]:
-                self.inbound_dispatch(hold=(action - 1) * BASE_HOLDING_TIME)
+                self.inbound_dispatch(hold=(action - 1) * BASE_HOLDING_TIME * self.compliance_factor)
             else:
                 self.fixed_stop_load()
-                self.fixed_stop_depart(hold=(action - 1) * BASE_HOLDING_TIME)
+                self.fixed_stop_depart(hold=(action - 1) * BASE_HOLDING_TIME * self.compliance_factor)
         else:
             if bus.last_stop_id == STOPS[0]:
                 self.inbound_dispatch()
@@ -1053,7 +1041,7 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
                 fw_h1 = prev_sars[3][IDX_FW_H]
                 planned_fw_h = SCHED_DEP_IN[trip_idx] - SCHED_DEP_IN[trip_idx - 1]
                 hw_variation = (fw_h1 - planned_fw_h)/planned_fw_h
-                reward = - 0.5*hw_variation * hw_variation - 0.5*(prev_hold/LIMIT_HOLDING)
+                reward = - 0.55*hw_variation * hw_variation - 0.45*(prev_hold/LIMIT_HOLDING)
                 self.trips_sars[trip_id][sars_idx][2] = reward
                 self.pool_sars.append(self.trips_sars[trip_id][sars_idx] + [self.bool_terminal_state])
             else:
