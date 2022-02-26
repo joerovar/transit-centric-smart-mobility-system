@@ -44,7 +44,7 @@ def _compute_reward(action, fw_h, bw_h, prev_bw_h, prev_fw_h, prev_pax_at_s):
 
 class SimulationEnv:
     def __init__(self, no_overtake_policy=True, time_dependent_travel_time=True, time_dependent_demand=True,
-                 tt_factor=1.0, compliance_factor=1.0):
+                 tt_factor=1.0, cv_hold_time=0.0):
         # THE ONLY NECESSARY TRIP INFORMATION TO CARRY THROUGHOUT SIMULATION
         self.no_overtake_policy = no_overtake_policy
         self.time_dependent_travel_time = time_dependent_travel_time
@@ -53,7 +53,7 @@ class SimulationEnv:
         # RECORDINGS
         self.trajectories = {}
         self.tt_factor = tt_factor
-        self.compliance_factor = compliance_factor
+        self.cv_hold_time = cv_hold_time
 
 
 class DetailedSimulationEnv(SimulationEnv):
@@ -899,11 +899,16 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
         trip_id = bus.active_trip[0].trip_id
         self.trips_sars[trip_id][-1][1] = action
         if action:
+            hold_time = (action - 1) * BASE_HOLDING_TIME
+            if self.cv_hold_time > 0 and hold_time > 0:
+                stdev = hold_time * self.cv_hold_time
+                hold_time = np.random.normal(loc=hold_time, scale=stdev)
+                assert hold_time >= 0
             if bus.last_stop_id == STOPS[0]:
-                self.inbound_dispatch(hold=(action - 1) * BASE_HOLDING_TIME * self.compliance_factor)
+                self.inbound_dispatch(hold=hold_time)
             else:
                 self.fixed_stop_load()
-                self.fixed_stop_depart(hold=(action - 1) * BASE_HOLDING_TIME * self.compliance_factor)
+                self.fixed_stop_depart(hold=hold_time)
         else:
             if bus.last_stop_id == STOPS[0]:
                 self.inbound_dispatch()

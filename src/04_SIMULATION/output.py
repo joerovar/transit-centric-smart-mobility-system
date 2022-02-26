@@ -14,7 +14,7 @@ class PostProcessor:
             self.cp_pax.append(load(pax_path))
             self.cp_tags.append(tag)
 
-    def pax_times_fast(self):
+    def pax_times_fast(self, path_dir='out/compare/benchmark/'):
         jt_mean = []
         wt_mean = []
         db_mean = []
@@ -43,18 +43,18 @@ class PostProcessor:
         plt.boxplot(wt_all_set, labels=self.cp_tags, sym='')
         plt.xticks(rotation=45)
         plt.tight_layout()
-        plt.savefig('out/benchmark/wt.png')
+        plt.savefig(path_dir + 'wt.png')
         plt.close()
 
         plt.boxplot(rbt_od_set, labels=self.cp_tags, sym='')
         plt.xticks(rotation=45)
         plt.tight_layout()
-        plt.savefig('out/benchmark/rbt_od.png')
+        plt.savefig(path_dir + 'rbt.png')
         plt.close()
-        save('out/benchmark/rbt_od_benchmark.pkl', rbt_od_set)
+        save(path_dir + 'rbt_numer.pkl', rbt_od_set)
         return results_d
 
-    def headway(self):
+    def headway(self, path_dir='out/compare/benchmark/'):
         cv_hw_set = []
         cv_all_reps = []
         for trips in self.cp_trips:
@@ -62,7 +62,7 @@ class PostProcessor:
                                                                                controlled_stops=CONTROLLED_STOPS)
             cv_hw_set.append(temp_cv_hw)
             cv_all_reps.append(cv_hw_mean)
-        plot_headway_benchmark(cv_hw_set, STOPS, self.cp_tags, self.colors, pathname='out/benchmark/hw.png',
+        plot_headway_benchmark(cv_hw_set, STOPS, self.cp_tags, self.colors, pathname=path_dir + 'hw.png',
                                controlled_stops=CONTROLLED_STOPS[:-1])
 
         results_hw = {'cv_hw': [np.mean(cv) for cv in cv_hw_set]}
@@ -70,7 +70,7 @@ class PostProcessor:
         plt.xticks(rotation=45)
         # plt.xticks(np.arange(len(self.cp_tags)), self.cp_tags)
         plt.tight_layout()
-        plt.savefig('out/benchmark/hw.png')
+        plt.savefig(path_dir + 'hw_bplot.png')
 
         plt.close()
         return results_hw

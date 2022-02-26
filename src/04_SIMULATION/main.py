@@ -42,7 +42,7 @@ if __name__ == '__main__':
                         help='weight for ride time in reward')
     parser.add_argument('-tt_factor', type=float, default=1.0,
                         help='dictates factor on variability')
-    parser.add_argument('-compliance_factor', type=float, default=1.0,
+    parser.add_argument('-cv_hold_time', type=float, default=0.0,
                         help='compliance on holding')
     parser.add_argument('-estimated_pax', type=float, default=False,
                         help='make stops be estimated for RL observations')
@@ -99,7 +99,7 @@ if __name__ == '__main__':
         n_steps = 0
         for j in range(args.n_games):
             score = 0
-            env = sim_env.DetailedSimulationEnvWithDeepRL()
+            env = sim_env.DetailedSimulationEnvWithDeepRL(cv_hold_time=args.cv_hold_time)
             done = env.reset_simulation()
             done = env.prep()
             nr_sars_stored = 0
@@ -162,7 +162,7 @@ if __name__ == '__main__':
         for j in range(args.n_games):
             score = 0
             env = sim_env.DetailedSimulationEnvWithDeepRL(tt_factor=args.tt_factor,
-                                                          compliance_factor=args.compliance_factor,
+                                                          cv_hold_time=args.cv_hold_time,
                                                           estimate_pax=args.estimated_pax)
             done = env.reset_simulation()
             done = env.prep()
