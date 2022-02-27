@@ -42,16 +42,19 @@ class PostProcessor:
         # plt.close()
         plt.boxplot(wt_all_set, labels=self.cp_tags, sym='')
         plt.xticks(rotation=45)
+        plt.xlabel('method')
+        plt.ylabel('avg pax wait time (min)')
+        plt.legend()
         plt.tight_layout()
         plt.savefig(path_dir + 'wt.png')
         plt.close()
 
-        plt.boxplot(rbt_od_set, labels=self.cp_tags, sym='')
-        plt.xticks(rotation=45)
-        plt.tight_layout()
-        plt.savefig(path_dir + 'rbt.png')
-        plt.close()
-        save(path_dir + 'rbt_numer.pkl', rbt_od_set)
+        # plt.boxplot(rbt_od_set, labels=self.cp_tags, sym='')
+        # plt.xticks(rotation=45)
+        # plt.tight_layout()
+        # plt.savefig(path_dir + 'rbt.png')
+        # plt.close()
+        # save(path_dir + 'rbt_numer.pkl', rbt_od_set)
         return results_d
 
     def headway(self, path_dir='out/compare/benchmark/'):
@@ -68,6 +71,9 @@ class PostProcessor:
         results_hw = {'cv_hw': [np.mean(cv) for cv in cv_hw_set]}
         plt.boxplot(cv_all_reps, labels=self.cp_tags, sym='')
         plt.xticks(rotation=45)
+        plt.xlabel('method')
+        plt.ylabel('coefficient of variation of headway')
+        plt.legend()
         # plt.xticks(np.arange(len(self.cp_tags)), self.cp_tags)
         plt.tight_layout()
         plt.savefig(path_dir + 'hw_bplot.png')

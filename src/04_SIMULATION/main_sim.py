@@ -4,6 +4,7 @@ import pandas as pd
 from sim_env import DetailedSimulationEnv, DetailedSimulationEnvWithControl, DetailedSimulationEnvWithDeepRL
 from file_paths import *
 import post_process
+import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
 from output import dwell_times, error_headway, link_times
 from output import PostProcessor
@@ -128,14 +129,28 @@ def run_sample_rl(episodes=1, simple_reward=False):
 # path_p_rl3 = 'out/DDQN-HA/pax_set_0222-233609.pkl'
 # path_tr_rl4 = 'out/DDQN-HA/trajectory_set_0223-220817.pkl' # 0223-2159
 # path_p_rl4 = 'out/DDQN-HA/pax_set_0223-220817.pkl'
-# tags = ['NC', 'EH(0.6)', 'DDQN-LA', 'DDQN-HA(0.0)', 'DDQN-HA(0.33)', 'DDQN-HA(0.67)', 'DDQN-HA(1.0)']
+# tags = ['NC', 'EH', 'DDQN-LA', 'DDQN-HA(-)', 'DDQN-HA(3.0)', 'DDQN-HA(1.5)', 'DDQN-HA(1.0)']
 # prc = PostProcessor([path_tr_nc, path_tr_eh, path_tr_rl0, path_tr_rl1, path_tr_rl2, path_tr_rl3, path_tr_rl4],
 #                     [path_p_nc, path_p_eh, path_p_rl0, path_p_rl1, path_p_rl2, path_p_rl3, path_p_rl4], tags)
+# path_dir='out/compare/benchmark/'
 # results = {}
 # results.update(prc.pax_times_fast())
 # results.update(prc.headway())
 # results_df = pd.DataFrame(results, columns=list(results.keys()))
 # results_df.to_csv('out/compare/benchmark/numer_results.csv', index=False)
+# rbt_od_set = post_process.load('out/compare/benchmark/rbt_od_benchmark.pkl')
+# for i in range(len(rbt_od_set)):
+#     rbt_od_set[i] = [rbt/60 for rbt in rbt_od_set[i]]
+# plt.boxplot(rbt_od_set, labels=tags, sym='')
+# plt.xticks(rotation=45)
+# plt.xlabel('method')
+# plt.ylabel('reliability buffer time (min)')
+# plt.legend()
+# plt.tight_layout()
+# plt.savefig(path_dir + 'rbt.png')
+# plt.close()
+
+# save(path_dir + 'rbt_numer.pkl', rbt_od_set)
 # prc.write_trajectories()
 # df_nc = pd.read_csv('out/NC/trajectories.csv')
 # error_headway(STOPS, df_nc, 40)
@@ -155,7 +170,7 @@ def run_sample_rl(episodes=1, simple_reward=False):
 # path_p_rl2_inc = 'out/DDQN-HA/pax_set_0225-145011.pkl'
 # path_tr_rl2_dec = 'out/DDQN-HA/trajectory_set_0225-145143.pkl'
 # path_p_rl2_dec = 'out/DDQN-HA/pax_set_0225-145143.pkl'
-# tags = ['DDQN-LA(low)', 'DDQN-HA(low)', 'DDQN-LA(medium)', 'DDQN-HA(med)', 'DDQN-LA(high)', 'DDQN-HA(high)']
+# tags = ['DDQN-LA(low)', 'DDQN-HA(low)', 'DDQN-LA(medium)', 'DDQN-HA(medium)', 'DDQN-LA(high)', 'DDQN-HA(high)']
 # prc = PostProcessor([path_tr_rl0_dec, path_tr_rl2_dec, path_tr_rl0, path_tr_rl2, path_tr_rl0_inc, path_tr_rl2_inc],
 #                     [path_p_rl0_dec, path_p_rl2_dec, path_p_rl0, path_p_rl2, path_p_rl0_inc, path_p_rl2_inc], tags)
 # path_folder = 'out/compare/sensitivity run times/'
@@ -164,6 +179,19 @@ def run_sample_rl(episodes=1, simple_reward=False):
 # results.update(prc.headway(path_dir=path_folder))
 # results_df = pd.DataFrame(results, columns=list(results.keys()))
 # results_df.to_csv(path_folder + 'numer_results.csv', index=False)
+# path_dir='out/compare/sensitivity run times/'
+# rbt_od_set = post_process.load('out/compare/sensitivity run times/rbt_numer.pkl')
+# for i in range(len(rbt_od_set)):
+#     rbt_od_set[i] = [rbt/60 for rbt in rbt_od_set[i]]
+# plt.boxplot(rbt_od_set, labels=tags, sym='')
+# plt.xticks(rotation=45)
+# plt.xlabel('method')
+# plt.ylabel('reliability buffer time (min)')
+# plt.legend()
+# plt.tight_layout()
+# plt.savefig(path_dir + 'rbt.png')
+# plt.close()
+
 
 # PART 2 SENSITIVITY TO COMPLIANCE FACTOR
 # path_tr_rl0_0 = 'out/DDQN-LA/trajectory_set_0224-124312.pkl'
@@ -187,5 +215,16 @@ def run_sample_rl(episodes=1, simple_reward=False):
 # results.update(prc.headway(path_dir=path_folder))
 # results_df = pd.DataFrame(results, columns=list(results.keys()))
 # results_df.to_csv(path_folder + 'numer_results.csv', index=False)
-
-print("ran in %.2f seconds" % (time.time()-st))
+# path_dir='out/compare/sensitivity compliance/'
+# rbt_od_set = post_process.load('out/compare/sensitivity compliance/rbt_numer.pkl')
+# for i in range(len(rbt_od_set)):
+#     rbt_od_set[i] = [rbt/60 for rbt in rbt_od_set[i]]
+# plt.boxplot(rbt_od_set, labels=tags, sym='')
+# plt.xticks(rotation=45)
+# plt.xlabel('method')
+# plt.ylabel('reliability buffer time (min)')
+# plt.legend()
+# plt.tight_layout()
+# plt.savefig(path_dir + 'rbt.png')
+# plt.close()
+# print("ran in %.2f seconds" % (time.time()-st))

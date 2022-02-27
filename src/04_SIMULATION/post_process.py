@@ -629,7 +629,7 @@ def get_pax_times_fast(pax_set, n_stops):
         df = pd.DataFrame([{f: getattr(p, f) for f in fields} for p in rep])
         journey_time_set.append(df['journey_time'].mean())
         extreme_jt_set.append(df['journey_time'].quantile(0.95))
-        wait_time_set.append(df['wait_time'].mean())
+        wait_time_set.append(df['wait_time'].mean() /60)
         tot_pax = df.shape[0]
         denied_df = df[df['denied'] == 1]
         denied_pax = denied_df.shape[0]
@@ -637,18 +637,18 @@ def get_pax_times_fast(pax_set, n_stops):
         denied_rate_per_rep.append(denied_pax / tot_pax)
         denied_wait_time_set.append(denied_wt)
 
-        rbt_od = np.zeros(shape=(n_stops, n_stops))
-        rbt_od[:] = np.nan
-        pax_count = 0
-        for s0 in range(n_stops-1):
-            o_jt = df[df['orig_idx'] == s0]
-            for s1 in range(s0+1, n_stops):
-                od_jt = o_jt[o_jt['dest_idx'] == s1]
-                if not od_jt.empty:
-                    pax_od = od_jt.shape[0]
-                    pax_count += pax_od
-                    rbt_od[s0, s1] = (od_jt['journey_time'].quantile(0.95) - od_jt['journey_time'].median()) * pax_od
-        rbt_od_set.append(np.nansum(rbt_od) / pax_count)
+        # rbt_od = np.zeros(shape=(n_stops, n_stops))
+        # rbt_od[:] = np.nan
+        # pax_count = 0
+        # for s0 in range(n_stops-1):
+        #     o_jt = df[df['orig_idx'] == s0]
+        #     for s1 in range(s0+1, n_stops):
+        #         od_jt = o_jt[o_jt['dest_idx'] == s1]
+        #         if not od_jt.empty:
+        #             pax_od = od_jt.shape[0]
+        #             pax_count += pax_od
+        #             rbt_od[s0, s1] = (od_jt['journey_time'].quantile(0.95) - od_jt['journey_time'].median()) * pax_od
+        # rbt_od_set.append(np.nansum(rbt_od) / pax_count)
     # journey_time_mean = np.mean(journey_time_set)
     # wait_time_mean = np.mean(wait_time_set)
     denied_rate = np.mean(denied_rate_per_rep)
