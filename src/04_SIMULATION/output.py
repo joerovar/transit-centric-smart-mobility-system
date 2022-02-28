@@ -35,16 +35,26 @@ class PostProcessor:
             rbt_od_mean.append(np.mean(rbt_od))
         results_d = {'method': self.cp_tags, 'journey_t': jt_mean, 'wait_t': wt_mean,
                      'denied_per_mil': [db * 1000 for db in db_mean], 'rbt_od': rbt_od_mean}
-        # plt.boxplot(jt_all_set, labels=self.cp_tags, sym='')
+
+        # plt.boxplot(wt_all_set, labels=self.cp_tags, sym='')
         # plt.xticks(rotation=45)
+        # plt.xlabel('method')
+        # plt.ylabel('avg pax wait time (min)')
         # plt.tight_layout()
-        # plt.savefig('out/benchmark/jt.png')
+        # plt.savefig(path_dir + 'wt.png')
         # plt.close()
-        plt.boxplot(wt_all_set, labels=self.cp_tags, sym='')
-        plt.xticks(rotation=45)
-        plt.xlabel('method')
-        plt.ylabel('avg pax wait time (min)')
-        plt.legend()
+
+        fig, axes = plt.subplots(ncols=3, sharey=True)
+        fig.subplots_adjust(wspace=0)
+        axes[0].boxplot(wt_all_set[0:2], sym='')
+        axes[0].set_xticklabels(['DDQN-LA', 'DDQN-HA'], fontsize=10)
+        axes[0].set(xlabel='cv: -20%', ylabel='avg pax wait time (min)')
+        axes[1].boxplot(wt_all_set[2:4], sym='')
+        axes[1].set_xticklabels(['DDQN-LA', 'DDQN-HA'], fontsize=10)
+        axes[1].set(xlabel='cv: base')
+        axes[2].boxplot(wt_all_set[4:6], sym='')
+        axes[2].set_xticklabels(['DDQN-LA', 'DDQN-HA'], fontsize=10)
+        axes[2].set(xlabel='cv: +20%')
         plt.tight_layout()
         plt.savefig(path_dir + 'wt.png')
         plt.close()
@@ -55,6 +65,7 @@ class PostProcessor:
         # plt.savefig(path_dir + 'rbt.png')
         # plt.close()
         # save(path_dir + 'rbt_numer.pkl', rbt_od_set)
+
         return results_d
 
     def headway(self, path_dir='out/compare/benchmark/'):
@@ -69,15 +80,28 @@ class PostProcessor:
                                controlled_stops=CONTROLLED_STOPS[:-1])
 
         results_hw = {'cv_hw': [np.mean(cv) for cv in cv_hw_set]}
-        plt.boxplot(cv_all_reps, labels=self.cp_tags, sym='')
-        plt.xticks(rotation=45)
-        plt.xlabel('method')
-        plt.ylabel('coefficient of variation of headway')
-        plt.legend()
-        # plt.xticks(np.arange(len(self.cp_tags)), self.cp_tags)
+
+        # plt.boxplot(cv_all_reps, labels=self.cp_tags, sym='')
+        # plt.xticks(rotation=45)
+        # plt.xlabel('method')
+        # plt.ylabel('coefficient of variation of headway')
+        # plt.tight_layout()
+        # plt.savefig(path_dir + 'hw_bplot.png')
+
+        fig, axes = plt.subplots(ncols=3, sharey=True)
+        fig.subplots_adjust(wspace=0)
+        axes[0].boxplot(cv_all_reps[0:2], sym='')
+        axes[0].set_xticklabels(['DDQN-LA', 'DDQN-HA'], fontsize=10)
+        axes[0].set(xlabel='cv: -20%', ylabel='coefficient of variation of headway')
+        axes[1].boxplot(cv_all_reps[2:4], sym='')
+        axes[1].set_xticklabels(['DDQN-LA', 'DDQN-HA'], fontsize=10)
+        axes[1].set(xlabel='cv: base')
+        axes[2].boxplot(cv_all_reps[4:6], sym='')
+        axes[2].set_xticklabels(['DDQN-LA', 'DDQN-HA'], fontsize=10)
+        axes[2].set(xlabel='cv: +20%')
         plt.tight_layout()
         plt.savefig(path_dir + 'hw_bplot.png')
-
+        plt.close()
         plt.close()
         return results_hw
 
