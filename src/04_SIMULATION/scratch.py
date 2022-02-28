@@ -18,8 +18,3 @@ import os
 from agents_sim import Bus
 from input import BLOCK_TRIPS_INFO, BLOCK_DICT
 from copy import deepcopy
-
-a = [[1, 3], [2, 4]]
-for j in range(len(a)):
-    a[j] = [i+1 for i in a[j]]
-print(a)
