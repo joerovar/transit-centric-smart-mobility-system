@@ -81,7 +81,7 @@ def run_sample_rl(episodes=1, simple_reward=False):
                 else:
                     action = random.randint(0, 4)
                 env.take_action(action)
-            env.update_rewards(simple_reward=simple_reward, weight_wait_time=0.3)
+            env.update_rewards(simple_reward=simple_reward, weight_ride_time=0.3)
             done = env.prep()
     return
 
@@ -97,7 +97,7 @@ prc = PostProcessor([path_tr_nc_b, path_tr_eh_b, path_tr_ddqn_la_b, path_tr_ddqn
                      path_p_ddqn_ha2_b, path_p_ddqn_ha3_b, path_p_ddqn_ha4_b], tags_b)
 # prc.pax_profile_base()
 results = {}
-results.update(prc.pax_times_fast(path_dir=path_dir_b, include_rbt=False))
+results.update(prc.pax_times_fast(path_dir=path_dir_b, include_rbt=True))
 
 rbt_od_set = load(path_dir_b + 'rbt_numer.pkl')
 for i in range(len(rbt_od_set)):

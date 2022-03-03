@@ -59,7 +59,6 @@ class PostProcessor:
             cv_all_reps.append(cv_hw_mean)
         plot_headway(cv_hw_set, STOPS, self.cp_tags, self.colors, pathname=path_dir + 'hw.png',
                      controlled_stops=CONTROLLED_STOPS[:-1])
-        print(cv_hw_tp_set[3])
         results_hw = {'mean_cv_hw_tp': [np.around(np.mean(cv), decimals=2) for cv in cv_hw_tp_set],
                       'error_cv_hw_tp': [np.around(np.std(cv), decimals=2) for cv in cv_hw_tp_set]}
 
