@@ -136,6 +136,7 @@ FOCUS_TRIPS_SCHED = scheduled_deps_arr[
     (scheduled_deps_arr <= FOCUS_END_TIME_SEC) & (scheduled_deps_arr >= FOCUS_START_TIME_SEC)].tolist()
 focus_trips_hw = [i - j for i, j in zip(FOCUS_TRIPS_SCHED[1:], FOCUS_TRIPS_SCHED[:-1])]
 FOCUS_TRIPS_MEAN_HW = np.mean(focus_trips_hw)
+
 FOCUS_TRIPS_HW_CV = round(np.std(focus_trips_hw) / np.mean(focus_trips_hw), 2)
 LAST_FOCUS_TRIP = FOCUS_TRIPS[-1]
 LAST_FOCUS_TRIP_BLOCK = trips_df[trips_df['trip_id'] == LAST_FOCUS_TRIP]['block_id'].tolist()[0]
@@ -162,3 +163,4 @@ sample_params = LINK_TIMES_PARAMS['386-388'][0]
 sample_params_light = (sample_params[0] * 0.8, sample_params[1], sample_params[2])
 sample = lognorm.rvs(*sample_params, size=30)
 sample_light = lognorm.rvs(*sample_params_light, size=30)
+
