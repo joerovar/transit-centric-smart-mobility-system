@@ -38,7 +38,7 @@ class PostProcessor:
             plot_sensitivity_whisker(wt_all_set, ['DDQN-LA', 'DDQN-HA'], ['0% (base)', '10%', '20%'],
                                      'avg pax wait time (min)', path_dir + 'wt.png')
         else:
-            plt.boxplot(wt_all_set, labels=self.cp_tags, sym='')
+            plt.boxplot(wt_all_set, labels=self.cp_tags, sym='', widths=0.2)
             plt.xticks(rotation=45)
             plt.xlabel('method')
             plt.ylabel('avg pax wait time (min)')
@@ -50,25 +50,27 @@ class PostProcessor:
     def headway(self, path_dir='out/compare/benchmark/', sensitivity_run_t=False, sensitivity_compliance=False):
         cv_hw_set = []
         cv_all_reps = []
+        cv_hw_tp_set = []
         for trips in self.cp_trips:
-            temp_cv_hw, hw_at_tp, cv_hw_mean = get_headway_from_trajectory_set(trips, IDX_ARR_T, STOPS,
+            temp_cv_hw, cv_hw_tp, cv_hw_mean = get_headway_from_trajectory_set(trips, IDX_ARR_T, STOPS,
                                                                                controlled_stops=CONTROLLED_STOPS)
+            cv_hw_tp_set.append(cv_hw_tp)
             cv_hw_set.append(temp_cv_hw)
             cv_all_reps.append(cv_hw_mean)
         plot_headway(cv_hw_set, STOPS, self.cp_tags, self.colors, pathname=path_dir + 'hw.png',
                      controlled_stops=CONTROLLED_STOPS[:-1])
-
-        results_hw = {'mean_cv_hw': [np.around(np.mean(cv), decimals=2) for cv in cv_hw_set],
-                      'error_cv_hw': [np.around(np.std(cv), decimals=2) for cv in cv_hw_set]}
+        print(cv_hw_tp_set[3])
+        results_hw = {'mean_cv_hw_tp': [np.around(np.mean(cv), decimals=2) for cv in cv_hw_tp_set],
+                      'error_cv_hw_tp': [np.around(np.std(cv), decimals=2) for cv in cv_hw_tp_set]}
 
         if sensitivity_run_t:
-            plot_sensitivity_whisker(cv_all_reps, ['DDQN-LA', 'DDQN-HA'], ['cv: -20%', 'cv: base', 'cv: +20%'],
+            plot_sensitivity_whisker(cv_hw_tp_set, ['DDQN-LA', 'DDQN-HA'], ['cv: -20%', 'cv: base', 'cv: +20%'],
                                      'coefficient of variation of headway', path_dir + 'hw_bplot.png')
         elif sensitivity_compliance:
-            plot_sensitivity_whisker(cv_all_reps, ['DDQN-LA', 'DDQN-HA'], ['0% (base)', '10%', '20%'],
+            plot_sensitivity_whisker(cv_hw_tp_set, ['DDQN-LA', 'DDQN-HA'], ['0% (base)', '10%', '20%'],
                                      'coefficient of variation of headway', path_dir + 'hw_bplot.png')
         else:
-            plt.boxplot(cv_all_reps, labels=self.cp_tags, sym='')
+            plt.boxplot(cv_hw_tp_set, labels=self.cp_tags, sym='', widths=0.2)
             plt.xticks(rotation=45)
             plt.xlabel('method')
             plt.ylabel('coefficient of variation of headway')

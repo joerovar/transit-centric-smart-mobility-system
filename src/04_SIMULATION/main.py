@@ -11,7 +11,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='Deep Q Learning: From Paper to Code')
     # the hyphen makes the argument optional
-    parser.add_argument('-n_games', type=int, default=1, help='Number of games to play')
+    parser.add_argument('-n_episodes', type=int, default=1, help='Number of episodes to play')
     parser.add_argument('-lr', type=float, default=0.0001, help='Learning rate for optimizer')
     parser.add_argument('-eps_min', type=float, default=0.01,
                         help='Minimum value for epsilon in epsilon-greedy action selection')
@@ -60,10 +60,10 @@ if __name__ == '__main__':
         scores_file = 'out/trained_nets/' + args.env + '/rew_nums.csv'
         params_file = 'out/trained_nets/' + args.env + '/input_params.csv'
 
-        arg_params = {'param': ['n_games', 'lr', 'eps_min', 'gamma', 'eps_dec', 'eps', 'max_mem', 'bs',
+        arg_params = {'param': ['n_episodes', 'lr', 'eps_min', 'gamma', 'eps_dec', 'eps', 'max_mem', 'bs',
                                 'replace', 'algo', 'simple_rew', 'fc_dims', 'weight_ride_time', 'limit_hold',
                                 'tt_factor', 'cv_hold_time', 'estimated_pax'],
-                      'value': [args.n_games, args.lr, args.eps_min, args.gamma, args.gamma, args.eps, args.max_mem,
+                      'value': [args.n_episodes, args.lr, args.eps_min, args.gamma, args.gamma, args.eps, args.max_mem,
                                 args.bs, args.replace, args.algo, args.simple_reward, args.fc_dims,
                                 args.weight_ride_time, LIMIT_HOLDING, args.tt_factor, args.cv_hold_time,
                                 args.estimated_pax]}
@@ -72,7 +72,7 @@ if __name__ == '__main__':
 
         scores, eps_history, steps = [], [], []
         n_steps = 0
-        for j in range(args.n_games):
+        for j in range(args.n_episodes):
             score = 0
             env = sim_env.DetailedSimulationEnvWithDeepRL(cv_hold_time=args.cv_hold_time)
             done = env.reset_simulation()
@@ -134,7 +134,7 @@ if __name__ == '__main__':
         trajectories_set = []
         sars_set = []
         pax_set = []
-        for j in range(args.n_games):
+        for j in range(args.n_episodes):
             score = 0
             env = sim_env.DetailedSimulationEnvWithDeepRL(tt_factor=args.tt_factor, cv_hold_time=args.cv_hold_time,
                                                           estimate_pax=args.estimated_pax)
@@ -211,6 +211,6 @@ if __name__ == '__main__':
 
 # cd src/04_SIMULATION
 # train
-# python main.py -algo -n_games -simple_reward -weight_ride_time
+# python main.py -algo -n_episodes -simple_reward -weight_ride_time
 # test
-# python main.py -env (tstamp) -algo -n_games -eps -load_checkpoint -test_save_folder -simple_reward
+# python main.py -env (tstamp) -algo -n_episodes -eps -load_checkpoint -test_save_folder -simple_reward

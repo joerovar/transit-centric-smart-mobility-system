@@ -81,39 +81,39 @@ def run_sample_rl(episodes=1, simple_reward=False):
                 else:
                     action = random.randint(0, 4)
                 env.take_action(action)
-            env.update_rewards(simple_reward=simple_reward, weight_ride_time=0.3)
+            env.update_rewards(simple_reward=simple_reward, weight_wait_time=0.3)
             done = env.prep()
     return
 
 
 # RUN BENCHMARK
-# run_base_detailed(replications=40, save=True)
-# run_base_control_detailed(replications=40, save=True)
+# run_base_detailed(replications=70, save_results=True)
+# run_base_control_detailed(replications=70, save_results=True)
 
 # BENCHMARK COMPARISON
 prc = PostProcessor([path_tr_nc_b, path_tr_eh_b, path_tr_ddqn_la_b, path_tr_ddqn_ha1_b,
                      path_tr_ddqn_ha2_b, path_tr_ddqn_ha3_b, path_tr_ddqn_ha4_b],
                     [path_p_nc_b, path_p_eh_b, path_p_ddqn_la_b, path_p_ddqn_ha1_b,
                      path_p_ddqn_ha2_b, path_p_ddqn_ha3_b, path_p_ddqn_ha4_b], tags_b)
-prc.pax_profile_base()
-# results = {}
-# results.update(prc.pax_times_fast(path_dir=path_dir_b, include_rbt=False))
-#
-# rbt_od_set = load('out/compare/benchmark/rbt_od_benchmark.pkl')
-# for i in range(len(rbt_od_set)):
-#     rbt_od_set[i] = [rbt/60 for rbt in rbt_od_set[i]]
-# results.update({'rbt_od': [np.around(np.mean(rbt), decimals=2) for rbt in rbt_od_set]})
-# results.update(prc.headway(path_dir=path_dir_b))
-# results_df = pd.DataFrame(results, columns=list(results.keys()))
-# results_df.to_csv('out/compare/benchmark/numer_results.csv', index=False)
-#
-# plt.boxplot(rbt_od_set, labels=tags_b, sym='')
-# plt.xticks(rotation=45)
-# plt.xlabel('method')
-# plt.ylabel('reliability buffer time (min)')
-# plt.tight_layout()
-# plt.savefig(path_dir_b + 'rbt.png')
-# plt.close()
+# prc.pax_profile_base()
+results = {}
+results.update(prc.pax_times_fast(path_dir=path_dir_b, include_rbt=False))
+
+rbt_od_set = load(path_dir_b + 'rbt_numer.pkl')
+for i in range(len(rbt_od_set)):
+    rbt_od_set[i] = [rbt/60 for rbt in rbt_od_set[i]]
+results.update({'rbt_od': [np.around(np.mean(rbt), decimals=2) for rbt in rbt_od_set]})
+results.update(prc.headway(path_dir=path_dir_b))
+results_df = pd.DataFrame(results, columns=list(results.keys()))
+results_df.to_csv('out/compare/benchmark/numer_results.csv', index=False)
+
+plt.boxplot(rbt_od_set, labels=tags_b, sym='', widths=0.2)
+plt.xticks(rotation=45)
+plt.xlabel('method')
+plt.ylabel('reliability buffer time (min)')
+plt.tight_layout()
+plt.savefig(path_dir_b + 'rbt.png')
+plt.close()
 
 # # VARIABILITY RUN TIMES
 #

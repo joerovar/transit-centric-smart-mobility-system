@@ -1053,7 +1053,8 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
                 prev_sars = self.trips_sars[neighbor_trip_id][sars_idx]
                 prev_action = prev_sars[1]
                 prev_hold = (prev_action - 1) * BASE_HOLDING_TIME if prev_action > 1 else 0
-                reward = self.delayed_reward(prev_control_stop, curr_control_stop, prev_hold, weight_ride=weight_ride_time)
+                reward = self.delayed_reward(prev_control_stop, curr_control_stop, prev_hold,
+                                             weight_ride=weight_ride_time)
                 assert self.trips_sars[neighbor_trip_id][sars_idx][3]
                 self.trips_sars[neighbor_trip_id][sars_idx][2] = reward
                 self.pool_sars.append(self.trips_sars[neighbor_trip_id][sars_idx] + [self.bool_terminal_state])

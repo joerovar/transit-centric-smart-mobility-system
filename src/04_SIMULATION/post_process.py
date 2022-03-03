@@ -158,12 +158,13 @@ def plot_pax_profile(bd, al, lp, os, through, pathname=None, x_y_lbls=None, cont
 def get_headway_from_trajectory_set(trajectory_set, idx_arr_t, stops, controlled_stops=None):
     cv_hw = {s: [] for s in stops}
     cv_hw_per_stop = []
-    hw_at_tp = []
+    cv_hw_tp = []
     cv_hw_mean = []
     i = 0
     for trajectories in trajectory_set:
         recorded_hw = {s: [] for s in stops}
         prev_stop_time = {}
+        hw_tp = []
         for trip in trajectories:
             for stop_details in trajectories[trip]:
                 stop_id = stop_details[0]
@@ -175,9 +176,10 @@ def get_headway_from_trajectory_set(trajectory_set, idx_arr_t, stops, controlled
                     t2 = stop_arr_time
                     headway = t2 - t1
                     recorded_hw[stop_id].append(headway)
-                    if stop_id in controlled_stops:
-                        hw_at_tp.append(headway)
+                    # if stop_id in controlled_stops:
+                    hw_tp.append(headway)
                     prev_stop_time[stop_id] = stop_arr_time
+        cv_hw_tp.append(np.std(hw_tp)/np.mean(hw_tp))
         for s in recorded_hw:
             headways = np.array(recorded_hw[s])
             # print(headways)
@@ -189,7 +191,7 @@ def get_headway_from_trajectory_set(trajectory_set, idx_arr_t, stops, controlled
         i += 1
     for s in stops:
         cv_hw_per_stop.append(np.mean(cv_hw[s]))
-    return cv_hw_per_stop, hw_at_tp, cv_hw_mean
+    return cv_hw_per_stop, cv_hw_tp, cv_hw_mean
 
 
 def pax_per_trip_from_trajectory_set(trajectory_set, idx_load, idx_ons, idx_offs, stops):
