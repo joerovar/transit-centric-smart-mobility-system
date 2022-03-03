@@ -1,1 +1,0 @@
-min_hw_threshold = 0.7

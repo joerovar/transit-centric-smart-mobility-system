@@ -7,14 +7,9 @@ import time
 from datetime import timedelta
 import random
 from datetime import datetime
-from os import listdir
-from os.path import isfile, join
-from scipy.stats import lognorm, norm
-# from classes_simul import Passenger, Stop, Trip
-import seaborn as sn
-from post_process import save, load
-from pre_process import remove_outliers
-import os
-from agents_sim import Bus
-from input import BLOCK_TRIPS_INFO, BLOCK_DICT
-from copy import deepcopy
+from post_process import save
+from post_process import load
+
+lp = load('in/xtr/rt_20-2019-09/load_profile.pkl')
+plt.plot(np.arange(len(lp)),lp)
+plt.show()

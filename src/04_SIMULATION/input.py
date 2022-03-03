@@ -1,37 +1,17 @@
-from datetime import timedelta
-import numpy as np
-import seaborn as sns
-
 from pre_process import *
-from post_process import *
 from file_paths import *
 from constants import *
+from post_process import save, load
 
 
 def extract_params(inbound_route_params=False, outbound_route_params=False, demand=False, validation=False):
     if inbound_route_params:
-        stops, ordered_trips, link_times_info, sched_deps_in, sched_arrs_in, bus_ids_in = get_route(path_stop_times,
-                                                                                                    START_TIME_SEC,
-                                                                                                    END_TIME_SEC,
-                                                                                                    TIME_NR_INTERVALS,
-                                                                                                    TIME_START_INTERVAL,
-                                                                                                    TIME_INTERVAL_LENGTH_MINS,
-                                                                                                    DATES,
-                                                                                                    TRIP_WITH_FULL_STOP_PATTERN,
-                                                                                                    path_extra_stop_times,
-                                                                                                    EXTRA_DATES)
-
-        # link_times_mean, link_times_extremes, link_times_params = link_times_info
-        # link_t_mean = [(key, np.around(np.nanmean(value))) for key, value in link_times_mean_true.items()]
-        # link_t_cv = [(key, np.around(np.nanmean(value), decimals=2)) for key, value in link_times_cv_true.items()]
-        # df1 = pd.DataFrame(link_t_mean, columns=['link', 'mean'])
-        # df2 = pd.DataFrame(link_t_cv, columns=['link', 'cv'])
-        # df = df1.merge(df2, on='link')
-        # df.plot(x='mean', y='cv', kind='scatter')
-        # plt.xlabel('mean')
-        # plt.ylabel('cv')
-        # plt.show()
-        # df.to_csv('in/vis/link_times.csv', index=False)
+        stops, ordered_trips, link_times_info, \
+        sched_deps_in, sched_arrs_in, bus_ids_in = get_route(path_stop_times,
+                                                             START_TIME_SEC, END_TIME_SEC, TIME_NR_INTERVALS,
+                                                             TIME_START_INTERVAL, TIME_INTERVAL_LENGTH_MINS,
+                                                             DATES, TRIP_WITH_FULL_STOP_PATTERN,
+                                                             path_extra_stop_times, EXTRA_DATES)
         save(path_route_stops, stops)
         save(path_link_times_mean, link_times_info)
         save(path_ordered_trips, ordered_trips)
@@ -43,18 +23,6 @@ def extract_params(inbound_route_params=False, outbound_route_params=False, dema
         deadhead_time_params, all_delays, all_trip_times = get_outbound_travel_time(
             path_stop_times, START_TIME_SEC, END_TIME_SEC, DATES, TRIP_TIME_NR_INTERVALS, TRIP_TIME_START_INTERVAL,
             TRIP_TIME_INTERVAL_LENGTH_MINS)
-        sns.kdeplot(all_delays[1])
-        plt.savefig('in/delay_short.png')
-        plt.close()
-        sns.kdeplot(all_delays[0])
-        plt.savefig('in/delay_long.png')
-        plt.close()
-        sns.kdeplot(all_trip_times[1])
-        plt.savefig('in/trip_times_short.png')
-        plt.close()
-        sns.kdeplot(all_trip_times[0])
-        plt.savefig('in/trip_times_long.png')
-        plt.close()
         save('in/all_delays_out.pkl', all_delays)
         save('in/all_trip_times_out.pkl', all_trip_times)
         save('in/xtr/rt_20-2019-09/trips1_info_outbound.pkl', trips1_info_out)
@@ -77,14 +45,10 @@ def extract_params(inbound_route_params=False, outbound_route_params=False, dema
         schedule_arr = np.array(schedule)
         focus_trips = ordered_trips[
             (schedule_arr <= FOCUS_END_TIME_SEC) & (schedule_arr >= FOCUS_START_TIME_SEC)].tolist()
-        trip_times, headway_in = get_trip_times(path_stop_times, focus_trips, DATES, stops, path_extra_stop_times, EXTRA_DATES)
+        trip_times, headway_in = get_trip_times(path_stop_times, focus_trips, DATES, stops, path_extra_stop_times,
+                                                EXTRA_DATES)
         save('in/xtr/rt_20-2019-09/trip_times_inbound.pkl', trip_times)
         save('in/xtr/rt_20-2019-09/departure_headway_inbound.pkl', headway_in)
-        # dwell_times_mean, dwell_times_std, dwell_times_tot = get_dwell_times(path_stop_times, focus_trips, stops, DATES)
-        # save('in/xtr/rt_20-2019-09/dwell_times_mean.pkl', dwell_times_mean)
-        # save('in/xtr/rt_20-2019-09/dwell_times_std.pkl', dwell_times_std)
-        # save('in/xtr/rt_20-2019-09/dwell_times_tot.pkl', dwell_times_tot)
-
         # write_inbound_trajectories(path_stop_times, ordered_trips)
         # load_profile = get_load_profile(path_stop_times, focus_trips, stops)
         # save('in/xtr/rt_20-2019-09/load_profile.pkl', load_profile)
@@ -139,9 +103,7 @@ LINK_TIMES_EXTREMES['3954-8613'][1] = LINK_TIMES_EXTREMES['3954-8613'][3]
 LINK_TIMES_EXTREMES['3954-8613'][2] = LINK_TIMES_EXTREMES['3954-8613'][3]
 LINK_TIMES_PARAMS['3954-8613'][1] = LINK_TIMES_PARAMS['3954-8613'][3]
 LINK_TIMES_PARAMS['3954-8613'][2] = LINK_TIMES_PARAMS['3954-8613'][3]
-# print(STOPS[-6:-3])
 trips_in = [(x, y, str(timedelta(seconds=y)), z, 0) for x, y, z in zip(TRIP_IDS_IN, SCHED_DEP_IN, BUS_IDS_IN)]
-# print(trips_in)
 trips_out1 = [(x, y, str(timedelta(seconds=y)), z, 1) for x, y, z in TRIPS1_INFO_OUT]
 trips_out2 = [(x, y, str(timedelta(seconds=y)), z, 2) for x, y, z in TRIPS2_INFO_OUT]
 trips_df = pd.DataFrame(trips_in + trips_out1 + trips_out2,
@@ -158,16 +120,6 @@ for b in block_ids:
     BLOCK_DICT[b] = trip_ids
     trip_routes = block_df['route_type'].tolist()
     BLOCK_TRIPS_INFO.append((b, list(zip(trip_ids, sched_deps, trip_routes))))
-# print(BLOCK_DICT)
-# print(TRIP_TIMES1_PARAMS)
-# for b in BLOCK_TRIPS_INFO:
-#     print(b)
-# print(FOCUS_TRIP_IDS_OUT_LONG)
-# for i in range(ODT.shape[0]):
-#     plt.imshow(ODT[i])
-#     plt.colorbar()
-#     plt.savefig('in/vis/updated_odt' + str(i) + '.png')
-#     plt.close()
 warm_up_odt = np.multiply(ODT[0], 0.4)
 ODT = np.insert(ODT, 0, warm_up_odt, axis=0)
 warm_up_odt2 = np.multiply(ODT[0], 0.2)
@@ -176,7 +128,6 @@ ARR_RATES = np.nansum(ODT, axis=-1)
 PAX_INIT_TIME = [0] + [LINK_TIMES_MEAN[s0 + '-' + s1][0] for s0, s1 in zip(STOPS, STOPS[1:])]
 PAX_INIT_TIME = np.array(PAX_INIT_TIME).cumsum()
 PAX_INIT_TIME += SCHED_DEP_IN[0] - ((SCHED_DEP_IN[1] - SCHED_DEP_IN[0]) / 2)
-# print([str(timedelta(seconds=i)) for i in SCHEDULED_DEPARTURES])
 ordered_trips_arr = np.array([TRIP_IDS_IN])
 scheduled_deps_arr = np.array([SCHED_DEP_IN])
 FOCUS_TRIPS = ordered_trips_arr[
@@ -185,8 +136,6 @@ FOCUS_TRIPS_SCHED = scheduled_deps_arr[
     (scheduled_deps_arr <= FOCUS_END_TIME_SEC) & (scheduled_deps_arr >= FOCUS_START_TIME_SEC)].tolist()
 focus_trips_hw = [i - j for i, j in zip(FOCUS_TRIPS_SCHED[1:], FOCUS_TRIPS_SCHED[:-1])]
 FOCUS_TRIPS_MEAN_HW = np.mean(focus_trips_hw)
-# print()
-# print(FOCUS_TRIPS_MEAN_HW)
 FOCUS_TRIPS_HW_CV = round(np.std(focus_trips_hw) / np.mean(focus_trips_hw), 2)
 LAST_FOCUS_TRIP = FOCUS_TRIPS[-1]
 LAST_FOCUS_TRIP_BLOCK = trips_df[trips_df['trip_id'] == LAST_FOCUS_TRIP]['block_id'].tolist()[0]

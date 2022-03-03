@@ -1,7 +1,4 @@
 import argparse
-
-import pandas as pd
-
 import agents_dqn as Agents
 from utils import plot_learning
 import sim_env
@@ -14,47 +11,34 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='Deep Q Learning: From Paper to Code')
     # the hyphen makes the argument optional
-    parser.add_argument('-n_games', type=int, default=1,
-                        help='Number of games to play')
-    parser.add_argument('-lr', type=float, default=0.0001,
-                        help='Learning rate for optimizer')
+    parser.add_argument('-n_games', type=int, default=1, help='Number of games to play')
+    parser.add_argument('-lr', type=float, default=0.0001, help='Learning rate for optimizer')
     parser.add_argument('-eps_min', type=float, default=0.01,
                         help='Minimum value for epsilon in epsilon-greedy action selection')
-    parser.add_argument('-gamma', type=float, default=0.99,
-                        help='Discount factor for update equation.')
-    parser.add_argument('-eps_dec', type=float, default=1.5e-5,
-                        help='Linear factor for decreasing epsilon')
+    parser.add_argument('-gamma', type=float, default=0.99, help='Discount factor for update equation.')
+    parser.add_argument('-eps_dec', type=float, default=1.5e-5, help='Linear factor for decreasing epsilon')
     parser.add_argument('-eps', type=float, default=0.6,
                         help='Starting value for epsilon in epsilon-greedy action selection')
-    parser.add_argument('-max_mem', type=int, default=8000,
-                        help='Maximum size for memory replay buffer')
-    parser.add_argument('-bs', type=int, default=32,
-                        help='Batch size for replay memory sampling')
+    parser.add_argument('-max_mem', type=int, default=8000, help='Maximum size for memory replay buffer')
+    parser.add_argument('-bs', type=int, default=32, help='Batch size for replay memory sampling')
     parser.add_argument('-replace', type=int, default=600,
                         help='interval for replacing target network')
     parser.add_argument('-algo', type=str, default='DQNAgent',
                         help='DQNAgent/DDQNAgent/DuelingDQNAgent/DuelingDDQNAgent')
-    parser.add_argument('-simple_reward', type=bool, default=False,
-                        help='delayed(false)/simple(true)')
-    parser.add_argument('-fc_dims', type=int, default=256,
-                        help='fully connected dimensions')
+    parser.add_argument('-simple_reward', type=bool, default=False, help='delayed(false)/simple(true)')
+    parser.add_argument('-fc_dims', type=int, default=256, help='fully connected dimensions')
     parser.add_argument('-weight_ride_time', type=float, default=0.0,
                         help='weight for ride time in reward')
-    parser.add_argument('-tt_factor', type=float, default=1.0,
-                        help='dictates factor on variability')
-    parser.add_argument('-cv_hold_time', type=float, default=0.0,
-                        help='compliance on holding')
+    parser.add_argument('-tt_factor', type=float, default=1.0, help='dictates factor on variability')
+    parser.add_argument('-cv_hold_time', type=float, default=0.0, help='compliance on holding')
     parser.add_argument('-estimated_pax', type=float, default=False,
                         help='make stops be estimated for RL observations')
 
-    parser.add_argument('-env', type=str, default=tstamp_save,
-                        help='environment')
-    parser.add_argument('-load_checkpoint', type=bool, default=False,
-                        help='load model checkpoint')
+    parser.add_argument('-env', type=str, default=tstamp_save, help='environment')
+    parser.add_argument('-load_checkpoint', type=bool, default=False, help='load model checkpoint')
     parser.add_argument('-model_base_path', type=str, default='out/trained_nets/',
                         help='path for model saving/loading')
-    parser.add_argument('-test_save_folder', type=str, default='RL',
-                        help='DDQN-LA/DDQN-HA')
+    parser.add_argument('-test_save_folder', type=str, default='RL', help='DDQN-LA/DDQN-HA')
     args = parser.parse_args()
 
     if not args.load_checkpoint:
@@ -65,33 +49,24 @@ if __name__ == '__main__':
 
     best_score = -np.inf
     agent_ = getattr(Agents, args.algo)
-    agent = agent_(gamma=args.gamma,
-                   epsilon=args.eps,
-                   lr=args.lr,
-                   input_dims=[N_STATE_PARAMS_RL],
-                   n_actions=N_ACTIONS_RL,
-                   mem_size=args.max_mem,
-                   eps_min=args.eps_min,
-                   batch_size=args.bs,
-                   replace=args.replace,
-                   eps_dec=args.eps_dec,
-                   chkpt_dir=args.model_base_path + args.env + '/',
-                   algo=args.algo,
-                   env_name=args.env,
-                   fc_dims=args.fc_dims)
+    agent = agent_(gamma=args.gamma, epsilon=args.eps, lr=args.lr, input_dims=[N_STATE_PARAMS_RL],
+                   n_actions=N_ACTIONS_RL, mem_size=args.max_mem, eps_min=args.eps_min,
+                   batch_size=args.bs, replace=args.replace, eps_dec=args.eps_dec,
+                   chkpt_dir=args.model_base_path + args.env + '/', algo=args.algo,
+                   env_name=args.env, fc_dims=args.fc_dims)
     if not args.load_checkpoint:
-
         # --------------------------------------------------- TRAINING -----------------------------------------
-        arg_params = {'param': ['n_games', 'lr', 'eps_min', 'gamma', 'eps_dec', 'eps', 'max_mem', 'bs',
-                                'replace', 'algo', 'simple_rew', 'fc_dims', 'weight_ride_time', 'limit_hold'],
-                      'value': [args.n_games, args.lr, args.eps_min, args.gamma, args.gamma, args.eps, args.max_mem,
-                                args.bs, args.replace, args.algo, args.simple_reward, args.fc_dims,
-                                args.weight_ride_time, LIMIT_HOLDING]}
-
         figure_file = 'out/trained_nets/' + args.env + '/rew_curve.png'
         scores_file = 'out/trained_nets/' + args.env + '/rew_nums.csv'
         params_file = 'out/trained_nets/' + args.env + '/input_params.csv'
 
+        arg_params = {'param': ['n_games', 'lr', 'eps_min', 'gamma', 'eps_dec', 'eps', 'max_mem', 'bs',
+                                'replace', 'algo', 'simple_rew', 'fc_dims', 'weight_ride_time', 'limit_hold',
+                                'tt_factor', 'cv_hold_time', 'estimated_pax'],
+                      'value': [args.n_games, args.lr, args.eps_min, args.gamma, args.gamma, args.eps, args.max_mem,
+                                args.bs, args.replace, args.algo, args.simple_reward, args.fc_dims,
+                                args.weight_ride_time, LIMIT_HOLDING, args.tt_factor, args.cv_hold_time,
+                                args.estimated_pax]}
         df_params = pd.DataFrame(arg_params)
         df_params.to_csv(params_file, index=False)
 
@@ -161,8 +136,7 @@ if __name__ == '__main__':
         pax_set = []
         for j in range(args.n_games):
             score = 0
-            env = sim_env.DetailedSimulationEnvWithDeepRL(tt_factor=args.tt_factor,
-                                                          cv_hold_time=args.cv_hold_time,
+            env = sim_env.DetailedSimulationEnvWithDeepRL(tt_factor=args.tt_factor, cv_hold_time=args.cv_hold_time,
                                                           estimate_pax=args.estimated_pax)
             done = env.reset_simulation()
             done = env.prep()
@@ -193,18 +167,17 @@ if __name__ == '__main__':
             trajectories_set.append(env.trajectories)
             sars_set.append(env.trips_sars)
             pax_set.append(env.completed_pax)
-
         path_trajectories = 'out/' + args.test_save_folder + '/trajectory_set_' + tstamp + '.pkl'
         path_sars = 'out/' + args.test_save_folder + '/sars_set_' + tstamp + '.pkl'
         path_completed_pax = 'out/' + args.test_save_folder + '/pax_set_' + tstamp + '.pkl'
         post_process.save(path_trajectories, trajectories_set)
         post_process.save(path_sars, sars_set)
         post_process.save(path_completed_pax, pax_set)
-        #
+        with open('out/' + args.test_save_folder + '/net_used_' + tstamp + '.csv', 'w') as f:
+            f.write(str(args.env))
         # trajectories_set = load('out/DDQN-LA/trajectory_set_0122-145334.pkl')
         # load_mean, _, _, ons_mean, _ = pax_per_trip_from_trajectory_set(trajectories_set, IDX_LOAD,
         #                                                                 IDX_PICK, IDX_DROP, STOPS)
-        #
         # stable = (FOCUS_TRIPS_MEAN_HW, FOCUS_TRIPS_MEAN_HW, FOCUS_TRIPS_MEAN_HW)
         # early = (FOCUS_TRIPS_MEAN_HW-FOCUS_TRIPS_MEAN_HW/2, FOCUS_TRIPS_MEAN_HW+FOCUS_TRIPS_MEAN_HW/2, FOCUS_TRIPS_MEAN_HW)
         # late = (FOCUS_TRIPS_MEAN_HW+FOCUS_TRIPS_MEAN_HW/2, FOCUS_TRIPS_MEAN_HW-FOCUS_TRIPS_MEAN_HW/2, FOCUS_TRIPS_MEAN_HW)
