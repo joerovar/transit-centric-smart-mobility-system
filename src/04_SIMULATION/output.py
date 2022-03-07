@@ -1,17 +1,20 @@
-from input import *
+from input import STOPS, CONTROLLED_STOPS, IDX_ARR_T, IDX_LOAD, IDX_PICK, IDX_DROP, IDX_HOLD_TIME, IDX_DEP_T, \
+    TRIP_IDS_IN, SCHED_DEP_IN
 from post_process import *
 
 
 class PostProcessor:
-    def __init__(self, cp_trip_paths, cp_pax_paths, cp_tags):
+    def __init__(self, cp_trip_paths, cp_pax_paths, cp_tags, nr_reps, path_dir):
         self.colors = ['tab:red', 'tab:blue', 'tab:green', 'tab:orange', 'black', 'brown', 'purple', 'turquoise']
         self.cp_trips, self.cp_pax, self.cp_tags = [], [], []
         for trip_path, pax_path, tag in zip(cp_trip_paths, cp_pax_paths, cp_tags):
             self.cp_trips.append(load(trip_path))
             self.cp_pax.append(load(pax_path))
             self.cp_tags.append(tag)
+            self.nr_reps = nr_reps
+            self.path_dir = path_dir
 
-    def pax_times_fast(self, path_dir='out/compare/benchmark/', sensitivity_run_t=False, include_rbt=False,
+    def pax_times_fast(self, sensitivity_run_t=False, include_rbt=False,
                        sensitivity_compliance=False):
         db_mean = []
         dbwt_mean = []
@@ -27,76 +30,99 @@ class PostProcessor:
             rbt_od_mean.append(np.mean(rbt_od))
         results_d = {'method': self.cp_tags,
                      'wait_t': [np.around(np.mean(wt_set), decimals=2) for wt_set in wt_all_set],
-                     'error_wt': [np.around(np.std(wt_set), decimals=2) for wt_set in wt_all_set],
+                     'error_wt': [np.around(np.power(1.96, 2) * np.var(wt_set) / np.sqrt(self.nr_reps), decimals=3)
+                                  for wt_set in wt_all_set],
                      'denied_per_mil': [round(db * 1000, 2) for db in db_mean]}
         if include_rbt:
-            save(path_dir + 'rbt_numer.pkl', rbt_od_set)
+            save(self.path_dir + 'rbt_numer.pkl', rbt_od_set)
         if sensitivity_run_t:
             plot_sensitivity_whisker(wt_all_set, ['DDQN-LA', 'DDQN-HA'], ['cv: -20%', 'cv: base', 'cv: +20%'],
-                                     'avg pax wait time (min)', path_dir + 'wt.png')
+                                     'avg pax wait time (min)', self.path_dir + 'wt.png')
         elif sensitivity_compliance:
             plot_sensitivity_whisker(wt_all_set, ['DDQN-LA', 'DDQN-HA'], ['0% (base)', '10%', '20%'],
-                                     'avg pax wait time (min)', path_dir + 'wt.png')
+                                     'avg pax wait time (min)', self.path_dir + 'wt.png')
         else:
             plt.boxplot(wt_all_set, labels=self.cp_tags, sym='', widths=0.2)
             plt.xticks(rotation=45)
             plt.xlabel('method')
             plt.ylabel('avg pax wait time (min)')
             plt.tight_layout()
-            plt.savefig(path_dir + 'wt.png')
+            plt.savefig(self.path_dir + 'wt.png')
             plt.close()
         return results_d
 
-    def headway(self, path_dir='out/compare/benchmark/', sensitivity_run_t=False, sensitivity_compliance=False):
+    def headway(self, sensitivity_run_t=False, sensitivity_compliance=False):
         cv_hw_set = []
         cv_all_reps = []
         cv_hw_tp_set = []
+        hw_peak_set = []
         for trips in self.cp_trips:
-            temp_cv_hw, cv_hw_tp, cv_hw_mean = get_headway_from_trajectory_set(trips, IDX_ARR_T, STOPS,
-                                                                               controlled_stops=CONTROLLED_STOPS)
+            temp_cv_hw, cv_hw_tp, cv_hw_mean, hw_peak = get_headway_from_trajectory_set(trips, IDX_ARR_T, STOPS,
+                                                                                        STOPS[50],
+                                                                                        controlled_stops=CONTROLLED_STOPS)
             cv_hw_tp_set.append(cv_hw_tp)
             cv_hw_set.append(temp_cv_hw)
             cv_all_reps.append(cv_hw_mean)
-        plot_headway(cv_hw_set, STOPS, self.cp_tags, self.colors, pathname=path_dir + 'hw.png',
+            hw_peak_set.append(hw_peak)
+        plot_headway(cv_hw_set, STOPS, self.cp_tags, self.colors, pathname=self.path_dir + 'hw.png',
                      controlled_stops=CONTROLLED_STOPS[:-1])
         results_hw = {'mean_cv_hw_tp': [np.around(np.mean(cv), decimals=2) for cv in cv_hw_tp_set],
-                      'error_cv_hw_tp': [np.around(np.std(cv), decimals=2) for cv in cv_hw_tp_set]}
+                      'error_cv_hw_tp': [np.around(np.power(1.96, 2) * np.var(cv) / np.sqrt(self.nr_reps), decimals=3)
+                                         for cv in cv_hw_tp_set],
+                      'hw_peak': [np.around(np.mean(hw), decimals=2) for hw in hw_peak_set],
+                      'std_hw_peak': [np.around(np.std(hw), decimals=2) for hw in hw_peak_set]}
 
         if sensitivity_run_t:
             plot_sensitivity_whisker(cv_hw_tp_set, ['DDQN-LA', 'DDQN-HA'], ['cv: -20%', 'cv: base', 'cv: +20%'],
-                                     'coefficient of variation of headway', path_dir + 'hw_bplot.png')
+                                     'coefficient of variation of headway', self.path_dir + 'hw_bplot.png')
         elif sensitivity_compliance:
             plot_sensitivity_whisker(cv_hw_tp_set, ['DDQN-LA', 'DDQN-HA'], ['0% (base)', '10%', '20%'],
-                                     'coefficient of variation of headway', path_dir + 'hw_bplot.png')
+                                     'coefficient of variation of headway', self.path_dir + 'hw_bplot.png')
         else:
             plt.boxplot(cv_hw_tp_set, labels=self.cp_tags, sym='', widths=0.2)
             plt.xticks(rotation=45)
             plt.xlabel('method')
             plt.ylabel('coefficient of variation of headway')
             plt.tight_layout()
-            plt.savefig(path_dir + 'hw_bplot.png')
+            plt.savefig(self.path_dir + 'cv_hw.png')
             plt.close()
+
+            # hw_peak_set = hw_peak_set[:3] + [hw_peak_set[-1]]
+            # tags = self.cp_tags[:3] + [self.cp_tags[-1]]
+            # plt.boxplot(hw_peak_set, labels=tags, sym='', widths=0.2)
+            # plt.xticks(rotation=45)
+            # plt.xlabel('method')
+            # plt.ylabel('headway (mins)')
+            # plt.tight_layout()
+            # plt.savefig(self.path_dir + 'peak_hw.png')
+            # plt.close()
         return results_hw
 
     def load_profile(self):
         load_profile_set = []
         lp_std_set = []
+        peak_load_set = []
         for trips in self.cp_trips:
-            temp_lp, temp_lp_std, _, _, _ = pax_per_trip_from_trajectory_set(trips, IDX_LOAD, IDX_PICK, IDX_DROP, STOPS)
+            temp_lp, temp_lp_std, temp_peak_loads = load_from_trajectory_set(trips, STOPS, IDX_LOAD, STOPS[57])
             load_profile_set.append(temp_lp)
             lp_std_set.append(temp_lp_std)
-        plot_load_profile_benchmark(load_profile_set, STOPS, self.cp_tags, self.colors, pathname='out/benchmark/lp.png',
-                                    controlled_stops=CONTROLLED_STOPS, x_y_lbls=['stop id', 'avg load per trip'])
-        avg_lp_sd = [np.mean(lp_sd) for lp_sd in lp_std_set]
-        print(f'avg load sd {avg_lp_sd}')
-        idx_control_stops = [STOPS.index(cs) for cs in CONTROLLED_STOPS]
-        lp_cs = []
-        for lp in load_profile_set:
-            lp_cs.append([])
-            for i in idx_control_stops:
-                lp_cs[-1].append(lp[i])
-        print(f'load per control stop {lp_cs}')
-        return
+            peak_load_set.append(temp_peak_loads)
+        # plot_load_profile_benchmark(load_profile_set, STOPS, self.cp_tags, self.colors,
+        #                             pathname=self.path_dir + 'lp.png', controlled_stops=CONTROLLED_STOPS,
+        #                             x_y_lbls=['stop id', 'avg load per trip'], load_sd_set=lp_std_set)
+        # peak_load_set = peak_load_set[:3] + [peak_load_set[-1]]
+        # tags = self.cp_tags[:3] + [self.cp_tags[-1]]
+        # plt.boxplot(peak_load_set, labels=tags, sym='', widths=0.2)
+        # plt.xticks(rotation=45)
+        # plt.xlabel('method')
+        # plt.ylabel('peak load')
+        # plt.tight_layout()
+        # plt.savefig(self.path_dir + 'peak_load.png')
+        # plt.close()
+
+        results_load = {'load_mean': [np.around(np.mean(peak_load), decimals=2) for peak_load in peak_load_set],
+                        'std_load': [np.around(np.std(peak_load), decimals=2) for peak_load in peak_load_set]}
+        return results_load
 
     def write_trajectories(self, only_nc=False):
         i = 0

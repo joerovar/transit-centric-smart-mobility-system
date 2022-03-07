@@ -13,3 +13,4 @@ simple_rew,True
 fc_dims,256
 weight_ride_time,0.0
 limit_hold,100
+cv_hold_time,0.1

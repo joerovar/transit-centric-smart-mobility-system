@@ -155,11 +155,12 @@ def plot_pax_profile(bd, al, lp, os, through, pathname=None, x_y_lbls=None, cont
     return
 
 
-def get_headway_from_trajectory_set(trajectory_set, idx_arr_t, stops, controlled_stops=None):
+def get_headway_from_trajectory_set(trajectory_set, idx_arr_t, stops, peak_load_stop, controlled_stops=None):
     cv_hw = {s: [] for s in stops}
     cv_hw_per_stop = []
     cv_hw_tp = []
     cv_hw_mean = []
+    hw_peak_point = []
     i = 0
     for trajectories in trajectory_set:
         recorded_hw = {s: [] for s in stops}
@@ -179,6 +180,8 @@ def get_headway_from_trajectory_set(trajectory_set, idx_arr_t, stops, controlled
                     # if stop_id in controlled_stops:
                     hw_tp.append(headway)
                     prev_stop_time[stop_id] = stop_arr_time
+                    if stop_id == peak_load_stop:
+                        hw_peak_point.append(headway / 60)
         cv_hw_tp.append(np.std(hw_tp)/np.mean(hw_tp))
         for s in recorded_hw:
             headways = np.array(recorded_hw[s])
@@ -191,7 +194,23 @@ def get_headway_from_trajectory_set(trajectory_set, idx_arr_t, stops, controlled
         i += 1
     for s in stops:
         cv_hw_per_stop.append(np.mean(cv_hw[s]))
-    return cv_hw_per_stop, cv_hw_tp, cv_hw_mean
+    return cv_hw_per_stop, cv_hw_tp, cv_hw_mean, hw_peak_point
+
+
+def load_from_trajectory_set(trajectory_set, stops, idx_load, peak_load_stop):
+    load_per_stop = {s: [] for s in stops}
+    peak_loads = []
+    for trajectories in trajectory_set:
+        for trip in trajectories:
+            for stop_details in trajectories[trip]:
+                stop_id = stop_details[0]
+                bus_load = stop_details[idx_load]
+                load_per_stop[stop_id].append(bus_load)
+                if peak_load_stop == stop_id:
+                    peak_loads.append(bus_load)
+    load_avg_per_stop = [np.mean(load_per_stop[s]) for s in stops]
+    load_sd_per_stop = [np.std(load_per_stop[s]) for s in stops]
+    return load_avg_per_stop, load_sd_per_stop, peak_loads
 
 
 def pax_per_trip_from_trajectory_set(trajectory_set, idx_load, idx_ons, idx_offs, stops):
@@ -402,8 +421,7 @@ def plot_travel_time_benchmark(tt_set, lbls, colors, pathname=None):
     return
 
 
-def plot_headway(cv_hw_set, ordered_stops, lbls, colors, pathname=None, controlled_stops=None,
-                           cv_scale=(0, 1, 0.1)):
+def plot_headway(cv_hw_set, ordered_stops, lbls, colors, pathname=None, controlled_stops=None, cv_scale=(0, 1, 0.1)):
     fig, ax1 = plt.subplots()
     x = np.arange(len(ordered_stops))
     j = 0
@@ -433,19 +451,23 @@ def plot_headway(cv_hw_set, ordered_stops, lbls, colors, pathname=None, controll
     return
 
 
-def plot_load_profile_benchmark(load_set, os, lbls, colors, pathname=None, x_y_lbls=None, controlled_stops=None):
+def plot_load_profile_benchmark(load_set, os, lbls, colors, load_sd_set=None, pathname=None, x_y_lbls=None, controlled_stops=None):
     x1 = np.arange(len(os))
     fig, ax1 = plt.subplots()
-    j = 0
-    for load_profile in load_set:
-        ax1.plot(x1, load_profile, label=lbls[j], color=colors[j])
-        j += 1
+    j_set = [0, 1, 2, 5]
+    for j in j_set:
+        ax1.plot(x1, load_set[j], label=lbls[j], color=colors[j])
+        if load_sd_set:
+            upper_bound = np.array(load_set[j]) + np.array(load_sd_set[j])
+            lower_bound = np.array(load_set[j]) - np.array(load_sd_set[j])
+            ax1.fill_between(x1, upper_bound, lower_bound, color=colors[j], alpha=0.3)
     if controlled_stops:
         for cs in controlled_stops:
             idx = os.index(cs)
             plt.axvline(x=idx, color='gray', alpha=0.5, linestyle='dashed')
     ax1.set_xticks(x1)
     ax1.set_xticklabels(os, fontsize=6, rotation=90)
+
     # right, left, top, bottom
     if x_y_lbls:
         ax1.set_xlabel(x_y_lbls[0])

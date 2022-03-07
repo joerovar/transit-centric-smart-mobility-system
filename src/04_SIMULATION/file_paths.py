@@ -83,20 +83,20 @@ path_odt_fig = path_to_ins + dir_vis + 'od0.png'
 # path_dir_s1 = 'out/compare/sensitivity run times/'
 
 # SENSITIVITY COMPLIANCE
-path_tr_ddqn_la_base_s2 = 'out/DDQN-LA/trajectory_set_0224-124312.pkl'
-path_p_ddqn_la_base_s2 = 'out/DDQN-LA/pax_set_0224-124312.pkl'
-path_tr_ddqn_la_10_s2 = 'out/DDQN-LA/trajectory_set_0225-184023.pkl' # 0225-1827
-path_p_ddqn_la_10_s2 = 'out/DDQN-LA/pax_set_0225-184023.pkl' # 0225-1827
-path_tr_ddqn_la_20_s2 = 'out/DDQN-LA/trajectory_set_0225-181602.pkl' # 0225-1755
-path_p_ddqn_la_20_s2 = 'out/DDQN-LA/pax_set_0225-181602.pkl' # 0225-1755
-path_tr_ddqn_ha_base_s2 = 'out/DDQN-HA/trajectory_set_0223-183027.pkl' # 0222-2247
-path_p_ddqn_ha_base_s2 = 'out/DDQN-HA/pax_set_0223-183027.pkl'
-path_tr_ddqn_ha_10_s2 = 'out/DDQN-HA/trajectory_set_0225-191414.pkl' # 0225-1852
-path_p_ddqn_ha_10_s2 = 'out/DDQN-HA/pax_set_0225-191414.pkl' # 0225-1852
-path_tr_ddqn_ha_20_s2 = 'out/DDQN-HA/trajectory_set_0225-194326.pkl' # 0225-1934
-path_p_ddqn_ha_20_s2 = 'out/DDQN-HA/pax_set_0225-194326.pkl' # 0225-1934
-tags_s2 = ['DDQN-LA (0%)', 'DDQN-HA (0%)', 'DDQN-LA(10%)', 'DDQN-HA(10%)', 'DDQN-LA(20%)', 'DDQN-HA(20%)']
-path_dir_s2 = 'out/compare/sensitivity compliance/'
+# path_tr_ddqn_la_base_s2 = 'out/DDQN-LA/trajectory_set_0224-124312.pkl'
+# path_p_ddqn_la_base_s2 = 'out/DDQN-LA/pax_set_0224-124312.pkl'
+# path_tr_ddqn_la_10_s2 = 'out/DDQN-LA/trajectory_set_0225-184023.pkl' # 0225-1827
+# path_p_ddqn_la_10_s2 = 'out/DDQN-LA/pax_set_0225-184023.pkl' # 0225-1827
+# path_tr_ddqn_la_20_s2 = 'out/DDQN-LA/trajectory_set_0225-181602.pkl' # 0225-1755
+# path_p_ddqn_la_20_s2 = 'out/DDQN-LA/pax_set_0225-181602.pkl' # 0225-1755
+# path_tr_ddqn_ha_base_s2 = 'out/DDQN-HA/trajectory_set_0223-183027.pkl' # 0222-2247
+# path_p_ddqn_ha_base_s2 = 'out/DDQN-HA/pax_set_0223-183027.pkl'
+# path_tr_ddqn_ha_10_s2 = 'out/DDQN-HA/trajectory_set_0225-191414.pkl' # 0225-1852
+# path_p_ddqn_ha_10_s2 = 'out/DDQN-HA/pax_set_0225-191414.pkl' # 0225-1852
+# path_tr_ddqn_ha_20_s2 = 'out/DDQN-HA/trajectory_set_0225-194326.pkl' # 0225-1934
+# path_p_ddqn_ha_20_s2 = 'out/DDQN-HA/pax_set_0225-194326.pkl' # 0225-1934
+# tags_s2 = ['DDQN-LA (0%)', 'DDQN-HA (0%)', 'DDQN-LA(10%)', 'DDQN-HA(10%)', 'DDQN-LA(20%)', 'DDQN-HA(20%)']
+# path_dir_s2 = 'out/compare/sensitivity compliance/'
 
 # 70 REPLICATIONS? ROUND ----------------------------------------------
 # BENCHMARK COMPARISON
@@ -104,26 +104,26 @@ path_tr_nc_b = 'out/NC/trajectories_set_0302-230246.pkl'
 path_p_nc_b = 'out/NC/pax_set_0302-230246.pkl'
 path_tr_eh_b = 'out/EH/trajectories_set_0302-230307.pkl'
 path_p_eh_b = 'out/EH/pax_set_0302-230307.pkl'
-path_tr_ddqn_la_b = 'out/DDQN-LA/trajectory_set_0302-225508.pkl' # 0224-1234
-path_p_ddqn_la_b = 'out/DDQN-LA/pax_set_0302-225508.pkl' # 0224-1234
-path_tr_ddqn_ha1_b = 'out/DDQN-HA/trajectory_set_0303-124521.pkl' # 0303-1023
-path_p_ddqn_ha1_b = 'out/DDQN-HA/pax_set_0303-124521.pkl'
-path_tr_ddqn_ha2_b = 'out/DDQN-HA/trajectory_set_0303-124446.pkl' # 0303-1014
-path_p_ddqn_ha2_b = 'out/DDQN-HA/pax_set_0303-124446.pkl'
-path_tr_ddqn_ha3_b = 'out/DDQN-HA/trajectory_set_0303-120044.pkl' # 0303-1059
+path_tr_ddqn_la_b = 'out/DDQN-LA/trajectory_set_0302-225508.pkl'
+path_p_ddqn_la_b = 'out/DDQN-LA/pax_set_0302-225508.pkl'
+# path_tr_ddqn_ha1_b = 'out/DDQN-HA/trajectory_set_0306-170607.pkl'
+# path_p_ddqn_ha1_b = 'out/DDQN-HA/pax_set_0306-170607.pkl'
+path_tr_ddqn_ha2_b = 'out/DDQN-HA/trajectory_set_0306-163852.pkl'
+path_p_ddqn_ha2_b = 'out/DDQN-HA/pax_set_0306-163852.pkl'
+path_tr_ddqn_ha3_b = 'out/DDQN-HA/trajectory_set_0303-120044.pkl'
 path_p_ddqn_ha3_b = 'out/DDQN-HA/pax_set_0303-120044.pkl'
-path_tr_ddqn_ha4_b = 'out/DDQN-HA/trajectory_set_0303-120150.pkl' # 0303-0943
+path_tr_ddqn_ha4_b = 'out/DDQN-HA/trajectory_set_0303-120150.pkl'
 path_p_ddqn_ha4_b = 'out/DDQN-HA/pax_set_0303-120150.pkl'
 path_dir_b = 'out/compare/benchmark/'
-tags_b = ['NC', 'EH', 'DDQN-LA', 'DDQN-HA (2)', 'DDQN-HA (3)', 'DDQN-HA (5)', 'DDQN-HA (7)']
+tags_b = ['NC', 'EH', 'DDQN-LA', 'DDQN-HA (3)', 'DDQN-HA (5)', 'DDQN-HA (7)']
 
 # SENSITIVITY RUN TIMES
-path_tr_ddqn_la_base_s1 = 'out/DDQN-LA/trajectory_set_0224-124312.pkl'
-path_p_ddqn_la_base_s1 = 'out/DDQN-LA/pax_set_0224-124312.pkl'
-path_tr_ddqn_la_high_s1 = 'out/DDQN-LA/trajectory_set_0225-153557.pkl'
-path_p_ddqn_la_high_s1 = 'out/DDQN-LA/pax_set_0225-153557.pkl'
-path_tr_ddqn_la_low_s1 = 'out/DDQN-LA/trajectory_set_0225-153624.pkl'
-path_p_ddqn_la_low_s1 = 'out/DDQN-LA/pax_set_0225-153624.pkl'
+path_tr_ddqn_la_base_s1 = 'out/DDQN-LA/trajectory_set_0302-225508.pkl'
+path_p_ddqn_la_base_s1 = 'out/DDQN-LA/pax_set_0302-225508.pkl'
+path_tr_ddqn_la_high_s1 = 'out/DDQN-LA/trajectory_set_0306-192205.pkl'
+path_p_ddqn_la_high_s1 = 'out/DDQN-LA/pax_set_0306-192205.pkl'
+path_tr_ddqn_la_low_s1 = 'out/DDQN-LA/trajectory_set_0306-192238.pkl'
+path_p_ddqn_la_low_s1 = 'out/DDQN-LA/pax_set_0306-192238.pkl'
 path_tr_ddqn_ha_base_s1 = 'out/DDQN-HA/trajectory_set_0303-120150.pkl'
 path_p_ddqn_ha_base_s1 = 'out/DDQN-HA/pax_set_0303-120150.pkl'
 path_tr_ddqn_ha_high_s1 = 'out/DDQN-HA/trajectory_set_0303-134807.pkl'
@@ -132,3 +132,19 @@ path_tr_ddqn_ha_low_s1 = 'out/DDQN-HA/trajectory_set_0303-134728.pkl'
 path_p_ddqn_ha_low_s1 = 'out/DDQN-HA/pax_set_0303-134728.pkl'
 tags_s1 = ['DDQN-LA (low)', 'DDQN-HA (low)', 'DDQN-LA (medium)', 'DDQN-HA (medium)', 'DDQN-LA (high)', 'DDQN-HA (high)']
 path_dir_s1 = 'out/compare/sensitivity run times/'
+
+# SENSITIVITY COMPLIANCE
+path_tr_ddqn_la_base_s2 = 'out/DDQN-LA/trajectory_set_0302-225508.pkl'
+path_p_ddqn_la_base_s2 = 'out/DDQN-LA/pax_set_0302-225508.pkl'
+path_tr_ddqn_la_10_s2 = 'out/DDQN-LA/trajectory_set_0307-004604.pkl' # 0225-1827
+path_p_ddqn_la_10_s2 = 'out/DDQN-LA/pax_set_0307-004604.pkl' # 0225-1827
+path_tr_ddqn_la_20_s2 = 'out/DDQN-LA/trajectory_set_0307-004528.pkl' # 0225-1755
+path_p_ddqn_la_20_s2 = 'out/DDQN-LA/pax_set_0307-004528.pkl' # 0225-1755
+path_tr_ddqn_ha_base_s2 = 'out/DDQN-HA/trajectory_set_0303-120150.pkl' # 0222-2247
+path_p_ddqn_ha_base_s2 = 'out/DDQN-HA/pax_set_0303-120150.pkl'
+path_tr_ddqn_ha_10_s2 = 'out/DDQN-HA/trajectory_set_0307-002641.pkl' # 0225-1852
+path_p_ddqn_ha_10_s2 = 'out/DDQN-HA/pax_set_0307-002641.pkl' # 0225-1852
+path_tr_ddqn_ha_20_s2 = 'out/DDQN-HA/trajectory_set_0307-004214.pkl' # 0225-1934
+path_p_ddqn_ha_20_s2 = 'out/DDQN-HA/pax_set_0307-004214.pkl' # 0225-1934
+tags_s2 = ['DDQN-LA (0%)', 'DDQN-HA (0%)', 'DDQN-LA(10%)', 'DDQN-HA(10%)', 'DDQN-LA(20%)', 'DDQN-HA(20%)']
+path_dir_s2 = 'out/compare/sensitivity compliance/'

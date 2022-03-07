@@ -23,10 +23,11 @@ if __name__ == '__main__':
     parser.add_argument('-bs', type=int, default=32, help='Batch size for replay memory sampling')
     parser.add_argument('-replace', type=int, default=600,
                         help='interval for replacing target network')
+    parser.add_argument('-fc_dims', type=int, default=256, help='fully connected dimensions')
     parser.add_argument('-algo', type=str, default='DQNAgent',
                         help='DQNAgent/DDQNAgent/DuelingDQNAgent/DuelingDDQNAgent')
     parser.add_argument('-simple_reward', type=bool, default=False, help='delayed(false)/simple(true)')
-    parser.add_argument('-fc_dims', type=int, default=256, help='fully connected dimensions')
+
     parser.add_argument('-weight_ride_time', type=float, default=0.0,
                         help='weight for ride time in reward')
     parser.add_argument('-tt_factor', type=float, default=1.0, help='dictates factor on variability')
