@@ -79,6 +79,7 @@ class PostProcessor:
             hw_peak_set.append(hw_peak)
         plot_headway(cv_hw_set, STOPS, self.cp_tags, self.colors, pathname=self.path_dir + 'hw.png',
                      controlled_stops=CONTROLLED_STOPS[:-1])
+
         results_hw = {'mean_cv_hw_tp': [np.around(np.mean(cv), decimals=2) for cv in cv_hw_tp_set],
                       'error_cv_hw_tp': [np.around(np.power(1.96, 2) * np.var(cv) / np.sqrt(self.nr_reps), decimals=3)
                                          for cv in cv_hw_tp_set],
@@ -99,16 +100,28 @@ class PostProcessor:
             plt.tight_layout()
             plt.savefig(self.path_dir + 'cv_hw.png')
             plt.close()
+        cv_hw_set_sub = cv_hw_set[0:3] + [cv_hw_set[-1]]
+        tags = self.cp_tags[0:3] + [self.cp_tags[-1]]
+        idx_control_stops = [STOPS.index(cs) + 1 for cs in CONTROLLED_STOPS[:-1]]
+        cv_tp_set = []
+        for cv in cv_hw_set_sub:
+            cv_tp_set.append([cv[k] for k in idx_control_stops])
+        x = np.arange(len(idx_control_stops))
+        width = 0.1
+        fig, ax = plt.subplots()
+        bar1 = ax.bar(x-3*width/2, cv_tp_set[0], width, label=tags[0])
+        bar2 = ax.bar(x-width/2, cv_tp_set[1], width, label=tags[1])
+        bar3 = ax.bar(x+width/2, cv_tp_set[2], width, label=tags[2])
+        bar4 = ax.bar(x+3*width/2, cv_tp_set[3], width, label=tags[3])
 
-            # hw_peak_set = hw_peak_set[:3] + [hw_peak_set[-1]]
-            # tags = self.cp_tags[:3] + [self.cp_tags[-1]]
-            # plt.boxplot(hw_peak_set, labels=tags, sym='', widths=0.2)
-            # plt.xticks(rotation=45)
-            # plt.xlabel('method')
-            # plt.ylabel('headway (mins)')
-            # plt.tight_layout()
-            # plt.savefig(self.path_dir + 'peak_hw.png')
-            # plt.close()
+        ax.set_ylabel('coefficient of variation of headway')
+        ax.set_xticks(x, idx_control_stops)
+        ax.legend()
+
+        fig.tight_layout()
+        plt.savefig(self.path_dir + 'cv_hw_bar.png')
+        plt.close()
+
         return results_hw
 
     def load_profile(self):
@@ -123,15 +136,6 @@ class PostProcessor:
         # plot_load_profile_benchmark(load_profile_set, STOPS, self.cp_tags, self.colors,
         #                             pathname=self.path_dir + 'lp.png', controlled_stops=CONTROLLED_STOPS,
         #                             x_y_lbls=['stop id', 'avg load per trip'], load_sd_set=lp_std_set)
-        # peak_load_set = peak_load_set[:3] + [peak_load_set[-1]]
-        # tags = self.cp_tags[:3] + [self.cp_tags[-1]]
-        # plt.boxplot(peak_load_set, labels=tags, sym='', widths=0.2)
-        # plt.xticks(rotation=45)
-        # plt.xlabel('method')
-        # plt.ylabel('peak load')
-        # plt.tight_layout()
-        # plt.savefig(self.path_dir + 'peak_load.png')
-        # plt.close()
 
         results_load = {'load_mean': [np.around(np.mean(peak_load), decimals=2) for peak_load in peak_load_set],
                         'std_load': [np.around(np.std(peak_load), decimals=2) for peak_load in peak_load_set]}
