@@ -98,7 +98,8 @@ N_REPLICATIONS = 70
 #                     [path_p_nc_b, path_p_eh_b, path_p_ddqn_la_b,
 #                      path_p_ddqn_ha2_b, path_p_ddqn_ha3_b, path_p_ddqn_ha4_b], tags_b, N_REPLICATIONS,
 #                     path_dir_b)
-# # prc.pax_profile_base()
+# prc.sample_trajectories()
+# prc.pax_profile_base()
 # results = {}
 # results.update(prc.pax_times_fast(include_rbt=False))
 #
@@ -109,6 +110,8 @@ N_REPLICATIONS = 70
 # results.update({'rbt_od': [np.around(np.mean(rbt), decimals=2) for rbt in rbt_od_set]})
 # results.update(prc.headway())
 # results.update(prc.load_profile())
+# results.update(prc.trip_time_dist())
+# prc.write_trajectories()
 # results_df = pd.DataFrame(results, columns=list(results.keys()))
 # results_df.to_csv(path_dir_b + 'numer_results.csv', index=False)
 #
@@ -141,21 +144,21 @@ N_REPLICATIONS = 70
 #
 # # SENSITIVITY TO COMPLIANCE FACTOR
 #
-prc = PostProcessor([path_tr_ddqn_la_base_s2, path_tr_ddqn_ha_base_s2, path_tr_ddqn_la_10_s2, path_tr_ddqn_ha_10_s2,
-                     path_tr_ddqn_la_20_s2, path_tr_ddqn_ha_20_s2],
-                    [path_p_ddqn_la_base_s2, path_p_ddqn_ha_base_s2, path_p_ddqn_la_10_s2, path_p_ddqn_ha_10_s2,
-                     path_p_ddqn_la_20_s2, path_p_ddqn_ha_20_s2], tags_s2, N_REPLICATIONS, path_dir_s2)
-results = {}
-results.update(prc.pax_times_fast(sensitivity_compliance=True, include_rbt=False))
-
-rbt_od_set = load(path_dir_s2 + 'rbt_numer.pkl')
-for i in range(len(rbt_od_set)):
-    rbt_od_set[i] = [rbt/60 for rbt in rbt_od_set[i]]
-plot_sensitivity_whisker(rbt_od_set, ['DDQN-LA', 'DDQN-HA'], ['0% (base)', '10%', '20%'],
-                         'reliability buffer time (min)', path_dir_s2+'rbt.png')
-results.update({'rbt_od': [np.around(np.mean(rbt), decimals=2) for rbt in rbt_od_set]})
-results.update(prc.headway(sensitivity_compliance=True))
-results_df = pd.DataFrame(results, columns=list(results.keys()))
-results_df.to_csv(path_dir_s2 + 'numer_results.csv', index=False)
+# prc = PostProcessor([path_tr_ddqn_la_base_s2, path_tr_ddqn_ha_base_s2, path_tr_ddqn_la_10_s2, path_tr_ddqn_ha_10_s2,
+#                      path_tr_ddqn_la_20_s2, path_tr_ddqn_ha_20_s2],
+#                     [path_p_ddqn_la_base_s2, path_p_ddqn_ha_base_s2, path_p_ddqn_la_10_s2, path_p_ddqn_ha_10_s2,
+#                      path_p_ddqn_la_20_s2, path_p_ddqn_ha_20_s2], tags_s2, N_REPLICATIONS, path_dir_s2)
+# results = {}
+# results.update(prc.pax_times_fast(sensitivity_compliance=True, include_rbt=False))
+#
+# rbt_od_set = load(path_dir_s2 + 'rbt_numer.pkl')
+# for i in range(len(rbt_od_set)):
+#     rbt_od_set[i] = [rbt/60 for rbt in rbt_od_set[i]]
+# plot_sensitivity_whisker(rbt_od_set, ['DDQN-LA', 'DDQN-HA'], ['0% (base)', '10%', '20%'],
+#                          'reliability buffer time (min)', path_dir_s2+'rbt.png')
+# results.update({'rbt_od': [np.around(np.mean(rbt), decimals=2) for rbt in rbt_od_set]})
+# results.update(prc.headway(sensitivity_compliance=True))
+# results_df = pd.DataFrame(results, columns=list(results.keys()))
+# results_df.to_csv(path_dir_s2 + 'numer_results.csv', index=False)
 
 

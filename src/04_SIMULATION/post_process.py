@@ -60,26 +60,32 @@ def write_sars(trip_data, pathname, header=None):
 
 
 def plot_trajectories(trip_data, idx_arr_t, idx_dep_t, pathname, ordered_stops, controlled_stops=None):
-    for trip in trip_data:
-        td = np.array(trip_data[trip])
-        if np.size(td):
-            arr_times = td[:, idx_arr_t].astype(float)
-            dep_times = td[:, idx_dep_t].astype(float)
-            times = np.vstack((arr_times, dep_times))
-            times = times.flatten(order='F')
-            starting_stop = td[0, 0]
-            starting_stop_idx = ordered_stops.index(starting_stop)
-            y_axis = np.arange(starting_stop_idx, starting_stop_idx + len(arr_times))
-            y_axis = np.repeat(y_axis, 2)
-            plt.plot(times, y_axis)
-    if controlled_stops:
-        for c in controlled_stops:
-            stop_idx = ordered_stops.index(c)
-            plt.axhline(y=stop_idx, color='gray', alpha=0.5, linestyle='dashed')
-    plt.yticks(np.arange(len(ordered_stops)), ordered_stops, fontsize=6)
-    plt.xlabel('seconds')
-    plt.ylabel('stops')
-    plt.tick_params(labelright=True)
+    fig, axs = plt.subplots(ncols=3, sharey='all')
+    for i in range(3):
+        for trip in trip_data[i]:
+            td = np.array(trip_data[i][trip])[:52]
+            if np.size(td):
+                arr_times = td[:, idx_arr_t].astype(float)
+                dep_times = td[:, idx_dep_t].astype(float)
+                times = np.vstack((arr_times, dep_times))
+                times = times.flatten(order='F')
+                # print(times)
+                starting_stop = td[0, 0]
+                starting_stop_idx = ordered_stops.index(starting_stop)
+                y_axis = np.arange(starting_stop_idx, starting_stop_idx + len(arr_times))
+                y_axis = np.repeat(y_axis, 2)
+                axs[i].plot(times, y_axis, color='lightblue')
+        if controlled_stops:
+            for c in controlled_stops[:-1]:
+                stop_idx = ordered_stops.index(c)
+                axs[i].axhline(y=stop_idx, color='gray', alpha=0.5, linestyle='dashed')
+    # axs[0].set_yticks(np.arange(len(ordered_stops)))
+    axs[0].tick_params(axis='both', labelsize=6)
+    axs[1].tick_params(axis='x', labelsize=6)
+    axs[2].tick_params(axis='x', labelsize=6)
+    axs[0].set(xlabel='seconds', ylabel='stops')
+    # plt.tick_params(labelright=True)
+    fig.tight_layout(pad=0.05)
     if pathname:
         plt.savefig(pathname)
     else:
@@ -211,6 +217,16 @@ def load_from_trajectory_set(trajectory_set, stops, idx_load, peak_load_stop):
     load_avg_per_stop = [np.mean(load_per_stop[s]) for s in stops]
     load_sd_per_stop = [np.std(load_per_stop[s]) for s in stops]
     return load_avg_per_stop, load_sd_per_stop, peak_loads
+
+
+def trip_time_from_trajectory_set(trajectory_set, idx_dep_t, idx_arr_t):
+    trip_times = []
+    for trajectories in trajectory_set:
+        for trip in trajectories:
+            dep_time = trajectories[trip][0][idx_dep_t]
+            arr_time = trajectories[trip][-1][idx_arr_t]
+            trip_times.append(arr_time - dep_time)
+    return trip_times
 
 
 def pax_per_trip_from_trajectory_set(trajectory_set, idx_load, idx_ons, idx_offs, stops):
@@ -366,9 +382,15 @@ def get_pax_times_fast(pax_set, n_stops, include_rbt=False):
     denied_rate_per_rep = []
     denied_wait_time_set = []
     rbt_od_set = []
+    pax_wt_0_2 = 0
+    pax_wt_2_4 = 0
+    pax_wt_4_inf = 0
     for rep in pax_set:
         df = pd.DataFrame([{f: getattr(p, f) for f in fields} for p in rep])
-        wait_time_set.append(df['wait_time'].mean() /60)
+        wait_time_set.append(df['wait_time'].mean() / 60)
+        pax_wt_0_2 += df[df['wait_time'] < 2.5*60].shape[0]
+        pax_wt_2_4 += df[(df['wait_time'] >= 2.5*60) & (df['wait_time'] < 5*60)].shape[0]
+        pax_wt_4_inf += df[df['wait_time'] > 5*60].shape[0]
         tot_pax = df.shape[0]
         denied_df = df[df['denied'] == 1]
         denied_pax = denied_df.shape[0]
@@ -389,10 +411,13 @@ def get_pax_times_fast(pax_set, n_stops, include_rbt=False):
                         pax_count += pax_od
                         rbt_od[s0, s1] = (od_jt['journey_time'].quantile(0.95) - od_jt['journey_time'].median()) * pax_od
             rbt_od_set.append(np.nansum(rbt_od) / pax_count)
-    # wait_time_mean = np.mean(wait_time_set)
     denied_rate = np.mean(denied_rate_per_rep)
     denied_wait_time_mean = np.nanmean(denied_wait_time_set)
-    return wait_time_set, denied_rate, denied_wait_time_mean, rbt_od_set
+    tot_pax_reps = pax_wt_0_2 + pax_wt_2_4 + pax_wt_4_inf
+    pc_pax_wt_0_2 = round(pax_wt_0_2 / tot_pax_reps * 100, 2)
+    pc_pax_wt_2_4 = round(pax_wt_2_4 / tot_pax_reps * 100, 2)
+    pc_pax_wt_4_inf = round(pax_wt_4_inf / tot_pax_reps * 100, 2)
+    return wait_time_set, denied_rate, denied_wait_time_mean, rbt_od_set, pc_pax_wt_0_2, pc_pax_wt_2_4, pc_pax_wt_4_inf
 
 
 def get_departure_delay(trajectories_set, idx_dep_t, ordered_trip_ids, sched_departures):

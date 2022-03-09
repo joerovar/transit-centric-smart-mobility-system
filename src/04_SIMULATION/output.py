@@ -1,3 +1,5 @@
+import numpy as np
+
 from input import STOPS, CONTROLLED_STOPS, IDX_ARR_T, IDX_LOAD, IDX_PICK, IDX_DROP, IDX_HOLD_TIME, IDX_DEP_T, \
     TRIP_IDS_IN, SCHED_DEP_IN
 from post_process import *
@@ -21,18 +23,29 @@ class PostProcessor:
         wt_all_set = []
         rbt_od_set = []
         rbt_od_mean = []
+        pc_wt_0_2_set = []
+        pc_wt_2_4_set = []
+        pc_wt_4_inf_set = []
         for pax in self.cp_pax:
-            wt_set, dbm, dbwt, rbt_od = get_pax_times_fast(pax, len(STOPS), include_rbt=include_rbt)
+            wt_set, dbm, dbwt, rbt_od, pc_wt_0_2, pc_wt_2_4, pc_wt_4_inf = get_pax_times_fast(pax,
+                                                                                              len(STOPS),
+                                                                                              include_rbt=include_rbt)
             wt_all_set.append(wt_set)
             db_mean.append(dbm)
             dbwt_mean.append(dbwt)
             rbt_od_set.append(rbt_od)
             rbt_od_mean.append(np.mean(rbt_od))
+            pc_wt_0_2_set.append(pc_wt_0_2)
+            pc_wt_2_4_set.append(pc_wt_2_4)
+            pc_wt_4_inf_set.append(pc_wt_4_inf)
         results_d = {'method': self.cp_tags,
                      'wait_t': [np.around(np.mean(wt_set), decimals=2) for wt_set in wt_all_set],
                      'error_wt': [np.around(np.power(1.96, 2) * np.var(wt_set) / np.sqrt(self.nr_reps), decimals=3)
                                   for wt_set in wt_all_set],
-                     'denied_per_mil': [round(db * 1000, 2) for db in db_mean]}
+                     'denied_per_mil': [round(db * 1000, 2) for db in db_mean],
+                     'wait_time_0_2': pc_wt_0_2_set,
+                     'wait_time_2_4': pc_wt_2_4_set,
+                     'wait_time_4_inf': pc_wt_4_inf_set}
         if include_rbt:
             save(self.path_dir + 'rbt_numer.pkl', rbt_od_set)
         if sensitivity_run_t:
@@ -124,18 +137,38 @@ class PostProcessor:
                         'std_load': [np.around(np.std(peak_load), decimals=2) for peak_load in peak_load_set]}
         return results_load
 
+    def sample_trajectories(self):
+        for i in range(len(self.cp_trips)):
+            trips = self.cp_trips[i][35:38]
+            # trip_df = pd.read_csv('out/trajectories' + self.cp_tags[i] + '.csv')
+            # trip_df = trip_df[trip_df['replication'] == 1]
+            plot_trajectories(trips, IDX_ARR_T, IDX_DEP_T, 'out/trajectories' + self.cp_tags[i] + '.png',
+                              STOPS, controlled_stops=CONTROLLED_STOPS)
+        return
+
     def write_trajectories(self, only_nc=False):
         i = 0
         compare_trips = self.cp_trips
         if only_nc:
             compare_trips = [self.cp_trips[0]]
         for trips in compare_trips:
-            write_trajectory_set(trips, 'out/' + self.cp_tags[i] + '/trajectories.csv', IDX_ARR_T, IDX_DEP_T,
+            write_trajectory_set(trips, 'out/trajectories' + self.cp_tags[i] +'.csv', IDX_ARR_T, IDX_DEP_T,
                                  IDX_HOLD_TIME,
                                  header=['trip_id', 'stop_id', 'arr_t', 'dep_t', 'pax_load', 'ons', 'offs', 'denied',
                                          'hold_time', 'skipped', 'replication', 'arr_sec', 'dep_sec', 'dwell_sec'])
             i += 1
         return
+
+    def trip_time_dist(self):
+        trip_time_mean_set = []
+        trip_time_sd_set = []
+        for trips in self.cp_trips:
+            temp_trip_t = trip_time_from_trajectory_set(trips, IDX_DEP_T, IDX_ARR_T)
+            trip_time_mean_set.append(np.around(np.mean(temp_trip_t), decimals=2))
+            trip_time_sd_set.append(np.around(np.std(temp_trip_t), decimals=2))
+        results_tt = {'tt_mean': trip_time_mean_set,
+                      'tt_sd': trip_time_sd_set}
+        return results_tt
 
     def load_profile_validation(self):
         load_profile_set = []
