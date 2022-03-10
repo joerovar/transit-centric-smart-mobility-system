@@ -10,6 +10,3 @@ from datetime import datetime
 from post_process import save
 from post_process import load
 
-lp = load('in/xtr/rt_20-2019-09/load_profile.pkl')
-plt.plot(np.arange(len(lp)),lp)
-plt.show()

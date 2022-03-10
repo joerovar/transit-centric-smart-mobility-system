@@ -98,10 +98,12 @@ prc = PostProcessor([path_tr_nc_b, path_tr_eh_b, path_tr_ddqn_la_b,
                     [path_p_nc_b, path_p_eh_b, path_p_ddqn_la_b,
                      path_p_ddqn_ha2_b, path_p_ddqn_ha3_b, path_p_ddqn_ha4_b], tags_b, N_REPLICATIONS,
                     path_dir_b)
+
 # prc.sample_trajectories()
 # prc.pax_profile_base()
 results = {}
 results.update(prc.pax_times_fast(include_rbt=False))
+
 
 rbt_od_set = load(path_dir_b + 'rbt_numer.pkl')
 rbt_od_set = rbt_od_set[:2] + rbt_od_set[3:]
@@ -112,16 +114,18 @@ results.update(prc.headway())
 results.update(prc.load_profile())
 results.update(prc.trip_time_dist())
 prc.write_trajectories()
+results.update(prc.control_actions())
 results_df = pd.DataFrame(results, columns=list(results.keys()))
 results_df.to_csv(path_dir_b + 'numer_results.csv', index=False)
 
-plt.boxplot(rbt_od_set, labels=tags_b, sym='', widths=0.2)
-plt.xticks(rotation=45)
-plt.xlabel('method')
-plt.ylabel('reliability buffer time (min)')
-plt.tight_layout()
-plt.savefig(path_dir_b + 'rbt.png')
-plt.close()
+#
+# plt.boxplot(rbt_od_set, labels=tags_b, sym='', widths=0.2)
+# plt.xticks(rotation=45)
+# plt.xlabel('method')
+# plt.ylabel('reliability buffer time (min)')
+# plt.tight_layout()
+# plt.savefig(path_dir_b + 'rbt.png')
+# plt.close()
 
 # # VARIABILITY RUN TIMES
 #

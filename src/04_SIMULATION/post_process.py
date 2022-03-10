@@ -216,7 +216,12 @@ def load_from_trajectory_set(trajectory_set, stops, idx_load, peak_load_stop):
                     peak_loads.append(bus_load)
     load_avg_per_stop = [np.mean(load_per_stop[s]) for s in stops]
     load_sd_per_stop = [np.std(load_per_stop[s]) for s in stops]
-    return load_avg_per_stop, load_sd_per_stop, peak_loads
+    max_load_per_stop = [np.max(load_per_stop[s]) for s in stops]
+    min_load_per_stop = [np.min(load_per_stop[s]) for s in stops]
+    return load_avg_per_stop, load_sd_per_stop, peak_loads, max_load_per_stop, min_load_per_stop
+
+
+
 
 
 def trip_time_from_trajectory_set(trajectory_set, idx_dep_t, idx_arr_t):
@@ -227,6 +232,18 @@ def trip_time_from_trajectory_set(trajectory_set, idx_dep_t, idx_arr_t):
             arr_time = trajectories[trip][-1][idx_arr_t]
             trip_times.append(arr_time - dep_time)
     return trip_times
+
+
+def control_from_trajectory_set(df_path, controlled_stops):
+    df = pd.read_csv(df_path)
+    df['stop_id'] = df['stop_id'].astype(str)
+    df_control = df[df['stop_id'].isin(controlled_stops[:-1])]
+    # print(df_control)
+    hold_times = df_control['hold_time'].tolist()
+    # nr_trips = len(df['trip_id'].unique().tolist()) * df['replication'].max()
+    skipped_count = df_control['skipped'].sum()
+    skipped_freq = skipped_count / df_control.shape[0] * 100
+    return hold_times, skipped_freq
 
 
 def pax_per_trip_from_trajectory_set(trajectory_set, idx_load, idx_ons, idx_offs, stops):
@@ -467,6 +484,48 @@ def plot_headway(cv_hw_set, ordered_stops, lbls, colors, pathname=None, controll
     ax1.set_xticks(x_ticks)
     ax1.set_xticklabels(x_tick_labels, fontsize=8)
     plt.legend()
+    plt.tight_layout()
+    if pathname:
+        plt.savefig(pathname)
+    else:
+        plt.show()
+    plt.close()
+    return
+
+
+def plot_load_profile_grid(lp_set, lp_max_set, lp_min_set, lp_sd_set, os, tags, pathname=None):
+    x1 = np.arange(len(os))
+    fig, axs = plt.subplots(2, 2, sharex='all', sharey='all')
+    # axs[0, 0].plot(x1, lp_set[0], label=tags[0])
+    # axs[0, 0].plot(x1, lp_max_set[0])
+    # axs[0, 0]
+    # axs[0, 0].fill_between(x1, lp_max_set[0], lp_min_set[0], alpha=0.3)
+    # axs[0, 1].plot(x1, lp_set[1], label=tags[1])
+    # axs[0, 1].fill_between(x1, lp_max_set[1], lp_min_set[1], alpha=0.3)
+    # axs[1, 0].plot(x1, lp_set[2], label=tags[2])
+    # axs[1, 0].fill_between(x1, lp_max_set[2], lp_min_set[2], alpha=0.3)
+    # axs[1, 1].plot(x1, lp_set[0], label=tags[-1])
+    # axs[1, 1].fill_between(x1, lp_max_set[-1], lp_min_set[-1], alpha=0.3)
+    subset_idx = [0, 1, 2, -1]
+    i = 0
+    for ax in axs.flat:
+        upper_bound1 = np.array(lp_set[subset_idx[i]]) + np.array(lp_sd_set[subset_idx[i]])
+        lower_bound1 = np.array(lp_set[subset_idx[i]]) - np.array(lp_sd_set[subset_idx[i]])
+        upper_bound2 = np.array(lp_set[subset_idx[i]]) + 2 * np.array(lp_sd_set[subset_idx[i]])
+        lower_bound2 = np.array(lp_set[subset_idx[i]]) - 2 * np.array(lp_sd_set[subset_idx[i]])
+        lower_bound2[lower_bound2<0] = 0
+        ax.set_title(tags[subset_idx[i]], fontsize=9)
+        ax.grid(axis='y')
+        ax.axhline(y=40, color='red', alpha=0.5)
+        obj1 = ax.fill_between(x1, upper_bound1, lower_bound1, alpha=0.8)
+        obj2 = ax.fill_between(x1, upper_bound2, lower_bound2, alpha=0.2)
+        # ax.plot(x1, lp_max_set[0])
+        ax.set_ylabel('load (pax)', fontsize=9)
+        ax.set_xlabel('stop', fontsize=9)
+        ax.tick_params(labelsize=9)
+        i += 1
+    fig.legend([obj1, obj2], [r'$\mu \pm \sigma$', r'$\mu \pm 2\sigma$'], loc='lower center', fontsize=9, ncol=2,
+               columnspacing=0.8)
     plt.tight_layout()
     if pathname:
         plt.savefig(pathname)

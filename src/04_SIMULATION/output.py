@@ -39,13 +39,13 @@ class PostProcessor:
             pc_wt_2_4_set.append(pc_wt_2_4)
             pc_wt_4_inf_set.append(pc_wt_4_inf)
         results_d = {'method': self.cp_tags,
-                     'wait_t': [np.around(np.mean(wt_set), decimals=2) for wt_set in wt_all_set],
-                     'error_wt': [np.around(np.power(1.96, 2) * np.var(wt_set) / np.sqrt(self.nr_reps), decimals=3)
-                                  for wt_set in wt_all_set],
+                     'wt': [np.around(np.mean(wt_set), decimals=2) for wt_set in wt_all_set],
+                     'err_wt': [np.around(np.power(1.96, 2) * np.var(wt_set) / np.sqrt(self.nr_reps), decimals=3)
+                                for wt_set in wt_all_set],
                      'denied_per_mil': [round(db * 1000, 2) for db in db_mean],
-                     'wait_time_0_2': pc_wt_0_2_set,
-                     'wait_time_2_4': pc_wt_2_4_set,
-                     'wait_time_4_inf': pc_wt_4_inf_set}
+                     'wt_0_2': pc_wt_0_2_set,
+                     'wt_2_4': pc_wt_2_4_set,
+                     'wt_4_inf': pc_wt_4_inf_set}
         if include_rbt:
             save(self.path_dir + 'rbt_numer.pkl', rbt_od_set)
         if sensitivity_run_t:
@@ -80,11 +80,11 @@ class PostProcessor:
         plot_headway(cv_hw_set, STOPS, self.cp_tags, self.colors, pathname=self.path_dir + 'hw.png',
                      controlled_stops=CONTROLLED_STOPS[:-1])
 
-        results_hw = {'mean_cv_hw_tp': [np.around(np.mean(cv), decimals=2) for cv in cv_hw_tp_set],
-                      'error_cv_hw_tp': [np.around(np.power(1.96, 2) * np.var(cv) / np.sqrt(self.nr_reps), decimals=3)
-                                         for cv in cv_hw_tp_set],
-                      'hw_peak': [np.around(np.mean(hw), decimals=2) for hw in hw_peak_set],
-                      'std_hw_peak': [np.around(np.std(hw), decimals=2) for hw in hw_peak_set]}
+        results_hw = {'cv_h_tp': [np.around(np.mean(cv), decimals=2) for cv in cv_hw_tp_set],
+                      'err_cv_h_tp': [np.around(np.power(1.96, 2) * np.var(cv) / np.sqrt(self.nr_reps), decimals=3)
+                                      for cv in cv_hw_tp_set],
+                      'h_pk': [np.around(np.mean(hw), decimals=2) for hw in hw_peak_set],
+                      'std_h_pk': [np.around(np.std(hw), decimals=2) for hw in hw_peak_set]}
 
         if sensitivity_run_t:
             plot_sensitivity_whisker(cv_hw_tp_set, ['DDQN-LA', 'DDQN-HA'], ['cv: -20%', 'cv: base', 'cv: +20%'],
@@ -109,10 +109,10 @@ class PostProcessor:
         x = np.arange(len(idx_control_stops))
         width = 0.1
         fig, ax = plt.subplots()
-        bar1 = ax.bar(x-3*width/2, cv_tp_set[0], width, label=tags[0])
-        bar2 = ax.bar(x-width/2, cv_tp_set[1], width, label=tags[1])
-        bar3 = ax.bar(x+width/2, cv_tp_set[2], width, label=tags[2])
-        bar4 = ax.bar(x+3*width/2, cv_tp_set[3], width, label=tags[3])
+        bar1 = ax.bar(x - 3 * width / 2, cv_tp_set[0], width, label=tags[0])
+        bar2 = ax.bar(x - width / 2, cv_tp_set[1], width, label=tags[1])
+        bar3 = ax.bar(x + width / 2, cv_tp_set[2], width, label=tags[2])
+        bar4 = ax.bar(x + 3 * width / 2, cv_tp_set[3], width, label=tags[3])
 
         ax.set_ylabel('coefficient of variation of headway')
         ax.set_xticks(x, idx_control_stops)
@@ -128,11 +128,19 @@ class PostProcessor:
         load_profile_set = []
         lp_std_set = []
         peak_load_set = []
+        max_load_set = []
+        min_load_set = []
         for trips in self.cp_trips:
-            temp_lp, temp_lp_std, temp_peak_loads = load_from_trajectory_set(trips, STOPS, IDX_LOAD, STOPS[57])
+            temp_lp, temp_lp_std, temp_peak_loads, max_load, min_load = load_from_trajectory_set(trips,
+                                                                                                 STOPS, IDX_LOAD,
+                                                                                                 STOPS[57])
             load_profile_set.append(temp_lp)
             lp_std_set.append(temp_lp_std)
             peak_load_set.append(temp_peak_loads)
+            max_load_set.append(max_load)
+            min_load_set.append(min_load)
+        plot_load_profile_grid(load_profile_set, max_load_set, min_load_set, lp_std_set, STOPS, self.cp_tags,
+                               pathname=self.path_dir + 'lp_grid.png')
         # plot_load_profile_benchmark(load_profile_set, STOPS, self.cp_tags, self.colors,
         #                             pathname=self.path_dir + 'lp.png', controlled_stops=CONTROLLED_STOPS,
         #                             x_y_lbls=['stop id', 'avg load per trip'], load_sd_set=lp_std_set)
@@ -156,20 +164,36 @@ class PostProcessor:
         if only_nc:
             compare_trips = [self.cp_trips[0]]
         for trips in compare_trips:
-            write_trajectory_set(trips, 'out/trajectories' + self.cp_tags[i] +'.csv', IDX_ARR_T, IDX_DEP_T,
+            write_trajectory_set(trips, 'out/trajectories' + self.cp_tags[i] + '.csv', IDX_ARR_T, IDX_DEP_T,
                                  IDX_HOLD_TIME,
                                  header=['trip_id', 'stop_id', 'arr_t', 'dep_t', 'pax_load', 'ons', 'offs', 'denied',
                                          'hold_time', 'skipped', 'replication', 'arr_sec', 'dep_sec', 'dwell_sec'])
             i += 1
         return
 
+    def control_actions(self):
+        ht_ordered_freq_set = []
+        skip_freq_set = []
+        bounds = [(0, 20), (20, 40), (40, 60), (60, 80), (80, 100), (100, 120), (120, np.inf)]
+        for i in range(len(self.cp_tags)):
+            ht_dist, skip_freq = control_from_trajectory_set('out/trajectories' + self.cp_tags[i] + '.csv',
+                                                             CONTROLLED_STOPS)
+            skip_freq_set.append(round(skip_freq, 1))
+            ht_dist_arr = np.array(ht_dist)
+            ht_ordered_freq = []
+            for b in bounds:
+                ht_ordered_freq.append(ht_dist_arr[(ht_dist_arr >= b[0]) & (ht_dist_arr < b[1])].size)
+            ht_ordered_freq_set.append(ht_ordered_freq)
+        results = {'skip_freq': skip_freq_set}
+        return results
+
     def trip_time_dist(self):
         trip_time_mean_set = []
         trip_time_sd_set = []
         for trips in self.cp_trips:
             temp_trip_t = trip_time_from_trajectory_set(trips, IDX_DEP_T, IDX_ARR_T)
-            trip_time_mean_set.append(np.around(np.mean(temp_trip_t), decimals=2))
-            trip_time_sd_set.append(np.around(np.std(temp_trip_t), decimals=2))
+            trip_time_mean_set.append(np.around(np.mean(temp_trip_t) / 60, decimals=1))
+            trip_time_sd_set.append(np.around(np.std(temp_trip_t) / 60, decimals=1))
         results_tt = {'tt_mean': trip_time_mean_set,
                       'tt_sd': trip_time_sd_set}
         return results_tt
