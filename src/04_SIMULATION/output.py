@@ -55,13 +55,8 @@ class PostProcessor:
             plot_sensitivity_whisker(wt_all_set, ['DDQN-LA', 'DDQN-HA'], ['0% (base)', '10%', '20%'],
                                      'avg pax wait time (min)', self.path_dir + 'wt.png')
         else:
-            plt.boxplot(wt_all_set, labels=self.cp_tags, sym='', widths=0.2)
-            plt.xticks(rotation=45)
-            plt.xlabel('method')
-            plt.ylabel('avg pax wait time (min)')
-            plt.tight_layout()
-            plt.savefig(self.path_dir + 'wt.png')
-            plt.close()
+            save(self.path_dir + 'wt_numer.pkl', wt_all_set)
+
         return results_d
 
     def headway(self, sensitivity_run_t=False, sensitivity_compliance=False):
@@ -98,7 +93,7 @@ class PostProcessor:
             plt.xlabel('method')
             plt.ylabel('coefficient of variation of headway')
             plt.tight_layout()
-            plt.savefig(self.path_dir + 'cv_hw.png')
+            # plt.savefig(self.path_dir + 'cv_hw.png')
             plt.close()
         cv_hw_set_sub = cv_hw_set[0:3] + [cv_hw_set[-1]]
         tags = self.cp_tags[0:3] + [self.cp_tags[-1]]
@@ -109,12 +104,13 @@ class PostProcessor:
         x = np.arange(len(idx_control_stops))
         width = 0.1
         fig, ax = plt.subplots()
-        bar1 = ax.bar(x - 3 * width / 2, cv_tp_set[0], width, label=tags[0])
-        bar2 = ax.bar(x - width / 2, cv_tp_set[1], width, label=tags[1])
-        bar3 = ax.bar(x + width / 2, cv_tp_set[2], width, label=tags[2])
-        bar4 = ax.bar(x + 3 * width / 2, cv_tp_set[3], width, label=tags[3])
+        bar1 = ax.bar(x - 3 * width / 2, cv_tp_set[0], width, label=tags[0], color='white', edgecolor='black')
+        bar2 = ax.bar(x - width / 2, cv_tp_set[1], width, label=tags[1], color='silver', edgecolor='black')
+        bar3 = ax.bar(x + width / 2, cv_tp_set[2], width, label=tags[2], color='gray', edgecolor='black')
+        bar4 = ax.bar(x + 3 * width / 2, cv_tp_set[3], width, label=tags[3], color='black', edgecolor='black')
 
         ax.set_ylabel('coefficient of variation of headway')
+        ax.set_xlabel('control stop')
         ax.set_xticks(x, idx_control_stops)
         ax.legend()
 
@@ -133,7 +129,7 @@ class PostProcessor:
         for trips in self.cp_trips:
             temp_lp, temp_lp_std, temp_peak_loads, max_load, min_load = load_from_trajectory_set(trips,
                                                                                                  STOPS, IDX_LOAD,
-                                                                                                 STOPS[57])
+                                                                                                 STOPS[56])
             load_profile_set.append(temp_lp)
             lp_std_set.append(temp_lp_std)
             peak_load_set.append(temp_peak_loads)

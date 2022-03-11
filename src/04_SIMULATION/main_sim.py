@@ -106,7 +106,6 @@ results.update(prc.pax_times_fast(include_rbt=False))
 
 
 rbt_od_set = load(path_dir_b + 'rbt_numer.pkl')
-rbt_od_set = rbt_od_set[:2] + rbt_od_set[3:]
 for i in range(len(rbt_od_set)):
     rbt_od_set[i] = [rbt/60 for rbt in rbt_od_set[i]]
 results.update({'rbt_od': [np.around(np.mean(rbt), decimals=2) for rbt in rbt_od_set]})
@@ -115,16 +114,38 @@ results.update(prc.load_profile())
 results.update(prc.trip_time_dist())
 prc.write_trajectories()
 results.update(prc.control_actions())
+print(results)
 results_df = pd.DataFrame(results, columns=list(results.keys()))
 results_df.to_csv(path_dir_b + 'numer_results.csv', index=False)
 
 #
-# plt.boxplot(rbt_od_set, labels=tags_b, sym='', widths=0.2)
-# plt.xticks(rotation=45)
-# plt.xlabel('method')
-# plt.ylabel('reliability buffer time (min)')
+fig, axs = plt.subplots(ncols=2)
+axs[0].boxplot(rbt_od_set, labels=tags_b, sym='', widths=0.2)
+# plt.yticks(fontsize=8)
+# plt.xticks(fontsize=8, rotation=90)
+axs[0].set_xticks(np.arange(1, len(tags_b)+1))
+axs[0].set_xticklabels(tags_b, rotation=90, fontsize=8)
+axs[0].tick_params(axis='y', labelsize=8)
+# plt.xlabel('method', fontsize=9)
+axs[0].set_ylabel('reliability buffer time (min)', fontsize=8)
+
+
+wt_all_set = load(path_dir_b + 'wt_numer.pkl')
+axs[1].boxplot(wt_all_set, labels=tags_b, sym='', widths=0.2)
+# plt.xticks(fontsize=8, rotation=90)
+# plt.yticks(fontsize=8)
+axs[1].set_xticks(np.arange(1, len(tags_b)+1))
+axs[1].set_xticklabels(tags_b, rotation=90, fontsize=8)
+axs[1].tick_params(axis='y', labelsize=8)
+# plt.xlabel('method', fontsize=9)
+axs[1].set_ylabel('avg pax wait time (min)', fontsize=8)
+
+plt.tight_layout()
+plt.savefig(path_dir_b + 'pax_times.png')
+plt.close()
+
 # plt.tight_layout()
-# plt.savefig(path_dir_b + 'rbt.png')
+# plt.savefig(path_dir_b + 'wt.png')
 # plt.close()
 
 # # VARIABILITY RUN TIMES
