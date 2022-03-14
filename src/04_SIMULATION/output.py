@@ -1,3 +1,4 @@
+import matplotlib.pyplot as plt
 import numpy as np
 
 from input import STOPS, CONTROLLED_STOPS, IDX_ARR_T, IDX_LOAD, IDX_PICK, IDX_DROP, IDX_HOLD_TIME, IDX_DEP_T, \
@@ -39,9 +40,10 @@ class PostProcessor:
             pc_wt_2_4_set.append(pc_wt_2_4)
             pc_wt_4_inf_set.append(pc_wt_4_inf)
         results_d = {'method': self.cp_tags,
-                     'wt': [np.around(np.mean(wt_set), decimals=2) for wt_set in wt_all_set],
-                     'err_wt': [np.around(np.power(1.96, 2) * np.var(wt_set) / np.sqrt(self.nr_reps), decimals=3)
-                                for wt_set in wt_all_set],
+                     'wt_mean': [np.around(np.mean(wt_s), decimals=2) for wt_s in wt_all_set],
+                     'err_wt_mean': [np.around(np.power(1.96, 2) * np.var(wt_s) / np.sqrt(self.nr_reps), decimals=3)
+                                     for wt_s in wt_all_set],
+                     'wt_median': [np.around(np.median(wt_s), decimals=2) for wt_s in wt_all_set],
                      'denied_per_mil': [round(db * 1000, 2) for db in db_mean],
                      'wt_0_2': pc_wt_0_2_set,
                      'wt_2_4': pc_wt_2_4_set,
@@ -135,7 +137,7 @@ class PostProcessor:
             peak_load_set.append(temp_peak_loads)
             max_load_set.append(max_load)
             min_load_set.append(min_load)
-        plot_load_profile_grid(load_profile_set, max_load_set, min_load_set, lp_std_set, STOPS, self.cp_tags,
+        plot_load_profile_grid(load_profile_set, max_load_set, min_load_set, STOPS, self.cp_tags,
                                pathname=self.path_dir + 'lp_grid.png')
         # plot_load_profile_benchmark(load_profile_set, STOPS, self.cp_tags, self.colors,
         #                             pathname=self.path_dir + 'lp.png', controlled_stops=CONTROLLED_STOPS,
@@ -186,12 +188,37 @@ class PostProcessor:
     def trip_time_dist(self):
         trip_time_mean_set = []
         trip_time_sd_set = []
+        trip_time_95_set = []
+        trip_time_85_set = []
+        i = 0
+        fig, axs = plt.subplots(2, 2, sharex='all', sharey='all')
         for trips in self.cp_trips:
             temp_trip_t = trip_time_from_trajectory_set(trips, IDX_DEP_T, IDX_ARR_T)
-            trip_time_mean_set.append(np.around(np.mean(temp_trip_t) / 60, decimals=1))
-            trip_time_sd_set.append(np.around(np.std(temp_trip_t) / 60, decimals=1))
+            sns.histplot(temp_trip_t, kde=True, color='gray', alpha=0.5, ax=axs.flat[i])
+            axs.flat[i].axvline(np.percentile(temp_trip_t, 95), color='black', linestyle='dashed', alpha=0.7)
+            axs.flat[i].set_title(self.cp_tags[i], fontsize=9)
+            if i > 1:
+                axs.flat[i].set_xlabel('total trip time (seconds)', fontsize=8)
+            trip_time_mean_set.append(np.around(np.mean(temp_trip_t) / 60, decimals=2))
+            trip_time_sd_set.append(np.around(np.std(temp_trip_t) / 60, decimals=2))
+            trip_time_95_set.append(np.around(np.percentile(temp_trip_t, 95) / 60, decimals=2))
+            trip_time_85_set.append(np.around(np.percentile(temp_trip_t, 90) / 60, decimals=2))
+            i += 1
+        # plt.legend()
+        # plt.xlabel('total trip travel time (seconds)')
+        plt.xlim(3900, 5100)
+        plt.xticks(np.arange(3900, 5150, 300), np.arange(3900, 5100, 300).tolist() + ['>5100'])
+        for ax in axs.flat:
+            ax.tick_params(labelsize=8)
+            ax.set_ylabel('frequency', fontsize=8)
+        # plt.tick_params(labelsize=9)
+        plt.tight_layout()
+        plt.savefig(self.path_dir + 'trip_time_dist.png')
+        plt.close()
         results_tt = {'tt_mean': trip_time_mean_set,
-                      'tt_sd': trip_time_sd_set}
+                      'tt_sd': trip_time_sd_set,
+                      'tt_95': trip_time_95_set,
+                      'tt_85': trip_time_85_set}
         return results_tt
 
     def load_profile_validation(self):

@@ -48,6 +48,22 @@ path_stop_pattern = path_to_ins + dir_vis + 'stop_pattern.csv'
 path_odt_fig = path_to_ins + dir_vis + 'od0.png'
 
 # 70 REPLICATIONS? ROUND ----------------------------------------------
+# WEIGHTS COMPARISON
+path_tr_ddqn_ha3 = 'out/DDQN-HA/trajectory_set_0314-120923.pkl'
+path_p_ddqn_ha3 = 'out/DDQN-HA/pax_set_0314-120923.pkl'
+path_tr_ddqn_ha5 = 'out/DDQN-HA/trajectory_set_0314-120317.pkl'
+path_p_ddqn_ha5 = 'out/DDQN-HA/pax_set_0314-120317.pkl'
+path_tr_ddqn_ha7 = 'out/DDQN-HA/trajectory_set_0314-101720.pkl'
+path_p_ddqn_ha7 = 'out/DDQN-HA/pax_set_0314-101720.pkl'
+path_tr_ddqn_ha9 = 'out/DDQN-HA/trajectory_set_0303-120150.pkl' # secretly 10
+path_p_ddqn_ha9 = 'out/DDQN-HA/pax_set_0303-120150.pkl' # secretly 10
+path_tr_ddqn_ha11 = 'out/DDQN-HA/trajectory_set_0313-105947.pkl' # secretly 12
+path_p_ddqn_ha11 = 'out/DDQN-HA/pax_set_0313-105947.pkl' # secretly 12
+
+
+path_dir_w = 'out/compare/weights/'
+tags_w = ['3', '5', '7', '9', '11']
+
 # BENCHMARK COMPARISON
 path_tr_nc_b = 'out/NC/trajectories_set_0302-230246.pkl'
 path_p_nc_b = 'out/NC/pax_set_0302-230246.pkl'
@@ -55,14 +71,20 @@ path_tr_eh_b = 'out/EH/trajectories_set_0309-181023.pkl'
 path_p_eh_b = 'out/EH/pax_set_0309-181023.pkl'
 path_tr_ddqn_la_b = 'out/DDQN-LA/trajectory_set_0302-225508.pkl'
 path_p_ddqn_la_b = 'out/DDQN-LA/pax_set_0302-225508.pkl'
-path_tr_ddqn_ha2_b = 'out/DDQN-HA/trajectory_set_0306-163852.pkl'
-path_p_ddqn_ha2_b = 'out/DDQN-HA/pax_set_0306-163852.pkl'
-path_tr_ddqn_ha3_b = 'out/DDQN-HA/trajectory_set_0303-120044.pkl'
-path_p_ddqn_ha3_b = 'out/DDQN-HA/pax_set_0303-120044.pkl'
-path_tr_ddqn_ha4_b = 'out/DDQN-HA/trajectory_set_0303-120150.pkl'
-path_p_ddqn_ha4_b = 'out/DDQN-HA/pax_set_0303-120150.pkl'
+path_tr_ddqn_ha_b = 'out/DDQN-HA/trajectory_set_0303-120150.pkl'
+path_p_ddqn_ha_b = 'out/DDQN-HA/pax_set_0303-120150.pkl'
 path_dir_b = 'out/compare/benchmark/'
-tags_b = ['NC', 'EH', 'DDQN-LA', 'DDQN-HA (3)', 'DDQN-HA (5)', 'DDQN-HA (7)']
+tags_b = ['NC', 'EH', 'DDQN-LA', 'DDQN-HA']
+
+# FOR TRIP TIME DISTRIBUTION
+path_tr_nc_t = 'out/NC/trajectories_set_0314-131714.pkl'
+path_p_nc_t = 'out/NC/pax_set_0314-131714.pkl'
+path_tr_eh_t = 'out/EH/trajectories_set_0314-132111.pkl'
+path_p_eh_t = 'out/EH/trajectories_set_0314-132111.pkl'
+path_tr_ddqn_la_t = 'out/DDQN-LA/trajectory_set_0314-130246.pkl'
+path_p_ddqn_la_t = 'out/DDQN-LA/pax_set_0314-130246.pkl'
+path_tr_ddqn_ha_t = 'out/DDQN-HA/trajectory_set_0314-131407.pkl'
+path_p_ddqn_ha_t = 'out/DDQN-HA/pax_set_0314-131407.pkl'
 
 # SENSITIVITY RUN TIMES
 path_tr_ddqn_la_base_s1 = 'out/DDQN-LA/trajectory_set_0302-225508.pkl'

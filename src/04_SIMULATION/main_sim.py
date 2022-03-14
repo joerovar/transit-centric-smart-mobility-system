@@ -8,6 +8,7 @@ from post_process import save, load, plot_sensitivity_whisker
 import matplotlib.pyplot as plt
 from datetime import datetime
 from output import PostProcessor
+
 st = time.time()
 
 
@@ -38,7 +39,8 @@ def run_base_control_detailed(replications=2, save_results=False, time_dep_tt=Tr
     trajectories_set = []
     pax_set = []
     for _ in range(replications):
-        env = DetailedSimulationEnvWithControl(time_dependent_travel_time=time_dep_tt, time_dependent_demand=time_dep_dem)
+        env = DetailedSimulationEnvWithControl(time_dependent_travel_time=time_dep_tt,
+                                               time_dependent_demand=time_dep_dem)
         done = env.reset_simulation()
         while not done:
             done = env.prep()
@@ -86,68 +88,101 @@ def run_sample_rl(episodes=1, simple_reward=False):
     return
 
 
-N_REPLICATIONS = 70
+N_REPLICATIONS = 30
 
 # RUN BENCHMARK
 # run_base_detailed(replications=N_REPLICATIONS, save_results=True)
 # run_base_control_detailed(replications=N_REPLICATIONS, save_results=True)
 
-# BENCHMARK COMPARISON
-prc = PostProcessor([path_tr_nc_b, path_tr_eh_b, path_tr_ddqn_la_b,
-                     path_tr_ddqn_ha2_b, path_tr_ddqn_ha3_b, path_tr_ddqn_ha4_b],
-                    [path_p_nc_b, path_p_eh_b, path_p_ddqn_la_b,
-                     path_p_ddqn_ha2_b, path_p_ddqn_ha3_b, path_p_ddqn_ha4_b], tags_b, N_REPLICATIONS,
-                    path_dir_b)
-
-# prc.sample_trajectories()
-# prc.pax_profile_base()
-results = {}
-results.update(prc.pax_times_fast(include_rbt=False))
-
-
-rbt_od_set = load(path_dir_b + 'rbt_numer.pkl')
-for i in range(len(rbt_od_set)):
-    rbt_od_set[i] = [rbt/60 for rbt in rbt_od_set[i]]
-results.update({'rbt_od': [np.around(np.mean(rbt), decimals=2) for rbt in rbt_od_set]})
-results.update(prc.headway())
-results.update(prc.load_profile())
-results.update(prc.trip_time_dist())
-prc.write_trajectories()
-results.update(prc.control_actions())
-print(results)
-results_df = pd.DataFrame(results, columns=list(results.keys()))
-results_df.to_csv(path_dir_b + 'numer_results.csv', index=False)
-
+# WEIGHTS COMPARISON
+# prc_w = PostProcessor([path_tr_ddqn_ha3, path_tr_ddqn_ha5, path_tr_ddqn_ha7, path_tr_ddqn_ha9, path_tr_ddqn_ha11],
+#                       [path_p_ddqn_ha3, path_p_ddqn_ha5, path_p_ddqn_ha7, path_p_ddqn_ha9, path_p_ddqn_ha11],
+#                       tags_w, N_REPLICATIONS, path_dir_w)
+# results_w = {}
+# results_w.update(prc_w.pax_times_fast(include_rbt=True))
+# rbt_od_set = load(path_dir_w + 'rbt_numer.pkl')
+# results_w.update({'rbt_mean': [np.around(np.mean(rbt), decimals=2) for rbt in rbt_od_set],
+#                   'rbt_median': [np.around(np.median(rbt), decimals=2) for rbt in rbt_od_set]})
+# prc_w.write_trajectories()
+# results_w.update(prc_w.control_actions())
+# results_w.update(prc_w.trip_time_dist())
+# results_w.update(prc_w.headway())
+# results_df = pd.DataFrame(results_w, columns=list(results_w.keys()))
+# results_df.to_csv(path_dir_w + 'numer_results.csv', index=False)
+# fig, axs = plt.subplots(ncols=2)
+# axs[0].boxplot(rbt_od_set, labels=tags_w, sym='', widths=0.2)
+# axs[0].set_xticks(np.arange(1, len(tags_w)+1))
+# axs[0].set_xticklabels(tags_w, fontsize=8)
+# axs[0].tick_params(axis='y', labelsize=8)
+# axs[0].set_xlabel(r'$W_{wait}$')
+# axs[0].set_ylabel('reliability buffer time (min)', fontsize=9)
 #
-fig, axs = plt.subplots(ncols=2)
-axs[0].boxplot(rbt_od_set, labels=tags_b, sym='', widths=0.2)
-# plt.yticks(fontsize=8)
-# plt.xticks(fontsize=8, rotation=90)
-axs[0].set_xticks(np.arange(1, len(tags_b)+1))
-axs[0].set_xticklabels(tags_b, rotation=90, fontsize=8)
-axs[0].tick_params(axis='y', labelsize=8)
-# plt.xlabel('method', fontsize=9)
-axs[0].set_ylabel('reliability buffer time (min)', fontsize=8)
-
-
-wt_all_set = load(path_dir_b + 'wt_numer.pkl')
-axs[1].boxplot(wt_all_set, labels=tags_b, sym='', widths=0.2)
-# plt.xticks(fontsize=8, rotation=90)
-# plt.yticks(fontsize=8)
-axs[1].set_xticks(np.arange(1, len(tags_b)+1))
-axs[1].set_xticklabels(tags_b, rotation=90, fontsize=8)
-axs[1].tick_params(axis='y', labelsize=8)
-# plt.xlabel('method', fontsize=9)
-axs[1].set_ylabel('avg pax wait time (min)', fontsize=8)
-
-plt.tight_layout()
-plt.savefig(path_dir_b + 'pax_times.png')
-plt.close()
-
+#
+# wt_all_set = load(path_dir_w + 'wt_numer.pkl')
+# axs[1].boxplot(wt_all_set, labels=tags_w, sym='', widths=0.2)
+# axs[1].set_xticks(np.arange(1, len(tags_w)+1))
+# axs[1].set_xticklabels(tags_w, fontsize=8)
+# axs[1].tick_params(axis='y', labelsize=8)
+# axs[1].set_xlabel(r'$W_{wait}$')
+# axs[1].set_ylabel('avg pax wait time (min)', fontsize=9)
+#
 # plt.tight_layout()
-# plt.savefig(path_dir_b + 'wt.png')
+# plt.savefig(path_dir_w + 'pax_times.png')
 # plt.close()
 
+# BENCHMARK COMPARISON
+# prc = PostProcessor([path_tr_nc_b, path_tr_eh_b, path_tr_ddqn_la_b,
+#                      path_tr_ddqn_ha_b],
+#                     [path_p_nc_b, path_p_eh_b, path_p_ddqn_la_b,
+#                      path_p_ddqn_ha_b], tags_b, N_REPLICATIONS,
+#                     path_dir_b)
+#
+# # prc.sample_trajectories()
+# # prc.pax_profile_base()
+# results = {}
+# results.update(prc.pax_times_fast(include_rbt=False))
+#
+# rbt_od_set = load(path_dir_b + 'rbt_numer.pkl')
+# rbt_od_set = rbt_od_set[:3] + [rbt_od_set[-1]]
+# for i in range(len(rbt_od_set)):
+#     rbt_od_set[i] = [rbt / 60 for rbt in rbt_od_set[i]]
+# results.update({'rbt_od': [np.around(np.mean(rbt), decimals=2) for rbt in rbt_od_set]})
+# results.update(prc.headway())
+# results.update(prc.load_profile())
+# results.update(prc.trip_time_dist())
+# prc.write_trajectories()
+# results.update(prc.control_actions())
+# results_df = pd.DataFrame(results, columns=list(results.keys()))
+# results_df.to_csv(path_dir_b + 'numer_results.csv', index=False)
+#
+# #
+# fig, axs = plt.subplots(ncols=2)
+# axs[0].boxplot(rbt_od_set, labels=tags_b, sym='', widths=0.2)
+# axs[0].set_xticks(np.arange(1, len(tags_b) + 1))
+# axs[0].set_xticklabels(tags_b, rotation=90, fontsize=8)
+# axs[0].tick_params(axis='y', labelsize=8)
+# axs[0].set_ylabel('reliability buffer time (min)', fontsize=8)
+#
+# wt_all_set = load(path_dir_b + 'wt_numer.pkl')
+# axs[1].boxplot(wt_all_set, labels=tags_b, sym='', widths=0.2)
+# axs[1].set_xticks(np.arange(1, len(tags_b) + 1))
+# axs[1].set_xticklabels(tags_b, rotation=90, fontsize=8)
+# axs[1].tick_params(axis='y', labelsize=8)
+# axs[1].set_ylabel('avg pax wait time (min)', fontsize=8)
+#
+# plt.tight_layout()
+# plt.savefig(path_dir_b + 'pax_times.png')
+# plt.close()
+
+
+# CHECK TRIP TIMES (DWELL TIMES AND EXTREME TT BOUND
+prc_t = PostProcessor([path_tr_nc_t, path_tr_eh_t, path_tr_ddqn_la_t,
+                       path_tr_ddqn_ha_t],
+                      [path_p_nc_t, path_p_eh_t, path_p_ddqn_la_t,
+                       path_p_ddqn_la_t], tags_b, 30,
+                      path_dir_b)
+results = prc_t.trip_time_dist()
+print(results)
 # # VARIABILITY RUN TIMES
 #
 # prc = PostProcessor([path_tr_ddqn_la_low_s1, path_tr_ddqn_ha_low_s1, path_tr_ddqn_la_base_s1, path_tr_ddqn_ha_base_s1,
@@ -185,5 +220,3 @@ plt.close()
 # results.update(prc.headway(sensitivity_compliance=True))
 # results_df = pd.DataFrame(results, columns=list(results.keys()))
 # results_df.to_csv(path_dir_s2 + 'numer_results.csv', index=False)
-
-

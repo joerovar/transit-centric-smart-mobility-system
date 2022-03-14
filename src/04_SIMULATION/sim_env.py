@@ -95,7 +95,7 @@ class DetailedSimulationEnv(SimulationEnv):
             runtime = lognorm.rvs(*link_time_params_light)
             minim, maxim = link_time_extremes
             if runtime > maxim:
-                runtime = min(1.1*maxim, runtime)
+                runtime = min(EXTREME_TT_BOUND*maxim, runtime)
         except ValueError:
             print(f'trip id {bus.active_trip[0].trip_id}')
             print(f'link {link}')

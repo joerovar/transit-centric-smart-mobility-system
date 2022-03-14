@@ -214,14 +214,11 @@ def load_from_trajectory_set(trajectory_set, stops, idx_load, peak_load_stop):
                 load_per_stop[stop_id].append(bus_load)
                 if peak_load_stop == stop_id:
                     peak_loads.append(bus_load)
-    load_avg_per_stop = [np.mean(load_per_stop[s]) for s in stops]
+    load_avg_per_stop = [np.median(load_per_stop[s]) for s in stops]
     load_sd_per_stop = [np.std(load_per_stop[s]) for s in stops]
-    max_load_per_stop = [np.max(load_per_stop[s]) for s in stops]
-    min_load_per_stop = [np.min(load_per_stop[s]) for s in stops]
+    max_load_per_stop = [np.percentile(load_per_stop[s], 95) for s in stops]
+    min_load_per_stop = [np.percentile(load_per_stop[s], 10) for s in stops]
     return load_avg_per_stop, load_sd_per_stop, peak_loads, max_load_per_stop, min_load_per_stop
-
-
-
 
 
 def trip_time_from_trajectory_set(trajectory_set, idx_dep_t, idx_arr_t):
@@ -427,7 +424,7 @@ def get_pax_times_fast(pax_set, n_stops, include_rbt=False):
                         pax_od = od_jt.shape[0]
                         pax_count += pax_od
                         rbt_od[s0, s1] = (od_jt['journey_time'].quantile(0.95) - od_jt['journey_time'].median()) * pax_od
-            rbt_od_set.append(np.nansum(rbt_od) / pax_count)
+            rbt_od_set.append(np.nansum(rbt_od) / pax_count/60)
     denied_rate = np.mean(denied_rate_per_rep)
     denied_wait_time_mean = np.nanmean(denied_wait_time_set)
     tot_pax_reps = pax_wt_0_2 + pax_wt_2_4 + pax_wt_4_inf
@@ -493,7 +490,7 @@ def plot_headway(cv_hw_set, ordered_stops, lbls, colors, pathname=None, controll
     return
 
 
-def plot_load_profile_grid(lp_set, lp_max_set, lp_min_set, lp_sd_set, os, tags, pathname=None):
+def plot_load_profile_grid(lp_set, lp_max_set, lp_min_set, os, tags, pathname=None):
     x1 = np.arange(len(os))
     fig, axs = plt.subplots(2, 2, sharex='all', sharey='all')
     # axs[0, 0].plot(x1, lp_set[0], label=tags[0])
@@ -506,26 +503,31 @@ def plot_load_profile_grid(lp_set, lp_max_set, lp_min_set, lp_sd_set, os, tags, 
     # axs[1, 0].fill_between(x1, lp_max_set[2], lp_min_set[2], alpha=0.3)
     # axs[1, 1].plot(x1, lp_set[0], label=tags[-1])
     # axs[1, 1].fill_between(x1, lp_max_set[-1], lp_min_set[-1], alpha=0.3)
-    subset_idx = [0, 1, 2, -1]
+    # subset_idx = [0, 1, 2, -1]
+    obj = []
     i = 0
     for ax in axs.flat:
-        upper_bound1 = np.array(lp_set[subset_idx[i]]) + np.array(lp_sd_set[subset_idx[i]])
-        lower_bound1 = np.array(lp_set[subset_idx[i]]) - np.array(lp_sd_set[subset_idx[i]])
-        upper_bound2 = np.array(lp_set[subset_idx[i]]) + 2 * np.array(lp_sd_set[subset_idx[i]])
-        lower_bound2 = np.array(lp_set[subset_idx[i]]) - 2 * np.array(lp_sd_set[subset_idx[i]])
-        lower_bound2[lower_bound2<0] = 0
-        ax.set_title(tags[subset_idx[i]], fontsize=9)
+        # upper_bound1 = np.array(lp_set[subset_idx[i]]) + np.array(lp_sd_set[subset_idx[i]])
+        # lower_bound1 = np.array(lp_set[subset_idx[i]]) - np.array(lp_sd_set[subset_idx[i]])
+        # upper_bound2 = np.array(lp_set[subset_idx[i]]) + 2 * np.array(lp_sd_set[subset_idx[i]])
+        # lower_bound2 = np.array(lp_set[subset_idx[i]]) - 2 * np.array(lp_sd_set[subset_idx[i]])
+        # lower_bound2[lower_bound2<0] = 0
+        obj1, = ax.plot(x1, lp_set[i], color='black')
+        obj2, = ax.plot(x1, lp_max_set[i], color='red')
+        obj3, = ax.plot(x1, lp_min_set[i], color='green')
+        obj.append([obj1,obj2,obj3])
+        ax.set_title(tags[i], fontsize=9)
         ax.grid(axis='y')
         ax.axhline(y=40, color='red', alpha=0.5)
         # ax.axvline(x=56, color='blue', alpha=0.5)
-        obj1 = ax.fill_between(x1, upper_bound1, lower_bound1, alpha=0.8, color='black')
-        obj2 = ax.fill_between(x1, upper_bound2, lower_bound2, alpha=0.4, color='gray')
+        # obj1 = ax.fill_between(x1, upper_bound1, lower_bound1, alpha=0.8, color='black')
+        # obj2 = ax.fill_between(x1, upper_bound2, lower_bound2, alpha=0.4, color='gray')
         # ax.plot(x1, lp_max_set[0])
         ax.set_ylabel('load (pax)', fontsize=9)
         ax.set_xlabel('stop', fontsize=9)
         ax.tick_params(labelsize=9)
         i += 1
-    fig.legend([obj1, obj2], [r'$\mu \pm \sigma$', r'$\mu \pm 2\sigma$'], loc='lower center', fontsize=9, ncol=2,
+    fig.legend(obj[-1], ['median', '85-th', '15-th'], bbox_to_anchor=(0.535,0.0),loc='lower center', fontsize=9, ncol=3,
                columnspacing=0.8)
     plt.tight_layout()
     if pathname:
