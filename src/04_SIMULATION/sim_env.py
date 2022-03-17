@@ -44,7 +44,7 @@ def _compute_reward(action, fw_h, bw_h, prev_bw_h, prev_fw_h, prev_pax_at_s):
 
 class SimulationEnv:
     def __init__(self, no_overtake_policy=True, time_dependent_travel_time=True, time_dependent_demand=True,
-                 tt_factor=1.0, cv_hold_time=0.0):
+                 tt_factor=1.0, hold_adj_factor=0.0):
         # THE ONLY NECESSARY TRIP INFORMATION TO CARRY THROUGHOUT SIMULATION
         self.no_overtake_policy = no_overtake_policy
         self.time_dependent_travel_time = time_dependent_travel_time
@@ -53,7 +53,7 @@ class SimulationEnv:
         # RECORDINGS
         self.trajectories = {}
         self.tt_factor = tt_factor
-        self.cv_hold_time = cv_hold_time
+        self.hold_adj_factor = hold_adj_factor
 
 
 class DetailedSimulationEnv(SimulationEnv):
@@ -675,6 +675,9 @@ class DetailedSimulationEnvWithControl(DetailedSimulationEnv):
         if stop.stop_id == STOPS[0]:
             if backward_headway > forward_headway:
                 holding_time = min(limit_holding, (backward_headway - forward_headway)/2)
+                if self.hold_adj_factor > 0 and holding_time > 0:
+                    holding_time = np.random.uniform(self.hold_adj_factor * holding_time, holding_time)
+                assert holding_time >= 0
                 self.inbound_dispatch(hold=holding_time)
             else:
                 self.inbound_dispatch()
@@ -683,6 +686,9 @@ class DetailedSimulationEnvWithControl(DetailedSimulationEnv):
             self.fixed_stop_load()
             if backward_headway > forward_headway:
                 holding_time = min(limit_holding, (backward_headway - forward_headway)/2)
+                if self.hold_adj_factor > 0 and holding_time > 0:
+                    holding_time = np.random.uniform(self.hold_adj_factor * holding_time, holding_time)
+                assert holding_time >= 0
                 self.fixed_stop_depart(hold=holding_time)
             else:
                 self.fixed_stop_depart()
@@ -900,9 +906,8 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
         self.trips_sars[trip_id][-1][1] = action
         if action:
             hold_time = (action - 1) * BASE_HOLDING_TIME
-            if self.cv_hold_time > 0 and hold_time > 0:
-                stdev = hold_time * self.cv_hold_time
-                hold_time = np.random.normal(loc=hold_time, scale=stdev)
+            if self.hold_adj_factor > 0 and hold_time > 0:
+                hold_time = np.random.uniform(self.hold_adj_factor * hold_time, hold_time)
                 assert hold_time >= 0
             if bus.last_stop_id == STOPS[0]:
                 self.inbound_dispatch(hold=hold_time)
@@ -1019,7 +1024,7 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
         # in hours
         return reward
 
-    def update_rewards(self, simple_reward=False, weight_ride_time=0, weight_hw=0.7):
+    def update_rewards(self, simple_reward=False, weight_ride_time=0, weight_hw=0.78):
         bus = self.bus
         trip_id = bus.active_trip[0].trip_id
 
@@ -1046,7 +1051,11 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
                 fw_h1 = prev_sars[3][IDX_FW_H]
                 planned_fw_h = SCHED_DEP_IN[trip_idx] - SCHED_DEP_IN[trip_idx - 1]
                 hw_variation = (fw_h1 - planned_fw_h)/planned_fw_h
-                reward = - weight_hw*hw_variation * hw_variation - (1-weight_hw)*(prev_hold/LIMIT_HOLDING)
+                if self.hold_adj_factor > 0:
+                    prev_hold = prev_hold - (prev_hold - self.hold_adj_factor * prev_hold)/2
+                    reward = - weight_hw*hw_variation * hw_variation - (1-weight_hw)*(prev_hold/LIMIT_HOLDING)
+                else:
+                    reward = - weight_hw*hw_variation * hw_variation - (1-weight_hw)*(prev_hold/LIMIT_HOLDING)
                 self.trips_sars[trip_id][sars_idx][2] = reward
                 self.pool_sars.append(self.trips_sars[trip_id][sars_idx] + [self.bool_terminal_state])
             else:

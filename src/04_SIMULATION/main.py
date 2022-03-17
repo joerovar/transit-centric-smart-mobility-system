@@ -31,7 +31,7 @@ if __name__ == '__main__':
     parser.add_argument('-weight_ride_time', type=float, default=0.0,
                         help='weight for ride time in reward')
     parser.add_argument('-tt_factor', type=float, default=1.0, help='dictates factor on variability')
-    parser.add_argument('-cv_hold_time', type=float, default=0.0, help='compliance on holding')
+    parser.add_argument('-hold_adj_factor', type=float, default=0.0, help='holding adjustment factor')
     parser.add_argument('-estimated_pax', type=float, default=False,
                         help='make stops be estimated for RL observations')
 
@@ -63,11 +63,11 @@ if __name__ == '__main__':
 
         arg_params = {'param': ['n_episodes', 'lr', 'eps_min', 'gamma', 'eps_dec', 'eps', 'max_mem', 'bs',
                                 'replace', 'algo', 'simple_rew', 'fc_dims', 'weight_ride_time', 'limit_hold',
-                                'tt_factor', 'cv_hold_time', 'estimated_pax'],
+                                'tt_factor', 'hold_adj_factor', 'estimated_pax', 'n_episodes'],
                       'value': [args.n_episodes, args.lr, args.eps_min, args.gamma, args.gamma, args.eps, args.max_mem,
                                 args.bs, args.replace, args.algo, args.simple_reward, args.fc_dims,
-                                args.weight_ride_time, LIMIT_HOLDING, args.tt_factor, args.cv_hold_time,
-                                args.estimated_pax]}
+                                args.weight_ride_time, LIMIT_HOLDING, args.tt_factor, args.hold_adj_factor,
+                                args.estimated_pax, args.n_episodes]}
         df_params = pd.DataFrame(arg_params)
         df_params.to_csv(params_file, index=False)
 
@@ -75,7 +75,7 @@ if __name__ == '__main__':
         n_steps = 0
         for j in range(args.n_episodes):
             score = 0
-            env = sim_env.DetailedSimulationEnvWithDeepRL(cv_hold_time=args.cv_hold_time)
+            env = sim_env.DetailedSimulationEnvWithDeepRL(hold_adj_factor=args.hold_adj_factor)
             done = env.reset_simulation()
             done = env.prep()
             nr_sars_stored = 0
@@ -137,7 +137,7 @@ if __name__ == '__main__':
         pax_set = []
         for j in range(args.n_episodes):
             score = 0
-            env = sim_env.DetailedSimulationEnvWithDeepRL(tt_factor=args.tt_factor, cv_hold_time=args.cv_hold_time,
+            env = sim_env.DetailedSimulationEnvWithDeepRL(tt_factor=args.tt_factor, hold_adj_factor=args.hold_adj_factor,
                                                           estimate_pax=args.estimated_pax)
             done = env.reset_simulation()
             done = env.prep()
@@ -212,6 +212,6 @@ if __name__ == '__main__':
 
 # cd src/04_SIMULATION
 # train
-# python main.py -algo -n_episodes -simple_reward -weight_ride_time
+# python main.py -algo -n_episodes -simple_reward -weight_ride_time -hold_adj_factor
 # test
-# python main.py -env (tstamp) -algo -n_episodes -eps -load_checkpoint -test_save_folder -simple_reward
+# python main.py -env (tstamp) -algo -n_episodes -eps -load_checkpoint -test_save_folder -simple_reward -hold_adj_factor

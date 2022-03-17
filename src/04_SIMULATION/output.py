@@ -17,8 +17,7 @@ class PostProcessor:
             self.nr_reps = nr_reps
             self.path_dir = path_dir
 
-    def pax_times_fast(self, sensitivity_run_t=False, include_rbt=False,
-                       sensitivity_compliance=False):
+    def pax_times_fast(self, include_rbt=False):
         db_mean = []
         dbwt_mean = []
         wt_all_set = []
@@ -50,18 +49,11 @@ class PostProcessor:
                      'wt_4_inf': pc_wt_4_inf_set}
         if include_rbt:
             save(self.path_dir + 'rbt_numer.pkl', rbt_od_set)
-        if sensitivity_run_t:
-            plot_sensitivity_whisker(wt_all_set, ['DDQN-LA', 'DDQN-HA'], ['cv: -20%', 'cv: base', 'cv: +20%'],
-                                     'avg pax wait time (min)', self.path_dir + 'wt.png')
-        elif sensitivity_compliance:
-            plot_sensitivity_whisker(wt_all_set, ['DDQN-LA', 'DDQN-HA'], ['0% (base)', '10%', '20%'],
-                                     'avg pax wait time (min)', self.path_dir + 'wt.png')
-        else:
-            save(self.path_dir + 'wt_numer.pkl', wt_all_set)
+        save(self.path_dir + 'wt_numer.pkl', wt_all_set)
 
         return results_d
 
-    def headway(self, sensitivity_run_t=False, sensitivity_compliance=False):
+    def headway(self):
         cv_hw_set = []
         cv_all_reps = []
         cv_hw_tp_set = []
@@ -82,21 +74,7 @@ class PostProcessor:
                                       for cv in cv_hw_tp_set],
                       'h_pk': [np.around(np.mean(hw), decimals=2) for hw in hw_peak_set],
                       'std_h_pk': [np.around(np.std(hw), decimals=2) for hw in hw_peak_set]}
-
-        if sensitivity_run_t:
-            plot_sensitivity_whisker(cv_hw_tp_set, ['DDQN-LA', 'DDQN-HA'], ['cv: -20%', 'cv: base', 'cv: +20%'],
-                                     'coefficient of variation of headway', self.path_dir + 'hw_bplot.png')
-        elif sensitivity_compliance:
-            plot_sensitivity_whisker(cv_hw_tp_set, ['DDQN-LA', 'DDQN-HA'], ['0% (base)', '10%', '20%'],
-                                     'coefficient of variation of headway', self.path_dir + 'hw_bplot.png')
-        else:
-            plt.boxplot(cv_hw_tp_set, labels=self.cp_tags, sym='', widths=0.2)
-            plt.xticks(rotation=45)
-            plt.xlabel('method')
-            plt.ylabel('coefficient of variation of headway')
-            plt.tight_layout()
-            # plt.savefig(self.path_dir + 'cv_hw.png')
-            plt.close()
+        # cv_hw_tp_set is for whisker plot
         cv_hw_set_sub = cv_hw_set[0:3] + [cv_hw_set[-1]]
         tags = self.cp_tags[0:3] + [self.cp_tags[-1]]
         idx_control_stops = [STOPS.index(cs) + 1 for cs in CONTROLLED_STOPS[:-1]]
@@ -220,6 +198,15 @@ class PostProcessor:
                       'tt_95': trip_time_95_set,
                       'tt_85': trip_time_85_set}
         return results_tt
+
+    def validation(self):
+        temp_cv_hw, cv_hw_tp, cv_hw_mean, hw_peak = get_headway_from_trajectory_set(self.cp_trips[0], IDX_ARR_T, STOPS,
+                                                                                    STOPS[50],
+                                                                                    controlled_stops=CONTROLLED_STOPS)
+        cv_hw_set = [cv_hw_tp]
+        plot_headway(cv_hw_set, STOPS, self.cp_tags, self.colors, pathname=self.path_dir + 'hw.png',
+                     controlled_stops=CONTROLLED_STOPS[:-1])
+        return
 
     def load_profile_validation(self):
         load_profile_set = []

@@ -569,19 +569,25 @@ def plot_load_profile_benchmark(load_set, os, lbls, colors, load_sd_set=None, pa
     return
 
 
-def plot_sensitivity_whisker(dset, method_labels, scenario_labels, y_label, path_save):
-    fig, axes = plt.subplots(ncols=3, sharey='all')
-    fig.subplots_adjust(wspace=0.05)
+def plot_sensitivity_whisker(dset1, dset2, method_labels, scenario_labels, y_label1, y_label2, path_save,
+                             horizontal_line1=None, horizontal_line2=None):
+    nr_scenarios = len(scenario_labels)
+    nr_methods = len(method_labels)
+    fig, axes = plt.subplots(ncols=nr_scenarios, nrows=2, sharey='row', sharex='all')
+    fig.subplots_adjust(wspace=0.02)
+    for i in range(nr_scenarios):
+        axes[0, i].boxplot(dset1[nr_methods*i:nr_methods*(i+1)], sym='')
+        axes[0, i].set_xticks(np.arange(1, nr_methods+1))
+        axes[0, i].set_xticklabels(method_labels, fontsize=8)
+        axes[0, i].set(xlabel=scenario_labels[i])
+    axes[0, 0].set(ylabel=y_label1)
+    for i in range(nr_scenarios):
+        axes[1, i].boxplot(dset2[nr_methods*i:nr_methods*(i+1)], sym='')
+        axes[1, i].set_xticks(np.arange(1, nr_methods+1))
+        axes[1, i].set_xticklabels(method_labels, fontsize=8)
+        axes[1, i].set(xlabel=scenario_labels[i])
+    axes[1, 0].set(ylabel=y_label2)
 
-    axes[0].boxplot(dset[0:2], sym='')
-    axes[0].set_xticklabels(method_labels, fontsize=10)
-    axes[0].set(xlabel=scenario_labels[0], ylabel=y_label)
-    axes[1].boxplot(dset[2:4], sym='')
-    axes[1].set_xticklabels(method_labels, fontsize=10)
-    axes[1].set(xlabel=scenario_labels[1])
-    axes[2].boxplot(dset[4:6], sym='')
-    axes[2].set_xticklabels(method_labels, fontsize=10)
-    axes[2].set(xlabel=scenario_labels[2])
     plt.tight_layout()
     plt.savefig(path_save)
     plt.close()

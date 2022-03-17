@@ -34,13 +34,14 @@ def run_base_detailed(replications=4, save_results=False, time_dep_tt=True, time
     return
 
 
-def run_base_control_detailed(replications=2, save_results=False, time_dep_tt=True, time_dep_dem=True):
+def run_base_control_detailed(replications=2, save_results=False, time_dep_tt=True, time_dep_dem=True,
+                              hold_adj_factor=0.0):
     tstamp = datetime.now().strftime('%m%d-%H%M%S')
     trajectories_set = []
     pax_set = []
     for _ in range(replications):
         env = DetailedSimulationEnvWithControl(time_dependent_travel_time=time_dep_tt,
-                                               time_dependent_demand=time_dep_dem)
+                                               time_dependent_demand=time_dep_dem, hold_adj_factor=hold_adj_factor)
         done = env.reset_simulation()
         while not done:
             done = env.prep()
@@ -88,12 +89,12 @@ def run_sample_rl(episodes=1, simple_reward=False):
     return
 
 
-N_REPLICATIONS = 30
+N_REPLICATIONS = 70
 
 # RUN BENCHMARK
 # run_base_detailed(replications=N_REPLICATIONS, save_results=True)
-# run_base_control_detailed(replications=N_REPLICATIONS, save_results=True)
-
+# run_base_control_detailed(replications=N_REPLICATIONS, save_results=True, hold_adj_factor=0.8)
+# run_base_control_detailed(replications=N_REPLICATIONS, save_results=True, hold_adj_factor=0.6)
 # WEIGHTS COMPARISON
 # prc_w = PostProcessor([path_tr_ddqn_ha3, path_tr_ddqn_ha5, path_tr_ddqn_ha7, path_tr_ddqn_ha9, path_tr_ddqn_ha11],
 #                       [path_p_ddqn_ha3, path_p_ddqn_ha5, path_p_ddqn_ha7, path_p_ddqn_ha9, path_p_ddqn_ha11],
@@ -136,9 +137,9 @@ N_REPLICATIONS = 30
 #                     [path_p_nc_b, path_p_eh_b, path_p_ddqn_la_b,
 #                      path_p_ddqn_ha_b], tags_b, N_REPLICATIONS,
 #                     path_dir_b)
-#
-# # prc.sample_trajectories()
-# # prc.pax_profile_base()
+
+# prc.sample_trajectories()
+# prc.pax_profile_base()
 # results = {}
 # results.update(prc.pax_times_fast(include_rbt=False))
 #
@@ -146,11 +147,12 @@ N_REPLICATIONS = 30
 # rbt_od_set = rbt_od_set[:3] + [rbt_od_set[-1]]
 # for i in range(len(rbt_od_set)):
 #     rbt_od_set[i] = [rbt / 60 for rbt in rbt_od_set[i]]
-# results.update({'rbt_od': [np.around(np.mean(rbt), decimals=2) for rbt in rbt_od_set]})
+# results.update({'rbt_mean': [np.around(np.mean(rbt), decimals=2) for rbt in rbt_od_set],
+#                 'rbt_median': [np.around(np.median(rbt), decimals=2) for rbt in rbt_od_set]})
 # results.update(prc.headway())
 # results.update(prc.load_profile())
 # results.update(prc.trip_time_dist())
-# prc.write_trajectories()
+# # prc.write_trajectories()
 # results.update(prc.control_actions())
 # results_df = pd.DataFrame(results, columns=list(results.keys()))
 # results_df.to_csv(path_dir_b + 'numer_results.csv', index=False)
@@ -175,14 +177,15 @@ N_REPLICATIONS = 30
 # plt.close()
 
 
-# CHECK TRIP TIMES (DWELL TIMES AND EXTREME TT BOUND
-prc_t = PostProcessor([path_tr_nc_t, path_tr_eh_t, path_tr_ddqn_la_t,
-                       path_tr_ddqn_ha_t],
-                      [path_p_nc_t, path_p_eh_t, path_p_ddqn_la_t,
-                       path_p_ddqn_la_t], tags_b, 30,
-                      path_dir_b)
-results = prc_t.trip_time_dist()
-print(results)
+# CHECK TRIP TIMES (DWELL TIMES AND EXTREME TT BOUND)
+# prc_t = PostProcessor([path_tr_nc_t, path_tr_eh_t, path_tr_ddqn_la_t,
+#                        path_tr_ddqn_ha_t],
+#                       [path_p_nc_t, path_p_eh_t, path_p_ddqn_la_t,
+#                        path_p_ddqn_la_t], tags_b, 30,
+#                       path_dir_b)
+# results = prc_t.trip_time_dist()
+# print(results)
+
 # # VARIABILITY RUN TIMES
 #
 # prc = PostProcessor([path_tr_ddqn_la_low_s1, path_tr_ddqn_ha_low_s1, path_tr_ddqn_la_base_s1, path_tr_ddqn_ha_base_s1,
@@ -190,13 +193,14 @@ print(results)
 #                     [path_p_ddqn_la_low_s1, path_p_ddqn_ha_low_s1, path_p_ddqn_la_base_s1, path_p_ddqn_ha_base_s1,
 #                      path_p_ddqn_la_high_s1, path_p_ddqn_ha_high_s1], tags_s1, N_REPLICATIONS, path_dir_s1)
 # results = {}
-# results.update(prc.pax_times_fast(sensitivity_run_t=True, include_rbt=False))
+# results.update(prc.pax_times_fast(include_rbt=False))
 #
 # rbt_od_set = load(path_dir_s1 + 'rbt_numer.pkl')
 # for i in range(len(rbt_od_set)):
 #     rbt_od_set[i] = [rbt/60 for rbt in rbt_od_set[i]]
-# plot_sensitivity_whisker(rbt_od_set, ['DDQN-LA', 'DDQN-HA'], ['cv: -20%', 'cv: base', 'cv: +20%'],
-#                          'reliability buffer time (min)', path_dir_s1+'rbt.png')
+# wt_all_set = load(path_dir_s1 + 'wt_numer.pkl')
+# plot_sensitivity_whisker(rbt_od_set, wt_all_set, ['DDQN-LA', 'DDQN-HA'], ['cv: -20%', 'cv: base', 'cv: +20%'],
+#                          'reliability buffer time (min)', 'avg pax wait time (min)', path_dir_s1 + 'pax_times.png')
 # results.update({'rbt_od': [np.around(np.mean(rbt), decimals=2) for rbt in rbt_od_set]})
 # results.update(prc.headway(sensitivity_run_t=True))
 # results_df = pd.DataFrame(results, columns=list(results.keys()))
@@ -204,19 +208,20 @@ print(results)
 #
 # # SENSITIVITY TO COMPLIANCE FACTOR
 #
-# prc = PostProcessor([path_tr_ddqn_la_base_s2, path_tr_ddqn_ha_base_s2, path_tr_ddqn_la_10_s2, path_tr_ddqn_ha_10_s2,
-#                      path_tr_ddqn_la_20_s2, path_tr_ddqn_ha_20_s2],
-#                     [path_p_ddqn_la_base_s2, path_p_ddqn_ha_base_s2, path_p_ddqn_la_10_s2, path_p_ddqn_ha_10_s2,
-#                      path_p_ddqn_la_20_s2, path_p_ddqn_ha_20_s2], tags_s2, N_REPLICATIONS, path_dir_s2)
-# results = {}
-# results.update(prc.pax_times_fast(sensitivity_compliance=True, include_rbt=False))
-#
-# rbt_od_set = load(path_dir_s2 + 'rbt_numer.pkl')
-# for i in range(len(rbt_od_set)):
-#     rbt_od_set[i] = [rbt/60 for rbt in rbt_od_set[i]]
-# plot_sensitivity_whisker(rbt_od_set, ['DDQN-LA', 'DDQN-HA'], ['0% (base)', '10%', '20%'],
-#                          'reliability buffer time (min)', path_dir_s2+'rbt.png')
-# results.update({'rbt_od': [np.around(np.mean(rbt), decimals=2) for rbt in rbt_od_set]})
+prc = PostProcessor([path_tr_eh_base_s2, path_tr_ddqn_la_base_s2, path_tr_ddqn_ha_base_s2,
+                     path_tr_eh_80_s2, path_tr_ddqn_la_80_s2, path_tr_ddqn_ha_80_s2,
+                     path_tr_eh_60_s2, path_tr_ddqn_la_60_s2, path_tr_ddqn_ha_60_s2],
+                    [path_p_eh_base_s2, path_p_ddqn_la_base_s2, path_p_ddqn_ha_base_s2,
+                     path_p_eh_80_s2, path_p_ddqn_la_80_s2, path_p_ddqn_ha_80_s2,
+                     path_p_eh_60_s2, path_p_ddqn_la_60_s2, path_p_ddqn_ha_60_s2], tags_s2, N_REPLICATIONS, path_dir_s2)
+results = {}
+results.update(prc.pax_times_fast(include_rbt=False))
+rbt_od_set = load(path_dir_s2 + 'rbt_numer.pkl')
+wt_all_set = load(path_dir_s2 + 'wt_numer.pkl')
+plot_sensitivity_whisker(rbt_od_set, wt_all_set, ['EH', 'DDQN-LA', 'DDQN-HA'], ['base', '0.8', '0.6'],
+                         'reliability buffer time (min)', 'avg pax wait time (min)', path_dir_s2 + 'pax_times.png')
+results.update({'rbt_mean': [np.around(np.mean(rbt), decimals=2) for rbt in rbt_od_set],
+                'rbt_median': [np.around(np.median(rbt), decimals=2) for rbt in rbt_od_set]})
 # results.update(prc.headway(sensitivity_compliance=True))
-# results_df = pd.DataFrame(results, columns=list(results.keys()))
-# results_df.to_csv(path_dir_s2 + 'numer_results.csv', index=False)
+results_df = pd.DataFrame(results, columns=list(results.keys()))
+results_df.to_csv(path_dir_s2 + 'numer_results.csv', index=False)
