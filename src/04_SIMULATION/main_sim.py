@@ -151,7 +151,6 @@ N_REPLICATIONS = 70
 #                 'rbt_median': [np.around(np.median(rbt), decimals=2) for rbt in rbt_od_set]})
 # results.update(prc.headway())
 # results.update(prc.load_profile())
-# results.update(prc.trip_time_dist())
 # # prc.write_trajectories()
 # results.update(prc.control_actions())
 # results_df = pd.DataFrame(results, columns=list(results.keys()))
@@ -178,13 +177,13 @@ N_REPLICATIONS = 70
 
 
 # CHECK TRIP TIMES (DWELL TIMES AND EXTREME TT BOUND)
-# prc_t = PostProcessor([path_tr_nc_t, path_tr_eh_t, path_tr_ddqn_la_t,
-#                        path_tr_ddqn_ha_t],
-#                       [path_p_nc_t, path_p_eh_t, path_p_ddqn_la_t,
-#                        path_p_ddqn_la_t], tags_b, 30,
-#                       path_dir_b)
-# results = prc_t.trip_time_dist()
-# print(results)
+prc_t = PostProcessor([path_tr_nc_t, path_tr_eh_t, path_tr_ddqn_la_t,
+                       path_tr_ddqn_ha_t],
+                      [path_p_nc_t, path_p_eh_t, path_p_ddqn_la_t,
+                       path_p_ddqn_la_t], tags_b, 30,
+                      path_dir_b)
+results = prc_t.trip_time_dist()
+print(results)
 
 # # VARIABILITY RUN TIMES
 #
@@ -208,20 +207,20 @@ N_REPLICATIONS = 70
 #
 # # SENSITIVITY TO COMPLIANCE FACTOR
 #
-prc = PostProcessor([path_tr_eh_base_s2, path_tr_ddqn_la_base_s2, path_tr_ddqn_ha_base_s2,
-                     path_tr_eh_80_s2, path_tr_ddqn_la_80_s2, path_tr_ddqn_ha_80_s2,
-                     path_tr_eh_60_s2, path_tr_ddqn_la_60_s2, path_tr_ddqn_ha_60_s2],
-                    [path_p_eh_base_s2, path_p_ddqn_la_base_s2, path_p_ddqn_ha_base_s2,
-                     path_p_eh_80_s2, path_p_ddqn_la_80_s2, path_p_ddqn_ha_80_s2,
-                     path_p_eh_60_s2, path_p_ddqn_la_60_s2, path_p_ddqn_ha_60_s2], tags_s2, N_REPLICATIONS, path_dir_s2)
-results = {}
-results.update(prc.pax_times_fast(include_rbt=False))
-rbt_od_set = load(path_dir_s2 + 'rbt_numer.pkl')
-wt_all_set = load(path_dir_s2 + 'wt_numer.pkl')
-plot_sensitivity_whisker(rbt_od_set, wt_all_set, ['EH', 'DDQN-LA', 'DDQN-HA'], ['base', '0.8', '0.6'],
-                         'reliability buffer time (min)', 'avg pax wait time (min)', path_dir_s2 + 'pax_times.png')
-results.update({'rbt_mean': [np.around(np.mean(rbt), decimals=2) for rbt in rbt_od_set],
-                'rbt_median': [np.around(np.median(rbt), decimals=2) for rbt in rbt_od_set]})
-# results.update(prc.headway(sensitivity_compliance=True))
-results_df = pd.DataFrame(results, columns=list(results.keys()))
-results_df.to_csv(path_dir_s2 + 'numer_results.csv', index=False)
+# prc = PostProcessor([path_tr_eh_base_s2, path_tr_ddqn_la_base_s2, path_tr_ddqn_ha_base_s2,
+#                      path_tr_eh_80_s2, path_tr_ddqn_la_80_s2, path_tr_ddqn_ha_80_s2,
+#                      path_tr_eh_60_s2, path_tr_ddqn_la_60_s2, path_tr_ddqn_ha_60_s2],
+#                     [path_p_eh_base_s2, path_p_ddqn_la_base_s2, path_p_ddqn_ha_base_s2,
+#                      path_p_eh_80_s2, path_p_ddqn_la_80_s2, path_p_ddqn_ha_80_s2,
+#                      path_p_eh_60_s2, path_p_ddqn_la_60_s2, path_p_ddqn_ha_60_s2], tags_s2, N_REPLICATIONS, path_dir_s2)
+# results = {}
+# results.update(prc.pax_times_fast(include_rbt=False))
+# rbt_od_set = load(path_dir_s2 + 'rbt_numer.pkl')
+# wt_all_set = load(path_dir_s2 + 'wt_numer.pkl')
+# plot_sensitivity_whisker(rbt_od_set, wt_all_set, ['EH', 'DDQN-LA', 'DDQN-HA'], ['base', '0.8', '0.6'],
+#                          'reliability buffer time (min)', 'avg pax wait time (min)', path_dir_s2 + 'pax_times.png')
+# results.update({'rbt_mean': [np.around(np.mean(rbt), decimals=2) for rbt in rbt_od_set],
+#                 'rbt_median': [np.around(np.median(rbt), decimals=2) for rbt in rbt_od_set]})
+# # results.update(prc.headway(sensitivity_compliance=True))
+# results_df = pd.DataFrame(results, columns=list(results.keys()))
+# results_df.to_csv(path_dir_s2 + 'numer_results.csv', index=False)
