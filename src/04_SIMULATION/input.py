@@ -45,10 +45,11 @@ def extract_params(inbound_route_params=False, outbound_route_params=False, dema
         schedule_arr = np.array(schedule)
         focus_trips = ordered_trips[
             (schedule_arr <= FOCUS_END_TIME_SEC) & (schedule_arr >= FOCUS_START_TIME_SEC)].tolist()
-        trip_times, headway_in = get_trip_times(path_stop_times, focus_trips, DATES, stops, path_extra_stop_times,
+        trip_times, headway_in, headway_in_cv = get_trip_times(path_stop_times, focus_trips, DATES, stops, path_extra_stop_times,
                                                 EXTRA_DATES)
         save('in/xtr/rt_20-2019-09/trip_times_inbound.pkl', trip_times)
         save('in/xtr/rt_20-2019-09/departure_headway_inbound.pkl', headway_in)
+        save('in/xtr/rt_20-2019-09/cv_headway_inbound.pkl', headway_in_cv)
         # write_inbound_trajectories(path_stop_times, ordered_trips)
         # load_profile = get_load_profile(path_stop_times, focus_trips, stops)
         # save('in/xtr/rt_20-2019-09/load_profile.pkl', load_profile)
@@ -77,7 +78,7 @@ def get_params_outbound():
     return trip_times1_params, trip_times2_params, trips1_out_info, trips2_out_info, deadhead_times_params, sched_arrs
 
 
-# extract_params(demand=True)
+# extract_params(validation=True)
 
 STOPS, LINK_TIMES_INFO, TRIP_IDS_IN, SCHED_DEP_IN, ODT, SCHED_ARRS_IN, TRIP_TIMES_INPUT, BUS_IDS_IN = get_params_inbound()
 

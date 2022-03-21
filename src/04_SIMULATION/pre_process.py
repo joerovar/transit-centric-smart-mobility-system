@@ -443,20 +443,60 @@ def get_trip_times(stop_times_path, focus_trips, dates, stops, path_extra_stop_t
     trip_times = []
     stop_times_df = pd.read_csv(stop_times_path)
     extra_stop_times_df = pd.read_csv(path_extra_stop_times)
+    arrival_times = {}
     for t in focus_trips:
         temp_df = stop_times_df[stop_times_df['trip_id'] == t]
         for d in dates:
             df = temp_df[temp_df['avl_arr_time'].astype(str).str[:10] == d]
             df = df.sort_values(by='stop_sequence')
             stop_seq = df['stop_sequence'].tolist()
+            arrival_sec = df['avl_sec'].tolist()
             if stop_seq:
+                for s_idx in range(len(stop_seq)):
+                    if stop_seq[s_idx] != 1:
+                        ky = str(t) + str(d) + str(stops[stop_seq[s_idx] - 1])
+                        vl = arrival_sec[s_idx]
+                        arrival_times[ky] = vl
                 if stop_seq[0] == 1 and stop_seq[-1] == 67:
-                    arrival_sec = df['avl_sec'].tolist()
+                    dep_sec = df['avl_dep_sec'].tolist()
+                    schd_sec = df['schd_sec'].tolist()
+                    if schd_sec[0] - (dep_sec[0] % 86400) < tolerance_early_departure:
+                        trip_times.append(arrival_sec[-1] - dep_sec[0])
+        temp_df = extra_stop_times_df[extra_stop_times_df['trip_id'] == t]
+        for d in extra_dates:
+            df = temp_df[temp_df['avl_arr_time'].astype(str).str[:10] == d]
+            df = df.sort_values(by='stop_sequence')
+            stop_seq = df['stop_sequence'].tolist()
+            arrival_sec = df['avl_arr_sec'].tolist()
+            if stop_seq:
+                for s_idx in range(len(stop_seq)):
+                    if stop_seq[s_idx] != 1:
+                        ky = str(t) + str(d) + str(stops[stop_seq[s_idx] - 1])
+                        vl = arrival_sec[s_idx]
+                        arrival_times[ky] = vl
+                if stop_seq[0] == 1 and stop_seq[-1] == 67:
                     dep_sec = df['avl_dep_sec'].tolist()
                     schd_sec = df['schd_sec'].tolist()
                     if schd_sec[0] - (dep_sec[0] % 86400) < tolerance_early_departure:
                         trip_times.append(arrival_sec[-1] - dep_sec[0])
 
+    # PROCESS HEADWAY
+    hw_in_all = {s: [] for s in stops[1:]}
+    hw_in_cv = []
+    for d in dates + extra_dates:
+        for s in stops[1:]:
+            for n in range(1, len(focus_trips)):
+                ky0 = str(focus_trips[n-1]) + str(d) + str(s)
+                ky1 = str(focus_trips[n]) + str(d) + str(s)
+                if ky0 in arrival_times and ky1 in arrival_times:
+                    hwt = arrival_times[ky1] - arrival_times[ky0]
+                    if hwt > 0:
+                        hw_in_all[s].append(hwt)
+    for s in stops[1:]:
+        if hw_in_all[s]:
+            hws = remove_outliers(np.array(hw_in_all[s])).tolist()
+            # print(hws)
+            hw_in_cv.append(np.std(hws) / np.mean(hws))
     # THIS WE WILL USE TO VALIDATE THE OUTBOUND DIRECTION MODELING HENCE WE TAKE ALL DEPARTURES IN THE PERIOD OF STUDY
     hw = []
     df = stop_times_df[stop_times_df['stop_id'] == int(stops[30])]
@@ -499,7 +539,7 @@ def get_trip_times(stop_times_path, focus_trips, dates, stops, path_extra_stop_t
     hw_arr = np.array(hw)
     hw_arr = hw_arr[hw_arr >= 15]
     hw = remove_outliers(hw_arr).tolist()
-    return trip_times, hw
+    return trip_times, hw, hw_in_cv
 
 
 def get_dwell_times(stop_times_path, focus_trips, stops, dates):

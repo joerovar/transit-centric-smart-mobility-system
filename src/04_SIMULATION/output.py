@@ -169,35 +169,37 @@ class PostProcessor:
         trip_time_95_set = []
         trip_time_85_set = []
         i = 0
-        fig, axs = plt.subplots(2, 2, sharex='all', sharey='all')
-        for trips in self.cp_trips:
-            temp_trip_t = trip_time_from_trajectory_set(trips, IDX_DEP_T, IDX_ARR_T)
-            sns.histplot(temp_trip_t, kde=True, color='gray', alpha=0.5, ax=axs.flat[i])
-            axs.flat[i].axvline(np.percentile(temp_trip_t, 95), color='black', linestyle='dashed', alpha=0.7)
-            axs.flat[i].set_title(self.cp_tags[i], fontsize=9)
-            if i > 1:
-                axs.flat[i].set_xlabel('total trip time (seconds)', fontsize=8)
-            trip_time_mean_set.append(np.around(np.mean(temp_trip_t) / 60, decimals=2))
-            trip_time_sd_set.append(np.around(np.std(temp_trip_t) / 60, decimals=2))
-            trip_time_95_set.append(np.around(np.percentile(temp_trip_t, 95) / 60, decimals=2))
-            trip_time_85_set.append(np.around(np.percentile(temp_trip_t, 90) / 60, decimals=2))
-            i += 1
-        # plt.legend()
-        # plt.xlabel('total trip travel time (seconds)')
-        plt.xlim(3900, 5100)
-        plt.xticks(np.arange(3900, 5150, 300), np.arange(3900, 5100, 300).tolist() + ['>5100'])
-        for ax in axs.flat:
-            ax.tick_params(labelsize=8)
-            ax.set_ylabel('frequency', fontsize=8)
-        # plt.tick_params(labelsize=9)
-        plt.tight_layout()
-        plt.savefig(self.path_dir + 'trip_time_dist.png')
-        plt.close()
-        results_tt = {'tt_mean': trip_time_mean_set,
-                      'tt_sd': trip_time_sd_set,
-                      'tt_95': trip_time_95_set,
-                      'tt_85': trip_time_85_set}
-        return results_tt
+        # fig, axs = plt.subplots(2, 2, sharex='all', sharey='all')
+        temp_trip_t = trip_time_from_trajectory_set(self.cp_trips[0], IDX_DEP_T, IDX_ARR_T)
+        save(self.path_dir + 'trip_time_sim' + '.pkl', temp_trip_t)
+        # for trips in self.cp_trips:
+        #     temp_trip_t = trip_time_from_trajectory_set(trips, IDX_DEP_T, IDX_ARR_T)
+        #     sns.histplot(temp_trip_t, kde=True, color='gray', alpha=0.5, ax=axs.flat[i])
+        #     axs.flat[i].axvline(np.percentile(temp_trip_t, 95), color='black', linestyle='dashed', alpha=0.7)
+        #     axs.flat[i].set_title(self.cp_tags[i], fontsize=9)
+        #     if i > 1:
+        #         axs.flat[i].set_xlabel('total trip time (seconds)', fontsize=8)
+        #     trip_time_mean_set.append(np.around(np.mean(temp_trip_t) / 60, decimals=2))
+        #     trip_time_sd_set.append(np.around(np.std(temp_trip_t) / 60, decimals=2))
+        #     trip_time_95_set.append(np.around(np.percentile(temp_trip_t, 95) / 60, decimals=2))
+        #     trip_time_85_set.append(np.around(np.percentile(temp_trip_t, 90) / 60, decimals=2))
+        #     i += 1
+        # # plt.legend()
+        # # plt.xlabel('total trip travel time (seconds)')
+        # plt.xlim(3900, 5100)
+        # plt.xticks(np.arange(3900, 5150, 300), np.arange(3900, 5100, 300).tolist() + ['>5100'])
+        # for ax in axs.flat:
+        #     ax.tick_params(labelsize=8)
+        #     ax.set_ylabel('frequency', fontsize=8)
+        # # plt.tick_params(labelsize=9)
+        # plt.tight_layout()
+        # plt.savefig(self.path_dir + 'trip_time_dist.png')
+        # plt.close()
+        # results_tt = {'tt_mean': trip_time_mean_set,
+        #               'tt_sd': trip_time_sd_set,
+        #               'tt_95': trip_time_95_set,
+        #               'tt_85': trip_time_85_set}
+        return
 
     def validation(self):
         temp_cv_hw, cv_hw_tp, cv_hw_mean, hw_peak = get_headway_from_trajectory_set(self.cp_trips[0], IDX_ARR_T, STOPS,

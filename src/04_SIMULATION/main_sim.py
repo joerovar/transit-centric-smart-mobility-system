@@ -177,13 +177,9 @@ N_REPLICATIONS = 70
 
 
 # CHECK TRIP TIMES (DWELL TIMES AND EXTREME TT BOUND)
-prc_t = PostProcessor([path_tr_nc_t, path_tr_eh_t, path_tr_ddqn_la_t,
-                       path_tr_ddqn_ha_t],
-                      [path_p_nc_t, path_p_eh_t, path_p_ddqn_la_t,
-                       path_p_ddqn_la_t], tags_b, 30,
-                      path_dir_b)
-results = prc_t.trip_time_dist()
-print(results)
+prc_t = PostProcessor([path_tr_nc_t, path_tr_eh_t, path_tr_ddqn_la_t, path_tr_ddqn_ha_t],
+                      [path_p_nc_t, path_p_eh_t, path_p_ddqn_la_t, path_p_ddqn_la_t], tags_b, 30, path_dir_b)
+prc_t.trip_time_dist()
 
 # # VARIABILITY RUN TIMES
 #
