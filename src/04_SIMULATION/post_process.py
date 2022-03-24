@@ -129,7 +129,6 @@ def plot_pax_profile(bd, al, lp, os, through, pathname=None, x_y_lbls=None, cont
     x2 = [i + w for i in x1]
     fig, ax1 = plt.subplots()
     ax2 = ax1.twinx()
-
     ax1.bar(x1, bd, w, label='ons', color='darkgreen')
     ax1.bar(x2, al, w, label='offs', color='palegreen')
     ax2.plot(x1, lp, label='load', color='dodgerblue')
@@ -145,13 +144,13 @@ def plot_pax_profile(bd, al, lp, os, through, pathname=None, x_y_lbls=None, cont
     x_tick_labels = x_ticks + 1
     ax1.set_xticks(x_ticks)
     ax1.set_xticklabels(x_tick_labels)
+    ax2.set_ylim(0, np.max(lp)+1)
     # right, left, top, bottom
     if x_y_lbls:
         ax1.set_xlabel(x_y_lbls[0])
-        ax1.set_ylabel(x_y_lbls[1], color='darkgreen')
-        ax2.set_ylabel(x_y_lbls[2], color='dodgerblue')
+        ax1.set_ylabel(x_y_lbls[1], color='black')
+        ax2.set_ylabel(x_y_lbls[2], color='black')
     plt.tight_layout()
-    plt.grid(axis='y')
     fig.legend(loc='upper center')
     if pathname:
         plt.savefig(pathname)
@@ -225,8 +224,8 @@ def trip_time_from_trajectory_set(trajectory_set, idx_dep_t, idx_arr_t):
     trip_times = []
     for trajectories in trajectory_set:
         for trip in trajectories:
-            dep_time = trajectories[trip][0][idx_dep_t]
-            arr_time = trajectories[trip][-1][idx_arr_t]
+            dep_time = trajectories[trip][1][idx_dep_t]
+            arr_time = trajectories[trip][-2][idx_arr_t]
             trip_times.append(arr_time - dep_time)
     return trip_times
 
@@ -465,7 +464,7 @@ def plot_headway(cv_hw_set, ordered_stops, lbls, colors, pathname=None, controll
     x = np.arange(len(ordered_stops))
     j = 0
     for cv in cv_hw_set:
-        ax1.plot(x, cv, color=colors[j], label=lbls[j])
+        ax1.plot(x, cv, color=colors[j], label=lbls[j],marker='*')
         j += 1
 
     ax1.set_xlabel('stop', fontsize=8)
@@ -476,7 +475,7 @@ def plot_headway(cv_hw_set, ordered_stops, lbls, colors, pathname=None, controll
         for cs in controlled_stops:
             idx = ordered_stops.index(cs)
             plt.axvline(x=idx, color='gray', alpha=0.5, linestyle='dashed')
-    x_ticks = np.arange(0, len(ordered_stops), 5)
+    x_ticks = np.arange(0, len(ordered_stops), 3)
     x_tick_labels = x_ticks + 1
     ax1.set_xticks(x_ticks)
     ax1.set_xticklabels(x_tick_labels, fontsize=8)
@@ -493,24 +492,9 @@ def plot_headway(cv_hw_set, ordered_stops, lbls, colors, pathname=None, controll
 def plot_load_profile_grid(lp_set, lp_max_set, lp_min_set, os, tags, pathname=None):
     x1 = np.arange(len(os))
     fig, axs = plt.subplots(2, 2, sharex='all', sharey='all')
-    # axs[0, 0].plot(x1, lp_set[0], label=tags[0])
-    # axs[0, 0].plot(x1, lp_max_set[0])
-    # axs[0, 0]
-    # axs[0, 0].fill_between(x1, lp_max_set[0], lp_min_set[0], alpha=0.3)
-    # axs[0, 1].plot(x1, lp_set[1], label=tags[1])
-    # axs[0, 1].fill_between(x1, lp_max_set[1], lp_min_set[1], alpha=0.3)
-    # axs[1, 0].plot(x1, lp_set[2], label=tags[2])
-    # axs[1, 0].fill_between(x1, lp_max_set[2], lp_min_set[2], alpha=0.3)
-    # axs[1, 1].plot(x1, lp_set[0], label=tags[-1])
-    # axs[1, 1].fill_between(x1, lp_max_set[-1], lp_min_set[-1], alpha=0.3)
-    # subset_idx = [0, 1, 2, -1]
     obj = []
     i = 0
     for ax in axs.flat:
-        # upper_bound1 = np.array(lp_set[subset_idx[i]]) + np.array(lp_sd_set[subset_idx[i]])
-        # lower_bound1 = np.array(lp_set[subset_idx[i]]) - np.array(lp_sd_set[subset_idx[i]])
-        # upper_bound2 = np.array(lp_set[subset_idx[i]]) + 2 * np.array(lp_sd_set[subset_idx[i]])
-        # lower_bound2 = np.array(lp_set[subset_idx[i]]) - 2 * np.array(lp_sd_set[subset_idx[i]])
         # lower_bound2[lower_bound2<0] = 0
         obj1, = ax.plot(x1, lp_set[i], color='black')
         obj2, = ax.plot(x1, lp_max_set[i], color='red')
@@ -527,7 +511,7 @@ def plot_load_profile_grid(lp_set, lp_max_set, lp_min_set, os, tags, pathname=No
         ax.set_xlabel('stop', fontsize=9)
         ax.tick_params(labelsize=9)
         i += 1
-    fig.legend(obj[-1], ['median', '85-th', '15-th'], bbox_to_anchor=(0.535,0.0),loc='lower center', fontsize=9, ncol=3,
+    fig.legend(obj[-1], ['median', '95-th', '10-th'], bbox_to_anchor=(0.535,0.0),loc='lower center', fontsize=9, ncol=3,
                columnspacing=0.8)
     plt.tight_layout()
     if pathname:

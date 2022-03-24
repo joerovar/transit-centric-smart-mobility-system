@@ -1,3 +1,5 @@
+import pandas as pd
+
 from pre_process import *
 from file_paths import *
 from constants import *
@@ -18,6 +20,16 @@ def extract_params(inbound_route_params=False, outbound_route_params=False, dema
         save(path_departure_times_xtr, sched_deps_in)
         save('in/xtr/rt_20-2019-09/scheduled_arrivals_inbound.pkl', sched_arrs_in)
         save('in/xtr/rt_20-2019-09/bus_ids_inbound.pkl', bus_ids_in)
+        stop_df = pd.read_csv('in/raw/gtfs/stops.txt')
+        stop_df = stop_df[stop_df['stop_id'].isin([int(s) for s in stops])]
+
+        stop_seq_dict = {'stop_id': [int(s) for s in stops], 'stop_seq': [i for i in range(1, len(stops)+1)]}
+        stop_seq_df = pd.DataFrame(stop_seq_dict)
+        stop_df = pd.merge(stop_df, stop_seq_df, on='stop_id')
+        stop_df = stop_df.sort_values(by='stop_seq')
+        stop_df = stop_df[['stop_seq','stop_id', 'stop_name', 'stop_lat', 'stop_lon']]
+        stop_df.to_csv('in/rt_20_stops.csv', index=False)
+
     if outbound_route_params:
         trips1_info_out, trips2_info_out, sched_arrs_out, trip_times1_params, trip_times2_params, \
         deadhead_time_params, all_delays, all_trip_times = get_outbound_travel_time(
@@ -51,8 +63,19 @@ def extract_params(inbound_route_params=False, outbound_route_params=False, dema
         save('in/xtr/rt_20-2019-09/departure_headway_inbound.pkl', headway_in)
         save('in/xtr/rt_20-2019-09/cv_headway_inbound.pkl', headway_in_cv)
         # write_inbound_trajectories(path_stop_times, ordered_trips)
-        # load_profile = get_load_profile(path_stop_times, focus_trips, stops)
-        # save('in/xtr/rt_20-2019-09/load_profile.pkl', load_profile)
+        load_profile, ons, offs = get_load_profile(path_stop_times, focus_trips, stops)
+        fig, ax = plt.subplots()
+        ax1 = ax.twinx()
+        ax.plot(load_profile)
+        x = np.arange(len(load_profile))
+        w = 0.5
+        ax1.bar(x, ons, w)
+        ax1.bar(x + w, offs, w)
+        plt.savefig('in/pax_profile_observed.png')
+        plt.close()
+        save('in/xtr/rt_20-2019-09/ons_observed.png', ons)
+        save('in/xtr/rt_20-2019-09/offs_observed.png', offs)
+        save('in/xtr/rt_20-2019-09/load_profile.pkl', load_profile)
     return
 
 
@@ -97,6 +120,12 @@ FOCUS_TRIP_DEP_T_OUT_SHORT = [ti[1] for ti in TRIPS2_INFO_OUT if
 TRIP_IDS_OUT = [ti[0] for ti in TRIPS1_INFO_OUT]
 TRIP_IDS_OUT += [ti[0] for ti in TRIPS2_INFO_OUT]
 LINK_TIMES_MEAN, LINK_TIMES_EXTREMES, LINK_TIMES_PARAMS = LINK_TIMES_INFO
+# for link in LINK_TIMES_PARAMS:
+#     print(f'link {link}')
+#     for param_inter in LINK_TIMES_PARAMS[link]:
+#         if param_inter == param_inter:
+#             samp = lognorm.rvs(*param_inter, size=30)
+#             print(f'cv {np.round(np.std(samp)/np.mean(samp), decimals=2)}')
 # well known outlier link
 LINK_TIMES_MEAN['3954-8613'][1] = LINK_TIMES_MEAN['3954-8613'][3]
 LINK_TIMES_MEAN['3954-8613'][2] = LINK_TIMES_MEAN['3954-8613'][3]
@@ -121,9 +150,9 @@ for b in block_ids:
     BLOCK_DICT[b] = trip_ids
     trip_routes = block_df['route_type'].tolist()
     BLOCK_TRIPS_INFO.append((b, list(zip(trip_ids, sched_deps, trip_routes))))
-warm_up_odt = np.multiply(ODT[0], 0.4)
+warm_up_odt = np.multiply(ODT[0], 0.6)
 ODT = np.insert(ODT, 0, warm_up_odt, axis=0)
-warm_up_odt2 = np.multiply(ODT[0], 0.2)
+warm_up_odt2 = np.multiply(ODT[0], 0.3)
 ODT = np.insert(ODT, 0, warm_up_odt2, axis=0)
 ARR_RATES = np.nansum(ODT, axis=-1)
 PAX_INIT_TIME = [0] + [LINK_TIMES_MEAN[s0 + '-' + s1][0] for s0, s1 in zip(STOPS, STOPS[1:])]
@@ -154,10 +183,11 @@ CONTROL_TRIP_IDS = TRIP_IDS_IN[9:-11]
 CONTROL_SCHEDULE = SCHED_DEP_IN[9:-11]
 CONTROL_HW = [t1 - t0 for t1, t0 in zip(CONTROL_SCHEDULE[1:], CONTROL_SCHEDULE[:-1])]
 CONTROL_MEAN_HW = sum(CONTROL_HW) / len(CONTROL_HW)
-BASE_HOLDING_TIME = 25
-CONTROL_STRENGTH_PARAMETER = 0.68
+
+CONTROL_STRENGTH_PARAMETER = 0.8
 MIN_ALLOWED_HW = CONTROL_STRENGTH_PARAMETER * CONTROL_MEAN_HW
 
+BASE_HOLDING_TIME = 25
 MIN_HW_THRESHOLD = 0.4
 LIMIT_HOLDING = int(MIN_HW_THRESHOLD * CONTROL_MEAN_HW - MIN_HW_THRESHOLD * CONTROL_MEAN_HW % BASE_HOLDING_TIME)
 N_ACTIONS_RL = int(LIMIT_HOLDING / BASE_HOLDING_TIME) + 2

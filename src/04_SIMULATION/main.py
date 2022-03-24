@@ -2,13 +2,14 @@ import argparse
 import agents_dqn as Agents
 from utils import plot_learning
 import sim_env
-from post_process import pax_per_trip_from_trajectory_set, load
+from post_process import pax_per_trip_from_trajectory_set, load, save
 import numpy as np
 import time
+from datetime import datetime
 import matplotlib.pyplot as plt
 import pandas as pd
 from input import STOPS, CONTROLLED_STOPS, FOCUS_TRIPS_MEAN_HW, N_ACTIONS_RL, LIMIT_HOLDING, IDX_RT_PROGRESS
-from input import IDX_LOAD, IDX_PICK, IDX_DROP, N_STATE_PARAMS_RL, IDX_PAX_AT_STOP
+from input import IDX_LOAD, IDX_PICK, IDX_DROP, N_STATE_PARAMS_RL, IDX_PAX_AT_STOP, IDX_FW_H, IDX_BW_H, CONTROL_MEAN_HW
 import os
 
 if __name__ == '__main__':
@@ -20,9 +21,9 @@ if __name__ == '__main__':
     parser.add_argument('-lr', type=float, default=0.0001, help='Learning rate for optimizer')
     parser.add_argument('-eps_min', type=float, default=0.01,
                         help='Minimum value for epsilon in epsilon-greedy action selection')
-    parser.add_argument('-gamma', type=float, default=0.99, help='Discount factor for update equation.')
+    parser.add_argument('-gamma', type=float, default=0.985, help='Discount factor for update equation.')
     parser.add_argument('-eps_dec', type=float, default=1.5e-5, help='Linear factor for decreasing epsilon')
-    parser.add_argument('-eps', type=float, default=0.6,
+    parser.add_argument('-eps', type=float, default=0.64,
                         help='Starting value for epsilon in epsilon-greedy action selection')
     parser.add_argument('-max_mem', type=int, default=8000, help='Maximum size for memory replay buffer')
     parser.add_argument('-bs', type=int, default=32, help='Batch size for replay memory sampling')
@@ -33,7 +34,7 @@ if __name__ == '__main__':
                         help='DQNAgent/DDQNAgent/DuelingDQNAgent/DuelingDDQNAgent')
     parser.add_argument('-simple_reward', type=bool, default=False, help='delayed(false)/simple(true)')
 
-    parser.add_argument('-weight_ride_time', type=float, default=0.0,
+    parser.add_argument('-weight_ride_t', type=float, default=0.0,
                         help='weight for ride time in reward')
     parser.add_argument('-tt_factor', type=float, default=1.0, help='dictates factor on variability')
     parser.add_argument('-hold_adj_factor', type=float, default=0.0, help='holding adjustment factor')
@@ -71,7 +72,7 @@ if __name__ == '__main__':
                                 'tt_factor', 'hold_adj_factor', 'estimated_pax', 'n_episodes'],
                       'value': [args.n_episodes, args.lr, args.eps_min, args.gamma, args.gamma, args.eps, args.max_mem,
                                 args.bs, args.replace, args.algo, args.simple_reward, args.fc_dims,
-                                args.weight_ride_time, LIMIT_HOLDING, args.tt_factor, args.hold_adj_factor,
+                                args.weight_ride_t, LIMIT_HOLDING, args.tt_factor, args.hold_adj_factor,
                                 args.estimated_pax, args.n_episodes]}
         df_params = pd.DataFrame(arg_params)
         df_params.to_csv(params_file, index=False)
@@ -80,7 +81,8 @@ if __name__ == '__main__':
         n_steps = 0
         for j in range(args.n_episodes):
             score = 0
-            env = sim_env.DetailedSimulationEnvWithDeepRL(hold_adj_factor=args.hold_adj_factor)
+            env = sim_env.DetailedSimulationEnvWithDeepRL(hold_adj_factor=args.hold_adj_factor,
+                                                          weight_ride_t=args.weight_ride_t)
             done = env.reset_simulation()
             done = env.prep()
             nr_sars_stored = 0
@@ -91,6 +93,8 @@ if __name__ == '__main__':
                     observation = np.array(all_sars[-1][0], dtype=np.float32)
                     route_progress = observation[IDX_RT_PROGRESS]
                     pax_at_stop = observation[IDX_PAX_AT_STOP]
+                    fw_h = observation[IDX_FW_H]
+                    bw_h = observation[IDX_BW_H]
 
                     curr_stop = [s for s in env.stops if s.stop_id == env.bus.last_stop_id]
                     previous_denied = False
@@ -101,12 +105,17 @@ if __name__ == '__main__':
                                 break
                         else:
                             break
-                    if route_progress == 0.0 or pax_at_stop == 0 or previous_denied or args.simple_reward:
-                        action = agent.choose_action(observation, mask_idx=0)
+
+                    if route_progress == 0.0 and abs(fw_h-bw_h) < 0.1*CONTROL_MEAN_HW:
+                        action = agent.choose_action(observation, mask_idx=[0])
+                        # print(action)
+                    elif route_progress == 0.0 or pax_at_stop == 0 or previous_denied or args.simple_reward:
+                        action = agent.choose_action(observation, mask_idx=[0])
+                        # print(action)
                     else:
                         action = agent.choose_action(observation)
                     env.take_action(action)
-                env.update_rewards(simple_reward=args.simple_reward, weight_ride_time=args.weight_ride_time)
+                env.update_rewards(simple_reward=args.simple_reward)
                 if len(env.pool_sars) > nr_sars_stored:
                     observation, action, reward, observation_, terminal = env.pool_sars[-1]
                     observation = np.array(observation, dtype=np.float32)
@@ -136,104 +145,57 @@ if __name__ == '__main__':
     else:
         # --------------------------------- TESTING ----------------------------------------------------------------
         agent.load_models()
-        # tstamp = datetime.now().strftime('%m%d-%H%M%S')
-        # trajectories_set = []
-        # sars_set = []
-        # pax_set = []
-        # for j in range(args.n_episodes):
-        #     score = 0
-        #     env = sim_env.DetailedSimulationEnvWithDeepRL(tt_factor=args.tt_factor, hold_adj_factor=args.hold_adj_factor,
-        #                                                   estimate_pax=args.estimated_pax)
-        #     done = env.reset_simulation()
-        #     done = env.prep()
-        #     while not done:
-        #         if not env.bool_terminal_state:
-        #             trip_id = env.bus.active_trip[0].trip_id
-        #             all_sars = env.trips_sars[trip_id]
-        #             observation = np.array(all_sars[-1][0], dtype=np.float32)
-        #             route_progress = observation[IDX_RT_PROGRESS]
-        #             pax_at_stop = observation[IDX_PAX_AT_STOP]
-        #
-        #             curr_stop = [s for s in env.stops if s.stop_id == env.bus.last_stop_id]
-        #             previous_denied = False
-        #             for p in curr_stop[0].pax.copy():
-        #                 if p.arr_time <= env.time:
-        #                     if p.denied:
-        #                         previous_denied = True
-        #                         break
-        #                 else:
-        #                     break
-        #             if route_progress == 0.0 or pax_at_stop == 0 or previous_denied or args.simple_reward:
-        #                 action = agent.choose_action(observation, mask_idx=0)
-        #             else:
-        #                 action = agent.choose_action(observation)
-        #             env.take_action(action)
-        #         done = env.prep()
-        #     env.process_results()
-        #     trajectories_set.append(env.trajectories)
-        #     sars_set.append(env.trips_sars)
-        #     pax_set.append(env.completed_pax)
-        # path_trajectories = 'out/' + args.test_save_folder + '/trajectory_set_' + tstamp + '.pkl'
-        # path_sars = 'out/' + args.test_save_folder + '/sars_set_' + tstamp + '.pkl'
-        # path_completed_pax = 'out/' + args.test_save_folder + '/pax_set_' + tstamp + '.pkl'
+        tstamp = datetime.now().strftime('%m%d-%H%M%S')
+        trajectories_set = []
+        sars_set = []
+        pax_set = []
+        for j in range(args.n_episodes):
+            score = 0
+            env = sim_env.DetailedSimulationEnvWithDeepRL(tt_factor=args.tt_factor, hold_adj_factor=args.hold_adj_factor,
+                                                          estimate_pax=args.estimated_pax)
+            done = env.reset_simulation()
+            done = env.prep()
+            while not done:
+                if not env.bool_terminal_state:
+                    trip_id = env.bus.active_trip[0].trip_id
+                    all_sars = env.trips_sars[trip_id]
+                    observation = np.array(all_sars[-1][0], dtype=np.float32)
+                    route_progress = observation[IDX_RT_PROGRESS]
+                    pax_at_stop = observation[IDX_PAX_AT_STOP]
+                    fw_h = observation[IDX_FW_H]
+                    bw_h = observation[IDX_BW_H]
+                    curr_stop = [s for s in env.stops if s.stop_id == env.bus.last_stop_id]
+                    previous_denied = False
+                    for p in curr_stop[0].pax.copy():
+                        if p.arr_time <= env.time:
+                            if p.denied:
+                                previous_denied = True
+                                break
+                        else:
+                            break
+                    if route_progress == 0.0 and abs(fw_h-bw_h) < 0.1*CONTROL_MEAN_HW:
+                        action = agent.choose_action(observation, mask_idx=[0])
+                        # print(action)
+                    elif route_progress == 0.0 or pax_at_stop == 0 or previous_denied or args.simple_reward:
+                        action = agent.choose_action(observation, mask_idx=[0])
+                        # print(action)
+                    else:
+                        action = agent.choose_action(observation)
+                    env.take_action(action)
+                done = env.prep()
+            env.process_results()
+            trajectories_set.append(env.trajectories)
+            sars_set.append(env.trips_sars)
+            pax_set.append(env.completed_pax)
+        path_trajectories = 'out/' + args.test_save_folder + '/' + tstamp + '-trajectory_set.pkl'
+        path_sars = 'out/' + args.test_save_folder + '/' + tstamp + '-sars_set.pkl'
+        path_completed_pax = 'out/' + args.test_save_folder + '/' + tstamp + '-pax_set.pkl'
         # SAVE RESULTS
-        # post_process.save(path_trajectories, trajectories_set)
-        # post_process.save(path_sars, sars_set)
-        # post_process.save(path_completed_pax, pax_set)
-        # with open('out/' + args.test_save_folder + '/net_used_' + tstamp + '.csv', 'w') as f:
-        #     f.write(str(args.env))
-
-        # trajectories_set = load('out/DDQN-HA/trajectory_set_0303-120150.pkl')
-        # load_mean, _, _, ons_mean, _ = pax_per_trip_from_trajectory_set(trajectories_set, IDX_LOAD,
-        #                                                                 IDX_PICK, IDX_DROP, STOPS)
-        # hw = FOCUS_TRIPS_MEAN_HW
-        # stable = (hw+hw/4, hw+hw/4, hw)
-        # early = (hw-hw/4, hw+hw/4, hw)
-        # late = (hw+hw/4, hw-hw/4, hw)
-        # controlled_stop_idx = [STOPS.index(cs) + 1 for cs in CONTROLLED_STOPS[:-1]]
-        # policies = np.zeros((3, len(CONTROLLED_STOPS)-1, N_ACTIONS_RL))
-        # route_progress_scenarios = np.array([(STOPS.index(s) / len(STOPS)) for s in CONTROLLED_STOPS[:-1]])
-        # avg_load = np.array([load_mean[STOPS.index(s)] for s in CONTROLLED_STOPS[:-1]])
-        # avg_ons = np.array([ons_mean[STOPS.index(s)] for s in CONTROLLED_STOPS[:-1]])
-        # k = 0
-        # for scenario in (stable, early, late):
-        #     for i in range(route_progress_scenarios.size):
-        #         obs = np.array([route_progress_scenarios[i], avg_load[i], scenario[0], scenario[1], avg_ons[i], scenario[2]], dtype=np.float32)
-        #         # q_values = agent.q_values(obs).detach().numpy()[0][1:]
-        #         q_values = agent.q_values(obs).detach().numpy()[0]
-        #         temp = np.argsort(q_values)
-        #         rank_q_values = np.empty_like(temp)
-        #         rank_q_values[temp] = np.arange(len(q_values))
-        #         if scenario == stable and i == 1:
-        #             x = rank_q_values[-1]
-        #             rank_q_values[-1] = rank_q_values[-4]
-        #             rank_q_values[-4] = x
-        #         if scenario == stable and i in [2, 3]:
-        #             x = rank_q_values[-1]
-        #             rank_q_values[-1] = rank_q_values[-3]
-        #             rank_q_values[-3] = x
-        #         if scenario == late and i ==0:
-        #             x = rank_q_values[1]
-        #             rank_q_values[1] = rank_q_values[2]
-        #             rank_q_values[2] = x
-        #         policies[k, i] = rank_q_values
-        #     k += 1
-        # fig_names = [r'$h_{i,k}, h_{i+1,k} = (4.5, 4.5)$ min',
-        #              r'$h_{i,k}, h_{i+1,k} = (3.0, 6.0)$ min',
-        #              r'$h_{i,k}, h_{i+1,k} = (6.0, 3.0)$ min']
-        # fig, axs = plt.subplots(ncols=3, sharey='all')
-        # for i in range(policies.shape[0]):
-        #     axs[i].imshow(policies[i].T, cmap='Greys')
-        #     axs[i].set_xticks(np.arange(len(route_progress_scenarios)), controlled_stop_idx, fontsize=9)
-        #     axs[i].set_xlabel('control stop', fontsize=9)
-        #     axs[i].set_title(fig_names[i], fontsize=9)
-        #
-        # lbls = ['skip', '0', '25', '50', '75', '100']
-        # axs[0].set_ylabel(r'action (skip or $T_{hold}$)', fontsize=9)
-        # axs[0].set_yticks(np.arange(N_ACTIONS_RL), lbls, fontsize=9)
-        # plt.tight_layout()
-        # plt.savefig('out/q_policy_DDQN_HA.png')
-        # plt.close()
+        save(path_trajectories, trajectories_set)
+        save(path_sars, sars_set)
+        save(path_completed_pax, pax_set)
+        with open('out/' + args.test_save_folder + '/' + tstamp + '-net_used.csv', 'w') as f:
+            f.write(str(args.env))
 
 # cd src/04_SIMULATION
 # train

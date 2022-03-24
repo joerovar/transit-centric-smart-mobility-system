@@ -674,9 +674,13 @@ class DetailedSimulationEnvWithControl(DetailedSimulationEnv):
         limit_holding = max(0, (last_arr + MIN_ALLOWED_HW) - self.time)
         if stop.stop_id == STOPS[0]:
             if backward_headway > forward_headway:
+
                 holding_time = min(limit_holding, (backward_headway - forward_headway)/2)
                 if self.hold_adj_factor > 0 and holding_time > 0:
+                    # print('---')
+                    # print(f'before {round(holding_time)}')
                     holding_time = np.random.uniform(self.hold_adj_factor * holding_time, holding_time)
+                    # print(f'after {round(holding_time)}')
                 assert holding_time >= 0
                 self.inbound_dispatch(hold=holding_time)
             else:
@@ -687,7 +691,10 @@ class DetailedSimulationEnvWithControl(DetailedSimulationEnv):
             if backward_headway > forward_headway:
                 holding_time = min(limit_holding, (backward_headway - forward_headway)/2)
                 if self.hold_adj_factor > 0 and holding_time > 0:
+                    # print('---')
+                    # print(f'before {round(holding_time)}')
                     holding_time = np.random.uniform(self.hold_adj_factor * holding_time, holding_time)
+                    # print(f'after {round(holding_time)}')
                 assert holding_time >= 0
                 self.fixed_stop_depart(hold=holding_time)
             else:
@@ -745,12 +752,14 @@ class DetailedSimulationEnvWithControl(DetailedSimulationEnv):
 
 
 class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
-    def __init__(self, estimate_pax=False, *args, **kwargs):
+    def __init__(self, estimate_pax=False,  weight_ride_t=0, weight_cv_hw=0.81, *args, **kwargs):
         super(DetailedSimulationEnvWithDeepRL, self).__init__(*args, **kwargs)
         self.trips_sars = {}
         self.bool_terminal_state = False
         self.pool_sars = []
         self.estimate_pax = estimate_pax
+        self.weight_ride_t = weight_ride_t
+        self.weight_cv_hw = weight_cv_hw
 
     def reset_simulation(self):
         self.time = START_TIME_SEC
@@ -922,7 +931,7 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
                 self.fixed_stop_depart(skip=True)
         return
 
-    def delayed_reward(self, s0, s1, neighbor_prev_hold, weight_ride=0):
+    def delayed_reward(self, s0, s1, neighbor_prev_hold):
         bus = self.bus
         s0_idx = STOPS.index(s0) # you check from those pax boarding next to the control stop (impacted)
         s1_idx = STOPS.index(s1) # next control point
@@ -1020,11 +1029,16 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
                 sum_rew_behind_ride_time += ride
         reward_wait = (sum_rew_behind_wait_time + sum_rew_agent_wait_time)
         reward_ride = sum_rew_agent_ride_time
-        reward = - (reward_wait + weight_ride * reward_ride) / 60 / 60
+        reward = - (reward_wait + self.weight_ride_t * reward_ride) / 60 / 60
+        # print(f'REPORT ON REWARD')
+        # print(f'TOTAL REWARD: {round(reward,2)}')
+        # print(f'WAIT TIME CONTRIBUTION {round(reward_wait/60/60,2)} or {round(-reward_wait/60/60/reward*100,2)} %')
+        # print(f'RIDE TIME CONTRIBUTION {round(-self.weight_ride_t*reward_ride/60/60,2)} '
+        #       f'or {round(-self.weight_ride_t*reward_ride/60/60/reward*100,2)}')
         # in hours
         return reward
 
-    def update_rewards(self, simple_reward=False, weight_ride_time=0, weight_hw=0.78):
+    def update_rewards(self, simple_reward=False):
         bus = self.bus
         trip_id = bus.active_trip[0].trip_id
 
@@ -1045,6 +1059,7 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
             assert sars_idx < len(self.trips_sars[neighbor_trip_id])
             assert sars_idx < len(self.trips_sars[trip_id])
             if simple_reward:
+                weight_cv_hw = self.weight_cv_hw
                 prev_sars = self.trips_sars[trip_id][sars_idx]
                 prev_action = prev_sars[1]
                 prev_hold = (prev_action - 1) * BASE_HOLDING_TIME if prev_action > 1 else 0
@@ -1053,17 +1068,16 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
                 hw_variation = (fw_h1 - planned_fw_h)/planned_fw_h
                 if self.hold_adj_factor > 0:
                     prev_hold = prev_hold - (prev_hold - self.hold_adj_factor * prev_hold)/2
-                    reward = - weight_hw*hw_variation * hw_variation - (1-weight_hw)*(prev_hold/LIMIT_HOLDING)
+                    reward = - weight_cv_hw*hw_variation * hw_variation - (1-weight_cv_hw)*(prev_hold/LIMIT_HOLDING)
                 else:
-                    reward = - weight_hw*hw_variation * hw_variation - (1-weight_hw)*(prev_hold/LIMIT_HOLDING)
+                    reward = - weight_cv_hw*hw_variation * hw_variation - (1-weight_cv_hw)*(prev_hold/LIMIT_HOLDING)
                 self.trips_sars[trip_id][sars_idx][2] = reward
                 self.pool_sars.append(self.trips_sars[trip_id][sars_idx] + [self.bool_terminal_state])
             else:
                 prev_sars = self.trips_sars[neighbor_trip_id][sars_idx]
                 prev_action = prev_sars[1]
                 prev_hold = (prev_action - 1) * BASE_HOLDING_TIME if prev_action > 1 else 0
-                reward = self.delayed_reward(prev_control_stop, curr_control_stop, prev_hold,
-                                             weight_ride=weight_ride_time)
+                reward = self.delayed_reward(prev_control_stop, curr_control_stop, prev_hold)
                 assert self.trips_sars[neighbor_trip_id][sars_idx][3]
                 self.trips_sars[neighbor_trip_id][sars_idx][2] = reward
                 self.pool_sars.append(self.trips_sars[neighbor_trip_id][sars_idx] + [self.bool_terminal_state])

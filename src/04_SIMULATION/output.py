@@ -1,8 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
-
 from input import STOPS, CONTROLLED_STOPS, IDX_ARR_T, IDX_LOAD, IDX_PICK, IDX_DROP, IDX_HOLD_TIME, IDX_DEP_T, \
-    TRIP_IDS_IN, SCHED_DEP_IN
+    TRIP_IDS_IN, SCHED_DEP_IN, IDX_RT_PROGRESS, IDX_FW_H, IDX_BW_H, N_ACTIONS_RL, CONTROL_MEAN_HW
 from post_process import *
 
 
@@ -53,7 +52,7 @@ class PostProcessor:
 
         return results_d
 
-    def headway(self):
+    def headway(self, plot_bars=False):
         cv_hw_set = []
         cv_all_reps = []
         cv_hw_tp_set = []
@@ -66,8 +65,8 @@ class PostProcessor:
             cv_hw_set.append(temp_cv_hw)
             cv_all_reps.append(cv_hw_mean)
             hw_peak_set.append(hw_peak)
-        plot_headway(cv_hw_set, STOPS, self.cp_tags, self.colors, pathname=self.path_dir + 'hw.png',
-                     controlled_stops=CONTROLLED_STOPS[:-1])
+        # plot_headway(cv_hw_set, STOPS, self.cp_tags, self.colors, pathname=self.path_dir + 'hw.png',
+        #              controlled_stops=CONTROLLED_STOPS[:-1])
 
         results_hw = {'cv_h_tp': [np.around(np.mean(cv), decimals=2) for cv in cv_hw_tp_set],
                       'err_cv_h_tp': [np.around(np.power(1.96, 2) * np.var(cv) / np.sqrt(self.nr_reps), decimals=3)
@@ -75,28 +74,30 @@ class PostProcessor:
                       'h_pk': [np.around(np.mean(hw), decimals=2) for hw in hw_peak_set],
                       'std_h_pk': [np.around(np.std(hw), decimals=2) for hw in hw_peak_set]}
         # cv_hw_tp_set is for whisker plot
-        cv_hw_set_sub = cv_hw_set[0:3] + [cv_hw_set[-1]]
-        tags = self.cp_tags[0:3] + [self.cp_tags[-1]]
-        idx_control_stops = [STOPS.index(cs) + 1 for cs in CONTROLLED_STOPS[:-1]]
-        cv_tp_set = []
-        for cv in cv_hw_set_sub:
-            cv_tp_set.append([cv[k] for k in idx_control_stops])
-        x = np.arange(len(idx_control_stops))
-        width = 0.1
-        fig, ax = plt.subplots()
-        bar1 = ax.bar(x - 3 * width / 2, cv_tp_set[0], width, label=tags[0], color='white', edgecolor='black')
-        bar2 = ax.bar(x - width / 2, cv_tp_set[1], width, label=tags[1], color='silver', edgecolor='black')
-        bar3 = ax.bar(x + width / 2, cv_tp_set[2], width, label=tags[2], color='gray', edgecolor='black')
-        bar4 = ax.bar(x + 3 * width / 2, cv_tp_set[3], width, label=tags[3], color='black', edgecolor='black')
+        if plot_bars:
+            cv_hw_set_sub = cv_hw_set[0:3] + [cv_hw_set[-1]]
+            tags = self.cp_tags[0:3] + [self.cp_tags[-1]]
+            idx_control_stops = [STOPS.index(cs) + 1 for cs in CONTROLLED_STOPS[:-1]]
+            cv_tp_set = []
+            for cv in cv_hw_set_sub:
+                cv_tp_set.append([cv[k] for k in idx_control_stops])
+            x = np.arange(len(idx_control_stops))
+            width = 0.1
+            fig, ax = plt.subplots()
 
-        ax.set_ylabel('coefficient of variation of headway')
-        ax.set_xlabel('control stop')
-        ax.set_xticks(x, idx_control_stops)
-        ax.legend()
+            bar1 = ax.bar(x - 3 * width / 2, cv_tp_set[0], width, label=tags[0], color='white', edgecolor='black')
+            bar2 = ax.bar(x - width / 2, cv_tp_set[1], width, label=tags[1], color='silver', edgecolor='black')
+            bar3 = ax.bar(x + width / 2, cv_tp_set[2], width, label=tags[2], color='gray', edgecolor='black')
+            bar4 = ax.bar(x + 3 * width / 2, cv_tp_set[3], width, label=tags[3], color='black', edgecolor='black')
 
-        fig.tight_layout()
-        plt.savefig(self.path_dir + 'cv_hw_bar.png')
-        plt.close()
+            ax.set_ylabel('coefficient of variation of headway')
+            ax.set_xlabel('control stop')
+            ax.set_xticks(x, idx_control_stops)
+            ax.legend()
+
+            fig.tight_layout()
+            plt.savefig(self.path_dir + 'cv_hw_bar.png')
+            plt.close()
 
         return results_hw
 
@@ -169,37 +170,34 @@ class PostProcessor:
         trip_time_95_set = []
         trip_time_85_set = []
         i = 0
-        # fig, axs = plt.subplots(2, 2, sharex='all', sharey='all')
+        fig, axs = plt.subplots(2, 2, sharex='all', sharey='all')
         temp_trip_t = trip_time_from_trajectory_set(self.cp_trips[0], IDX_DEP_T, IDX_ARR_T)
-        save(self.path_dir + 'trip_time_sim' + '.pkl', temp_trip_t)
-        # for trips in self.cp_trips:
-        #     temp_trip_t = trip_time_from_trajectory_set(trips, IDX_DEP_T, IDX_ARR_T)
-        #     sns.histplot(temp_trip_t, kde=True, color='gray', alpha=0.5, ax=axs.flat[i])
-        #     axs.flat[i].axvline(np.percentile(temp_trip_t, 95), color='black', linestyle='dashed', alpha=0.7)
-        #     axs.flat[i].set_title(self.cp_tags[i], fontsize=9)
-        #     if i > 1:
-        #         axs.flat[i].set_xlabel('total trip time (seconds)', fontsize=8)
-        #     trip_time_mean_set.append(np.around(np.mean(temp_trip_t) / 60, decimals=2))
-        #     trip_time_sd_set.append(np.around(np.std(temp_trip_t) / 60, decimals=2))
-        #     trip_time_95_set.append(np.around(np.percentile(temp_trip_t, 95) / 60, decimals=2))
-        #     trip_time_85_set.append(np.around(np.percentile(temp_trip_t, 90) / 60, decimals=2))
-        #     i += 1
-        # # plt.legend()
-        # # plt.xlabel('total trip travel time (seconds)')
-        # plt.xlim(3900, 5100)
-        # plt.xticks(np.arange(3900, 5150, 300), np.arange(3900, 5100, 300).tolist() + ['>5100'])
-        # for ax in axs.flat:
-        #     ax.tick_params(labelsize=8)
-        #     ax.set_ylabel('frequency', fontsize=8)
-        # # plt.tick_params(labelsize=9)
-        # plt.tight_layout()
-        # plt.savefig(self.path_dir + 'trip_time_dist.png')
-        # plt.close()
-        # results_tt = {'tt_mean': trip_time_mean_set,
-        #               'tt_sd': trip_time_sd_set,
-        #               'tt_95': trip_time_95_set,
-        #               'tt_85': trip_time_85_set}
-        return
+        save(self.path_dir + 'trip_t_sim.pkl', temp_trip_t)
+        for trips in self.cp_trips:
+            temp_trip_t = trip_time_from_trajectory_set(trips, IDX_DEP_T, IDX_ARR_T)
+            # sns.histplot([t/60 for t in temp_trip_t], kde=True, color='gray', alpha=0.5, ax=axs.flat[i])
+            # axs.flat[i].axvline(np.percentile(temp_trip_t, 95)/60, color='black', linestyle='dashed', alpha=0.7)
+            # axs.flat[i].set_title(self.cp_tags[i], fontsize=9)
+            # if i > 1:
+            #     axs.flat[i].set_xlabel('total trip time (seconds)', fontsize=8)
+            trip_time_mean_set.append(np.around(np.mean(temp_trip_t) / 60, decimals=2))
+            trip_time_sd_set.append(np.around(np.std(temp_trip_t) / 60, decimals=2))
+            trip_time_95_set.append(np.around(np.percentile(temp_trip_t, 95) / 60, decimals=2))
+            trip_time_85_set.append(np.around(np.percentile(temp_trip_t, 90) / 60, decimals=2))
+            i += 1
+        plt.xlim(63, 83)
+        for ax in axs.flat:
+            ax.tick_params(labelsize=8)
+            ax.set_ylabel('frequency', fontsize=8)
+        # plt.tick_params(labelsize=9)
+        plt.tight_layout()
+        # plt.savefig(self.path_dir + 'trip_t_dist.png')
+        plt.close()
+        results_tt = {'tt_mean': trip_time_mean_set,
+                      'tt_sd': trip_time_sd_set,
+                      'tt_95': trip_time_95_set,
+                      'tt_85': trip_time_85_set}
+        return results_tt
 
     def validation(self):
         temp_cv_hw, cv_hw_tp, cv_hw_mean, hw_peak = get_headway_from_trajectory_set(self.cp_trips[0], IDX_ARR_T, STOPS,
@@ -236,9 +234,59 @@ class PostProcessor:
     def pax_profile_base(self):
         lp, _, _, ons, offs = pax_per_trip_from_trajectory_set(self.cp_trips[0], IDX_LOAD, IDX_PICK, IDX_DROP, STOPS)
         through = np.subtract(lp, offs)
+        through[through < 0] = 0
         through = through.tolist()
         plot_pax_profile(ons, offs, lp, STOPS, through, pathname='in/vis/pax_profile_base.png',
                          x_y_lbls=['stop', 'passengers (per trip)',
                                    'through passengers and passenger load (per trip)'],
                          controlled_stops=CONTROLLED_STOPS[:-1])
         return
+
+
+def policy():
+    sars_set = load('out/DDQN-HA/0323-224522-sars_set.pkl')
+    n_stops = len(STOPS)
+    rt_progress = [STOPS.index(c) / n_stops for c in CONTROLLED_STOPS[:-1]]
+    control_stops = [STOPS.index(c) + 1 for c in CONTROLLED_STOPS[:-1]]
+    d = {'stop': [], 'fw_h': [], 'bw_h': [], 'action': []}
+    for sars_rep in sars_set:
+        for trip in sars_rep:
+            for sars in sars_rep[trip]:
+                d['stop'].append(round(sars[0][IDX_RT_PROGRESS] * n_stops) + 1)
+                d['fw_h'].append(sars[0][IDX_FW_H])
+                d['bw_h'].append(sars[0][IDX_BW_H])
+                d['action'].append(sars[1])
+    policy_df = pd.DataFrame(d)
+    policy_df['delta_h'] = (policy_df['fw_h'] - policy_df['bw_h']) / CONTROL_MEAN_HW
+    policy_on_t_df = policy_df[(policy_df['delta_h'] < 0.4) & (policy_df['delta_h'] > 0.2)]
+    policy_early_df = policy_df[policy_df['delta_h'] < -0.7]
+    policy_late_df = policy_df[policy_df['delta_h'] > 0.7]
+    actions = [i for i in range(N_ACTIONS_RL)]
+    on_t = []
+    early = []
+    late = []
+    for (policy, lst) in ((policy_on_t_df, on_t), (policy_early_df, early), (policy_late_df, late)):
+        for action in actions:
+            action_df = policy[policy['action'] == action]
+            action_lst = []
+            for stop in control_stops:
+                count_action = action_df[action_df['stop'] == stop]['action'].shape[0]
+                action_lst.append(count_action)
+            lst.append(action_lst)
+    on_t_arr = np.array(on_t)
+    early_arr = np.array(early)
+    late_arr = np.array(late)
+    for colum in range(on_t_arr.shape[1]):
+        on_t_arr[:, colum] = on_t_arr[:, colum] / on_t_arr[:, colum].sum() * 100
+        early_arr[:, colum] = early_arr[:, colum] / early_arr[:, colum].sum() * 100
+        late_arr[:, colum] = late_arr[:, colum] / late_arr[:, colum].sum() * 100
+    fig, ax = plt.subplots(ncols=3, sharey='all', sharex='all')
+    mesh1 = ax[0].pcolormesh(early_arr, cmap='Greys')
+    mesh1.set_clim(0, 100)
+    mesh2 = ax[1].pcolormesh(on_t_arr, cmap='Greys')
+    mesh2.set_clim(0, 100)
+    mesh3 = ax[2].pcolormesh(late_arr, cmap='Greys')
+    mesh3.set_clim(0, 100)
+    plt.show()
+    plt.close()
+    return

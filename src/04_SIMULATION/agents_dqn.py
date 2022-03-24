@@ -196,13 +196,15 @@ class DuelingDQNAgent(Agent):
             state = T.tensor([observation]).to(self.Q_eval.device)
             _, advantage = self.Q_eval.forward(state)
             if mask_idx is not None:
-                advantage[0][mask_idx] = float('-inf')
+                for i in mask_idx:
+                    advantage[0][i] = float('-inf')
             action = T.argmax(advantage).item()
         else:
             action_space = np.array(deepcopy(self.action_space))
             if mask_idx is not None:
                 msk_arr = np.zeros(len(action_space), dtype=bool)
-                msk_arr[mask_idx] = True
+                for i in mask_idx:
+                    msk_arr[i] = True
                 action_space = action_space[~msk_arr]
             action = np.random.choice(action_space)
 
