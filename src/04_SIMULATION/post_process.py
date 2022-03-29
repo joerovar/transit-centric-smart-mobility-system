@@ -230,6 +230,27 @@ def trip_time_from_trajectory_set(trajectory_set, idx_dep_t, idx_arr_t):
     return trip_times
 
 
+def plot_4_trip_t_dist(all_trip_t, tags, path_save):
+    fig, axs = plt.subplots(2, 2, sharex='all', sharey='all')
+    i = 0
+    for temp_trip_t in all_trip_t:
+        sns.histplot([t/60 for t in temp_trip_t], kde=True, color='gray', alpha=0.5, ax=axs.flat[i])
+        axs.flat[i].axvline(np.percentile(temp_trip_t, 95)/60, color='black', linestyle='dashed', alpha=0.7)
+        axs.flat[i].set_title(tags[i], fontsize=9)
+        if i > 1:
+            axs.flat[i].set_xlabel('total trip time (seconds)', fontsize=8)
+        i += 1
+    plt.xlim(63, 83)
+    for ax in axs.flat:
+        ax.tick_params(labelsize=8)
+        ax.set_ylabel('frequency', fontsize=8)
+    plt.tick_params(labelsize=9)
+    plt.tight_layout()
+    plt.savefig(path_save + 'trip_t_dist.png')
+    plt.close()
+    return
+
+
 def control_from_trajectory_set(df_path, controlled_stops):
     df = pd.read_csv(df_path)
     df['stop_id'] = df['stop_id'].astype(str)
@@ -553,8 +574,7 @@ def plot_load_profile_benchmark(load_set, os, lbls, colors, load_sd_set=None, pa
     return
 
 
-def plot_sensitivity_whisker(dset1, dset2, method_labels, scenario_labels, y_label1, y_label2, path_save,
-                             horizontal_line1=None, horizontal_line2=None):
+def plot_sensitivity_whisker(dset1, dset2, method_labels, scenario_labels, y_label1, y_label2, path_save):
     nr_scenarios = len(scenario_labels)
     nr_methods = len(method_labels)
     fig, axes = plt.subplots(ncols=nr_scenarios, nrows=2, sharey='row', sharex='all')
@@ -577,3 +597,57 @@ def plot_sensitivity_whisker(dset1, dset2, method_labels, scenario_labels, y_lab
     plt.close()
     return
 
+
+def plot_sensitivity_whisker_compliance(dset1, dset2, method_labels, scenario_labels, base_method_labels,y_label1, y_label2, path_save):
+    nr_scenarios = len(scenario_labels)
+    nr_methods = len(method_labels)
+    fig, axes = plt.subplots(ncols=nr_scenarios, nrows=2, sharey='row', sharex='col')
+    fig.subplots_adjust(wspace=0.02)
+    ranges = [(0, 3), (3, 8), (8, 13)]
+    for i in range(nr_scenarios):
+        print([ranges[i][0], ranges[i][1]])
+        axes[0, i].boxplot(dset1[ranges[i][0]:ranges[i][1]], sym='')
+        axes[0, i].set_xticks(np.arange(1, ranges[i][1]-ranges[i][0]+1))
+        if i == 0:
+            axes[0, i].set_xticklabels(base_method_labels, fontsize=8)
+        else:
+            axes[0, i].set_xticklabels(method_labels, fontsize=8)
+        axes[0, i].set(xlabel=scenario_labels[i])
+    axes[0, 0].set(ylabel=y_label1)
+    for i in range(nr_scenarios):
+        axes[1, i].boxplot(dset2[ranges[i][0]:ranges[i][1]], sym='')
+        axes[1, i].set_xticks(np.arange(1, ranges[i][1]-ranges[i][0]+1))
+        if i == 0:
+            axes[1, i].set_xticklabels(base_method_labels, fontsize=8, rotation=90)
+        else:
+            axes[1, i].set_xticklabels(method_labels, fontsize=8, rotation=90)
+        axes[1, i].set(xlabel=scenario_labels[i])
+    axes[1, 0].set(ylabel=y_label2)
+    plt.tight_layout()
+    plt.savefig(path_save)
+    plt.close()
+    return
+
+
+def plot_2_var_whisker(var1, var2, tags, path_save, var1_label, var2_label, x_label=None):
+    fig, axs = plt.subplots(ncols=2)
+    axs[0].boxplot(var1, labels=tags, sym='', widths=0.2)
+    axs[0].set_xticks(np.arange(1, len(tags)+1))
+    axs[0].set_xticklabels(tags, fontsize=8)
+    axs[0].tick_params(axis='y', labelsize=8)
+    if x_label:
+        axs[0].set_xlabel(x_label)
+    axs[0].set_ylabel(var1_label, fontsize=8)
+
+    axs[1].boxplot(var2, labels=tags, sym='', widths=0.2)
+    axs[1].set_xticks(np.arange(1, len(tags)+1))
+    axs[1].set_xticklabels(tags, fontsize=8)
+    axs[1].tick_params(axis='y', labelsize=8)
+    if x_label:
+        axs[1].set_xlabel(x_label)
+    axs[1].set_ylabel(var2_label, fontsize=8)
+
+    plt.tight_layout()
+    plt.savefig(path_save)
+    plt.close()
+    return

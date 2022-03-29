@@ -64,11 +64,17 @@ tags_w = ['3', '5', '7', '9', '11']
 
 # BENCHMARK COMPARISON
 
-path_tr_nc_b = 'out/NC/0321-202913-trajectory_set.pkl'
-path_p_nc_b = 'out/NC/0321-202913-pax_set.pkl'
+# path_tr_nc_b = 'out/NC/0321-202913-trajectory_set.pkl'
+# path_p_nc_b = 'out/NC/0321-202913-pax_set.pkl'
+#
+# path_tr_eh_b = 'out/EH/0321-203010-trajectory_set.pkl'
+# path_p_eh_b = 'out/EH/0321-203010-pax_set.pkl'
 
-path_tr_eh_b = 'out/EH/0321-203010-trajectory_set.pkl'
-path_p_eh_b = 'out/EH/0321-203010-pax_set.pkl'
+path_tr_nc_b = 'out/NC/0328-213908-trajectory_set.pkl'
+path_p_nc_b = 'out/NC/0328-213908-pax_set.pkl'
+
+path_tr_eh_b = 'out/EH/0328-213920-trajectory_set.pkl'
+path_p_eh_b = 'out/EH/0328-213920-pax_set.pkl'
 
 path_tr_ddqn_la_b = 'out/DDQN-LA/0323-160821-trajectory_set.pkl'
 path_p_ddqn_la_b = 'out/DDQN-LA/0323-160821-pax_set.pkl'
@@ -89,8 +95,8 @@ path_p_ddqn_la_low_s1 = 'out/DDQN-LA/0323-163123-pax_set.pkl'
 
 path_tr_ddqn_ha_base_s1 = 'out/DDQN-HA/0323-151033-trajectory_set.pkl'
 path_p_ddqn_ha_base_s1 = 'out/DDQN-HA/0323-151033-pax_set.pkl'
-path_tr_ddqn_ha_high_s1 = 'out/DDQN-HA/0323-180355-trajectory_set.pkl'
-path_p_ddqn_ha_high_s1 = 'out/DDQN-HA/0323-180355-pax_set.pkl'
+path_tr_ddqn_ha_high_s1 = 'out/DDQN-HA/0328-154752-trajectory_set.pkl'
+path_p_ddqn_ha_high_s1 = 'out/DDQN-HA/0328-154752-pax_set.pkl'
 path_tr_ddqn_ha_low_s1 = 'out/DDQN-HA/0323-163426-trajectory_set.pkl'
 path_p_ddqn_ha_low_s1 = 'out/DDQN-HA/0323-163426-pax_set.pkl'
 tags_s1 = ['DDQN-LA (low)', 'DDQN-HA (low)', 'DDQN-LA (medium)', 'DDQN-HA (medium)', 'DDQN-LA (high)', 'DDQN-HA (high)']
@@ -106,18 +112,28 @@ path_p_eh_60_s2 = 'out/EH/0324-075651-pax_set.pkl'
 
 path_tr_ddqn_la_base_s2 = 'out/DDQN-LA/0323-160821-trajectory_set.pkl'
 path_p_ddqn_la_base_s2 = 'out/DDQN-LA/0323-160821-pax_set.pkl'
+path_tr_ddqn_la_80_s2_nr = 'out/DDQN-LA/0328-202345-trajectory_set.pkl'
+path_p_ddqn_la_80_s2_nr = 'out/DDQN-LA/0328-202345-pax_set.pkl'
 path_tr_ddqn_la_80_s2 = 'out/DDQN-LA/0324-080452-trajectory_set.pkl'
 path_p_ddqn_la_80_s2 = 'out/DDQN-LA/0324-080452-pax_set.pkl'
-path_tr_ddqn_la_60_s2 = 'out/DDQN-LA/0324-080527-trajectory_set.pkl'
-path_p_ddqn_la_60_s2 = 'out/DDQN-LA/0324-080527-pax_set.pkl'
+path_tr_ddqn_la_60_s2_nr = 'out/DDQN-LA/0328-202415-trajectory_set.pkl'
+path_p_ddqn_la_60_s2_nr = 'out/DDQN-LA/0328-202415-pax_set.pkl'
+path_tr_ddqn_la_60_s2 = 'out/DDQN-LA/0328-202042-trajectory_set.pkl'
+path_p_ddqn_la_60_s2 = 'out/DDQN-LA/0328-202042-pax_set.pkl'
 
 path_tr_ddqn_ha_base_s2 = 'out/DDQN-HA/0323-151033-trajectory_set.pkl'
 path_p_ddqn_ha_base_s2 = 'out/DDQN-HA/0323-151033-pax_set.pkl'
-path_tr_ddqn_ha_80_s2 = 'out/DDQN-HA/0323-231410-trajectory_set.pkl'
-path_p_ddqn_ha_80_s2 = 'out/DDQN-HA/0323-231410-pax_set.pkl'
+path_tr_ddqn_ha_80_s2_nr = 'out/DDQN-HA/0328-202826-trajectory_set.pkl'
+path_p_ddqn_ha_80_s2_nr = 'out/DDQN-HA/0328-202826-pax_set.pkl'
+# path_tr_ddqn_ha_80_s2 = 'out/DDQN-HA/0323-231410-trajectory_set.pkl'
+# path_p_ddqn_ha_80_s2 = 'out/DDQN-HA/0323-231410-pax_set.pkl'
+path_tr_ddqn_ha_80_s2 = 'out/DDQN-HA/0328-210729-trajectory_set.pkl'
+path_p_ddqn_ha_80_s2 = 'out/DDQN-HA/0328-210729-pax_set.pkl'
+path_tr_ddqn_ha_60_s2_nr = 'out/DDQN-HA/0328-202851-trajectory_set.pkl'
+path_p_ddqn_ha_60_s2_nr = 'out/DDQN-HA/0328-202851-pax_set.pkl'
 path_tr_ddqn_ha_60_s2 = 'out/DDQN-HA/0324-091340-trajectory_set.pkl'
 path_p_ddqn_ha_60_s2 = 'out/DDQN-HA/0324-091340-pax_set.pkl'
 tags_s2 = ['EH (base)', 'DDQN-LA (base)', 'DDQN-HA (base)',
-           'EH (0.8)', 'DDQN-LA (0.8)', 'DDQN-HA (0.8)',
-           'EH (0.6)', 'DDQN-LA (0.6)', 'DDQN-HA (0.6)']
+           'EH (0.8)', 'DDQN-LA (NR,0.8)', 'DDQN-LA (0.8)', 'DDQN-HA (NR, 0.8)', 'DDQN-HA (0.8)',
+           'EH (0.6)', 'DDQN-LA (NR, 0.6)','DDQN-LA (0.6)', 'DDQN-HA (NR, 0.6)','DDQN-HA (0.6)']
 path_dir_s2 = 'out/compare/sensitivity compliance/'

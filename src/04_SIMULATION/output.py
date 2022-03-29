@@ -164,35 +164,26 @@ class PostProcessor:
         results = {'skip_freq': skip_freq_set}
         return results
 
-    def trip_time_dist(self):
+    def trip_times(self, keep_nc=False, plot=False):
+        all_trip_times = []
         trip_time_mean_set = []
         trip_time_sd_set = []
         trip_time_95_set = []
         trip_time_85_set = []
         i = 0
-        fig, axs = plt.subplots(2, 2, sharex='all', sharey='all')
-        temp_trip_t = trip_time_from_trajectory_set(self.cp_trips[0], IDX_DEP_T, IDX_ARR_T)
-        save(self.path_dir + 'trip_t_sim.pkl', temp_trip_t)
         for trips in self.cp_trips:
             temp_trip_t = trip_time_from_trajectory_set(trips, IDX_DEP_T, IDX_ARR_T)
-            # sns.histplot([t/60 for t in temp_trip_t], kde=True, color='gray', alpha=0.5, ax=axs.flat[i])
-            # axs.flat[i].axvline(np.percentile(temp_trip_t, 95)/60, color='black', linestyle='dashed', alpha=0.7)
-            # axs.flat[i].set_title(self.cp_tags[i], fontsize=9)
-            # if i > 1:
-            #     axs.flat[i].set_xlabel('total trip time (seconds)', fontsize=8)
+            all_trip_times.append(temp_trip_t)
+            if i == 0 and keep_nc:
+                temp_trip_t = trip_time_from_trajectory_set(self.cp_trips[0], IDX_DEP_T, IDX_ARR_T)
+                save(self.path_dir + 'trip_t_sim.pkl', temp_trip_t)
             trip_time_mean_set.append(np.around(np.mean(temp_trip_t) / 60, decimals=2))
             trip_time_sd_set.append(np.around(np.std(temp_trip_t) / 60, decimals=2))
             trip_time_95_set.append(np.around(np.percentile(temp_trip_t, 95) / 60, decimals=2))
             trip_time_85_set.append(np.around(np.percentile(temp_trip_t, 90) / 60, decimals=2))
             i += 1
-        plt.xlim(63, 83)
-        for ax in axs.flat:
-            ax.tick_params(labelsize=8)
-            ax.set_ylabel('frequency', fontsize=8)
-        # plt.tick_params(labelsize=9)
-        plt.tight_layout()
-        # plt.savefig(self.path_dir + 'trip_t_dist.png')
-        plt.close()
+        if plot and len(all_trip_times) == 4:
+            plot_4_trip_t_dist(all_trip_times, self.cp_tags, self.path_dir)
         results_tt = {'tt_mean': trip_time_mean_set,
                       'tt_sd': trip_time_sd_set,
                       'tt_95': trip_time_95_set,

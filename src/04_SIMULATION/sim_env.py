@@ -7,6 +7,87 @@ from agents_sim import Passenger, Stop, Trip, Bus, Log, TripLog
 from datetime import timedelta
 
 
+def run_base_detailed(replications=4, save_results=False, time_dep_tt=True, time_dep_dem=True):
+    tstamp = datetime.now().strftime('%m%d-%H%M%S')
+    trajectories_set = []
+    pax_set = []
+    for _ in range(replications):
+        env = DetailedSimulationEnv(time_dependent_travel_time=time_dep_tt, time_dependent_demand=time_dep_dem)
+        done = env.reset_simulation()
+        while not done:
+            done = env.prep()
+        if save:
+            env.process_results()
+            trajectories_set.append(env.trajectories)
+            pax_set.append(env.completed_pax)
+
+    if save_results:
+        path_trajectories = 'out/NC/'+tstamp+'-trajectory_set' + ext_var
+        path_completed_pax = 'out/NC/'+tstamp+'-pax_set' + ext_var
+        save(path_trajectories, trajectories_set)
+        save(path_completed_pax, pax_set)
+    return
+
+
+def run_base_control_detailed(replications=2, control_strength=0.7,
+                              save_results=False, time_dep_tt=True, time_dep_dem=True, hold_adj_factor=0.0):
+    tstamp = datetime.now().strftime('%m%d-%H%M%S')
+    trajectories_set = []
+    pax_set = []
+    for _ in range(replications):
+        env = DetailedSimulationEnvWithControl(time_dependent_travel_time=time_dep_tt,
+                                               time_dependent_demand=time_dep_dem, hold_adj_factor=hold_adj_factor)
+        done = env.reset_simulation()
+        while not done:
+            done = env.prep()
+        if save:
+            env.process_results()
+            trajectories_set.append(env.trajectories)
+            pax_set.append(env.completed_pax)
+    if save_results:
+        path_trajectories = 'out/EH/' + tstamp + '-trajectory_set' + ext_var
+        path_completed_pax = 'out/EH/' + tstamp + '-pax_set' + ext_var
+        params = {'param': ['control_strength'],
+                  'value': [control_strength]}
+        df_params = pd.DataFrame(params)
+        df_params.to_csv('out/EH/' + tstamp + '-params_used' + ext_var, index=False)
+        save(path_trajectories, trajectories_set)
+        save(path_completed_pax, pax_set)
+    return
+
+
+def run_sample_rl(episodes=1, simple_reward=False, weight_ride_t=0.0):
+    tstamp = datetime.now().strftime('%m%d-%H%M%S')
+    for _ in range(episodes):
+        env = DetailedSimulationEnvWithDeepRL(estimate_pax=True, weight_ride_t=weight_ride_t)
+        done = env.reset_simulation()
+        done = env.prep()
+        while not done:
+            trip_id = env.bus.active_trip[0].trip_id
+            all_sars = env.trips_sars[trip_id]
+            if not env.bool_terminal_state:
+                observation = np.array(all_sars[-1][0], dtype=np.float32)
+                route_progress = observation[IDX_RT_PROGRESS]
+                pax_at_stop = observation[IDX_PAX_AT_STOP]
+                curr_stop = [s for s in env.stops if s.stop_id == env.bus.last_stop_id]
+                previous_denied = False
+                for p in curr_stop[0].pax.copy():
+                    if p.arr_time <= env.time:
+                        if p.denied:
+                            previous_denied = True
+                            break
+                    else:
+                        break
+                if route_progress == 0.0 or pax_at_stop == 0 or previous_denied:
+                    action = random.randint(1, 4)
+                else:
+                    action = random.randint(0, 4)
+                env.take_action(action)
+            env.update_rewards(simple_reward=simple_reward)
+            done = env.prep()
+    return
+
+
 def get_interval(t, interval_length):
     # time in seconds, interval length in minutes
     interval = int(t / (interval_length * 60))
@@ -657,8 +738,9 @@ class DetailedSimulationEnv(SimulationEnv):
 
 
 class DetailedSimulationEnvWithControl(DetailedSimulationEnv):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, control_strength=0.7, *args, **kwargs):
         super(DetailedSimulationEnvWithControl, self).__init__(*args, **kwargs)
+        self.control_strength = control_strength
 
     def decide_bus_holding(self):
         # CHANGE------------
@@ -668,10 +750,11 @@ class DetailedSimulationEnvWithControl(DetailedSimulationEnv):
         curr_stop_idx = STOPS.index(self.bus.last_stop_id)
         stop = self.stops[curr_stop_idx]
         trip_idx = TRIP_IDS_IN.index(bus.active_trip[0].trip_id)
-        last_arr = self.trip_log[trip_idx-1].stop_arr_times[STOPS[curr_stop_idx]]
+        last_arr_t = self.trip_log[trip_idx-1].stop_arr_times[STOPS[curr_stop_idx]]
         backward_headway = self.get_backward_headway()
-        forward_headway = self.time - last_arr
-        limit_holding = max(0, (last_arr + MIN_ALLOWED_HW) - self.time)
+        forward_headway = self.time - last_arr_t
+        min_allowed_hw = self.control_strength * CONTROL_MEAN_HW
+        limit_holding = max(0, (last_arr_t + min_allowed_hw) - self.time)
         if stop.stop_id == STOPS[0]:
             if backward_headway > forward_headway:
 
@@ -752,7 +835,7 @@ class DetailedSimulationEnvWithControl(DetailedSimulationEnv):
 
 
 class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
-    def __init__(self, estimate_pax=False,  weight_ride_t=0, weight_cv_hw=0.81, *args, **kwargs):
+    def __init__(self, estimate_pax=False,  weight_ride_t=0.0, weight_cv_hw=0.83, *args, **kwargs):
         super(DetailedSimulationEnvWithDeepRL, self).__init__(*args, **kwargs)
         self.trips_sars = {}
         self.bool_terminal_state = False

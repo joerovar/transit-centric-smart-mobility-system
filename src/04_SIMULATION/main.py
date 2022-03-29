@@ -30,7 +30,7 @@ if __name__ == '__main__':
     parser.add_argument('-replace', type=int, default=600,
                         help='interval for replacing target network')
     parser.add_argument('-fc_dims', type=int, default=256, help='fully connected dimensions')
-    parser.add_argument('-algo', type=str, default='DQNAgent',
+    parser.add_argument('-algo', type=str, default='DDQNAgent',
                         help='DQNAgent/DDQNAgent/DuelingDQNAgent/DuelingDDQNAgent')
     parser.add_argument('-simple_reward', type=bool, default=False, help='delayed(false)/simple(true)')
 
@@ -199,6 +199,7 @@ if __name__ == '__main__':
 
 # cd src/04_SIMULATION
 # train
-# python main.py -algo -n_episodes -simple_reward -weight_ride_time -hold_adj_factor
+# python main.py -n_episodes -simple_reward -weight_ride_t -hold_adj_factor
 # test
-# python main.py -env (tstamp) -algo -n_episodes -eps -load_checkpoint -test_save_folder -simple_reward -hold_adj_factor
+# python main.py -n_episodes -eps -load_checkpoint -test_save_folder -simple_reward -hold_adj_factor -env (tstamp)
+
