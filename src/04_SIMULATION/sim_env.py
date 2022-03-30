@@ -30,13 +30,15 @@ def run_base_detailed(replications=4, save_results=False, time_dep_tt=True, time
 
 
 def run_base_control_detailed(replications=2, control_strength=0.7,
-                              save_results=False, time_dep_tt=True, time_dep_dem=True, hold_adj_factor=0.0):
+                              save_results=False, time_dep_tt=True, time_dep_dem=True, hold_adj_factor=0.0,
+                              tt_factor=1.0):
     tstamp = datetime.now().strftime('%m%d-%H%M%S')
     trajectories_set = []
     pax_set = []
     for _ in range(replications):
         env = DetailedSimulationEnvWithControl(time_dependent_travel_time=time_dep_tt,
-                                               time_dependent_demand=time_dep_dem, hold_adj_factor=hold_adj_factor)
+                                               time_dependent_demand=time_dep_dem, hold_adj_factor=hold_adj_factor,
+                                               tt_factor=tt_factor)
         done = env.reset_simulation()
         while not done:
             done = env.prep()
@@ -523,27 +525,12 @@ class DetailedSimulationEnv(SimulationEnv):
         if trip_idx:
             prev_trip_idx_passed = TRIP_IDS_IN.index(self.stops[0].passed_trips[-1])
             if prev_trip_idx_passed < trip_idx - 1:
-                # print(f'---------')
-                # print(f'ANOMALY FOUND previous trip passed with index {prev_trip_idx_passed} compared to current index {trip_idx}')
                 for prev_trip_idx in range(prev_trip_idx_passed+1, trip_idx):
                     prev_trip_id = TRIP_IDS_IN[prev_trip_idx]
                     lead_bus_id = next(key for key, value_lst in BLOCK_DICT.items() if prev_trip_id in value_lst)
                     lead_bus = next(bu for bu in self.buses if bu.bus_id == lead_bus_id)
                     lead_bus_pending_trip_ids = [t.trip_id for t in lead_bus.pending_trips]
-                    # print(f'checking index {prev_trip_idx} corresponding to trip id {TRIP_IDS_IN[prev_trip_idx]} '
-                    #       f'pending trips {lead_bus_pending_trip_ids} and active trip {lead_bus.active_trip[0].trip_id}')
                     if prev_trip_id in lead_bus_pending_trip_ids:
-                        # SWITCH WITH LEADER!
-                        # print(f'time {round(self.time)}')
-                        # print(f'succesfully switched {trip.trip_id} with index {trip_idx} and previous trip {prev_trip_id} with index {prev_trip_idx}')
-                        # print(f'LEAD BUS -------')
-                        # print(f'next event time {round(lead_bus.next_event_time)} and type {lead_bus.next_event_type}')
-                        # print(f'pending trips {lead_bus_pending_trip_ids}')
-                        # print(f'schedule of pending trips {[t.sched_time for t in lead_bus.pending_trips]}')
-                        # print(f'BEHIND BUS -------')
-                        # print(f'next event time {round(bus.next_event_time)} and type {bus.next_event_type}')
-                        # print(f'pending trips {[t.trip_id for t in bus.pending_trips]}')
-                        # print(f'schedule of pending trips {[t.sched_time for t in bus.pending_trips]}')
                         switch_idx = lead_bus_pending_trip_ids.index(prev_trip_id)
                         trips_bus = bus.pending_trips
                         bus_id = bus.bus_id
@@ -563,27 +550,12 @@ class DetailedSimulationEnv(SimulationEnv):
         if trip_idx:
             prev_trip_idx_passed = TRIP_IDS_IN.index(self.stops[0].passed_trips[-1])
             if prev_trip_idx_passed < trip_idx - 1:
-                # print(f'---------')
-                # print(f'ANOMALY FOUND previous trip passed with index {prev_trip_idx_passed} compared to current index {trip_idx}')
                 for prev_trip_idx in range(prev_trip_idx_passed, trip_idx):
                     prev_trip_id = TRIP_IDS_IN[prev_trip_idx]
                     lead_bus_id = next(key for key, value_lst in BLOCK_DICT.items() if prev_trip_id in value_lst)
                     lead_bus = next(bu for bu in self.buses if bu.bus_id == lead_bus_id)
                     lead_bus_pending_trip_ids = [t.trip_id for t in lead_bus.pending_trips]
-                    # print(f'checking index {prev_trip_idx} corresponding to trip id {TRIP_IDS_IN[prev_trip_idx]} '
-                    #       f'pending trips {lead_bus_pending_trip_ids} and active trip {lead_bus.active_trip[0].trip_id}')
                     if prev_trip_id in lead_bus_pending_trip_ids:
-                        # # SWITCH WITH LEADER!
-                        # print(f'time {round(self.time)}')
-                        # print(f'succesfully switched {trip.trip_id} and previous trip {prev_trip_id}')
-                        # print(f'LEAD BUS -------')
-                        # print(f'next event time {round(lead_bus.next_event_time)} and type {lead_bus.next_event_type}')
-                        # print(f'pending trips {lead_bus_pending_trip_ids}')
-                        # print(f'schedule of pending trips {[t.sched_time for t in lead_bus.pending_trips]}')
-                        # print(f'BEHIND BUS -------')
-                        # print(f'next event time {round(bus.next_event_time)} and type {bus.next_event_type}')
-                        # print(f'pending trips {[t.trip_id for t in bus.pending_trips]}')
-                        # print(f'schedule of pending trips {[t.sched_time for t in bus.pending_trips]}')
                         switch_idx = lead_bus_pending_trip_ids.index(prev_trip_id)
                         trips_bus = bus.pending_trips
                         bus_id = bus.bus_id
@@ -759,7 +731,7 @@ class DetailedSimulationEnvWithControl(DetailedSimulationEnv):
             if backward_headway > forward_headway:
 
                 holding_time = min(limit_holding, (backward_headway - forward_headway)/2)
-                if self.hold_adj_factor > 0 and holding_time > 0:
+                if self.hold_adj_factor > 0.0 and holding_time > 0:
                     # print('---')
                     # print(f'before {round(holding_time)}')
                     holding_time = np.random.uniform(self.hold_adj_factor * holding_time, holding_time)
@@ -773,7 +745,7 @@ class DetailedSimulationEnvWithControl(DetailedSimulationEnv):
             self.fixed_stop_load()
             if backward_headway > forward_headway:
                 holding_time = min(limit_holding, (backward_headway - forward_headway)/2)
-                if self.hold_adj_factor > 0 and holding_time > 0:
+                if self.hold_adj_factor > 0.0 and holding_time > 0:
                     # print('---')
                     # print(f'before {round(holding_time)}')
                     holding_time = np.random.uniform(self.hold_adj_factor * holding_time, holding_time)
@@ -835,7 +807,7 @@ class DetailedSimulationEnvWithControl(DetailedSimulationEnv):
 
 
 class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
-    def __init__(self, estimate_pax=False,  weight_ride_t=0.0, weight_cv_hw=0.83, *args, **kwargs):
+    def __init__(self, estimate_pax=False,  weight_ride_t=0.0, weight_cv_hw=0.82, *args, **kwargs):
         super(DetailedSimulationEnvWithDeepRL, self).__init__(*args, **kwargs)
         self.trips_sars = {}
         self.bool_terminal_state = False
@@ -998,7 +970,7 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
         self.trips_sars[trip_id][-1][1] = action
         if action:
             hold_time = (action - 1) * BASE_HOLDING_TIME
-            if self.hold_adj_factor > 0 and hold_time > 0:
+            if self.hold_adj_factor > 0.0 and hold_time > 0:
                 hold_time = np.random.uniform(self.hold_adj_factor * hold_time, hold_time)
                 assert hold_time >= 0
             if bus.last_stop_id == STOPS[0]:
@@ -1149,7 +1121,7 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
                 fw_h1 = prev_sars[3][IDX_FW_H]
                 planned_fw_h = SCHED_DEP_IN[trip_idx] - SCHED_DEP_IN[trip_idx - 1]
                 hw_variation = (fw_h1 - planned_fw_h)/planned_fw_h
-                if self.hold_adj_factor > 0:
+                if self.hold_adj_factor > 0.0:
                     prev_hold = prev_hold - (prev_hold - self.hold_adj_factor * prev_hold)/2
                     reward = - weight_cv_hw*hw_variation * hw_variation - (1-weight_cv_hw)*(prev_hold/LIMIT_HOLDING)
                 else:

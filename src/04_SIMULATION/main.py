@@ -45,7 +45,7 @@ if __name__ == '__main__':
     parser.add_argument('-load_checkpoint', type=bool, default=False, help='load model checkpoint')
     parser.add_argument('-model_base_path', type=str, default='out/trained_nets/',
                         help='path for model saving/loading')
-    parser.add_argument('-test_save_folder', type=str, default='RL', help='DDQN-LA/DDQN-HA')
+    parser.add_argument('-test_save_folder', type=str, default=None, help='DDQN-LA/DDQN-HA')
     args = parser.parse_args()
 
     if not args.load_checkpoint:
@@ -179,6 +179,7 @@ if __name__ == '__main__':
                     elif route_progress == 0.0 or pax_at_stop == 0 or previous_denied or args.simple_reward:
                         action = agent.choose_action(observation, mask_idx=[0])
                         # print(action)
+                        # print(action)
                     else:
                         action = agent.choose_action(observation)
                     env.take_action(action)
@@ -187,15 +188,16 @@ if __name__ == '__main__':
             trajectories_set.append(env.trajectories)
             sars_set.append(env.trips_sars)
             pax_set.append(env.completed_pax)
-        path_trajectories = 'out/' + args.test_save_folder + '/' + tstamp + '-trajectory_set.pkl'
-        path_sars = 'out/' + args.test_save_folder + '/' + tstamp + '-sars_set.pkl'
-        path_completed_pax = 'out/' + args.test_save_folder + '/' + tstamp + '-pax_set.pkl'
-        # SAVE RESULTS
-        save(path_trajectories, trajectories_set)
-        save(path_sars, sars_set)
-        save(path_completed_pax, pax_set)
-        with open('out/' + args.test_save_folder + '/' + tstamp + '-net_used.csv', 'w') as f:
-            f.write(str(args.env))
+        if args.test_save_folder:
+            path_trajectories = 'out/' + args.test_save_folder + '/' + tstamp + '-trajectory_set.pkl'
+            path_sars = 'out/' + args.test_save_folder + '/' + tstamp + '-sars_set.pkl'
+            path_completed_pax = 'out/' + args.test_save_folder + '/' + tstamp + '-pax_set.pkl'
+            # SAVE RESULTS
+            save(path_trajectories, trajectories_set)
+            save(path_sars, sars_set)
+            save(path_completed_pax, pax_set)
+            with open('out/' + args.test_save_folder + '/' + tstamp + '-net_used.csv', 'w') as f:
+                f.write(str(args.env))
 
 # cd src/04_SIMULATION
 # train

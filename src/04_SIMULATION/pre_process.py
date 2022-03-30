@@ -17,8 +17,8 @@ def remove_outliers(data):
         q1 = np.quantile(data, 0.25)
         q3 = np.quantile(data, 0.75)
         iqr = q3 - q1
-        lower_bound = q1 - 1.5 * iqr
-        upper_bound = q3 + 1.5 * iqr
+        lower_bound = q1 - 1.4 * iqr
+        upper_bound = q3 + 1.4 * iqr
         data = data[(data >= lower_bound) & (data <= upper_bound)]
     return data
 
@@ -117,11 +117,11 @@ def get_route(path_stop_times, start_time_sec, end_time_sec, nr_intervals, start
         for interval_times in link_times[link]:
             if len(interval_times) > 1:
                 interval_arr = np.array(interval_times)
-                if link in ['448-1119', '18122-448', '12754-442', '440-12754']:
-                    interval_arr = interval_arr[interval_arr >= 15]
-                if link in ['12754-442']:
-                    interval_arr = interval_arr[interval_arr > 21]
-                    interval_arr = interval_arr[interval_arr < 200]
+                # if link in ['448-1119', '18122-448', '12754-442', '440-12754']:
+                #     interval_arr = interval_arr[interval_arr >= 15]
+                # if link in ['12754-442']:
+                #     interval_arr = interval_arr[interval_arr > 21]
+                #     interval_arr = interval_arr[interval_arr < 200]
                 interval_arr = remove_outliers(interval_arr)
                 fit_params = lognorm.fit(interval_arr, floc=0)
                 fit_params_link_t[link].append(fit_params)
@@ -459,6 +459,8 @@ def get_trip_times(stop_times_path, focus_trips, dates, stops, path_extra_stop_t
             stop_seq = df['stop_sequence'].tolist()
             arrival_sec = df['avl_sec'].tolist()
             dep_sec = df['avl_dep_sec'].tolist()
+            print(stop_seq)
+            print(d)
             if stop_seq:
                 for s_idx in range(len(stop_seq)):
                     if stop_seq[s_idx] != 1:
@@ -469,7 +471,9 @@ def get_trip_times(stop_times_path, focus_trips, dates, stops, path_extra_stop_t
                     dep_idx = stop_seq.index(2)
                     arr_idx = stop_seq.index(66)
                     tt = arrival_sec[arr_idx] - dep_sec[dep_idx]
-                    trip_times.append(tt)
+                    if tt > 57*60:
+                        print('access 1')
+                        trip_times.append(tt)
         temp_df = extra_stop_times_df[extra_stop_times_df['trip_id'] == t]
         for d in extra_dates:
             df = temp_df[temp_df['avl_arr_time'].astype(str).str[:10] == d]
@@ -477,6 +481,8 @@ def get_trip_times(stop_times_path, focus_trips, dates, stops, path_extra_stop_t
             stop_seq = df['stop_sequence'].tolist()
             arrival_sec = df['avl_arr_sec'].tolist()
             dep_sec = df['avl_dep_sec'].tolist()
+            print(stop_seq)
+            print(d)
             if stop_seq:
                 for s_idx in range(len(stop_seq)):
                     if stop_seq[s_idx] != 1:
@@ -487,8 +493,9 @@ def get_trip_times(stop_times_path, focus_trips, dates, stops, path_extra_stop_t
                     dep_idx = stop_seq.index(2)
                     arr_idx = stop_seq.index(66)
                     tt = arrival_sec[arr_idx] - dep_sec[dep_idx]
-                    trip_times.append(tt)
-
+                    if tt > 57*60:
+                        print('access 2')
+                        trip_times.append(tt)
     # PROCESS HEADWAY
     hw_in_all = {s: [] for s in stops[1:]}
     hw_in_cv = []

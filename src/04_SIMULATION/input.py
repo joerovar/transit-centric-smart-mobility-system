@@ -101,7 +101,7 @@ def get_params_outbound():
     return trip_times1_params, trip_times2_params, trips1_out_info, trips2_out_info, deadhead_times_params, sched_arrs
 
 
-# extract_params(validation=True)
+# extract_params(inbound_route_params=True,validation=True)
 
 STOPS, LINK_TIMES_INFO, TRIP_IDS_IN, SCHED_DEP_IN, ODT, SCHED_ARRS_IN, TRIP_TIMES_INPUT, BUS_IDS_IN = get_params_inbound()
 
@@ -120,12 +120,6 @@ FOCUS_TRIP_DEP_T_OUT_SHORT = [ti[1] for ti in TRIPS2_INFO_OUT if
 TRIP_IDS_OUT = [ti[0] for ti in TRIPS1_INFO_OUT]
 TRIP_IDS_OUT += [ti[0] for ti in TRIPS2_INFO_OUT]
 LINK_TIMES_MEAN, LINK_TIMES_EXTREMES, LINK_TIMES_PARAMS = LINK_TIMES_INFO
-# for link in LINK_TIMES_PARAMS:
-#     print(f'link {link}')
-#     for param_inter in LINK_TIMES_PARAMS[link]:
-#         if param_inter == param_inter:
-#             samp = lognorm.rvs(*param_inter, size=30)
-#             print(f'cv {np.round(np.std(samp)/np.mean(samp), decimals=2)}')
 # well known outlier link
 LINK_TIMES_MEAN['3954-8613'][1] = LINK_TIMES_MEAN['3954-8613'][3]
 LINK_TIMES_MEAN['3954-8613'][2] = LINK_TIMES_MEAN['3954-8613'][3]
@@ -140,6 +134,7 @@ trips_df = pd.DataFrame(trips_in + trips_out1 + trips_out2,
                         columns=['trip_id', 'schd_sec', 'schd_time', 'block_id', 'route_type'])
 trips_df['block_id'] = trips_df['block_id'].astype(str).str[6:].astype(int)
 trips_df = trips_df.sort_values(by=['block_id', 'schd_sec'])
+# trips_df.to_csv('in/vis/block_info.csv', index=False)
 block_ids = trips_df['block_id'].unique().tolist()
 BLOCK_TRIPS_INFO = []
 BLOCK_DICT = {}

@@ -238,13 +238,34 @@ def plot_4_trip_t_dist(all_trip_t, tags, path_save):
         axs.flat[i].axvline(np.percentile(temp_trip_t, 95)/60, color='black', linestyle='dashed', alpha=0.7)
         axs.flat[i].set_title(tags[i], fontsize=9)
         if i > 1:
-            axs.flat[i].set_xlabel('total trip time (seconds)', fontsize=8)
+            axs.flat[i].set_xlabel('total trip time (min)', fontsize=8)
         i += 1
-    plt.xlim(63, 83)
+    plt.xlim(60, 81)
     for ax in axs.flat:
         ax.tick_params(labelsize=8)
         ax.set_ylabel('frequency', fontsize=8)
-    plt.tick_params(labelsize=9)
+    # plt.tick_params(labelsize=9)
+    plt.tight_layout()
+    plt.savefig(path_save + 'trip_t_dist.png')
+    plt.close()
+    return
+
+
+def plot_5_trip_t_dist(all_trip_t, tags, path_save):
+    fig, axs = plt.subplots(nrows=5, sharex='all', sharey='all')
+    i = 0
+    for temp_trip_t in all_trip_t:
+        sns.histplot([t/60 for t in temp_trip_t], kde=True, color='gray', alpha=0.5, ax=axs.flat[i])
+        axs.flat[i].axvline(np.percentile(temp_trip_t, 95)/60, color='black', linestyle='dashed', alpha=0.7)
+        axs.flat[i].set_title(tags[i], fontsize=9)
+        if i > 1:
+            axs.flat[i].set_xlabel('total trip time (seconds)', fontsize=8)
+        i += 1
+    plt.xlim(60, 81)
+    for ax in axs.flat:
+        ax.tick_params(labelsize=8)
+        ax.set_ylabel('frequency', fontsize=8)
+    # plt.tick_params(labelsize=9)
     plt.tight_layout()
     plt.savefig(path_save + 'trip_t_dist.png')
     plt.close()
@@ -605,7 +626,6 @@ def plot_sensitivity_whisker_compliance(dset1, dset2, method_labels, scenario_la
     fig.subplots_adjust(wspace=0.02)
     ranges = [(0, 3), (3, 8), (8, 13)]
     for i in range(nr_scenarios):
-        print([ranges[i][0], ranges[i][1]])
         axes[0, i].boxplot(dset1[ranges[i][0]:ranges[i][1]], sym='')
         axes[0, i].set_xticks(np.arange(1, ranges[i][1]-ranges[i][0]+1))
         if i == 0:
@@ -613,7 +633,7 @@ def plot_sensitivity_whisker_compliance(dset1, dset2, method_labels, scenario_la
         else:
             axes[0, i].set_xticklabels(method_labels, fontsize=8)
         axes[0, i].set(xlabel=scenario_labels[i])
-    axes[0, 0].set(ylabel=y_label1)
+    axes[0, 0].set_ylabel(y_label1, fontsize=8)
     for i in range(nr_scenarios):
         axes[1, i].boxplot(dset2[ranges[i][0]:ranges[i][1]], sym='')
         axes[1, i].set_xticks(np.arange(1, ranges[i][1]-ranges[i][0]+1))
@@ -622,7 +642,7 @@ def plot_sensitivity_whisker_compliance(dset1, dset2, method_labels, scenario_la
         else:
             axes[1, i].set_xticklabels(method_labels, fontsize=8, rotation=90)
         axes[1, i].set(xlabel=scenario_labels[i])
-    axes[1, 0].set(ylabel=y_label2)
+    axes[1, 0].set_ylabel(y_label2, fontsize=8)
     plt.tight_layout()
     plt.savefig(path_save)
     plt.close()
@@ -651,3 +671,37 @@ def plot_2_var_whisker(var1, var2, tags, path_save, var1_label, var2_label, x_la
     plt.savefig(path_save)
     plt.close()
     return
+
+
+def plot_3_var_whisker(var1, var2, var3, tags, path_save, var1_label, var2_label, var3_label, x_label=None):
+    fig, axs = plt.subplots(ncols=3)
+    axs[0].boxplot(var1, labels=tags, sym='', widths=0.2)
+    axs[0].set_xticks(np.arange(1, len(tags)+1))
+    axs[0].set_xticklabels(tags, fontsize=8)
+    axs[0].tick_params(axis='y', labelsize=8)
+    if x_label:
+        axs[0].set_xlabel(x_label)
+    axs[0].set_ylabel(var1_label, fontsize=8)
+
+    axs[1].boxplot(var2, labels=tags, sym='', widths=0.2)
+    axs[1].set_xticks(np.arange(1, len(tags)+1))
+    axs[1].set_xticklabels(tags, fontsize=8)
+    axs[1].tick_params(axis='y', labelsize=8)
+    if x_label:
+        axs[1].set_xlabel(x_label)
+    axs[1].set_ylabel(var2_label, fontsize=8)
+
+    var3 = [[t/60 for t in v] for v in var3]
+    axs[2].boxplot(var3, labels=tags, sym='', widths=0.2)
+    axs[2].set_xticks(np.arange(1, len(tags)+1))
+    axs[2].set_xticklabels(tags, fontsize=8)
+    axs[2].tick_params(axis='y', labelsize=8)
+    if x_label:
+        axs[2].set_xlabel(x_label)
+    axs[2].set_ylabel(var3_label, fontsize=8)
+
+    plt.tight_layout()
+    plt.savefig(path_save)
+    plt.close()
+    return
+

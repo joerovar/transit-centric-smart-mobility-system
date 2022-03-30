@@ -7,7 +7,8 @@ from post_process import *
 
 class PostProcessor:
     def __init__(self, cp_trip_paths, cp_pax_paths, cp_tags, nr_reps, path_dir):
-        self.colors = ['tab:red', 'tab:blue', 'tab:green', 'tab:orange', 'black', 'brown', 'purple', 'turquoise']
+        self.colors = ['tab:red', 'tab:blue', 'tab:green', 'tab:orange', 'black', 'brown', 'purple', 'turquoise',
+                       'gray']
         self.cp_trips, self.cp_pax, self.cp_tags = [], [], []
         for trip_path, pax_path, tag in zip(cp_trip_paths, cp_pax_paths, cp_tags):
             self.cp_trips.append(load(trip_path))
@@ -65,8 +66,9 @@ class PostProcessor:
             cv_hw_set.append(temp_cv_hw)
             cv_all_reps.append(cv_hw_mean)
             hw_peak_set.append(hw_peak)
-        # plot_headway(cv_hw_set, STOPS, self.cp_tags, self.colors, pathname=self.path_dir + 'hw.png',
-        #              controlled_stops=CONTROLLED_STOPS[:-1])
+        if len(self.cp_tags) <= len(self.colors):
+            plot_headway(cv_hw_set, STOPS, self.cp_tags, self.colors, pathname=self.path_dir + 'hw.png',
+                         controlled_stops=CONTROLLED_STOPS[:-1])
 
         results_hw = {'cv_h_tp': [np.around(np.mean(cv), decimals=2) for cv in cv_hw_tp_set],
                       'err_cv_h_tp': [np.around(np.power(1.96, 2) * np.var(cv) / np.sqrt(self.nr_reps), decimals=3)
@@ -184,6 +186,7 @@ class PostProcessor:
             i += 1
         if plot and len(all_trip_times) == 4:
             plot_4_trip_t_dist(all_trip_times, self.cp_tags, self.path_dir)
+        save(self.path_dir + 'all_trip_t.pkl', all_trip_times)
         results_tt = {'tt_mean': trip_time_mean_set,
                       'tt_sd': trip_time_sd_set,
                       'tt_95': trip_time_95_set,
