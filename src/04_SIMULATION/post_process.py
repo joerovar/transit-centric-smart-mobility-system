@@ -537,18 +537,13 @@ def plot_load_profile_grid(lp_set, lp_max_set, lp_min_set, os, tags, pathname=No
     obj = []
     i = 0
     for ax in axs.flat:
-        # lower_bound2[lower_bound2<0] = 0
         obj1, = ax.plot(x1, lp_set[i], color='black')
         obj2, = ax.plot(x1, lp_max_set[i], color='red')
         obj3, = ax.plot(x1, lp_min_set[i], color='green')
         obj.append([obj1,obj2,obj3])
         ax.set_title(tags[i], fontsize=9)
         ax.grid(axis='y')
-        ax.axhline(y=40, color='red', alpha=0.5)
-        # ax.axvline(x=56, color='blue', alpha=0.5)
-        # obj1 = ax.fill_between(x1, upper_bound1, lower_bound1, alpha=0.8, color='black')
-        # obj2 = ax.fill_between(x1, upper_bound2, lower_bound2, alpha=0.4, color='gray')
-        # ax.plot(x1, lp_max_set[0])
+        ax.axhline(y=50, color='red', alpha=0.5)
         ax.set_ylabel('load (pax)', fontsize=9)
         ax.set_xlabel('stop', fontsize=9)
         ax.tick_params(labelsize=9)

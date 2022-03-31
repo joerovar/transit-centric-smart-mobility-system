@@ -157,7 +157,7 @@ def sensitivity_compliance(compute_rbt=False):
 # run_benchmark(base=False, base_control=True, control_strength=0.75, tt_factor=0.8)
 # run_benchmark(base=False, base_control=True, control_strength=0.75, tt_factor=1.2)
 # weight_comparison(compute_rbt=False)
-# benchmark_comparison(compute_rbt=False)
+benchmark_comparison(compute_rbt=False)
 # sensitivity_run_t(compute_rbt=True)
 # validate_non_rl(compute_rbt=False)
 # sensitivity_compliance(compute_rbt=False)

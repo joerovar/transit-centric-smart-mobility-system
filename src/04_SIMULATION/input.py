@@ -150,6 +150,7 @@ ODT = np.insert(ODT, 0, warm_up_odt, axis=0)
 warm_up_odt2 = np.multiply(ODT[0], 0.3)
 ODT = np.insert(ODT, 0, warm_up_odt2, axis=0)
 ARR_RATES = np.nansum(ODT, axis=-1)
+arr_totals = np.nansum(ARR_RATES, axis=-1)
 PAX_INIT_TIME = [0] + [LINK_TIMES_MEAN[s0 + '-' + s1][0] for s0, s1 in zip(STOPS, STOPS[1:])]
 PAX_INIT_TIME = np.array(PAX_INIT_TIME).cumsum()
 PAX_INIT_TIME += SCHED_DEP_IN[0] - ((SCHED_DEP_IN[1] - SCHED_DEP_IN[0]) / 2)
