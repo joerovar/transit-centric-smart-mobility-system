@@ -1085,12 +1085,6 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
         reward_wait = (sum_rew_behind_wait_time + sum_rew_agent_wait_time)
         reward_ride = sum_rew_agent_ride_time
         reward = - (reward_wait + self.weight_ride_t * reward_ride) / 60 / 60
-        # print(f'REPORT ON REWARD')
-        # print(f'TOTAL REWARD: {round(reward,2)}')
-        # print(f'WAIT TIME CONTRIBUTION {round(reward_wait/60/60,2)} or {round(-reward_wait/60/60/reward*100,2)} %')
-        # print(f'RIDE TIME CONTRIBUTION {round(-self.weight_ride_t*reward_ride/60/60,2)} '
-        #       f'or {round(-self.weight_ride_t*reward_ride/60/60/reward*100,2)}')
-        # in hours
         return reward
 
     def update_rewards(self, simple_reward=False):

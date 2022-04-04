@@ -1,7 +1,9 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
+
 from input import STOPS, CONTROLLED_STOPS, IDX_ARR_T, IDX_LOAD, IDX_PICK, IDX_DROP, IDX_HOLD_TIME, IDX_DEP_T, \
-    TRIP_IDS_IN, SCHED_DEP_IN, IDX_RT_PROGRESS, IDX_FW_H, IDX_BW_H, N_ACTIONS_RL, CONTROL_MEAN_HW
+    TRIP_IDS_IN, SCHED_DEP_IN, IDX_RT_PROGRESS, IDX_FW_H, IDX_BW_H, N_ACTIONS_RL, CONTROL_MEAN_HW, IDX_DENIED, IDX_LOAD_RL, IDX_SKIPPED, FOCUS_TRIPS
 from post_process import *
 
 
@@ -74,19 +76,21 @@ class PostProcessor:
                       'err_cv_h_tp': [np.around(np.power(1.96, 2) * np.var(cv) / np.sqrt(self.nr_reps), decimals=3)
                                       for cv in cv_hw_tp_set],
                       'h_pk': [np.around(np.mean(hw), decimals=2) for hw in hw_peak_set],
-                      'std_h_pk': [np.around(np.std(hw), decimals=2) for hw in hw_peak_set]}
+                      'std_h_pk': [np.around(np.std(hw), decimals=2) for hw in hw_peak_set],
+                      '95_h_pk': [np.around(np.percentile(hw, 95), decimals=2) for hw in hw_peak_set]}
         # cv_hw_tp_set is for whisker plot
         if plot_bars:
-            cv_hw_set_sub = cv_hw_set[0:3] + [cv_hw_set[-1]]
-            tags = self.cp_tags[0:3] + [self.cp_tags[-1]]
+            # cv_hw_set_sub = cv_hw_set[0:3] + [cv_hw_set[-1]]
+            # tags = self.cp_tags[0:3] + [self.cp_tags[-1]]
+            tags = self.cp_tags
             idx_control_stops = [STOPS.index(cs) + 1 for cs in CONTROLLED_STOPS[:-1]]
             cv_tp_set = []
-            for cv in cv_hw_set_sub:
+            for cv in cv_hw_set:
                 cv_tp_set.append([cv[k] for k in idx_control_stops])
             x = np.arange(len(idx_control_stops))
             width = 0.1
             fig, ax = plt.subplots()
-
+            # print(cv_tp_set)
             bar1 = ax.bar(x - 3 * width / 2, cv_tp_set[0], width, label=tags[0], color='white', edgecolor='black')
             bar2 = ax.bar(x - width / 2, cv_tp_set[1], width, label=tags[1], color='silver', edgecolor='black')
             bar3 = ax.bar(x + width / 2, cv_tp_set[2], width, label=tags[2], color='gray', edgecolor='black')
@@ -125,7 +129,8 @@ class PostProcessor:
         #                             x_y_lbls=['stop id', 'avg load per trip'], load_sd_set=lp_std_set)
 
         results_load = {'load_mean': [np.around(np.mean(peak_load), decimals=2) for peak_load in peak_load_set],
-                        'std_load': [np.around(np.std(peak_load), decimals=2) for peak_load in peak_load_set]}
+                        'std_load': [np.around(np.std(peak_load), decimals=2) for peak_load in peak_load_set],
+                        '95_load': [np.around(np.percentile(peak_load, 95), decimals=2) for peak_load in peak_load_set]}
         return results_load
 
     def sample_trajectories(self):
@@ -237,12 +242,65 @@ class PostProcessor:
         return
 
 
+def count_load(file_dir, hw_threshold, count_skip=False):
+    cs_load = []
+    peak_load = []
+    cs_hw = []
+    peak_hw = []
+    trajectory_set = load(file_dir)
+    activate = False
+    skipped = 0
+    not_skipped = 0
+    for trajectory in trajectory_set:
+        last_t = None
+        last_t_pk = None
+        for trip in trajectory:
+            for stop_info in trajectory[trip]:
+                if stop_info[0] == STOPS[47]:
+                    arr_t = stop_info[IDX_ARR_T]
+                    if last_t:
+                        hw = arr_t - last_t
+                        if hw > hw_threshold:
+                            if count_skip:
+                                if stop_info[IDX_SKIPPED]:
+                                    skipped += 1
+                                else:
+                                    not_skipped += 1
+                            cs_load.append(stop_info[IDX_LOAD])
+                            cs_hw.append(hw)
+                            activate = True
+                        else:
+                            activate = False
+                    last_t = deepcopy(arr_t)
+                if activate and stop_info[0] == STOPS[56]:
+                    peak_load.append(stop_info[IDX_LOAD])
+                    arr_t = stop_info[IDX_ARR_T]
+                    peak_hw.append(arr_t-last_t_pk)
+                    activate = False
+                if stop_info[0] == STOPS[56]:
+                    last_t_pk = stop_info[IDX_ARR_T]
+
+    avg_pk_load = np.around(np.mean(peak_load), decimals=2)
+    avg_pk_hw = np.around(np.mean(peak_hw)/60, decimals=2)
+    avg_prev_hw = np.around(np.mean(cs_hw)/60, decimals=2)
+    avg_prev_load = np.around(np.mean(cs_load), decimals=2)
+    nr_trips = len(peak_load)
+    nr_trips_prev = len(cs_load)
+    # print(nr_trips, nr_trips_prev)
+    if count_skip:
+        skipped_freq = round(skipped / (skipped + not_skipped)*100, 2)
+        return avg_prev_hw, avg_prev_load, avg_pk_hw, avg_pk_load, skipped_freq
+    else:
+        return avg_prev_hw, avg_prev_load, avg_pk_hw, avg_pk_load
+
+
 def policy():
-    sars_set = load('out/DDQN-HA/0323-224522-sars_set.pkl')
+    sars_set = load('out/DDQN-HA/0329-165457-sars_set.pkl')
     n_stops = len(STOPS)
     rt_progress = [STOPS.index(c) / n_stops for c in CONTROLLED_STOPS[:-1]]
     control_stops = [STOPS.index(c) + 1 for c in CONTROLLED_STOPS[:-1]]
     d = {'stop': [], 'fw_h': [], 'bw_h': [], 'action': []}
+    d2 = {'stop': [], 'fw_h': [], 'load': [], 'action': []}
     for sars_rep in sars_set:
         for trip in sars_rep:
             for sars in sars_rep[trip]:
@@ -250,37 +308,80 @@ def policy():
                 d['fw_h'].append(sars[0][IDX_FW_H])
                 d['bw_h'].append(sars[0][IDX_BW_H])
                 d['action'].append(sars[1])
-    policy_df = pd.DataFrame(d)
-    policy_df['delta_h'] = (policy_df['fw_h'] - policy_df['bw_h']) / CONTROL_MEAN_HW
-    policy_on_t_df = policy_df[(policy_df['delta_h'] < 0.4) & (policy_df['delta_h'] > 0.2)]
-    policy_early_df = policy_df[policy_df['delta_h'] < -0.7]
-    policy_late_df = policy_df[policy_df['delta_h'] > 0.7]
-    actions = [i for i in range(N_ACTIONS_RL)]
-    on_t = []
-    early = []
-    late = []
-    for (policy, lst) in ((policy_on_t_df, on_t), (policy_early_df, early), (policy_late_df, late)):
-        for action in actions:
-            action_df = policy[policy['action'] == action]
-            action_lst = []
-            for stop in control_stops:
-                count_action = action_df[action_df['stop'] == stop]['action'].shape[0]
-                action_lst.append(count_action)
-            lst.append(action_lst)
-    on_t_arr = np.array(on_t)
-    early_arr = np.array(early)
-    late_arr = np.array(late)
-    for colum in range(on_t_arr.shape[1]):
-        on_t_arr[:, colum] = on_t_arr[:, colum] / on_t_arr[:, colum].sum() * 100
-        early_arr[:, colum] = early_arr[:, colum] / early_arr[:, colum].sum() * 100
-        late_arr[:, colum] = late_arr[:, colum] / late_arr[:, colum].sum() * 100
-    fig, ax = plt.subplots(ncols=3, sharey='all', sharex='all')
-    mesh1 = ax[0].pcolormesh(early_arr, cmap='Greys')
-    mesh1.set_clim(0, 100)
-    mesh2 = ax[1].pcolormesh(on_t_arr, cmap='Greys')
-    mesh2.set_clim(0, 100)
-    mesh3 = ax[2].pcolormesh(late_arr, cmap='Greys')
-    mesh3.set_clim(0, 100)
-    plt.show()
-    plt.close()
+                if sars[1] == 0 and trip in FOCUS_TRIPS:
+                    d2['stop'].append(round(sars[0][0]*n_stops+1))
+                    d2['fw_h'].append(sars[0][IDX_FW_H])
+                    d2['load'].append(sars[0][IDX_LOAD_RL])
+                    d2['action'].append(sars[1])
+
+    denied_df = pd.DataFrame(d2)
+
+    d_subset = denied_df[denied_df['stop'] == 48]
+    freq_skip_end = round(d_subset.shape[0]/denied_df.shape[0] * 100, 2)
+    freq_skip_start = round((denied_df.shape[0] - d_subset.shape[0]) / denied_df.shape[0] * 100, 2)
+    avg_load = round(d_subset['load'].mean(), 2)
+    avg_fw_h = round(d_subset['fw_h'].mean()/60, 2)
+
+    denied_df.to_csv('out/compare/denied_policy.csv', index=False)
+    trajectory_set = load('out/DDQN-HA/0329-165457-trajectory_set.pkl')
+    skipped_trips = []
+    reps = []
+    peak_load = []
+
+    hw_threshold = 7*60
+    eh_prev_hw, eh_prev_load, eh_pk_hw, eh_pk_load = count_load('out/EH/0329-155402-trajectory_set.pkl', hw_threshold)
+    ddqn_la_prev_hw, ddqn_la_prev_load, ddqn_la_pk_hw, ddqn_la_pk_load = count_load('out/DDQN-LA/0329-185304-trajectory_set.pkl', hw_threshold)
+    ddqn_ha_prev_hw, ddqn_ha_prev_load, ddqn_ha_pk_hw, ddqn_ha_pk_load, skipped_freq = count_load('out/DDQN-HA/0329-165457-trajectory_set.pkl', hw_threshold, count_skip=True)
+
+    print(eh_prev_hw, eh_prev_load, eh_pk_hw, eh_pk_load)
+    print(ddqn_la_prev_hw, ddqn_la_prev_load, ddqn_la_pk_hw, ddqn_la_pk_load)
+    print(ddqn_ha_prev_hw, ddqn_ha_prev_load, ddqn_ha_pk_hw, ddqn_ha_pk_load, skipped_freq)
+    # for trajectory in trajectory_set:
+    #     for trip in trajectory:
+    #         for stop_info in trajectory[trip]:
+    #             if activate and stop_info[0] == STOPS[56]:
+    #                 peak_load.append(stop_info[IDX_LOAD])
+    #                 activate = False
+    #             elif stop_info[IDX_SKIPPED] == 1 and stop_info[0] == CONTROLLED_STOPS[-2]:
+    #                 activate = True
+    # avg_peak_load = np.around(np.mean(peak_load), decimals=2)
+    # print(freq_skip_end, freq_skip_start, avg_load, avg_peak_load, avg_fw_h)
+
+
+    # policy_df = pd.DataFrame(d)
+    # policy_df['delta_h'] = (policy_df['fw_h'] - policy_df['bw_h']) / CONTROL_MEAN_HW
+    # policy_on_t_df = policy_df[(policy_df['delta_h'] < 0.4) & (policy_df['delta_h'] > 0.2)]
+    # policy_early_df = policy_df[policy_df['delta_h'] < -0.7]
+    # policy_late_df = policy_df[policy_df['delta_h'] > 0.7]
+    # actions = [i for i in range(N_ACTIONS_RL)]
+    # on_t = []
+    # early = []
+    # late = []
+    # for (policy, lst) in ((policy_on_t_df, on_t), (policy_early_df, early), (policy_late_df, late)):
+    #     for action in actions:
+    #         action_df = policy[policy['action'] == action]
+    #         action_lst = []
+    #         for stop in control_stops:
+    #             count_action = action_df[action_df['stop'] == stop]['action'].shape[0]
+    #             action_lst.append(count_action)
+    #         lst.append(action_lst)
+    # on_t_arr = np.array(on_t)
+    # early_arr = np.array(early)
+    # late_arr = np.array(late)
+    # for colum in range(on_t_arr.shape[1]):
+    #     on_t_arr[:, colum] = on_t_arr[:, colum] / on_t_arr[:, colum].sum() * 100
+    #     early_arr[:, colum] = early_arr[:, colum] / early_arr[:, colum].sum() * 100
+    #     late_arr[:, colum] = late_arr[:, colum] / late_arr[:, colum].sum() * 100
+    # fig, ax = plt.subplots(ncols=3, sharey='all', sharex='all')
+    # mesh1 = ax[0].pcolormesh(early_arr, cmap='Greys')
+    # mesh1.set_clim(0, 100)
+    # mesh2 = ax[1].pcolormesh(on_t_arr, cmap='Greys')
+    # mesh2.set_clim(0, 100)
+    # mesh3 = ax[2].pcolormesh(late_arr, cmap='Greys')
+    # mesh3.set_clim(0, 100)
+    # plt.show()
+    # plt.close()
     return
+
+
+policy()
