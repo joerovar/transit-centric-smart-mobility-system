@@ -807,7 +807,7 @@ class DetailedSimulationEnvWithControl(DetailedSimulationEnv):
 
 
 class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
-    def __init__(self, estimate_pax=False,  weight_ride_t=0.0, weight_cv_hw=0.82, *args, **kwargs):
+    def __init__(self, estimate_pax=False,  weight_ride_t=0.0, weight_cv_hw=0.88, *args, **kwargs):
         super(DetailedSimulationEnvWithDeepRL, self).__init__(*args, **kwargs)
         self.trips_sars = {}
         self.bool_terminal_state = False

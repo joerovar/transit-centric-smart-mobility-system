@@ -614,9 +614,41 @@ def plot_sensitivity_whisker(dset1, dset2, method_labels, scenario_labels, y_lab
     return
 
 
-def plot_sensitivity_whisker_compliance(dset1, dset2, method_labels, scenario_labels, base_method_labels,y_label1, y_label2, path_save):
+def plot_sensitivity_whisker_run_t(dset1, dset2, method_labels, scenario_labels, base_method_labels,
+                                   y_label1, y_label2, path_save):
     nr_scenarios = len(scenario_labels)
     nr_methods = len(method_labels)
+    fig, axes = plt.subplots(ncols=nr_scenarios, nrows=2, sharey='row', sharex='col')
+    fig.subplots_adjust(wspace=0.02)
+    ranges = [(0, 5), (5, 8), (8, 13)]
+    for i in range(nr_scenarios):
+        axes[0, i].boxplot(dset1[ranges[i][0]:ranges[i][1]], sym='')
+        axes[0, i].set_xticks(np.arange(1, ranges[i][1]-ranges[i][0]+1))
+        # axes[0, i].set_xticklabels(method_labels, fontsize=8)
+        if i == 1:
+            axes[0, i].set_xticklabels(base_method_labels, fontsize=8, rotation=90)
+        else:
+            axes[0, i].set_xticklabels(method_labels, fontsize=8, rotation=90)
+        axes[0, i].set(xlabel=scenario_labels[i])
+    axes[0, 0].set_ylabel(y_label1, fontsize=8)
+    for i in range(nr_scenarios):
+        axes[1, i].boxplot(dset2[ranges[i][0]:ranges[i][1]], sym='')
+        axes[1, i].set_xticks(np.arange(1, ranges[i][1]-ranges[i][0]+1))
+        if i == 1:
+            axes[1, i].set_xticklabels(base_method_labels, fontsize=8, rotation=90)
+        else:
+            axes[1, i].set_xticklabels(method_labels, fontsize=8, rotation=90)
+        # axes[1, i].set_xticklabels(method_labels, fontsize=8)
+        axes[1, i].set(xlabel=scenario_labels[i])
+    axes[1, 0].set_ylabel(y_label2, fontsize=8)
+    plt.tight_layout()
+    plt.savefig(path_save)
+    plt.close()
+    return
+
+
+def plot_sensitivity_whisker_compliance(dset1, dset2, method_labels, scenario_labels, base_method_labels,y_label1, y_label2, path_save):
+    nr_scenarios = len(scenario_labels)
     fig, axes = plt.subplots(ncols=nr_scenarios, nrows=2, sharey='row', sharex='col')
     fig.subplots_adjust(wspace=0.02)
     ranges = [(0, 3), (3, 8), (8, 13)]

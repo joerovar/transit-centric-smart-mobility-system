@@ -4,7 +4,7 @@ from sim_env import run_base_detailed, run_base_control_detailed
 from file_paths import *
 import seaborn as sns
 from post_process import load, plot_sensitivity_whisker, plot_2_var_whisker, plot_sensitivity_whisker_compliance, \
-    plot_3_var_whisker
+    plot_3_var_whisker, plot_sensitivity_whisker_run_t
 import matplotlib.pyplot as plt
 from output import PostProcessor
 
@@ -108,17 +108,23 @@ def benchmark_comparison(compute_rbt=False):
 
 def sensitivity_run_t(compute_rbt=False):
     prc = PostProcessor(
-        [path_tr_eh_low_s1, path_tr_ddqn_la_low_s1, path_tr_ddqn_ha_low_s1, path_tr_eh_base_s1, path_tr_ddqn_la_base_s1,
-         path_tr_ddqn_ha_base_s1, path_tr_eh_high_s1, path_tr_ddqn_la_high_s1, path_tr_ddqn_ha_high_s1],
-        [path_p_eh_low_s1, path_p_ddqn_la_low_s1, path_p_ddqn_ha_low_s1, path_p_eh_base_s1,
-         path_p_ddqn_la_base_s1, path_p_ddqn_ha_base_s1, path_p_eh_high_s1,
-         path_p_ddqn_la_high_s1, path_p_ddqn_ha_high_s1], tags_s1, N_REPLICATIONS, path_dir_s1)
+        [path_tr_eh_low_s1, path_tr_ddqn_la_low_s1_nr, path_tr_ddqn_la_low_s1, path_tr_ddqn_ha_low_s1_nr,
+         path_tr_ddqn_ha_low_s1,
+         path_tr_eh_base_s1,path_tr_ddqn_la_base_s1, path_tr_ddqn_ha_base_s1,
+         path_tr_eh_high_s1, path_tr_ddqn_la_high_s1_nr, path_tr_ddqn_la_high_s1, path_tr_ddqn_ha_high_s1_nr,
+         path_tr_ddqn_ha_high_s1],
+        [path_p_eh_low_s1, path_p_ddqn_ha_low_s1_nr, path_p_ddqn_la_low_s1, path_p_ddqn_ha_low_s1_nr,
+         path_p_ddqn_ha_low_s1,
+         path_p_eh_base_s1, path_p_ddqn_la_base_s1, path_p_ddqn_ha_base_s1,
+         path_p_eh_high_s1, path_p_ddqn_la_high_s1_nr, path_p_ddqn_la_high_s1, path_p_ddqn_ha_high_s1_nr,
+         path_p_ddqn_ha_high_s1], tags_s1, N_REPLICATIONS, path_dir_s1)
     results = {}
     results.update(prc.pax_times_fast(include_rbt=compute_rbt))
 
     rbt_od_set = load(path_dir_s1 + 'rbt_numer.pkl')
     wt_all_set = load(path_dir_s1 + 'wt_numer.pkl')
-    plot_sensitivity_whisker(rbt_od_set, wt_all_set, ['EH', 'DDQN-LA', 'DDQN-HA'], ['cv: -20%', 'cv: base', 'cv: +20%'],
+    plot_sensitivity_whisker_run_t(rbt_od_set, wt_all_set, ['EH', 'DDQN-LA (NR)' ,'DDQN-LA (R)', 'DDQN-HA (NR)', 'DDQN-HA (R)'],
+                             ['cv: -20%', 'cv: base', 'cv: +20%'], ['EH', 'DDQN-LA', 'DDQN-HA'],
                              'reliability buffer time (min)', 'avg pax wait time (min)', path_dir_s1 + 'pax_times.png')
     results.update({'rbt_od': [np.around(np.mean(rbt), decimals=2) for rbt in rbt_od_set]})
     results.update(prc.headway())
@@ -156,8 +162,8 @@ def sensitivity_compliance(compute_rbt=False):
 
 # run_benchmark(base=False, base_control=True, control_strength=0.75, tt_factor=0.8)
 # run_benchmark(base=False, base_control=True, control_strength=0.75, tt_factor=1.2)
-# weight_comparison(compute_rbt=False)
-benchmark_comparison(compute_rbt=False)
-# sensitivity_run_t(compute_rbt=True)
+# weight_comparison(compute_rbt=True)
+# benchmark_comparison(compute_rbt=False)
+sensitivity_run_t(compute_rbt=True)
 # validate_non_rl(compute_rbt=False)
-# sensitivity_compliance(compute_rbt=False)
+# sensitivity_compliance(compute_rbt=True)

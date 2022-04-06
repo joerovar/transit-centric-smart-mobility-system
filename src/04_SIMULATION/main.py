@@ -179,7 +179,7 @@ if __name__ == '__main__':
                     elif route_progress == 0.0 or pax_at_stop == 0 or previous_denied or args.simple_reward:
                         action = agent.choose_action(observation, mask_idx=[0])
                         # print(action)
-                        # print(action)
+                        # print(observation[0], observation[2], observation[3], action)
                     else:
                         action = agent.choose_action(observation)
                     env.take_action(action)
