@@ -110,7 +110,7 @@ def sensitivity_run_t(compute_rbt=False):
     prc = PostProcessor(
         [path_tr_eh_low_s1, path_tr_ddqn_la_low_s1_nr, path_tr_ddqn_la_low_s1, path_tr_ddqn_ha_low_s1_nr,
          path_tr_ddqn_ha_low_s1,
-         path_tr_eh_base_s1,path_tr_ddqn_la_base_s1, path_tr_ddqn_ha_base_s1,
+         path_tr_eh_base_s1, path_tr_ddqn_la_base_s1, path_tr_ddqn_ha_base_s1,
          path_tr_eh_high_s1, path_tr_ddqn_la_high_s1_nr, path_tr_ddqn_la_high_s1, path_tr_ddqn_ha_high_s1_nr,
          path_tr_ddqn_ha_high_s1],
         [path_p_eh_low_s1, path_p_ddqn_ha_low_s1_nr, path_p_ddqn_la_low_s1, path_p_ddqn_ha_low_s1_nr,
@@ -164,6 +164,6 @@ def sensitivity_compliance(compute_rbt=False):
 # run_benchmark(base=False, base_control=True, control_strength=0.75, tt_factor=1.2)
 # weight_comparison(compute_rbt=True)
 # benchmark_comparison(compute_rbt=False)
-sensitivity_run_t(compute_rbt=True)
+sensitivity_run_t(compute_rbt=False)
 # validate_non_rl(compute_rbt=False)
 # sensitivity_compliance(compute_rbt=True)

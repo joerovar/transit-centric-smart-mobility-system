@@ -90,7 +90,7 @@ class PostProcessor:
             x = np.arange(len(idx_control_stops))
             width = 0.1
             fig, ax = plt.subplots()
-            # print(cv_tp_set)
+            print(cv_tp_set)
             bar1 = ax.bar(x - 3 * width / 2, cv_tp_set[0], width, label=tags[0], color='white', edgecolor='black')
             bar2 = ax.bar(x - width / 2, cv_tp_set[1], width, label=tags[1], color='silver', edgecolor='black')
             bar3 = ax.bar(x + width / 2, cv_tp_set[2], width, label=tags[2], color='gray', edgecolor='black')
@@ -331,7 +331,7 @@ def policy():
     hw_threshold = 7*60
     eh_prev_hw, eh_prev_load, eh_pk_hw, eh_pk_load = count_load('out/EH/0329-155402-trajectory_set.pkl', hw_threshold)
     ddqn_la_prev_hw, ddqn_la_prev_load, ddqn_la_pk_hw, ddqn_la_pk_load = count_load('out/DDQN-LA/0329-185304-trajectory_set.pkl', hw_threshold)
-    ddqn_ha_prev_hw, ddqn_ha_prev_load, ddqn_ha_pk_hw, ddqn_ha_pk_load, skipped_freq = count_load('out/DDQN-HA/0329-165457-trajectory_set.pkl', hw_threshold, count_skip=True)
+    ddqn_ha_prev_hw, ddqn_ha_prev_load, ddqn_ha_pk_hw, ddqn_ha_pk_load, skipped_freq = count_load('out/DDQN-HA/0405-014450-trajectory_set.pkl', hw_threshold, count_skip=True)
 
     print(eh_prev_hw, eh_prev_load, eh_pk_hw, eh_pk_load)
     print(ddqn_la_prev_hw, ddqn_la_prev_load, ddqn_la_pk_hw, ddqn_la_pk_load)
