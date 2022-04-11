@@ -238,7 +238,7 @@ def plot_4_trip_t_dist(all_trip_t, tags, path_save):
         axs.flat[i].axvline(np.percentile(temp_trip_t, 95)/60, color='black', linestyle='dashed', alpha=0.7)
         axs.flat[i].set_title(tags[i], fontsize=9)
         if i > 1:
-            axs.flat[i].set_xlabel('total trip time (min)', fontsize=8)
+            axs.flat[i].set_xlabel('total trip run time (min)', fontsize=8)
         i += 1
     plt.xlim(60, 81)
     for ax in axs.flat:
