@@ -136,9 +136,7 @@ class PostProcessor:
     def sample_trajectories(self):
         for i in range(len(self.cp_trips)):
             trips = self.cp_trips[i][35:38]
-            # trip_df = pd.read_csv('out/trajectories' + self.cp_tags[i] + '.csv')
-            # trip_df = trip_df[trip_df['replication'] == 1]
-            plot_trajectories(trips, IDX_ARR_T, IDX_DEP_T, 'out/trajectories' + self.cp_tags[i] + '.png',
+            plot_trajectories(trips, IDX_ARR_T, IDX_DEP_T, 'out/trajectories/' + self.cp_tags[i] + '.png',
                               STOPS, controlled_stops=CONTROLLED_STOPS)
         return
 
@@ -148,7 +146,7 @@ class PostProcessor:
         if only_nc:
             compare_trips = [self.cp_trips[0]]
         for trips in compare_trips:
-            write_trajectory_set(trips, 'out/trajectories' + self.cp_tags[i] + '.csv', IDX_ARR_T, IDX_DEP_T,
+            write_trajectory_set(trips, 'out/trajectories/' + self.cp_tags[i] + '.csv', IDX_ARR_T, IDX_DEP_T,
                                  IDX_HOLD_TIME,
                                  header=['trip_id', 'stop_id', 'arr_t', 'dep_t', 'pax_load', 'ons', 'offs', 'denied',
                                          'hold_time', 'skipped', 'replication', 'arr_sec', 'dep_sec', 'dwell_sec'])
@@ -160,7 +158,7 @@ class PostProcessor:
         skip_freq_set = []
         bounds = [(0, 20), (20, 40), (40, 60), (60, 80), (80, 100), (100, 120), (120, np.inf)]
         for i in range(len(self.cp_tags)):
-            ht_dist, skip_freq = control_from_trajectory_set('out/trajectories' + self.cp_tags[i] + '.csv',
+            ht_dist, skip_freq = control_from_trajectory_set('out/trajectories/' + self.cp_tags[i] + '.csv',
                                                              CONTROLLED_STOPS)
             skip_freq_set.append(round(skip_freq, 1))
             ht_dist_arr = np.array(ht_dist)
