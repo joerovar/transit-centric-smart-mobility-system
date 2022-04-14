@@ -133,7 +133,7 @@ class DDQNAgent(Agent):
                                    chkpt_dir=self.chkpt_dir)
 
     def choose_action(self, observation, mask_idx=None):
-        if np.random.random() > self.epsilon:
+        if np.random.random() >= self.epsilon:
             state = T.tensor([observation]).to(self.Q_eval.device)
             actions = self.Q_eval.forward(state)
             if mask_idx is not None:
