@@ -732,10 +732,7 @@ class DetailedSimulationEnvWithControl(DetailedSimulationEnv):
 
                 holding_time = min(limit_holding, (backward_headway - forward_headway)/2)
                 if self.hold_adj_factor > 0.0 and holding_time > 0:
-                    # print('---')
-                    # print(f'before {round(holding_time)}')
                     holding_time = np.random.uniform(self.hold_adj_factor * holding_time, holding_time)
-                    # print(f'after {round(holding_time)}')
                 assert holding_time >= 0
                 self.inbound_dispatch(hold=holding_time)
             else:
@@ -746,10 +743,7 @@ class DetailedSimulationEnvWithControl(DetailedSimulationEnv):
             if backward_headway > forward_headway:
                 holding_time = min(limit_holding, (backward_headway - forward_headway)/2)
                 if self.hold_adj_factor > 0.0 and holding_time > 0:
-                    # print('---')
-                    # print(f'before {round(holding_time)}')
                     holding_time = np.random.uniform(self.hold_adj_factor * holding_time, holding_time)
-                    # print(f'after {round(holding_time)}')
                 assert holding_time >= 0
                 self.fixed_stop_depart(hold=holding_time)
             else:

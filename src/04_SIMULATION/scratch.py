@@ -2,16 +2,16 @@ import random
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
-import pickle
-import time
-from datetime import timedelta
-import random
-from datetime import datetime
-from post_process import save
-from post_process import load
-from constants import CONTROLLED_STOPS, IDX_RT_PROGRESS, IDX_FW_H, IDX_BW_H
-from input import STOPS, CONTROL_MEAN_HW, N_ACTIONS_RL
-import seaborn as sns
 
 
+main_stop_times = pd.read_csv('in/raw/rt20_stop_times.csv')
+extra_stop_times = pd.read_csv('in/raw/rt20_extra.csv')
 
+
+avl_cols = ['trip_id', 'route_id', 'stop_sequence', 'avl_arr_time',
+            'avl_dep_time', 'avl_arr_sec', 'avl_dep_sec', 'schd_sec', 'stop_id']
+main_stop_times_avl = main_stop_times[avl_cols]
+extra_stop_times_avl = extra_stop_times[avl_cols]
+rt20_avl = pd.concat([main_stop_times_avl, extra_stop_times], ignore_index=True)
+rt20_avl = rt20_avl.sort_values(by=['trip_id', 'stop_sequence'])
+rt20_avl.to_csv('in/raw/rt20_avl.csv', index=False)

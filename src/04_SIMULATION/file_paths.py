@@ -7,7 +7,6 @@ ext_fig = '.png'
 ext_csv = '.csv'
 tstamp_save = time.strftime("%m%d-%H%M")
 tstamp_load = tstamp_save
-dir_project = 'rt_20-2019-09/'
 dir_raw = 'raw/'
 dir_vis = 'vis/'
 dir_figs = 'fig/'
@@ -17,8 +16,9 @@ dir_var = 'var/'
 # INPUT FILES
 
 path_trips_gtfs = path_to_ins + dir_raw + 'gtfs/trips.txt'
-path_stop_times = path_to_ins + dir_raw + 'route20_stop_time_merged.csv'
-path_extra_stop_times = path_to_ins + dir_raw + 'rt20_extra.csv'
+path_stop_times = path_to_ins + dir_raw + 'rt20_stop_times.csv'
+# path_extra_stop_times = path_to_ins + dir_raw + 'rt20_extra.csv'
+path_avl = path_to_ins + dir_raw + 'rt20_avl.csv'
 path_stops_loc = path_to_ins + dir_raw + 'gtfs/stops.txt'
 path_od = path_to_ins + dir_raw + 'odt_for_opt.csv'
 path_dispatching_times = path_to_ins + dir_raw + 'dispatching_time.csv'
@@ -26,15 +26,13 @@ path_ordered_dispatching = path_to_ins + dir_raw + 'inbound_ordered_dispatching.
 
 # EXTRACT NETWORK PARAMS
 
-path_route_stops = path_to_ins + 'xtr/' + dir_project + 'route_stops' + '.pkl'
-path_link_times_mean = path_to_ins + 'xtr/' + dir_project + 'link_times_info' + '.pkl'
-path_ordered_trips = path_to_ins + 'xtr/' + dir_project + 'ordered_trips' + '.pkl'
-path_arr_rates = path_to_ins + 'xtr/' + dir_project + 'arr_rates' + '.pkl'
-path_alight_fractions = path_to_ins + 'xtr/' + dir_project + 'alight_fractions' + '.pkl'
-path_departure_times_xtr = path_to_ins + 'xtr/' + dir_project + 'departure_times_inbound' + '.pkl'
-path_alight_rates = path_to_ins + 'xtr/' + dir_project + 'alight_rates' + '.pkl'
-path_dep_volume = path_to_ins + 'xtr/' + dir_project + 'dep_vol' + '.pkl'
-path_odt_xtr = path_to_ins + 'xtr/' + dir_project + 'odt' + '.pkl'
+path_route_stops = path_to_ins + 'xtr/route_stops' + ext_var
+path_link_times_mean = path_to_ins + 'xtr/link_times_info' + ext_var
+path_arr_rates = path_to_ins + 'xtr/arr_rates' + ext_var
+path_alight_fractions = path_to_ins + 'xtr/alight_fractions' + ext_var
+path_alight_rates = path_to_ins + 'xtr/alight_rates' + ext_var
+path_dep_volume = path_to_ins + 'xtr/dep_vol' + ext_var
+path_odt_xtr = path_to_ins + 'xtr/odt' + ext_var
 
 # VISUALIZE NETWORK PARAMS
 
@@ -54,12 +52,8 @@ path_tr_ddqn_ha5 = 'out/DDQN-HA/0329-163310-trajectory_set.pkl'
 path_p_ddqn_ha5 = 'out/DDQN-HA/0329-163310-pax_set.pkl'
 path_tr_ddqn_ha7 = 'out/DDQN-HA/0329-164425-trajectory_set.pkl'
 path_p_ddqn_ha7 = 'out/DDQN-HA/0329-164425-pax_set.pkl'
-# path_tr_ddqn_ha9 = 'out/DDQN-HA/0329-165457-trajectory_set.pkl'
-# path_p_ddqn_ha9 = 'out/DDQN-HA/0329-165457-pax_set.pkl'
 path_tr_ddqn_ha9 = 'out/DDQN-HA/0405-014450-trajectory_set.pkl' # 0405-0120
 path_p_ddqn_ha9 = 'out/DDQN-HA/0405-014450-pax_set.pkl'
-# path_tr_ddqn_ha11 = 'out/DDQN-HA/0329-205507-trajectory_set.pkl'
-# path_p_ddqn_ha11 = 'out/DDQN-HA/0329-205507-pax_set.pkl'
 path_tr_ddqn_ha11 = 'out/DDQN-HA/0329-210029-trajectory_set.pkl'
 path_p_ddqn_ha11 = 'out/DDQN-HA/0329-210029-pax_set.pkl'
 path_dir_w = 'out/compare/weights/'
@@ -75,11 +69,7 @@ path_p_eh_b = 'out/EH/0329-155402-pax_set.pkl'
 
 path_tr_ddqn_la_b = 'out/DDQN-LA/0329-185304-trajectory_set.pkl'
 path_p_ddqn_la_b = 'out/DDQN-LA/0329-185304-pax_set.pkl'
-# path_tr_ddqn_la_b = 'out/DDQN-LA/0405-024955-trajectory_set.pkl'
-# path_p_ddqn_la_b = 'out/DDQN-LA/0405-024955-pax_set.pkl'
 
-# path_tr_ddqn_ha_b = 'out/DDQN-HA/0329-165457-trajectory_set.pkl'
-# path_p_ddqn_ha_b = 'out/DDQN-HA/0329-165457-pax_set.pkl'
 path_tr_ddqn_ha_b = 'out/DDQN-HA/0405-014450-trajectory_set.pkl'
 path_p_ddqn_ha_b = 'out/DDQN-HA/0405-014450-pax_set.pkl'
 
@@ -111,14 +101,10 @@ path_p_ddqn_la_low_s1 = 'out/DDQN-LA/0406-124359-pax_set.pkl'
 # path_p_ddqn_ha_base_s1 = 'out/DDQN-HA/0329-165457-pax_set.pkl'
 path_tr_ddqn_ha_base_s1 = 'out/DDQN-HA/0405-014450-trajectory_set.pkl'
 path_p_ddqn_ha_base_s1 = 'out/DDQN-HA/0405-014450-pax_set.pkl'
-# path_tr_ddqn_ha_high_s1_nr = 'out/DDQN-HA/0329-191141-trajectory_set.pkl'
-# path_p_ddqn_ha_high_s1_nr = 'out/DDQN-HA/0329-191141-pax_set.pkl'
 path_tr_ddqn_ha_high_s1_nr = 'out/DDQN-HA/0405-114732-trajectory_set.pkl'
 path_p_ddqn_ha_high_s1_nr = 'out/DDQN-HA/0405-114732-pax_set.pkl'
 path_tr_ddqn_ha_high_s1 = 'out/DDQN-HA/0405-123541-trajectory_set.pkl'
 path_p_ddqn_ha_high_s1 = 'out/DDQN-HA/0405-123541-pax_set.pkl'
-# path_tr_ddqn_ha_low_s1_nr = 'out/DDQN-HA/0329-191124-trajectory_set.pkl'
-# path_p_ddqn_ha_low_s1_nr = 'out/DDQN-HA/0329-191124-pax_set.pkl'
 path_tr_ddqn_ha_low_s1_nr = 'out/DDQN-HA/0405-114754-trajectory_set.pkl'
 path_p_ddqn_ha_low_s1_nr = 'out/DDQN-HA/0405-114754-pax_set.pkl'
 path_tr_ddqn_ha_low_s1 = 'out/DDQN-HA/0405-123518-trajectory_set.pkl'
@@ -142,8 +128,6 @@ path_tr_ddqn_la_base_s2 = 'out/DDQN-LA/0329-185304-trajectory_set.pkl'
 path_p_ddqn_la_base_s2 = 'out/DDQN-LA/0329-185304-pax_set.pkl'
 path_tr_ddqn_la_80_s2_nr = 'out/DDQN-LA/0329-193923-trajectory_set.pkl'
 path_p_ddqn_la_80_s2_nr = 'out/DDQN-LA/0329-193923-pax_set.pkl'
-# path_tr_ddqn_la_80_s2 = 'out/DDQN-LA/0329-222510-trajectory_set.pkl'
-# path_p_ddqn_la_80_s2 = 'out/DDQN-LA/0329-222510-pax_set.pkl'
 path_tr_ddqn_la_80_s2 = 'out/DDQN-LA/0329-222510-trajectory_set.pkl'
 path_p_ddqn_la_80_s2 = 'out/DDQN-LA/0329-222510-pax_set.pkl'
 path_tr_ddqn_la_60_s2_nr = 'out/DDQN-LA/0329-193937-trajectory_set.pkl'
@@ -151,18 +135,13 @@ path_p_ddqn_la_60_s2_nr = 'out/DDQN-LA/0329-193937-pax_set.pkl'
 path_tr_ddqn_la_60_s2 = 'out/DDQN-LA/0329-195857-trajectory_set.pkl'
 path_p_ddqn_la_60_s2 = 'out/DDQN-LA/0329-195857-pax_set.pkl'
 
-# path_tr_ddqn_ha_base_s2 = 'out/DDQN-HA/0329-165457-trajectory_set.pkl'
-# path_p_ddqn_ha_base_s2 = 'out/DDQN-HA/0329-165457-pax_set.pkl'
+
 path_tr_ddqn_ha_base_s2 = 'out/DDQN-HA/0405-014450-trajectory_set.pkl'
 path_p_ddqn_ha_base_s2 = 'out/DDQN-HA/0405-014450-pax_set.pkl'
-# path_tr_ddqn_ha_80_s2_nr = 'out/DDQN-HA/0329-211609-trajectory_set.pkl'
-# path_p_ddqn_ha_80_s2_nr = 'out/DDQN-HA/0329-211609-pax_set.pkl'
 path_tr_ddqn_ha_80_s2_nr = 'out/DDQN-HA/0405-102723-trajectory_set.pkl'
 path_p_ddqn_ha_80_s2_nr = 'out/DDQN-HA/0405-102723-pax_set.pkl'
 path_tr_ddqn_ha_80_s2 = 'out/DDQN-HA/0329-213742-trajectory_set.pkl'
 path_p_ddqn_ha_80_s2 = 'out/DDQN-HA/0329-213742-pax_set.pkl'
-# path_tr_ddqn_ha_60_s2_nr = 'out/DDQN-HA/0329-193850-trajectory_set.pkl'
-# path_p_ddqn_ha_60_s2_nr = 'out/DDQN-HA/0329-193850-pax_set.pkl'
 path_tr_ddqn_ha_60_s2_nr = 'out/DDQN-HA/0405-102850-trajectory_set.pkl'
 path_p_ddqn_ha_60_s2_nr = 'out/DDQN-HA/0405-102850-pax_set.pkl'
 path_tr_ddqn_ha_60_s2 = 'out/DDQN-HA/0329-204648-trajectory_set.pkl'
