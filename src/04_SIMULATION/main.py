@@ -2,14 +2,13 @@ import argparse
 import agents_dqn as Agents
 from utils import plot_learning
 import sim_env
-from post_process import pax_per_trip_from_trajectory_set, load, save
+from post_process import save
 import numpy as np
 import time
 from datetime import datetime
-import matplotlib.pyplot as plt
 import pandas as pd
-from input import STOPS, CONTROLLED_STOPS, FOCUS_TRIPS_MEAN_HW, N_ACTIONS_RL, LIMIT_HOLDING, IDX_RT_PROGRESS
-from input import IDX_LOAD, IDX_PICK, IDX_DROP, N_STATE_PARAMS_RL, IDX_PAX_AT_STOP, IDX_FW_H, IDX_BW_H, CONTROL_MEAN_HW
+from input import N_ACTIONS_RL, LIMIT_HOLDING, IDX_RT_PROGRESS
+from input import N_STATE_PARAMS_RL, IDX_PAX_AT_STOP, IDX_FW_H, IDX_BW_H, CONTROL_MEAN_HW
 import os
 
 if __name__ == '__main__':

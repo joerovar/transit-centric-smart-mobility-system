@@ -1,9 +1,5 @@
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
-
-from input import STOPS, CONTROLLED_STOPS, IDX_ARR_T, IDX_LOAD, IDX_PICK, IDX_DROP, IDX_HOLD_TIME, IDX_DEP_T, \
-    TRIP_IDS_IN, SCHED_DEP_IN, IDX_RT_PROGRESS, IDX_FW_H, IDX_BW_H, N_ACTIONS_RL, CONTROL_MEAN_HW, IDX_DENIED, IDX_LOAD_RL, IDX_SKIPPED, FOCUS_TRIPS
+from input import STOPS_OUTBOUND, CONTROLLED_STOPS, IDX_ARR_T, IDX_LOAD, IDX_PICK, IDX_DROP, IDX_HOLD_TIME, IDX_DEP_T, \
+    TRIP_IDS_IN, SCHED_DEP_IN, IDX_RT_PROGRESS, IDX_FW_H, IDX_BW_H, IDX_LOAD_RL, IDX_SKIPPED, FOCUS_TRIPS
 from post_process import *
 
 
@@ -30,7 +26,7 @@ class PostProcessor:
         pc_wt_4_inf_set = []
         for pax in self.cp_pax:
             wt_set, dbm, dbwt, rbt_od, pc_wt_0_2, pc_wt_2_4, pc_wt_4_inf = get_pax_times_fast(pax,
-                                                                                              len(STOPS),
+                                                                                              len(STOPS_OUTBOUND),
                                                                                               include_rbt=include_rbt)
             wt_all_set.append(wt_set)
             db_mean.append(dbm)
@@ -61,15 +57,15 @@ class PostProcessor:
         cv_hw_tp_set = []
         hw_peak_set = []
         for trips in self.cp_trips:
-            temp_cv_hw, cv_hw_tp, cv_hw_mean, hw_peak = get_headway_from_trajectory_set(trips, IDX_ARR_T, STOPS,
-                                                                                        STOPS[50],
+            temp_cv_hw, cv_hw_tp, cv_hw_mean, hw_peak = get_headway_from_trajectory_set(trips, IDX_ARR_T, STOPS_OUTBOUND,
+                                                                                        STOPS_OUTBOUND[50],
                                                                                         controlled_stops=CONTROLLED_STOPS)
             cv_hw_tp_set.append(cv_hw_tp)
             cv_hw_set.append(temp_cv_hw)
             cv_all_reps.append(cv_hw_mean)
             hw_peak_set.append(hw_peak)
         if len(self.cp_tags) <= len(self.colors):
-            plot_headway(cv_hw_set, STOPS, self.cp_tags, self.colors, pathname=self.path_dir + 'hw.png',
+            plot_headway(cv_hw_set, STOPS_OUTBOUND, self.cp_tags, self.colors, pathname=self.path_dir + 'hw.png',
                          controlled_stops=CONTROLLED_STOPS[:-1])
 
         results_hw = {'cv_h_tp': [np.around(np.mean(cv), decimals=2) for cv in cv_hw_tp_set],
@@ -80,10 +76,8 @@ class PostProcessor:
                       '95_h_pk': [np.around(np.percentile(hw, 95), decimals=2) for hw in hw_peak_set]}
         # cv_hw_tp_set is for whisker plot
         if plot_bars:
-            # cv_hw_set_sub = cv_hw_set[0:3] + [cv_hw_set[-1]]
-            # tags = self.cp_tags[0:3] + [self.cp_tags[-1]]
             tags = self.cp_tags
-            idx_control_stops = [STOPS.index(cs) + 1 for cs in CONTROLLED_STOPS[:-1]]
+            idx_control_stops = [STOPS_OUTBOUND.index(cs) + 1 for cs in CONTROLLED_STOPS[:-1]]
             cv_tp_set = []
             for cv in cv_hw_set:
                 cv_tp_set.append([cv[k] for k in idx_control_stops])
@@ -107,7 +101,7 @@ class PostProcessor:
 
         return results_hw
 
-    def load_profile(self):
+    def load_profile(self, plot_grid=False, plot_single=False):
         load_profile_set = []
         lp_std_set = []
         peak_load_set = []
@@ -115,19 +109,21 @@ class PostProcessor:
         min_load_set = []
         for trips in self.cp_trips:
             temp_lp, temp_lp_std, temp_peak_loads, max_load, min_load = load_from_trajectory_set(trips,
-                                                                                                 STOPS, IDX_LOAD,
-                                                                                                 STOPS[56])
+                                                                                                 STOPS_OUTBOUND, IDX_LOAD,
+                                                                                                 STOPS_OUTBOUND[56])
             load_profile_set.append(temp_lp)
             lp_std_set.append(temp_lp_std)
             peak_load_set.append(temp_peak_loads)
             max_load_set.append(max_load)
             min_load_set.append(min_load)
-        plot_load_profile_grid(load_profile_set, max_load_set, min_load_set, STOPS, self.cp_tags,
-                               pathname=self.path_dir + 'lp_grid.png')
-        # plot_load_profile_benchmark(load_profile_set, STOPS, self.cp_tags, self.colors,
-        #                             pathname=self.path_dir + 'lp.png', controlled_stops=CONTROLLED_STOPS,
-        #                             x_y_lbls=['stop id', 'avg load per trip'], load_sd_set=lp_std_set)
-
+        if plot_grid:
+            plot_load_profile_grid(load_profile_set, max_load_set, min_load_set, STOPS_OUTBOUND, self.cp_tags,
+                                   pathname=self.path_dir + 'lp_grid.png')
+        print(len(load_profile_set))
+        if plot_single:
+            plot_load_profile_benchmark(load_profile_set, STOPS_OUTBOUND, self.cp_tags, self.colors,
+                                        pathname=self.path_dir + 'lp.png', controlled_stops=CONTROLLED_STOPS,
+                                        x_y_lbls=['stop id', 'avg load per trip'], load_sd_set=lp_std_set)
         results_load = {'load_mean': [np.around(np.mean(peak_load), decimals=2) for peak_load in peak_load_set],
                         'std_load': [np.around(np.std(peak_load), decimals=2) for peak_load in peak_load_set],
                         '95_load': [np.around(np.percentile(peak_load, 95), decimals=2) for peak_load in peak_load_set]}
@@ -137,7 +133,7 @@ class PostProcessor:
         for i in range(len(self.cp_trips)):
             trips = self.cp_trips[i][35:38]
             plot_trajectories(trips, IDX_ARR_T, IDX_DEP_T, 'out/trajectories/' + self.cp_tags[i] + '.png',
-                              STOPS, controlled_stops=CONTROLLED_STOPS)
+                              STOPS_OUTBOUND, controlled_stops=CONTROLLED_STOPS)
         return
 
     def write_trajectories(self, only_nc=False):
@@ -197,11 +193,11 @@ class PostProcessor:
         return results_tt
 
     def validation(self):
-        temp_cv_hw, cv_hw_tp, cv_hw_mean, hw_peak = get_headway_from_trajectory_set(self.cp_trips[0], IDX_ARR_T, STOPS,
-                                                                                    STOPS[50],
+        temp_cv_hw, cv_hw_tp, cv_hw_mean, hw_peak = get_headway_from_trajectory_set(self.cp_trips[0], IDX_ARR_T, STOPS_OUTBOUND,
+                                                                                    STOPS_OUTBOUND[50],
                                                                                     controlled_stops=CONTROLLED_STOPS)
         cv_hw_set = [cv_hw_tp]
-        plot_headway(cv_hw_set, STOPS, self.cp_tags, self.colors, pathname=self.path_dir + 'hw.png',
+        plot_headway(cv_hw_set, STOPS_OUTBOUND, self.cp_tags, self.colors, pathname=self.path_dir + 'hw.png',
                      controlled_stops=CONTROLLED_STOPS[:-1])
         return
 
@@ -209,17 +205,17 @@ class PostProcessor:
         load_profile_set = []
         lp_std_set = []
         for trips in self.cp_trips:
-            temp_lp, temp_lp_std, _, _, _ = pax_per_trip_from_trajectory_set(trips, IDX_LOAD, IDX_PICK, IDX_DROP, STOPS)
+            temp_lp, temp_lp_std, _, _, _ = pax_per_trip_from_trajectory_set(trips, IDX_LOAD, IDX_PICK, IDX_DROP, STOPS_OUTBOUND)
             load_profile_set.append(temp_lp)
             lp_std_set.append(temp_lp_std)
-        lp_input = load('in/xtr/rt_20-2019-09/load_profile.pkl')
+        lp_input = load('in/xtr/load_profile.pkl')
         load_profile_set.append(lp_input)
-        plot_load_profile_benchmark(load_profile_set, STOPS, ['simulated', 'observed'], self.colors,
+        plot_load_profile_benchmark(load_profile_set, STOPS_OUTBOUND, ['simulated', 'observed'], self.colors,
                                     pathname='out/validation/lp.png', x_y_lbls=['stop id', 'avg load per trip'])
         return
 
     def departure_delay_validation(self):
-        dep_delay_in_input = load('in/xtr/rt_20-2019-09/dep_delay_in.pkl')
+        dep_delay_in_input = load('in/xtr/dep_delay_in.pkl')
         dep_delay_in_simul = get_departure_delay(self.cp_trips[0], IDX_DEP_T, TRIP_IDS_IN, SCHED_DEP_IN)
         sns.kdeplot(dep_delay_in_input, label='observed')
         sns.kdeplot(dep_delay_in_simul, label='simulated')
@@ -229,11 +225,11 @@ class PostProcessor:
         return
 
     def pax_profile_base(self):
-        lp, _, _, ons, offs = pax_per_trip_from_trajectory_set(self.cp_trips[0], IDX_LOAD, IDX_PICK, IDX_DROP, STOPS)
+        lp, _, _, ons, offs = pax_per_trip_from_trajectory_set(self.cp_trips[0], IDX_LOAD, IDX_PICK, IDX_DROP, STOPS_OUTBOUND)
         through = np.subtract(lp, offs)
         through[through < 0] = 0
         through = through.tolist()
-        plot_pax_profile(ons, offs, lp, STOPS, through, pathname='in/vis/pax_profile_base.png',
+        plot_pax_profile(ons, offs, lp, STOPS_OUTBOUND, through, pathname='in/vis/pax_profile_base.png',
                          x_y_lbls=['stop', 'passengers (per trip)',
                                    'through passengers and passenger load (per trip)'],
                          controlled_stops=CONTROLLED_STOPS[:-1])
@@ -254,7 +250,7 @@ def count_load(file_dir, hw_threshold, count_skip=False):
         last_t_pk = None
         for trip in trajectory:
             for stop_info in trajectory[trip]:
-                if stop_info[0] == STOPS[47]:
+                if stop_info[0] == STOPS_OUTBOUND[47]:
                     arr_t = stop_info[IDX_ARR_T]
                     if last_t:
                         hw = arr_t - last_t
@@ -270,12 +266,12 @@ def count_load(file_dir, hw_threshold, count_skip=False):
                         else:
                             activate = False
                     last_t = deepcopy(arr_t)
-                if activate and stop_info[0] == STOPS[56]:
+                if activate and stop_info[0] == STOPS_OUTBOUND[56]:
                     peak_load.append(stop_info[IDX_LOAD])
                     arr_t = stop_info[IDX_ARR_T]
                     peak_hw.append(arr_t-last_t_pk)
                     activate = False
-                if stop_info[0] == STOPS[56]:
+                if stop_info[0] == STOPS_OUTBOUND[56]:
                     last_t_pk = stop_info[IDX_ARR_T]
 
     avg_pk_load = np.around(np.mean(peak_load), decimals=2)
@@ -294,9 +290,9 @@ def count_load(file_dir, hw_threshold, count_skip=False):
 
 def policy():
     sars_set = load('out/DDQN-HA/0329-165457-sars_set.pkl')
-    n_stops = len(STOPS)
-    rt_progress = [STOPS.index(c) / n_stops for c in CONTROLLED_STOPS[:-1]]
-    control_stops = [STOPS.index(c) + 1 for c in CONTROLLED_STOPS[:-1]]
+    n_stops = len(STOPS_OUTBOUND)
+    rt_progress = [STOPS_OUTBOUND.index(c) / n_stops for c in CONTROLLED_STOPS[:-1]]
+    control_stops = [STOPS_OUTBOUND.index(c) + 1 for c in CONTROLLED_STOPS[:-1]]
     d = {'stop': [], 'fw_h': [], 'bw_h': [], 'action': []}
     d2 = {'stop': [], 'fw_h': [], 'load': [], 'action': []}
     for sars_rep in sars_set:

@@ -2,15 +2,9 @@ import numpy as np
 import pandas as pd
 from sim_env import run_base_detailed, run_base_control_detailed
 from file_paths import *
-import seaborn as sns
-from post_process import load, plot_sensitivity_whisker, plot_2_var_whisker, plot_sensitivity_whisker_compliance, \
-    plot_3_var_whisker, plot_sensitivity_whisker_run_t
-import matplotlib.pyplot as plt
+from post_process import load, plot_2_var_whisker, plot_sensitivity_whisker_compliance, plot_3_var_whisker, \
+    plot_sensitivity_whisker_run_t
 from output import PostProcessor
-
-st = time.time()
-
-N_REPLICATIONS = 40
 
 
 def run_benchmark(base=True, base_control=True, control_strength=0.7, hold_adj_factor=0.0, tt_factor=1.0):
@@ -36,20 +30,7 @@ def validate_non_rl(compute_rbt=False):
     results.update(prc.trip_times(keep_nc=True))
     results_df = pd.DataFrame(results, columns=list(results.keys()))
     results_df.to_csv('out/compare/test/numer_results.csv', index=False)
-    x = load('in/xtr/rt_20-2019-09/cv_headway_inbound.pkl')
-    y = load('in/xtr/rt_20-2019-09/trip_times_inbound.pkl')
-    t_out = load('out/compare/test/trip_t_sim.pkl')
-    fig, ax = plt.subplots(nrows=2, sharex='all')
-    sns.histplot([i / 60 + 1.5 for i in y], ax=ax[0], kde=True, color='red', label='observed', bins=10)
-    sns.histplot([t / 60 for t in t_out], ax=ax[1], kde=True, color='green', label='simulated', bins=10)
-    plt.xlim(61, 80)
-    plt.xlabel('trip time (min)')
-    ax[0].set_ylabel('frequency')
-    ax[1].set_ylabel('frequency')
-    fig.legend()
-    plt.tight_layout()
-    plt.savefig('out/compare/test/trip_t_dist.png')
-    plt.close()
+
     return
 
 
@@ -93,7 +74,7 @@ def benchmark_comparison(compute_rbt=False):
     results.update({'rbt_mean': [np.around(np.mean(rbt), decimals=2) for rbt in rbt_od_set],
                     'rbt_median': [np.around(np.median(rbt), decimals=2) for rbt in rbt_od_set]})
     results.update(prc.headway(plot_bars=True))
-    results.update(prc.load_profile())
+    results.update(prc.load_profile(plot_grid=True))
     results.update(prc.trip_times(keep_nc=True, plot=True))
     prc.write_trajectories()
     results.update(prc.control_actions())
@@ -160,6 +141,15 @@ def sensitivity_compliance(compute_rbt=False):
     return
 
 
+N_REPLICATIONS = 40
+run_base_detailed(replications=1)
+
+# prc = PostProcessor([path_tr_nc_b2, path_tr_nc_b],
+#                     [path_p_nc_b2, path_p_nc_b],
+#                     cp_tags=['new demand', 'old demand'], path_dir='out/compare/', nr_reps=N_REPLICATIONS)
+# results = {}
+# results.update(prc.load_profile(plot_single=True))
+# prc.pax_profile_base()
 # run_benchmark(base=False, base_control=True, control_strength=0.75, tt_factor=0.8)
 # run_benchmark(base=False, base_control=True, control_strength=0.75, tt_factor=1.2)
 # weight_comparison(compute_rbt=True)

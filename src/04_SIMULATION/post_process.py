@@ -562,13 +562,8 @@ def plot_load_profile_grid(lp_set, lp_max_set, lp_min_set, os, tags, pathname=No
 def plot_load_profile_benchmark(load_set, os, lbls, colors, load_sd_set=None, pathname=None, x_y_lbls=None, controlled_stops=None):
     x1 = np.arange(len(os))
     fig, ax1 = plt.subplots()
-    j_set = [0, 1, 2, 5]
-    for j in j_set:
+    for j in range(len(load_set)):
         ax1.plot(x1, load_set[j], label=lbls[j], color=colors[j])
-        if load_sd_set:
-            upper_bound = np.array(load_set[j]) + np.array(load_sd_set[j])
-            lower_bound = np.array(load_set[j]) - np.array(load_sd_set[j])
-            ax1.fill_between(x1, upper_bound, lower_bound, color=colors[j], alpha=0.3)
     if controlled_stops:
         for cs in controlled_stops:
             idx = os.index(cs)

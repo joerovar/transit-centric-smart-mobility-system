@@ -17,12 +17,11 @@ dir_var = 'var/'
 
 path_trips_gtfs = path_to_ins + dir_raw + 'gtfs/trips.txt'
 path_stop_times = path_to_ins + dir_raw + 'rt20_stop_times.csv'
-# path_extra_stop_times = path_to_ins + dir_raw + 'rt20_extra.csv'
 path_avl = path_to_ins + dir_raw + 'rt20_avl.csv'
 path_stops_loc = path_to_ins + dir_raw + 'gtfs/stops.txt'
 path_od = path_to_ins + dir_raw + 'odt_for_opt.csv'
 path_dispatching_times = path_to_ins + dir_raw + 'dispatching_time.csv'
-path_ordered_dispatching = path_to_ins + dir_raw + 'inbound_ordered_dispatching.csv'
+path_ordered_dispatching = path_to_ins + dir_raw + 'outbound_ordered_dispatching.csv'
 
 # EXTRACT NETWORK PARAMS
 
@@ -32,7 +31,7 @@ path_arr_rates = path_to_ins + 'xtr/arr_rates' + ext_var
 path_alight_fractions = path_to_ins + 'xtr/alight_fractions' + ext_var
 path_alight_rates = path_to_ins + 'xtr/alight_rates' + ext_var
 path_dep_volume = path_to_ins + 'xtr/dep_vol' + ext_var
-path_odt_xtr = path_to_ins + 'xtr/odt' + ext_var
+path_odt_rates_xtr = path_to_ins + 'xtr/odt' + ext_var
 
 # VISUALIZE NETWORK PARAMS
 
@@ -90,15 +89,11 @@ path_tr_ddqn_la_high_s1_nr = 'out/DDQN-LA/0329-190410-trajectory_set.pkl'
 path_p_ddqn_la_high_s1_nr = 'out/DDQN-LA/0329-190410-pax_set.pkl'
 path_tr_ddqn_la_high_s1 = 'out/DDQN-LA/0406-101143-trajectory_set.pkl'
 path_p_ddqn_la_high_s1 = 'out/DDQN-LA/0406-101143-pax_set.pkl'
-# path_tr_ddqn_la_low_s1_nr = 'out/DDQN-LA/0329-190330-trajectory_set.pkl'
-# path_p_ddqn_la_low_s1_nr = 'out/DDQN-LA/0329-190330-pax_set.pkl'
 path_tr_ddqn_la_low_s1_nr = 'out/DDQN-LA/0406-082942-trajectory_set.pkl'
 path_p_ddqn_la_low_s1_nr = 'out/DDQN-LA/0406-082942-pax_set.pkl'
 path_tr_ddqn_la_low_s1 = 'out/DDQN-LA/0406-124359-trajectory_set.pkl'
 path_p_ddqn_la_low_s1 = 'out/DDQN-LA/0406-124359-pax_set.pkl'
 
-# path_tr_ddqn_ha_base_s1 = 'out/DDQN-HA/0329-165457-trajectory_set.pkl'
-# path_p_ddqn_ha_base_s1 = 'out/DDQN-HA/0329-165457-pax_set.pkl'
 path_tr_ddqn_ha_base_s1 = 'out/DDQN-HA/0405-014450-trajectory_set.pkl'
 path_p_ddqn_ha_base_s1 = 'out/DDQN-HA/0405-014450-pax_set.pkl'
 path_tr_ddqn_ha_high_s1_nr = 'out/DDQN-HA/0405-114732-trajectory_set.pkl'
@@ -150,3 +145,8 @@ tags_s2 = ['EH (base)', 'DDQN-LA (base)', 'DDQN-HA (base)',
            'EH (0.8)', 'DDQN-LA (NR+0.8)', 'DDQN-LA (0.8)', 'DDQN-HA (NR+0.8)', 'DDQN-HA (0.8)',
            'EH (0.6)', 'DDQN-LA (NR+0.6)','DDQN-LA (0.6)', 'DDQN-HA (NR+0.6)','DDQN-HA (0.6)']
 path_dir_s2 = 'out/compare/sensitivity compliance/'
+
+# UPDATED DEMAND RESULTS
+path_tr_nc_b2 = 'out/NC/0420-184125-trajectory_set.pkl'
+path_p_nc_b2 = 'out/NC/0420-184125-pax_set.pkl'
+

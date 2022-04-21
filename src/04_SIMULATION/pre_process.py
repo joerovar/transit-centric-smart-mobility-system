@@ -130,10 +130,10 @@ def get_demand(path_odt, path_stop_times, stops, input_start_interval, input_end
     arr_rates = np.zeros(shape=(end_interval - start_interval, len(stops)))
     drop_rates = np.zeros(shape=(end_interval - start_interval, len(stops)))
     apc_df = pd.read_csv(path_stop_times)
-    inbound_df = apc_df[apc_df['stop_id'] == int(stops[0])]
-    inbound_df = inbound_df[inbound_df['stop_sequence'] == 1]
-    inbound_trips = inbound_df['trip_id'].unique().tolist()
-    apc_df = apc_df[apc_df['trip_id'].isin(inbound_trips)]
+    outbound_df = apc_df[apc_df['stop_id'] == int(stops[0])]
+    outbound_df = outbound_df[outbound_df['stop_sequence'] == 1]
+    outbound_trips = outbound_df['trip_id'].unique().tolist()
+    apc_df = apc_df[apc_df['trip_id'].isin(outbound_trips)]
     for i in range(len(stops)):
         temp_df = apc_df[apc_df['stop_id'] == int(stops[i])]
         for j in range(start_interval, end_interval):
@@ -176,8 +176,7 @@ def get_demand(path_odt, path_stop_times, stops, input_start_interval, input_end
                     od_set[time_idx, i, j] = pax * 60 / interval_length
     od_scaled_set = np.array(od_set)
     for i in range(od_set.shape[0]):
-        print(od_set[i])
-        od_scaled_set[i] = biproportional_fitting(od_set[i], arr_rates[i], drop_rates[i])
+        od_scaled_set[i] = bi_proportional_fitting(od_set[i], arr_rates[i], drop_rates[i])
     warm_up_odt = np.multiply(od_scaled_set[0], 0.6)
     od_scaled_set = np.insert(od_scaled_set, 0, warm_up_odt, axis=0)
     warm_up_odt2 = np.multiply(od_scaled_set[0], 0.3)
@@ -185,7 +184,7 @@ def get_demand(path_odt, path_stop_times, stops, input_start_interval, input_end
     return arr_rates, drop_rates, od_scaled_set
 
 
-def biproportional_fitting(od, target_ons, target_offs):
+def bi_proportional_fitting(od, target_ons, target_offs):
     balance_target_factor = np.sum(target_ons) / np.sum(target_offs)
     balanced_target_offs = target_offs * balance_target_factor
     for i in range(15):
@@ -206,7 +205,7 @@ def biproportional_fitting(od, target_ons, target_offs):
     return scaled_od_set
 
 
-def get_outbound_travel_time(path_stop_times, start_time, end_time, dates, nr_intervals,
+def get_inbound_travel_time(path_stop_times, start_time, end_time, dates, nr_intervals,
                              start_interval, interval_length, tolerance_early_dep=1 * 60):
     dep_delay_record_short = []
     dep_delay_record_long = []
@@ -318,12 +317,12 @@ def get_outbound_travel_time(path_stop_times, start_time, end_time, dates, nr_in
     arrival_headway = []
     df = stop_times_df[stop_times_df['trip_id'].isin(all_trip_ids)]
     df = df.sort_values(by=['stop_sequence', 'schd_sec'])
-    df.to_csv('in/vis/trajectories_outbound.csv', index=False)
+    df.to_csv('in/vis/trajectories_inbound.csv', index=False)
     df = stop_times_df[stop_times_df['trip_id'].isin(ordered_arriving_trip_ids)]
     df = df.sort_values(by=['stop_sequence', 'schd_sec'])
     df_arrivals = df[df['stop_id'] == 386]
     df_arrivals = df_arrivals.sort_values(by='schd_sec')
-    df_arrivals.to_csv('in/vis/arrivals_outbound.csv', index=False)
+    df_arrivals.to_csv('in/vis/arrivals_inbound.csv', index=False)
     for d in dates:
         temp_df = df[df['avl_arr_time'].astype(str).str[:10] == d]
         temp_df = temp_df[temp_df['stop_id'] == 386]
@@ -404,7 +403,7 @@ def get_trip_times(path_avl, focus_trips, dates, stops):
             hws = remove_outliers(np.array(hw_in_all[s])).tolist()
             # print(hws)
             hw_in_cv.append(np.std(hws) / np.mean(hws))
-    # THIS WE WILL USE TO VALIDATE THE OUTBOUND DIRECTION MODELING HENCE WE TAKE ALL DEPARTURES IN THE PERIOD OF STUDY
+    # THIS WE WILL USE TO VALIDATE THE INBOUND DIRECTION MODELING HENCE WE TAKE ALL DEPARTURES IN THE PERIOD OF STUDY
     hw = []
     df = stop_times_df[stop_times_df['stop_id'] == int(stops[30])]
     df = df[df['stop_sequence'] == 31]
@@ -454,11 +453,11 @@ def get_dwell_times(stop_times_path, focus_trips, stops, dates):
     return dwell_times_mean, dwell_times_std, dwell_times_tot
 
 
-def write_inbound_trajectories(stop_times_path, ordered_trips):
+def write_outbound_trajectories(stop_times_path, ordered_trips):
     stop_times_df = pd.read_csv(stop_times_path)
     stop_times_df = stop_times_df[stop_times_df['trip_id'].isin(ordered_trips)]
     stop_times_df = stop_times_df.sort_values(by=['stop_sequence', 'schd_sec'])
-    stop_times_df.to_csv('in/vis/trajectories_inbound.csv', index=False)
+    stop_times_df.to_csv('in/vis/trajectories_outbound.csv', index=False)
     return
 
 
@@ -486,25 +485,25 @@ def get_scheduled_bus_availability(path_stop_times, dates, start_time, end_time)
     date = dates[2]
     stop_times_df = stop_times_df[stop_times_df['avl_arr_time'].astype(str).str[:10] == date]
 
-    df_outbound = stop_times_df[stop_times_df['stop_sequence'].isin([23, 63])]
-    df_outbound = df_outbound[df_outbound['stop_id'] == 386]
-    df_outbound = df_outbound[df_outbound['schd_sec'] >= start_time]
-    df_outbound = df_outbound[df_outbound['schd_sec'] <= end_time]
-    df_outbound = df_outbound.sort_values(by='avl_arr_sec')
-    actual_arrivals = df_outbound['avl_arr_sec'] % 86400
-    actual_arrivals = actual_arrivals.tolist()
-    df_outbound = df_outbound.sort_values(by='schd_sec')
-    scheduled_arrivals = df_outbound['schd_sec'].tolist()
-
-    df_inbound = stop_times_df[stop_times_df['stop_sequence'] == 1]
+    df_inbound = stop_times_df[stop_times_df['stop_sequence'].isin([23, 63])]
     df_inbound = df_inbound[df_inbound['stop_id'] == 386]
     df_inbound = df_inbound[df_inbound['schd_sec'] >= start_time]
     df_inbound = df_inbound[df_inbound['schd_sec'] <= end_time]
-    df_inbound = df_inbound.sort_values(by='avl_dep_sec')
-    actual_departures = df_inbound['avl_dep_sec'] % 86400
-    actual_departures = actual_departures.tolist()
+    df_inbound = df_inbound.sort_values(by='avl_arr_sec')
+    actual_arrivals = df_inbound['avl_arr_sec'] % 86400
+    actual_arrivals = actual_arrivals.tolist()
     df_inbound = df_inbound.sort_values(by='schd_sec')
-    scheduled_departures = df_inbound['schd_sec'].tolist()
+    scheduled_arrivals = df_inbound['schd_sec'].tolist()
+
+    df_outbound = stop_times_df[stop_times_df['stop_sequence'] == 1]
+    df_outbound = df_outbound[df_outbound['stop_id'] == 386]
+    df_outbound = df_outbound[df_outbound['schd_sec'] >= start_time]
+    df_outbound = df_outbound[df_outbound['schd_sec'] <= end_time]
+    df_outbound = df_outbound.sort_values(by='avl_dep_sec')
+    actual_departures = df_outbound['avl_dep_sec'] % 86400
+    actual_departures = actual_departures.tolist()
+    df_outbound = df_outbound.sort_values(by='schd_sec')
+    scheduled_departures = df_outbound['schd_sec'].tolist()
 
     plt.plot(scheduled_departures, [i for i in range(1, len(scheduled_departures)+1)], '--', label='scheduled_departures', color='red')
     plt.plot(scheduled_arrivals, [i for i in range(1, len(scheduled_arrivals)+1)], '--', label='scheduled arrivals', color='green')
