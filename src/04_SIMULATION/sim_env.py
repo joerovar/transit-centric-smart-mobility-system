@@ -274,7 +274,7 @@ class DetailedSimulationEnv(SimulationEnv):
                     end_edge_interval = start_edge_interval + ODT_INTERVAL_LEN_MIN * 60
                     odt_orig_idx = ODT_STOP_IDS.index(STOPS_OUTBOUND[orig_idx])
                     odt_dest_idx = ODT_STOP_IDS.index(STOPS_OUTBOUND[dest_idx])
-                    od_rate = ODT_RATES[interval_idx, odt_orig_idx, odt_dest_idx]
+                    od_rate = SCALED_ODT[interval_idx, odt_orig_idx, odt_dest_idx]
                     if od_rate > 0:
                         max_size = int(od_rate * (ODT_INTERVAL_LEN_MIN / 60) * 3)
                         temp_pax_interarr_times = np.random.exponential(3600 / od_rate, size=max_size)
@@ -290,7 +290,6 @@ class DetailedSimulationEnv(SimulationEnv):
                             pax_info['arr_times'] += temp_pax_arr_times
                             pax_info['o_stop_idx'] += [orig_idx] * len(temp_pax_arr_times)
                             pax_info['d_stop_idx'] += [dest_idx] * len(temp_pax_arr_times)
-                        print(f'for od rate {round(od_rate,2)} we get {len(temp_pax_arr_times)} pax in 1/2h')
             df = pd.DataFrame(pax_info).sort_values(by='arr_times')
             pax_sorted_info = df.to_dict('list')
             for o, d, at in zip(pax_sorted_info['o_stop_idx'], pax_sorted_info['d_stop_idx'],
@@ -974,7 +973,7 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
         if self.estimate_pax:
             interval_idx = get_interval(self.time, ODT_INTERVAL_LEN_MIN)
             odt_stop_idx = ODT_STOP_IDS.index(bus.last_stop_id)
-            arr_rate = ARR_RATES[interval_idx, odt_stop_idx]
+            arr_rate = SCALED_ARR_RATES[interval_idx, odt_stop_idx]
             pax_at_stop = round(forward_headway * (arr_rate / 3600))
         else:
             pax_at_stop = 0

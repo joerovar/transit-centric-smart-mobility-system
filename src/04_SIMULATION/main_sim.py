@@ -142,7 +142,7 @@ def sensitivity_compliance(compute_rbt=False):
 
 
 N_REPLICATIONS = 40
-run_base_detailed(replications=1)
+# run_base_detailed(replications=40, save_results=True)
 
 # prc = PostProcessor([path_tr_nc_b2, path_tr_nc_b],
 #                     [path_p_nc_b2, path_p_nc_b],
@@ -150,7 +150,7 @@ run_base_detailed(replications=1)
 # results = {}
 # results.update(prc.load_profile(plot_single=True))
 # prc.pax_profile_base()
-# run_benchmark(base=False, base_control=True, control_strength=0.75, tt_factor=0.8)
+# # run_benchmark(base=False, base_control=True, control_strength=0.75, tt_factor=0.8)
 # run_benchmark(base=False, base_control=True, control_strength=0.75, tt_factor=1.2)
 # weight_comparison(compute_rbt=True)
 # benchmark_comparison(compute_rbt=False)

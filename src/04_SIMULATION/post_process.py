@@ -144,7 +144,8 @@ def plot_pax_profile(bd, al, lp, os, through, pathname=None, x_y_lbls=None, cont
     x_tick_labels = x_ticks + 1
     ax1.set_xticks(x_ticks)
     ax1.set_xticklabels(x_tick_labels)
-    ax2.set_ylim(0, np.max(lp)+1)
+    ax1.set_ylim(0, 6)
+    ax2.set_ylim(0, 21.0)
     # right, left, top, bottom
     if x_y_lbls:
         ax1.set_xlabel(x_y_lbls[0])
@@ -213,7 +214,7 @@ def load_from_trajectory_set(trajectory_set, stops, idx_load, peak_load_stop):
                 load_per_stop[stop_id].append(bus_load)
                 if peak_load_stop == stop_id:
                     peak_loads.append(bus_load)
-    load_avg_per_stop = [np.median(load_per_stop[s]) for s in stops]
+    load_avg_per_stop = [np.mean(load_per_stop[s]) for s in stops]
     load_sd_per_stop = [np.std(load_per_stop[s]) for s in stops]
     max_load_per_stop = [np.percentile(load_per_stop[s], 95) for s in stops]
     min_load_per_stop = [np.percentile(load_per_stop[s], 10) for s in stops]

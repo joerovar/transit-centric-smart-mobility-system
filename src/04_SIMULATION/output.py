@@ -119,7 +119,6 @@ class PostProcessor:
         if plot_grid:
             plot_load_profile_grid(load_profile_set, max_load_set, min_load_set, STOPS_OUTBOUND, self.cp_tags,
                                    pathname=self.path_dir + 'lp_grid.png')
-        print(len(load_profile_set))
         if plot_single:
             plot_load_profile_benchmark(load_profile_set, STOPS_OUTBOUND, self.cp_tags, self.colors,
                                         pathname=self.path_dir + 'lp.png', controlled_stops=CONTROLLED_STOPS,
