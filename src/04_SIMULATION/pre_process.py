@@ -1,9 +1,8 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import seaborn as sns
-from scipy.stats import norm, lognorm, kstest
+from scipy.stats import norm, lognorm
 
 
 def get_interval(t, len_i_mins):
@@ -123,65 +122,6 @@ def get_route(path_stop_times, start_time_sec, end_time_sec, nr_intervals, start
 
     trips_info = [(x, y, z) for x, y, z in zip(ordered_trip_ids, ordered_sched_dep, ordered_block_ids)]
     return stops, trips_info, link_times_info, sched_arrivals
-
-
-def get_demand(path_odt, path_stop_times, stops, input_start_interval, input_end_interval, start_interval,
-               end_interval, proportion_intervals, interval_length, dates):
-    arr_rates = np.zeros(shape=(end_interval - start_interval, len(stops)))
-    drop_rates = np.zeros(shape=(end_interval - start_interval, len(stops)))
-    apc_df = pd.read_csv(path_stop_times)
-    outbound_df = apc_df[apc_df['stop_id'] == int(stops[0])]
-    outbound_df = outbound_df[outbound_df['stop_sequence'] == 1]
-    outbound_trips = outbound_df['trip_id'].unique().tolist()
-    apc_df = apc_df[apc_df['trip_id'].isin(outbound_trips)]
-    for i in range(len(stops)):
-        temp_df = apc_df[apc_df['stop_id'] == int(stops[i])]
-        for j in range(start_interval, end_interval):
-            t_edge0 = j * interval_length * 60
-            t_edge1 = (j + 1) * interval_length * 60
-            pax_df = temp_df[temp_df['avl_dep_sec'] % 86400 <= t_edge1]
-            pax_df = pax_df[pax_df['avl_dep_sec'] % 86400 >= t_edge0]
-            if i < len(stops) - 1:
-                ons_rate_by_date = np.zeros(len(dates))
-                ons_rate_by_date[:] = np.nan
-                for k in range(len(dates)):
-                    day_df = pax_df[pax_df['avl_arr_time'].astype(str).str[:10] == dates[k]]
-                    if not day_df.empty:
-                        ons_rate_by_date[k] = (day_df['ron'].sum() + day_df['fon'].sum()) * 60 / interval_length
-                arr_rates[j - start_interval, i] = np.nanmean(ons_rate_by_date)
-            if i:
-                offs_rate_by_date = np.zeros(len(dates))
-                offs_rate_by_date[:] = np.nan
-                for k in range(len(dates)):
-                    day_df = pax_df[pax_df['avl_arr_time'].astype(str).str[:10] == dates[k]]
-                    if not day_df.empty:
-                        offs_rate_by_date[k] = (day_df['roff'].sum() + day_df['foff'].sum()) * 60 / interval_length
-                drop_rates[j - start_interval, i] = np.nanmean(offs_rate_by_date)
-
-    odt_df = pd.read_csv(path_odt)
-    input_interval_groups = []
-    for i in range(input_start_interval, input_end_interval, proportion_intervals):
-        input_interval_groups.append([j for j in range(i, i + proportion_intervals)])
-    od_set = np.zeros(shape=(end_interval - start_interval, len(stops), len(stops)))
-    od_set[:] = np.nan
-    for i in range(len(stops)):
-        for j in range(i + 1, len(stops)):
-            temp_df = odt_df[odt_df['BOARDING_STOP'] == float(stops[i])]
-            temp_df = temp_df[temp_df['INFERRED_ALIGHTING_GTFS_STOP'] == float(stops[j])]
-            for g in input_interval_groups:
-                pax_df = temp_df[temp_df['bin_5'].isin(g)]
-                pax = pax_df['mean'].sum()
-                if pax:
-                    time_idx = input_interval_groups.index(g)
-                    od_set[time_idx, i, j] = pax * 60 / interval_length
-    od_scaled_set = np.array(od_set)
-    for i in range(od_set.shape[0]):
-        od_scaled_set[i] = bi_proportional_fitting(od_set[i], arr_rates[i], drop_rates[i])
-    warm_up_odt = np.multiply(od_scaled_set[0], 0.6)
-    od_scaled_set = np.insert(od_scaled_set, 0, warm_up_odt, axis=0)
-    warm_up_odt2 = np.multiply(od_scaled_set[0], 0.3)
-    od_scaled_set = np.insert(od_scaled_set, 0, warm_up_odt2, axis=0)
-    return arr_rates, drop_rates, od_scaled_set
 
 
 def bi_proportional_fitting(od, target_ons, target_offs):
@@ -532,4 +472,38 @@ def bus_availability(sched_arr, sched_dep, actual_arr, iden):
     plt.close()
     actual_dep_hw = [j - k for j, k in zip(actual_dep[1:], actual_dep[:-1])]
     return actual_dep_hw
+
+
+def extract_apc_counts(nr_intervals, odt_ordered_stops, path_stop_times, interval_len_min, dates):
+    arr_rates = np.zeros(shape=(nr_intervals, len(odt_ordered_stops)))
+    drop_rates = np.zeros(shape=(nr_intervals, len(odt_ordered_stops)))
+    stop_t_df = pd.read_csv(path_stop_times)
+    for stop_idx in range(len(odt_ordered_stops)):
+        print(f'stop {stop_idx+1}')
+        temp_df = stop_t_df[stop_t_df['stop_id'] == int(odt_ordered_stops[stop_idx])]
+        for interval_idx in range(48):
+            t_edge0 = interval_idx * interval_len_min * 60
+            t_edge1 = (interval_idx + 1) * interval_len_min * 60
+            pax_df = temp_df[temp_df['avl_dep_sec'] % 86400 <= t_edge1]
+            pax_df = pax_df[pax_df['avl_dep_sec'] % 86400 >= t_edge0]
+            ons_rate_by_date = np.zeros(len(dates))
+            ons_rate_by_date[:] = np.nan
+            for k in range(len(dates)):
+                day_df = pax_df[pax_df['avl_arr_time'].astype(str).str[:10] == dates[k]]
+                if not day_df.empty:
+                    ons_rate_by_date[k] = (day_df['ron'].sum() + day_df['fon'].sum()) * 60 / interval_len_min
+            all_nan = True not in np.isfinite(ons_rate_by_date)
+            if not all_nan:
+                arr_rates[interval_idx, stop_idx] = np.nanmean(ons_rate_by_date)
+            offs_rate_by_date = np.zeros(len(dates))
+            offs_rate_by_date[:] = np.nan
+            for k in range(len(dates)):
+                day_df = pax_df[pax_df['avl_arr_time'].astype(str).str[:10] == dates[k]]
+                if not day_df.empty:
+                    offs_rate_by_date[k] = (day_df['roff'].sum() + day_df['foff'].sum()) * 60 / interval_len_min
+            all_nan = True not in np.isfinite(offs_rate_by_date)
+            if not all_nan:
+                drop_rates[interval_idx, stop_idx] = np.nanmean(offs_rate_by_date)
+
+    return arr_rates, drop_rates
 
