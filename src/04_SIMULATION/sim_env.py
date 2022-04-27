@@ -224,50 +224,14 @@ class DetailedSimulationEnv(SimulationEnv):
         self.log = Log(TRIP_IDS_IN + TRIP_IDS_OUT)
         return False
 
-    # def initialize_pax_demand(self):
-    #     pax_info = {}
-    #     self.stops = []
-    #     for i in range(len(STOPS_OUTBOUND)):
-    #         self.stops.append(Stop(STOPS_OUTBOUND[i]))
-    #         pax_info['arr_times'] = []
-    #         pax_info['o_stop_idx'] = []
-    #         pax_info['d_stop_idx'] = []
-    #         for j in range(i + 1, len(STOPS_OUTBOUND)):
-    #             for k in range(POST_PROCESSED_DEM_START_INTERVAL, POST_PROCESSED_DEM_END_INTERVAL):
-    #                 start_edge_interval = k * DEM_INTERVAL_LENGTH_MINS * 60
-    #                 end_edge_interval = start_edge_interval + DEM_INTERVAL_LENGTH_MINS * 60
-    #                 od_rate = ODT_RATES[k - POST_PROCESSED_DEM_START_INTERVAL, i, j]
-    #                 if not np.isnan(od_rate):
-    #                     max_size = int(od_rate * (DEM_INTERVAL_LENGTH_MINS / 60) * 3)
-    #                     if od_rate > 0:
-    #                         temp_pax_interarr_times = np.random.exponential(3600 / od_rate, size=max_size)
-    #                         temp_pax_arr_times = np.cumsum(temp_pax_interarr_times)
-    #                         if k == POST_PROCESSED_DEM_START_INTERVAL:
-    #                             temp_pax_arr_times += PAX_INIT_TIME[i]
-    #                         else:
-    #                             temp_pax_arr_times += max(start_edge_interval, PAX_INIT_TIME[i])
-    #                         temp_pax_arr_times = temp_pax_arr_times[
-    #                             temp_pax_arr_times <= min(END_TIME_SEC, end_edge_interval)]
-    #                         temp_pax_arr_times = temp_pax_arr_times.tolist()
-    #                         if len(temp_pax_arr_times):
-    #                             pax_info['arr_times'] += temp_pax_arr_times
-    #                             pax_info['o_stop_idx'] += [i] * len(temp_pax_arr_times)
-    #                             pax_info['d_stop_idx'] += [j] * len(temp_pax_arr_times)
-    #         df = pd.DataFrame(pax_info).sort_values(by='arr_times')
-    #         pax_sorted_info = df.to_dict('list')
-    #         for o, d, at in zip(pax_sorted_info['o_stop_idx'], pax_sorted_info['d_stop_idx'],
-    #                             pax_sorted_info['arr_times']):
-    #             self.stops[i].pax.append(Passenger(o, d, at))
-    #     return
-
     def initialize_pax_demand(self):
         pax_info = {}
         self.stops = []
         for orig_idx in range(len(STOPS_OUTBOUND)):
             self.stops.append(Stop(STOPS_OUTBOUND[orig_idx]))
-            pax_info['arr_times'] = []
-            pax_info['o_stop_idx'] = []
-            pax_info['d_stop_idx'] = []
+            pax_info['arr_t'] = []
+            pax_info['o_idx'] = []
+            pax_info['d_idx'] = []
             for dest_idx in range(orig_idx + 1, len(STOPS_OUTBOUND)):
                 for interval_idx in range(ODT_START_INTERVAL, ODT_END_INTERVAL):
                     start_edge_interval = interval_idx * ODT_INTERVAL_LEN_MIN * 60
@@ -276,7 +240,7 @@ class DetailedSimulationEnv(SimulationEnv):
                     odt_dest_idx = ODT_STOP_IDS.index(STOPS_OUTBOUND[dest_idx])
                     od_rate = SCALED_ODT[interval_idx, odt_orig_idx, odt_dest_idx]
                     if od_rate > 0:
-                        max_size = int(od_rate * (ODT_INTERVAL_LEN_MIN / 60) * 3)
+                        max_size = int(np.ceil(od_rate) * (ODT_INTERVAL_LEN_MIN / 60) * 10)
                         temp_pax_interarr_times = np.random.exponential(3600 / od_rate, size=max_size)
                         temp_pax_arr_times = np.cumsum(temp_pax_interarr_times)
                         if interval_idx == ODT_START_INTERVAL:
@@ -287,14 +251,15 @@ class DetailedSimulationEnv(SimulationEnv):
                             temp_pax_arr_times <= min(END_TIME_SEC, end_edge_interval)]
                         temp_pax_arr_times = temp_pax_arr_times.tolist()
                         if len(temp_pax_arr_times):
-                            pax_info['arr_times'] += temp_pax_arr_times
-                            pax_info['o_stop_idx'] += [orig_idx] * len(temp_pax_arr_times)
-                            pax_info['d_stop_idx'] += [dest_idx] * len(temp_pax_arr_times)
-            df = pd.DataFrame(pax_info).sort_values(by='arr_times')
+                            pax_info['arr_t'] += temp_pax_arr_times
+                            pax_info['o_idx'] += [orig_idx] * len(temp_pax_arr_times)
+                            pax_info['d_idx'] += [dest_idx] * len(temp_pax_arr_times)
+            df = pd.DataFrame(pax_info).sort_values(by='arr_t')
             pax_sorted_info = df.to_dict('list')
-            for o, d, at in zip(pax_sorted_info['o_stop_idx'], pax_sorted_info['d_stop_idx'],
-                                pax_sorted_info['arr_times']):
+            for o, d, at in zip(pax_sorted_info['o_idx'], pax_sorted_info['d_idx'],
+                                pax_sorted_info['arr_t']):
                 self.stops[orig_idx].pax.append(Passenger(o, d, at))
+        # print([counter, round(counter_od_interv_1, 1), round(counter_od_interv_2, 1)])
         return
 
     def fixed_stop_unload(self):

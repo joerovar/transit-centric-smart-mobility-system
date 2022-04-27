@@ -8,7 +8,6 @@ from output import PostProcessor
 
 
 def run_benchmark(base=True, base_control=True, control_strength=0.7, hold_adj_factor=0.0, tt_factor=1.0):
-    # RUN BENCHMARK
     if base:
         run_base_detailed(replications=N_REPLICATIONS, save_results=True)
     if base_control:
@@ -18,7 +17,6 @@ def run_benchmark(base=True, base_control=True, control_strength=0.7, hold_adj_f
 
 
 def validate_non_rl(compute_rbt=False):
-    # TEST NON RL
     prc = PostProcessor([path_tr_nc_b, path_tr_eh_b],
                         [path_p_nc_b, path_p_eh_b], ['NC', 'EH'], N_REPLICATIONS,
                         'out/compare/test/')
@@ -35,7 +33,6 @@ def validate_non_rl(compute_rbt=False):
 
 
 def weight_comparison(compute_rbt=False):
-    # WEIGHTS COMPARISON
     prc_w = PostProcessor([path_tr_ddqn_ha3, path_tr_ddqn_ha5, path_tr_ddqn_ha7, path_tr_ddqn_ha9, path_tr_ddqn_ha11],
                           [path_p_ddqn_ha3, path_p_ddqn_ha5, path_p_ddqn_ha7, path_p_ddqn_ha9, path_p_ddqn_ha11],
                           tags_w, N_REPLICATIONS, path_dir_w)
@@ -142,6 +139,7 @@ def sensitivity_compliance(compute_rbt=False):
 
 
 N_REPLICATIONS = 40
+
 # run_base_detailed(replications=40, save_results=True)
 
 # prc = PostProcessor([path_tr_nc_b2, path_tr_nc_b],

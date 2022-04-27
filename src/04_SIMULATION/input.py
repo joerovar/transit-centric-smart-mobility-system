@@ -38,14 +38,25 @@ def extract_params(outbound_route_params=False, inbound_route_params=False, dema
         save('in/xtr/trip_time2_params.pkl', trip_times2_params)
         save('in/xtr/deadhead_times_params.pkl', deadhead_time_params)
 
-    # if demand:
-    #     stops = load(path_route_stops)
-    #     # arrival rates will be in pax/min
-    #     arrival_rates, alight_rates, odt_rates = get_demand(path_od, path_stop_times, stops, INPUT_DEM_START_INTERVAL,
-    #                                                         INPUT_DEM_END_INTERVAL, DEM_START_INTERVAL,
-    #                                                         DEM_END_INTERVAL,
-    #                                                         DEM_PROPORTION_INTERVALS, DEM_INTERVAL_LENGTH_MINS, DATES)
-    #     save(path_odt_rates_xtr, odt_rates)
+    if demand:
+        odt_stops = np.load('in/xtr/rt_20_odt_stops.npy')
+        odt = np.load('in/xtr/rt_20_odt_rates_30.npy')
+        # nr_intervals = 24/(ODT_INTERVAL_LEN_MIN/60)
+        # apc_on_rates, apc_off_rates = extract_apc_counts(nr_intervals, odt_stops, path_stop_times, ODT_INTERVAL_LEN_MIN, DATES)
+        # save('in/xtr/apc_on_counts.pkl', apc_on_rates)
+        # save('in/xtr/apc_off_counts.pkl', apc_off_rates)
+        apc_on_rates = load('in/xtr/apc_on_counts.pkl')
+        apc_off_rates = load('in/xtr/apc_off_counts.pkl')
+        stops_lst = list(odt_stops)
+        outbound_idx = [stops_lst.index(int(s)) for s in STOPS_OUTBOUND]
+
+        # DISCOVERED IN DINGYI'S OD MATRIX TIME SHIFT
+        shifted_odt = np.concatenate((odt[-6:], odt[:-6]), axis=0)
+        scaled_odt = np.concatenate((odt[-6:], odt[:-6]), axis=0)
+
+        for i in range(shifted_odt.shape[0]):
+            print(f'interval {i}')
+            scaled_odt[i] = bi_proportional_fitting(shifted_odt[i], apc_on_rates[i], apc_off_rates[i])
 
     if validation:
         stops = load(path_route_stops)
@@ -140,6 +151,9 @@ apc_on_counts = load('in/xtr/apc_on_counts.pkl')
 outbound_on_counts = apc_on_counts[:, idx_outbound]
 outbound_on_tot_count = np.nansum(outbound_on_counts, axis=-1)
 
+apc_off_counts = load('in/xtr/apc_off_counts.pkl')
+outbound_off_counts = apc_off_counts[:, idx_outbound]
+
 x = np.arange(outbound_on_tot_count.shape[0])
 plt.plot(x, outbound_arr_tot, label='predicted')
 plt.plot(x, outbound_on_tot_count, label='apc')
@@ -168,10 +182,13 @@ plt.close()
 
 SCALED_ODT = np.load('in/xtr/rt_20_odt_rates_30_scaled.npy')
 SCALED_ARR_RATES = np.sum(SCALED_ODT, axis=-1)
+SCALED_DROP_RATES = np.sum(SCALED_ODT, axis=-2)
+scaled_out_drop_rates = SCALED_DROP_RATES[:, idx_outbound]
 scaled_out_arr_rates = SCALED_ARR_RATES[:, idx_outbound]
 scaled_out_tot = np.sum(scaled_out_arr_rates, axis=-1)
 
 ARR_RATES_OLD = np.nansum(ODT_RATES_OLD, axis=-1)
+DROP_RATES_OLD = np.nansum(ODT_RATES_OLD, axis=-2)
 old_out_tot = np.nansum(ARR_RATES_OLD, axis=-1)
 
 x = np.arange(outbound_on_tot_count.shape[0])
@@ -187,9 +204,56 @@ plt.legend()
 # plt.show()
 plt.close()
 
-print(scaled_out_tot[ODT_START_INTERVAL:ODT_END_INTERVAL])
-print(old_out_tot)
+comparison_rates = [[scaled_out_arr_rates[14].tolist(), ARR_RATES_OLD[2].tolist(), outbound_on_counts[14].tolist()],
+                    [scaled_out_arr_rates[15].tolist(), ARR_RATES_OLD[2].tolist(), outbound_on_counts[15].tolist()],
+                    [scaled_out_arr_rates[16].tolist(), ARR_RATES_OLD[3].tolist(), outbound_on_counts[16].tolist()],
+                    [scaled_out_arr_rates[17].tolist(), ARR_RATES_OLD[3].tolist(), outbound_on_counts[17].tolist()]]
 
+labels = ['new', 'old', 'apc']
+fig, ax = plt.subplots(4, sharex='all', sharey='all')
+for i in range(4):
+    sub_rates = comparison_rates[i]
+    for j in range(3):
+        ax.flat[i].plot(sub_rates[j], label=labels[j])
+plt.legend()
+plt.xticks(np.arange(0, 67, 5))
+# plt.show()
+plt.close()
+
+comparison_rates = [[scaled_out_drop_rates[14].tolist(), DROP_RATES_OLD[2].tolist(), outbound_off_counts[14].tolist()],
+                    [scaled_out_drop_rates[15].tolist(), DROP_RATES_OLD[2].tolist(), outbound_off_counts[15].tolist()],
+                    [scaled_out_drop_rates[16].tolist(), DROP_RATES_OLD[3].tolist(), outbound_off_counts[16].tolist()],
+                    [scaled_out_drop_rates[17].tolist(), DROP_RATES_OLD[3].tolist(), outbound_off_counts[17].tolist()]]
+
+labels = ['new', 'old', 'apc']
+fig, ax = plt.subplots(4, sharex='all', sharey='all')
+for i in range(4):
+    sub_rates = comparison_rates[i]
+    for j in range(3):
+        ax.flat[i].plot(sub_rates[j], label=labels[j])
+plt.legend()
+plt.xticks(np.arange(0, 67, 5))
+# plt.show()
+plt.close()
+
+origin_ids = STOPS_OUTBOUND[:28]
+dest_ids = STOPS_OUTBOUND[29:]
+idx_orig = [ODT_STOP_IDS.index(s) for s in STOPS_OUTBOUND[:28]]
+idx_dest = [ODT_STOP_IDS.index(s) for s in STOPS_OUTBOUND[29:]]
+# through_pax = [ODT_RATES[14, idx_orig, idx_dest].sum(), ODT_RATES_OLD[2, 0:28, 28:-1].sum(),
+#                ODT_RATES[15, idx_orig, idx_dest].sum(), ODT_RATES_OLD[2, 0:28, 28:-1].sum(),
+#                ]
+a = SCALED_ODT[15, idx_orig]
+through_1 = a[:, idx_dest].sum()
+b = SCALED_ODT[16, idx_orig]
+through_2 = b[:, idx_dest].sum()
+
+c = np.nansum(ODT_RATES_OLD[2, 0:28, 29:-1])
+d = np.nansum(ODT_RATES_OLD[3, 0:28, 29:-1])
+# print([c, d], [through_1,through_2])
+
+
+# print(through_pax)
 PAX_INIT_TIME = [0]
 for s0, s1 in zip(STOPS_OUTBOUND, STOPS_OUTBOUND[1:]):
     ltimes = np.array(LINK_TIMES_MEAN[s0 + '-' + s1])

@@ -144,8 +144,6 @@ def plot_pax_profile(bd, al, lp, os, through, pathname=None, x_y_lbls=None, cont
     x_tick_labels = x_ticks + 1
     ax1.set_xticks(x_ticks)
     ax1.set_xticklabels(x_tick_labels)
-    ax1.set_ylim(0, 6)
-    ax2.set_ylim(0, 21.0)
     # right, left, top, bottom
     if x_y_lbls:
         ax1.set_xlabel(x_y_lbls[0])
