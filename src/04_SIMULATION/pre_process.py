@@ -7,7 +7,7 @@ from scipy.stats import norm, lognorm
 
 def get_interval(t, len_i_mins):
     # t is in seconds and len_i in minutes
-    interval = int(t/(len_i_mins*60))
+    interval = int(t / (len_i_mins * 60))
     return interval
 
 
@@ -23,7 +23,7 @@ def remove_outliers(data):
 
 
 def get_route(path_stop_times, start_time_sec, end_time_sec, nr_intervals, start_interval, interval_length,
-              dates, trip_choice, path_avl, tolerance_early_departure=1.5*60):
+              dates, trip_choice, path_avl, tolerance_early_departure=1.5 * 60):
     stop_times_df = pd.read_csv(path_stop_times)
     avl_df = pd.read_csv(path_avl)
 
@@ -69,13 +69,13 @@ def get_route(path_stop_times, start_time_sec, end_time_sec, nr_intervals, start
                         avl_sec.pop(0)
                         stop_sequence.pop(0)
                         avl_dep_sec.pop(0)
-                for i in range(len(stop_id)-1):
+                for i in range(len(stop_id) - 1):
                     if stop_sequence[i] == stop_sequence[i + 1] - 1:
-                        link = stop_id[i]+'-'+stop_id[i+1]
+                        link = stop_id[i] + '-' + stop_id[i + 1]
                         if link in link_times:
                             nr_bin = get_interval(avl_sec[i] % 86400, interval_length) - start_interval
                             if 0 <= nr_bin < nr_intervals:
-                                lt2 = avl_sec[i+1] - avl_dep_sec[i]
+                                lt2 = avl_sec[i + 1] - avl_dep_sec[i]
                                 if lt2 > 0:
                                     link_times[link][nr_bin].append(lt2)
 
@@ -96,11 +96,11 @@ def get_route(path_stop_times, start_time_sec, end_time_sec, nr_intervals, start
                 if cv > 0.5:
                     print('suspicious link')
                     print(f'link {link} for interval {count}')
-                    print(f'true cv {round(cv,2)} with mean {round(mean,2)} from {len(interval_times)} data')
+                    print(f'true cv {round(cv, 2)} with mean {round(mean, 2)} from {len(interval_times)} data')
                     new_dist = lognorm.rvs(*fit_params, size=30)
                     new_mean = new_dist.mean()
                     new_cv = np.std(new_dist) / new_mean
-                    print(f'modeled cv {round(new_cv,2)} with mean {round(new_mean, 2)}')
+                    print(f'modeled cv {round(new_cv, 2)} with mean {round(new_mean, 2)}')
 
                 extremes = (round(interval_arr.min()), round(interval_arr.max()))
                 mean_link_times[link].append(mean)
@@ -135,7 +135,8 @@ def bi_proportional_fitting(od, target_ons, target_offs):
 
         # balance columns
         actual_offs = np.nansum(od, axis=0)
-        factor_offs = np.divide(balanced_target_offs, actual_offs, out=np.zeros_like(target_offs), where=actual_offs != 0)
+        factor_offs = np.divide(balanced_target_offs, actual_offs, out=np.zeros_like(target_offs),
+                                where=actual_offs != 0)
         od = od * factor_offs
 
         # to check for tolerance we first assign 1.0 to totals of zero which cannot be changed by the method
@@ -146,13 +147,14 @@ def bi_proportional_fitting(od, target_ons, target_offs):
 
 
 def get_inbound_travel_time(path_stop_times, start_time, end_time, dates, nr_intervals,
-                             start_interval, interval_length, tolerance_early_dep=1 * 60):
+                            start_interval, interval_length, path_avl, tolerance_early_dep=1 * 60):
     dep_delay_record_short = []
     dep_delay_record_long = []
     trip_time_record_long = []
     trip_time_record_short = []
 
     stop_times_df = pd.read_csv(path_stop_times)
+    avl_df = pd.read_csv(path_avl)
 
     df1 = stop_times_df[stop_times_df['stop_sequence'] == 1]
     df1 = df1[df1['stop_id'] == 8613]
@@ -168,7 +170,7 @@ def get_inbound_travel_time(path_stop_times, start_time, end_time, dates, nr_int
     add_trip_id = 911266020
     add_block_id_df = stop_times_df[stop_times_df['trip_id'] == add_trip_id]
     add_block_id = int(add_block_id_df['block_id'].mean())
-    for i in range(1, len(ordered_trip_ids1)-1):
+    for i in range(1, len(ordered_trip_ids1) - 1):
         if ordered_deps1[i - 1] < add_sched_dep_time < ordered_deps1[i]:
             idx_insert = i - 1
             break
@@ -200,7 +202,7 @@ def get_inbound_travel_time(path_stop_times, start_time, end_time, dates, nr_int
     stop_seq_terminal2 = 41
     dep_delay1 = []
     for t in ordered_trip_ids1:
-        temp_df = stop_times_df[stop_times_df['trip_id'] == t]
+        temp_df = avl_df[avl_df['trip_id'] == t]
         for d in dates:
             df = temp_df[temp_df['avl_arr_time'].astype(str).str[:10] == d]
             df = df.sort_values(by='stop_sequence')
@@ -235,7 +237,7 @@ def get_inbound_travel_time(path_stop_times, start_time, end_time, dates, nr_int
     trip_times2 = [[] for _ in range(nr_intervals)]
     dep_delay2 = []
     for t in ordered_trip_ids2:
-        temp_df = stop_times_df[stop_times_df['trip_id'] == t]
+        temp_df = avl_df[avl_df['trip_id'] == t]
         for d in dates:
             df = temp_df[temp_df['avl_arr_time'].astype(str).str[:10] == d]
             df = df.sort_values(by='stop_sequence')
@@ -324,7 +326,7 @@ def get_trip_times(path_avl, focus_trips, dates, stops):
                     dep_idx = stop_seq.index(2)
                     arr_idx = stop_seq.index(66)
                     tt = arrival_sec[arr_idx] - dep_sec[dep_idx]
-                    if tt > 57*60:
+                    if tt > 57 * 60:
                         trip_times.append(tt)
     # PROCESS HEADWAY
     hw_in_all = {s: [] for s in stops[1:]}
@@ -332,7 +334,7 @@ def get_trip_times(path_avl, focus_trips, dates, stops):
     for d in dates:
         for s in stops[1:]:
             for n in range(1, len(focus_trips)):
-                ky0 = str(focus_trips[n-1]) + str(d) + str(s)
+                ky0 = str(focus_trips[n - 1]) + str(d) + str(s)
                 ky1 = str(focus_trips[n]) + str(d) + str(s)
                 if ky0 in arrival_times and ky1 in arrival_times:
                     hwt = arrival_times[ky1] - arrival_times[ky0]
@@ -356,12 +358,12 @@ def get_trip_times(path_avl, focus_trips, dates, stops):
             trip_ids = temp_df['trip_id'].tolist()
             for i in range(1, len(trip_ids)):
                 idx = focus_trips.index(trip_ids[i])
-                if trip_ids[i-1] == focus_trips[idx-1]:
-                    h = avl_dep_sec[i] - avl_dep_sec[i-1]
+                if trip_ids[i - 1] == focus_trips[idx - 1]:
+                    h = avl_dep_sec[i] - avl_dep_sec[i - 1]
                     if h < 10:
                         print('base')
-                        print(f'trips {trip_ids[i]} and {trip_ids[i-1]}')
-                        print(f'times {avl_dep_sec[i]} and {avl_dep_sec[i-1]}')
+                        print(f'trips {trip_ids[i]} and {trip_ids[i - 1]}')
+                        print(f'times {avl_dep_sec[i]} and {avl_dep_sec[i - 1]}')
                     hw.append(h)
     hw_arr = np.array(hw)
     hw_arr = hw_arr[hw_arr >= 15]
@@ -409,7 +411,7 @@ def get_load_profile(stop_times_path, focus_trips, stops):
     stop_times_df = stop_times_df[stop_times_df['trip_id'].isin(focus_trips)]
     for s in stops:
         df = stop_times_df[stop_times_df['stop_id'] == int(s)]
-        ons_df = df['ron']+df['fon']
+        ons_df = df['ron'] + df['fon']
         ons = remove_outliers(ons_df.to_numpy())
         ons_set.append(ons.mean())
         offs_df = df['roff'] + df['foff']
@@ -445,9 +447,11 @@ def get_scheduled_bus_availability(path_stop_times, dates, start_time, end_time)
     df_outbound = df_outbound.sort_values(by='schd_sec')
     scheduled_departures = df_outbound['schd_sec'].tolist()
 
-    plt.plot(scheduled_departures, [i for i in range(1, len(scheduled_departures)+1)], '--', label='scheduled_departures', color='red')
-    plt.plot(scheduled_arrivals, [i for i in range(1, len(scheduled_arrivals)+1)], '--', label='scheduled arrivals', color='green')
-    plt.plot(actual_arrivals, [i for i in range(1, len(actual_arrivals)+1)], label='avl arrivals')
+    plt.plot(scheduled_departures, [i for i in range(1, len(scheduled_departures) + 1)], '--',
+             label='scheduled_departures', color='red')
+    plt.plot(scheduled_arrivals, [i for i in range(1, len(scheduled_arrivals) + 1)], '--', label='scheduled arrivals',
+             color='green')
+    plt.plot(actual_arrivals, [i for i in range(1, len(actual_arrivals) + 1)], label='avl arrivals')
     plt.plot(actual_departures, [i for i in range(1, len(actual_departures) + 1)], label='avl departures')
     plt.xlabel('time (seconds)')
     plt.ylabel('number of buses')
@@ -462,10 +466,10 @@ def bus_availability(sched_arr, sched_dep, actual_arr, iden):
     actual_dep = [0] * len(sched_dep)
     for n in range(len(sched_dep)):
         actual_dep[n] = max(sched_dep[n], actual_arr[n])
-    plt.plot(sched_arr, np.arange(1, len(sched_arr)+1),'--', label='scheduled arrivals', color='green', alpha=0.5)
-    plt.plot(sched_dep, np.arange(1, len(sched_dep) + 1),'--', label='scheduled departures', color='red', alpha=0.5)
-    plt.plot(actual_arr, np.arange(1, len(actual_arr) + 1),label='actual arrivals', color='green')
-    plt.plot(actual_dep, np.arange(1, len(actual_dep) + 1),label='actual departures', color='red')
+    plt.plot(sched_arr, np.arange(1, len(sched_arr) + 1), '--', label='scheduled arrivals', color='green', alpha=0.5)
+    plt.plot(sched_dep, np.arange(1, len(sched_dep) + 1), '--', label='scheduled departures', color='red', alpha=0.5)
+    plt.plot(actual_arr, np.arange(1, len(actual_arr) + 1), label='actual arrivals', color='green')
+    plt.plot(actual_dep, np.arange(1, len(actual_dep) + 1), label='actual departures', color='red')
     plt.legend()
     plt.savefig('in/vis/sample_bus_availability' + iden + '.png')
 
@@ -479,7 +483,7 @@ def extract_apc_counts(nr_intervals, odt_ordered_stops, path_stop_times, interva
     drop_rates = np.zeros(shape=(nr_intervals, len(odt_ordered_stops)))
     stop_t_df = pd.read_csv(path_stop_times)
     for stop_idx in range(len(odt_ordered_stops)):
-        print(f'stop {stop_idx+1}')
+        print(f'stop {stop_idx + 1}')
         temp_df = stop_t_df[stop_t_df['stop_id'] == int(odt_ordered_stops[stop_idx])]
         for interval_idx in range(48):
             t_edge0 = interval_idx * interval_len_min * 60
@@ -506,4 +510,3 @@ def extract_apc_counts(nr_intervals, odt_ordered_stops, path_stop_times, interva
                 drop_rates[interval_idx, stop_idx] = np.nanmean(offs_rate_by_date)
 
     return arr_rates, drop_rates
-

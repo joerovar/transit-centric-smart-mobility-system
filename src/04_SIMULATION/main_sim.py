@@ -5,6 +5,8 @@ from file_paths import *
 from post_process import load, plot_2_var_whisker, plot_sensitivity_whisker_compliance, plot_3_var_whisker, \
     plot_sensitivity_whisker_run_t
 from output import PostProcessor
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 
 def run_benchmark(base=True, base_control=True, control_strength=0.7, hold_adj_factor=0.0, tt_factor=1.0):
@@ -16,19 +18,35 @@ def run_benchmark(base=True, base_control=True, control_strength=0.7, hold_adj_f
     return
 
 
-def validate_non_rl(compute_rbt=False):
-    prc = PostProcessor([path_tr_nc_b, path_tr_eh_b],
-                        [path_p_nc_b, path_p_eh_b], ['NC', 'EH'], N_REPLICATIONS,
-                        'out/compare/test/')
+def validate_nc():
+    prc = PostProcessor([path_tr_nc_b2],
+                        [path_p_nc_b2], ['NC'], N_REPLICATIONS,
+                        'out/compare/validate/')
     prc.pax_profile_base()
-
     results = {}
-    results.update(prc.pax_times_fast(include_rbt=compute_rbt))
-    results.update(prc.headway())
+    results.update(prc.headway(save_nc=True))
     results.update(prc.trip_times(keep_nc=True))
-    results_df = pd.DataFrame(results, columns=list(results.keys()))
-    results_df.to_csv('out/compare/test/numer_results.csv', index=False)
-
+    cv_hw_obs = load('in/xtr/cv_hw_outbound.pkl')
+    cv_hw_sim = load('out/compare/validate/cv_hw_sim.pkl')
+    plt.plot(cv_hw_obs, label='observed')
+    plt.plot(cv_hw_sim, label='simulated')
+    plt.legend()
+    plt.savefig('out/compare/validate/cv_hw.png')
+    plt.close()
+    trip_t_obs = load('in/xtr/trip_t_outbound.pkl')
+    t_out = load('out/compare/validate/trip_t_sim.pkl')
+    fig, ax = plt.subplots(1, sharex='all')
+    ax.hist([[i / 60 for i in trip_t_obs], [t / 60 for t in t_out]], color=['black', 'gray'], alpha=0.5,
+            density=True, label=['observed', 'simulated'], bins=12, ec='black')
+    ax.set_xlabel('trip time (min)')
+    # ax.set_yticks(np.arange(0.0, 0.16, 0.04))
+    # ax.set_yticklabels([str(f) + '%' for f in range(0, 16, 4)])
+    ax.set_ylabel('frequency (%)')
+    # plt.xlim(60, 81.0)
+    fig.legend()
+    plt.tight_layout()
+    plt.savefig('out/compare/validate/trip_t.png')
+    plt.close()
     return
 
 
@@ -138,6 +156,49 @@ def sensitivity_compliance(compute_rbt=False):
     return
 
 
+def fancy_plots():
+    wt_all_set2 = load(path_dir_s1 + 'wt_numer.pkl')
+    nr_replications = 40
+    nr_methods = 3
+    nr_scenarios = 3
+    idx = [0, 2, 4, 5, 6, 7, 8, 10, 12]
+    wt = list(np.array(wt_all_set2)[idx].flatten())
+
+    method = (['EH'] * nr_replications + ['RL-LA'] * nr_replications + ['RL-HA'] * nr_replications) * nr_scenarios
+    tt_var = ['low'] * nr_replications * nr_methods + ['base'] * nr_replications * nr_methods + ['high'] * nr_replications * nr_methods
+
+    df_dict = {'tt_var': tt_var, 'method': method, 'wt': wt}
+    df = pd.DataFrame(df_dict)
+    sns.set(style='darkgrid')
+    sns.boxplot(x='tt_var', y='wt', hue='method', data=df, showfliers= False)
+    plt.ylabel('mean wait time (min)')
+    plt.xlabel('run time variability')
+    plt.savefig('out/compare/sensitivity run times/wt_fancy.png')
+    plt.close()
+
+    wt_set = load(path_dir_s2 + 'wt_numer.pkl')
+
+    nr_replications = 40
+    nr_methods = 3
+    nr_scenarios = 3
+    idx = [0, 1, 2, 3, 5, 6, 8, 9, 11]
+    wt = list(np.array(wt_set)[idx].flatten())
+
+    method = (['EH'] * nr_replications + ['RL-LA'] * nr_replications + ['RL-HA'] * nr_replications) * nr_scenarios
+    compliance = [100] * nr_replications * nr_methods + [80] * nr_replications * nr_methods + [60] * nr_replications * nr_methods
+
+    df_dict = {'compliance': compliance, 'method': method, 'wt': wt}
+    df = pd.DataFrame(df_dict)
+    sns.set(style='darkgrid')
+    sns.boxplot(x='compliance', y='wt', hue='method', data=df, showfliers= False)
+    plt.legend('')
+    plt.xlabel('degree of compliance (%)')
+    plt.ylabel('mean wait time (min)')
+    plt.savefig('out/compare/sensitivity compliance/wt_fancy.png')
+    plt.close()
+    return
+
+
 N_REPLICATIONS = 40
 
 # run_base_detailed(replications=40, save_results=True)
@@ -153,5 +214,5 @@ N_REPLICATIONS = 40
 # weight_comparison(compute_rbt=True)
 # benchmark_comparison(compute_rbt=False)
 # sensitivity_run_t(compute_rbt=True)
-# validate_non_rl(compute_rbt=False)
+validate_nc()
 # sensitivity_compliance(compute_rbt=True)

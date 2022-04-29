@@ -238,7 +238,7 @@ class DetailedSimulationEnv(SimulationEnv):
                     end_edge_interval = start_edge_interval + ODT_INTERVAL_LEN_MIN * 60
                     odt_orig_idx = ODT_STOP_IDS.index(STOPS_OUTBOUND[orig_idx])
                     odt_dest_idx = ODT_STOP_IDS.index(STOPS_OUTBOUND[dest_idx])
-                    od_rate = SCALED_ODT[interval_idx, odt_orig_idx, odt_dest_idx]
+                    od_rate = SCALED_ODT_RATES[interval_idx, odt_orig_idx, odt_dest_idx]
                     if od_rate > 0:
                         max_size = int(np.ceil(od_rate) * (ODT_INTERVAL_LEN_MIN / 60) * 10)
                         temp_pax_interarr_times = np.random.exponential(3600 / od_rate, size=max_size)

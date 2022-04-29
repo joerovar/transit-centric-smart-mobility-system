@@ -2,6 +2,7 @@ from pre_process import *
 from file_paths import *
 from constants import *
 from post_process import save, load
+from datetime import timedelta
 
 
 def extract_params(outbound_route_params=False, inbound_route_params=False, demand=False, validation=False):
@@ -30,7 +31,7 @@ def extract_params(outbound_route_params=False, inbound_route_params=False, dema
         trips1_info_out, trips2_info_out, sched_arrs_out, trip_times1_params, trip_times2_params, \
         deadhead_time_params = get_inbound_travel_time(
             path_stop_times, START_TIME_SEC, END_TIME_SEC, DATES, TRIP_TIME_NR_INTERVALS, TRIP_TIME_START_INTERVAL,
-            TRIP_TIME_INTERVAL_LENGTH_MINS)
+            TRIP_TIME_INTERVAL_LENGTH_MINS, path_avl)
         save('in/xtr/trips1_info_inbound.pkl', trips1_info_out)
         save('in/xtr/trips2_info_inbound.pkl', trips2_info_out)
         save('in/xtr/scheduled_arrivals_inbound.pkl', sched_arrs_out)
@@ -39,8 +40,12 @@ def extract_params(outbound_route_params=False, inbound_route_params=False, dema
         save('in/xtr/deadhead_times_params.pkl', deadhead_time_params)
 
     if demand:
+        stops_outbound = load(path_route_stops)
         odt_stops = np.load('in/xtr/rt_20_odt_stops.npy')
-        odt = np.load('in/xtr/rt_20_odt_rates_30.npy')
+        # comes from project with dingyi data
+        odt_pred = np.load('in/xtr/rt_20_odt_rates_30.npy')
+        # comes from project with dingyi data
+
         # nr_intervals = 24/(ODT_INTERVAL_LEN_MIN/60)
         # apc_on_rates, apc_off_rates = extract_apc_counts(nr_intervals, odt_stops, path_stop_times, ODT_INTERVAL_LEN_MIN, DATES)
         # save('in/xtr/apc_on_counts.pkl', apc_on_rates)
@@ -48,15 +53,46 @@ def extract_params(outbound_route_params=False, inbound_route_params=False, dema
         apc_on_rates = load('in/xtr/apc_on_counts.pkl')
         apc_off_rates = load('in/xtr/apc_off_counts.pkl')
         stops_lst = list(odt_stops)
-        outbound_idx = [stops_lst.index(int(s)) for s in STOPS_OUTBOUND]
 
         # DISCOVERED IN DINGYI'S OD MATRIX TIME SHIFT
-        shifted_odt = np.concatenate((odt[-6:], odt[:-6]), axis=0)
-        scaled_odt = np.concatenate((odt[-6:], odt[:-6]), axis=0)
+        shifted_odt = np.concatenate((odt_pred[-6:], odt_pred[:-6]), axis=0)
+        scaled_odt = np.concatenate((odt_pred[-6:], odt_pred[:-6]), axis=0)
 
         for i in range(shifted_odt.shape[0]):
             print(f'interval {i}')
             scaled_odt[i] = bi_proportional_fitting(shifted_odt[i], apc_on_rates[i], apc_off_rates[i])
+
+        np.save('in/xtr/rt_20_odt_rates_30_scaled.npy', scaled_odt)
+
+        # if wanted for comparison
+        idx_stops_out = [stops_lst.index(int(s)) for s in stops_outbound]
+        prev_odt = load('in/xtr/odt.pkl')
+        out_on_counts = apc_on_rates[:, idx_stops_out]
+        out_on_tot_count = np.nansum(out_on_counts, axis=-1)
+
+        arr_rates_shifted = np.nansum(shifted_odt, axis=-1)
+        out_arr_rates_shifted = arr_rates_shifted[:, idx_stops_out]
+        out_arr_tot_shifted = np.sum(out_arr_rates_shifted, axis=-1)
+
+        scaled_arr_rates = np.sum(scaled_odt, axis=-1)
+        scaled_out_arr_rates = scaled_arr_rates[:, idx_stops_out]
+        scaled_out_tot = np.sum(scaled_out_arr_rates, axis=-1)
+
+        arr_rates_old = np.nansum(prev_odt, axis=-1)
+        old_out_tot = np.nansum(arr_rates_old, axis=-1)
+
+        x = np.arange(out_on_tot_count.shape[0])
+        plt.plot(np.arange(10, 20, 2), old_out_tot, label='previous odt')
+        plt.plot(x, scaled_out_tot, label='odt scaled')
+        plt.plot(x, out_arr_tot_shifted, label='odt')
+        plt.plot(x, out_on_tot_count, label='apc')
+        plt.xticks(np.arange(0, out_on_tot_count.shape[0], 2), np.arange(int(out_on_tot_count.shape[0] / 2)))
+        plt.xlabel('hour of day')
+        plt.ylabel('arrival rate (1/h)')
+        plt.yticks(np.arange(0, 1200, 200))
+        plt.legend()
+        # plt.show()
+        plt.close()
 
     if validation:
         stops = load(path_route_stops)
@@ -69,9 +105,9 @@ def extract_params(outbound_route_params=False, inbound_route_params=False, dema
         focus_trips = ordered_trips_in[
             (schedule_arr <= FOCUS_END_TIME_SEC) & (schedule_arr >= FOCUS_START_TIME_SEC)].tolist()
         trip_times, headway_out, headway_out_cv = get_trip_times(path_avl, focus_trips, DATES, stops)
-        save('in/xtr/trip_times_outbound.pkl', trip_times)
+        save('in/xtr/trip_t_outbound.pkl', trip_times)
         save('in/xtr/departure_headway_outbound.pkl', headway_out)
-        save('in/xtr/cv_headway_outbound.pkl', headway_out_cv)
+        save('in/xtr/cv_hw_outbound.pkl', headway_out_cv)
         load_profile, ons, offs = get_load_profile(path_stop_times, focus_trips, stops)
         fig, ax = plt.subplots()
         ax1 = ax.twinx()
@@ -87,18 +123,17 @@ def extract_params(outbound_route_params=False, inbound_route_params=False, dema
 
 
 def get_params_outbound():
-    stops = load(path_route_stops)
+    stops_out = load(path_route_stops)
     link_times_info = load(path_link_times_mean)
     trips_in_info = load('in/xtr/trips_outbound_info.pkl')
     odt_rates_old = load(path_odt_rates_xtr)
     sched_arrivals = load('in/xtr/scheduled_arrivals_outbound.pkl')
-    trip_times = load('in/xtr/trip_times_outbound.pkl')
-    odt_rates = np.load('in/xtr/rt_20_odt_rates_30.npy')
+    odt_rates_scaled = np.load('in/xtr/rt_20_odt_rates_30_scaled.npy')
     odt_stop_ids = np.load('in/xtr/rt_20_odt_stops.npy')
     odt_stop_ids = list(odt_stop_ids)
     odt_stop_ids = [str(int(s)) for s in odt_stop_ids]
 
-    return stops, link_times_info, trips_in_info, odt_rates, odt_stop_ids, sched_arrivals, trip_times, odt_rates_old
+    return stops_out, link_times_info, trips_in_info, odt_rates_scaled, odt_stop_ids, sched_arrivals, odt_rates_old
 
 
 def get_params_inbound():
@@ -111,9 +146,9 @@ def get_params_inbound():
     return trip_times1_params, trip_times2_params, trips1_out_info, trips2_out_info, deadhead_times_params, sched_arrs
 
 
-# extract_params(outbound_route_params=True, inbound_route_params=True, validation=True)
+extract_params(inbound_route_params=True)
 
-STOPS_OUTBOUND, LINK_TIMES_INFO, TRIPS_IN_INFO, ODT_RATES, ODT_STOP_IDS ,SCHED_ARRS_IN, TRIP_TIMES_INPUT, ODT_RATES_OLD = get_params_outbound()
+STOPS_OUTBOUND, LINK_TIMES_INFO, TRIPS_IN_INFO, SCALED_ODT_RATES, ODT_STOP_IDS ,SCHED_ARRS_IN, ODT_RATES_OLD = get_params_outbound()
 TRIP_TIMES1_PARAMS, TRIP_TIMES2_PARAMS, TRIPS1_INFO_OUT, TRIPS2_INFO_OUT, DEADHEAD_TIME_PARAMS, SCHED_ARRS_OUT = get_params_inbound()
 TRIP_IDS_OUT = [ti[0] for ti in TRIPS1_INFO_OUT]
 TRIP_IDS_OUT += [ti[0] for ti in TRIPS2_INFO_OUT]
@@ -141,119 +176,6 @@ for b in block_ids:
     trip_routes = block_df['route_type'].tolist()
     BLOCK_TRIPS_INFO.append((b, list(zip(trip_ids, sched_deps, trip_routes))))
 
-# demand
-ARR_RATES = np.nansum(ODT_RATES, axis=-1)
-idx_outbound = [ODT_STOP_IDS.index(s) for s in STOPS_OUTBOUND]
-outbound_arr_rates = ARR_RATES[:, idx_outbound]
-outbound_arr_tot = np.sum(outbound_arr_rates, axis=-1)
-
-apc_on_counts = load('in/xtr/apc_on_counts.pkl')
-outbound_on_counts = apc_on_counts[:, idx_outbound]
-outbound_on_tot_count = np.nansum(outbound_on_counts, axis=-1)
-
-apc_off_counts = load('in/xtr/apc_off_counts.pkl')
-outbound_off_counts = apc_off_counts[:, idx_outbound]
-
-x = np.arange(outbound_on_tot_count.shape[0])
-plt.plot(x, outbound_arr_tot, label='predicted')
-plt.plot(x, outbound_on_tot_count, label='apc')
-plt.xticks(np.arange(0, outbound_on_tot_count.shape[0], 2), np.arange(int(outbound_on_tot_count.shape[0]/2)))
-plt.xlabel('hour of day')
-plt.ylabel('arrival rate (1/h)')
-plt.legend()
-# plt.show()
-plt.close()
-
-SHIFTED_ODT = np.concatenate((ODT_RATES[-6:], ODT_RATES[:-6]), axis=0)
-ARR_RATES_S = np.nansum(SHIFTED_ODT, axis=-1)
-out_arr_rates_s = ARR_RATES_S[:, idx_outbound]
-outbound_arr_tot_s = np.sum(out_arr_rates_s, axis=-1)
-
-x = np.arange(outbound_on_tot_count.shape[0])
-plt.plot(x, outbound_arr_tot_s, label='predicted')
-plt.plot(x, outbound_on_tot_count, label='apc')
-plt.xticks(np.arange(0, outbound_on_tot_count.shape[0], 2), np.arange(int(outbound_on_tot_count.shape[0]/2)))
-plt.xlabel('hour of day')
-plt.ylabel('arrival rate (1/h)')
-plt.yticks(np.arange(0, 1200, 200))
-plt.legend()
-# plt.show()
-plt.close()
-
-SCALED_ODT = np.load('in/xtr/rt_20_odt_rates_30_scaled.npy')
-SCALED_ARR_RATES = np.sum(SCALED_ODT, axis=-1)
-SCALED_DROP_RATES = np.sum(SCALED_ODT, axis=-2)
-scaled_out_drop_rates = SCALED_DROP_RATES[:, idx_outbound]
-scaled_out_arr_rates = SCALED_ARR_RATES[:, idx_outbound]
-scaled_out_tot = np.sum(scaled_out_arr_rates, axis=-1)
-
-ARR_RATES_OLD = np.nansum(ODT_RATES_OLD, axis=-1)
-DROP_RATES_OLD = np.nansum(ODT_RATES_OLD, axis=-2)
-old_out_tot = np.nansum(ARR_RATES_OLD, axis=-1)
-
-x = np.arange(outbound_on_tot_count.shape[0])
-plt.plot(np.arange(10, 20, 2), old_out_tot, label='previous odt')
-plt.plot(x, scaled_out_tot, label='odt scaled')
-plt.plot(x, outbound_arr_tot_s, label='odt')
-plt.plot(x, outbound_on_tot_count, label='apc')
-plt.xticks(np.arange(0, outbound_on_tot_count.shape[0], 2), np.arange(int(outbound_on_tot_count.shape[0]/2)))
-plt.xlabel('hour of day')
-plt.ylabel('arrival rate (1/h)')
-plt.yticks(np.arange(0, 1200, 200))
-plt.legend()
-# plt.show()
-plt.close()
-
-comparison_rates = [[scaled_out_arr_rates[14].tolist(), ARR_RATES_OLD[2].tolist(), outbound_on_counts[14].tolist()],
-                    [scaled_out_arr_rates[15].tolist(), ARR_RATES_OLD[2].tolist(), outbound_on_counts[15].tolist()],
-                    [scaled_out_arr_rates[16].tolist(), ARR_RATES_OLD[3].tolist(), outbound_on_counts[16].tolist()],
-                    [scaled_out_arr_rates[17].tolist(), ARR_RATES_OLD[3].tolist(), outbound_on_counts[17].tolist()]]
-
-labels = ['new', 'old', 'apc']
-fig, ax = plt.subplots(4, sharex='all', sharey='all')
-for i in range(4):
-    sub_rates = comparison_rates[i]
-    for j in range(3):
-        ax.flat[i].plot(sub_rates[j], label=labels[j])
-plt.legend()
-plt.xticks(np.arange(0, 67, 5))
-# plt.show()
-plt.close()
-
-comparison_rates = [[scaled_out_drop_rates[14].tolist(), DROP_RATES_OLD[2].tolist(), outbound_off_counts[14].tolist()],
-                    [scaled_out_drop_rates[15].tolist(), DROP_RATES_OLD[2].tolist(), outbound_off_counts[15].tolist()],
-                    [scaled_out_drop_rates[16].tolist(), DROP_RATES_OLD[3].tolist(), outbound_off_counts[16].tolist()],
-                    [scaled_out_drop_rates[17].tolist(), DROP_RATES_OLD[3].tolist(), outbound_off_counts[17].tolist()]]
-
-labels = ['new', 'old', 'apc']
-fig, ax = plt.subplots(4, sharex='all', sharey='all')
-for i in range(4):
-    sub_rates = comparison_rates[i]
-    for j in range(3):
-        ax.flat[i].plot(sub_rates[j], label=labels[j])
-plt.legend()
-plt.xticks(np.arange(0, 67, 5))
-# plt.show()
-plt.close()
-
-origin_ids = STOPS_OUTBOUND[:28]
-dest_ids = STOPS_OUTBOUND[29:]
-idx_orig = [ODT_STOP_IDS.index(s) for s in STOPS_OUTBOUND[:28]]
-idx_dest = [ODT_STOP_IDS.index(s) for s in STOPS_OUTBOUND[29:]]
-# through_pax = [ODT_RATES[14, idx_orig, idx_dest].sum(), ODT_RATES_OLD[2, 0:28, 28:-1].sum(),
-#                ODT_RATES[15, idx_orig, idx_dest].sum(), ODT_RATES_OLD[2, 0:28, 28:-1].sum(),
-#                ]
-a = SCALED_ODT[15, idx_orig]
-through_1 = a[:, idx_dest].sum()
-b = SCALED_ODT[16, idx_orig]
-through_2 = b[:, idx_dest].sum()
-
-c = np.nansum(ODT_RATES_OLD[2, 0:28, 29:-1])
-d = np.nansum(ODT_RATES_OLD[3, 0:28, 29:-1])
-# print([c, d], [through_1,through_2])
-
-
-# print(through_pax)
 PAX_INIT_TIME = [0]
 for s0, s1 in zip(STOPS_OUTBOUND, STOPS_OUTBOUND[1:]):
     ltimes = np.array(LINK_TIMES_MEAN[s0 + '-' + s1])

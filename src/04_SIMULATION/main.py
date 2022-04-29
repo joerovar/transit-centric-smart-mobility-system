@@ -201,6 +201,6 @@ if __name__ == '__main__':
 # cd src/04_SIMULATION
 # train
 # python main.py -n_episodes -simple_reward -weight_ride_t -hold_adj_factor
-# test
+# testkeywords
 # python main.py -n_episodes -eps -load_checkpoint -test_save_folder -simple_reward -hold_adj_factor -env (tstamp)
 
