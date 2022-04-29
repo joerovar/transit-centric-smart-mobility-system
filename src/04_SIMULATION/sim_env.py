@@ -457,6 +457,7 @@ class DetailedSimulationEnv(SimulationEnv):
             if route_type == 1:
                 next_dep_time = max(bus.dep_t, trip.sched_time)
             else:
+                # this never happens
                 assert route_type == 2
                 interval = get_interval(bus.dep_t, TRIP_TIME_INTERVAL_LENGTH_MINS) - TRIP_TIME_START_INTERVAL
                 mean, std = DEADHEAD_TIME_PARAMS[interval]

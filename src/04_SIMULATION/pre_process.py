@@ -148,8 +148,8 @@ def bi_proportional_fitting(od, target_ons, target_offs):
 
 def get_inbound_travel_time(path_stop_times, start_time, end_time, dates, nr_intervals,
                             start_interval, interval_length, path_avl, tolerance_early_dep=1 * 60):
-    dep_delay_record_short = []
-    dep_delay_record_long = []
+    # dep_delay_record_short = []
+    # dep_delay_record_long = []
     trip_time_record_long = []
     trip_time_record_short = []
 
@@ -198,12 +198,17 @@ def get_inbound_travel_time(path_stop_times, start_time, end_time, dates, nr_int
     sched_arrivals = df_arrivals['schd_sec'].tolist()
 
     trip_times1 = [[] for _ in range(nr_intervals)]
-    deadhead_times = [[] for _ in range(nr_intervals)]
-    stop_seq_terminal2 = 41
-    dep_delay1 = []
+    dep_delay1 = [[] for _ in range(nr_intervals)]
+    dep_delay_1_ahead = [[] for _ in range(nr_intervals)]
+    # deadhead_times = [[] for _ in range(nr_intervals)]
+    # stop_seq_terminal2 = 41
+    # dep_delay1 = []
     for t in ordered_trip_ids1:
         temp_df = avl_df[avl_df['trip_id'] == t]
         for d in dates:
+            print('-----')
+            print(f'date {d}')
+            print(f'trip {t}')
             df = temp_df[temp_df['avl_arr_time'].astype(str).str[:10] == d]
             df = df.sort_values(by='stop_sequence')
             stop_seq = df['stop_sequence'].tolist()
@@ -213,29 +218,35 @@ def get_inbound_travel_time(path_stop_times, start_time, end_time, dates, nr_int
                     dep_sec = df['avl_dep_sec'].tolist()
                     schd_sec = df['schd_sec'].tolist()
                     dep_delay = schd_sec[0] - (dep_sec[0] % 86400)
-                    dep_delay1.append(-dep_delay)
-
+                    # dep_delay1.append(-dep_delay)
                     if (schd_sec[0] > start_time + 3600) and (schd_sec[0] < end_time - 6400):
-                        dep_delay_record_long.append(dep_delay1[-1])
                         trip_time_record_long.append(arrival_sec[-1] - dep_sec[0])
 
                     if dep_delay < tolerance_early_dep:
                         idx = get_interval(schd_sec[0], interval_length) - start_interval
+                        dep_delay1[idx].append(-1*dep_delay)
                         trip_times1[idx].append(arrival_sec[-1] - dep_sec[0])
-                if stop_seq[0] == 1 and stop_seq_terminal2 in stop_seq:
-                    deadhead_df = df[df['stop_sequence'] <= stop_seq_terminal2]
-                    deadhead_dep_t = deadhead_df['avl_dep_sec'].tolist()[0]
-                    schd_dep_t = deadhead_df['schd_sec'].tolist()[0]
-                    deadhead_arr_t = deadhead_df['avl_arr_sec'].tolist()[-1]
-                    if schd_dep_t - (deadhead_dep_t % 86400) < tolerance_early_dep:
-                        # we take out the departure terminal because of faulty dwell time measurements
-                        deadhead_df = deadhead_df[deadhead_df['stop_sequence'] > 1]
-                        dwell_times = deadhead_df['dwell_time'].sum()
-                        deadhead_time = (deadhead_arr_t - deadhead_dep_t) - dwell_times
-                        idx = get_interval(schd_dep_t, interval_length) - start_interval
-                        deadhead_times[idx].append(deadhead_time)
+                        print('something went in')
+                        if stop_seq[1] == 2:
+                            dep_delay_ahead = schd_sec[1] - (dep_sec[1] % 86400)
+                            dep_delay_1_ahead[idx].append(-1*dep_delay_ahead)
+                            print('dep delay ahead went in')
+                # if stop_seq[0] == 1 and stop_seq_terminal2 in stop_seq:
+                #     deadhead_df = df[df['stop_sequence'] <= stop_seq_terminal2]
+                #     deadhead_dep_t = deadhead_df['avl_dep_sec'].tolist()[0]
+                #     schd_dep_t = deadhead_df['schd_sec'].tolist()[0]
+                #     deadhead_arr_t = deadhead_df['avl_arr_sec'].tolist()[-1]
+                #     if schd_dep_t - (deadhead_dep_t % 86400) < tolerance_early_dep:
+                #         # we take out the departure terminal because of faulty dwell time measurements
+                #         deadhead_df = deadhead_df[deadhead_df['stop_sequence'] > 1]
+                #         dwell_times = deadhead_df['dwell_time'].sum()
+                #         deadhead_time = (deadhead_arr_t - deadhead_dep_t) - dwell_times
+                #         idx = get_interval(schd_dep_t, interval_length) - start_interval
+                #         deadhead_times[idx].append(deadhead_time)
     trip_times2 = [[] for _ in range(nr_intervals)]
-    dep_delay2 = []
+    dep_delay2 = [[] for _ in range(nr_intervals)]
+    dep_delay_2_ahead = [[] for _ in range(nr_intervals)]
+    # dep_delay2 = []
     for t in ordered_trip_ids2:
         temp_df = avl_df[avl_df['trip_id'] == t]
         for d in dates:
@@ -248,19 +259,41 @@ def get_inbound_travel_time(path_stop_times, start_time, end_time, dates, nr_int
                     dep_sec = df['avl_dep_sec'].tolist()
                     schd_sec = df['schd_sec'].tolist()
                     dep_delay = schd_sec[0] - (dep_sec[0] % 86400)
-                    dep_delay2.append(-dep_delay)
+                    # dep_delay2.append(-dep_delay)
                     if (schd_sec[0] > start_time + 3600) and (schd_sec[0] < end_time - 6400):
-                        dep_delay_record_short.append(dep_delay2[-1])
                         trip_time_record_short.append(arrival_sec[-1] - dep_sec[0])
 
                     if dep_delay < tolerance_early_dep:
                         idx = get_interval(schd_sec[0], interval_length) - start_interval
+                        dep_delay2[idx].append(-1*dep_delay)
                         trip_times2[idx].append(arrival_sec[-1] - dep_sec[0])
+                        if stop_seq[1] == 2:
+                            dep_delay_ahead = schd_sec[1] - (dep_sec[1] % 86400)
+                            dep_delay_2_ahead[idx].append(-1*dep_delay_ahead)
+                            # print('dep delay ahead went in')
+    print([len(dd) for dd in dep_delay1])
+    print([len(dd) for dd in dep_delay_1_ahead])
+    print([len(dd) for dd in dep_delay2])
+    print([len(dd) for dd in dep_delay_2_ahead])
+    fig, axs = plt.subplots(nrows=4, sharex='all')
+    axs[0].hist([remove_outliers(np.array(dep_delay1[4])).tolist(), remove_outliers(np.array(dep_delay_1_ahead[4])).tolist()],
+                density=True, ec='black', label=['terminal', 'stop 1'])
+
+    axs[1].hist([remove_outliers(np.array(dep_delay2[4])).tolist(), remove_outliers(np.array(dep_delay_2_ahead[4])).tolist()],
+                density=True, ec='black', label=['terminal', 'stop 1'])
+    axs[2].hist([remove_outliers(np.array(dep_delay1[5])).tolist(), remove_outliers(np.array(dep_delay_1_ahead[5])).tolist()],
+                density=True, ec='black', label=['terminal', 'stop 1'])
+
+    axs[3].hist([remove_outliers(np.array(dep_delay2[5])).tolist(), remove_outliers(np.array(dep_delay_2_ahead[5])).tolist()],
+                density=True, ec='black', label=['terminal', 'stop 1'])
+    plt.show()
+    plt.close()
+
     arrival_headway = []
-    df = stop_times_df[stop_times_df['trip_id'].isin(all_trip_ids)]
+    df = avl_df[avl_df['trip_id'].isin(all_trip_ids)]
     df = df.sort_values(by=['stop_sequence', 'schd_sec'])
     df.to_csv('in/vis/trajectories_inbound.csv', index=False)
-    df = stop_times_df[stop_times_df['trip_id'].isin(ordered_arriving_trip_ids)]
+    df = avl_df[avl_df['trip_id'].isin(ordered_arriving_trip_ids)]
     df = df.sort_values(by=['stop_sequence', 'schd_sec'])
     df_arrivals = df[df['stop_id'] == 386]
     df_arrivals = df_arrivals.sort_values(by='schd_sec')
@@ -274,32 +307,32 @@ def get_inbound_travel_time(path_stop_times, start_time, end_time, dates, nr_int
             avl_sec.sort()
             temp_arr_hw = [i - j for i, j in zip(avl_sec[1:], avl_sec[:-1])]
             arrival_headway += temp_arr_hw
-
     trip_times1_params = []
     trip_times2_params = []
-    deadhead_times_params = []
+    # deadhead_times_params = []
     for i in range(nr_intervals):
         trip_times1[i] = remove_outliers(np.array(trip_times1[i])).tolist()
         trip_times2[i] = remove_outliers(np.array(trip_times2[i])).tolist()
-        deadhead_times[i] = remove_outliers(np.array(deadhead_times[i])).tolist()
+        # deadhead_times[i] = remove_outliers(np.array(deadhead_times[i])).tolist()
 
         lognorm_params1 = lognorm.fit(trip_times1[i], floc=0)
         lognorm_params2 = lognorm.fit(trip_times2[i], floc=0)
 
         trip_times1_params.append(lognorm_params1)
         trip_times2_params.append(lognorm_params2)
-        deadhead_times_params.append(norm.fit(deadhead_times[i]))
+        # deadhead_times_params.append(norm.fit(deadhead_times[i]))
     trips1_info = [(x, y, z) for x, y, z in zip(ordered_trip_ids1, ordered_deps1, ordered_block_ids1)]
     trips2_info = [(x, y, z) for x, y, z in zip(ordered_trip_ids2, ordered_deps2, ordered_block_ids2)]
 
-    all_delays = [dep_delay_record_long, dep_delay_record_short]
+    # all_delays = [dep_delay_record_long, dep_delay_record_short]
+
     all_trip_times = [trip_time_record_long, trip_time_record_short]
 
     # fill in the nans for extreme cases
     trip_times1_params[1] = trip_times1_params[2]
     trip_times2_params[-4] = trip_times2_params[-5]
     trip_times1_params[-1] = trip_times1_params[-2]
-    return trips1_info, trips2_info, sched_arrivals, trip_times1_params, trip_times2_params, deadhead_times_params
+    return trips1_info, trips2_info, sched_arrivals, trip_times1_params, trip_times2_params
 
 
 def get_trip_times(path_avl, focus_trips, dates, stops):

@@ -28,8 +28,7 @@ def extract_params(outbound_route_params=False, inbound_route_params=False, dema
         stop_df.to_csv('in/raw/rt20_in_stops.txt', index=False)
 
     if inbound_route_params:
-        trips1_info_out, trips2_info_out, sched_arrs_out, trip_times1_params, trip_times2_params, \
-        deadhead_time_params = get_inbound_travel_time(
+        trips1_info_out, trips2_info_out, sched_arrs_out, trip_times1_params, trip_times2_params = get_inbound_travel_time(
             path_stop_times, START_TIME_SEC, END_TIME_SEC, DATES, TRIP_TIME_NR_INTERVALS, TRIP_TIME_START_INTERVAL,
             TRIP_TIME_INTERVAL_LENGTH_MINS, path_avl)
         save('in/xtr/trips1_info_inbound.pkl', trips1_info_out)
@@ -37,7 +36,7 @@ def extract_params(outbound_route_params=False, inbound_route_params=False, dema
         save('in/xtr/scheduled_arrivals_inbound.pkl', sched_arrs_out)
         save('in/xtr/trip_time1_params.pkl', trip_times1_params)
         save('in/xtr/trip_time2_params.pkl', trip_times2_params)
-        save('in/xtr/deadhead_times_params.pkl', deadhead_time_params)
+        # save('in/xtr/deadhead_times_params.pkl', deadhead_time_params)
 
     if demand:
         stops_outbound = load(path_route_stops)
@@ -154,6 +153,7 @@ TRIP_IDS_OUT = [ti[0] for ti in TRIPS1_INFO_OUT]
 TRIP_IDS_OUT += [ti[0] for ti in TRIPS2_INFO_OUT]
 LINK_TIMES_MEAN, LINK_TIMES_EXTREMES, LINK_TIMES_PARAMS = LINK_TIMES_INFO
 
+scaled_arr_rates = np.sum(SCALED_ODT_RATES, axis=-1)
 TRIP_IDS_IN, SCHED_DEP_IN, BLOCK_IDS_IN = [], [], []
 for item in TRIPS_IN_INFO:
     TRIP_IDS_IN.append(item[0]), SCHED_DEP_IN.append(item[1]), BLOCK_IDS_IN.append(item[2])
@@ -175,6 +175,7 @@ for b in block_ids:
     BLOCK_DICT[b] = trip_ids
     trip_routes = block_df['route_type'].tolist()
     BLOCK_TRIPS_INFO.append((b, list(zip(trip_ids, sched_deps, trip_routes))))
+# print(BLOCK_TRIPS_INFO)
 
 PAX_INIT_TIME = [0]
 for s0, s1 in zip(STOPS_OUTBOUND, STOPS_OUTBOUND[1:]):
