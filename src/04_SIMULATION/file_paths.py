@@ -147,6 +147,8 @@ tags_s2 = ['EH (base)', 'DDQN-LA (base)', 'DDQN-HA (base)',
 path_dir_s2 = 'out/compare/sensitivity compliance/'
 
 # UPDATED DEMAND RESULTS
-path_tr_nc_b2 = 'out/NC/0423-195804-trajectory_set.pkl'
-path_p_nc_b2 = 'out/NC/0423-195804-pax_set.pkl'
-
+# path_tr_nc_b2 = 'out/NC/0423-195804-trajectory_set.pkl'
+# path_p_nc_b2 = 'out/NC/0423-195804-pax_set.pkl'
+# + UPDATED TRIP TIME RETURN
+path_tr_nc_b2 = 'out/NC/0429-221124-trajectory_set.pkl'
+path_p_nc_b2 = 'out/NC/0429-221124-pax_set.pkl'

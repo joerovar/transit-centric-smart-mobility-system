@@ -206,9 +206,6 @@ def get_inbound_travel_time(path_stop_times, start_time, end_time, dates, nr_int
     for t in ordered_trip_ids1:
         temp_df = avl_df[avl_df['trip_id'] == t]
         for d in dates:
-            print('-----')
-            print(f'date {d}')
-            print(f'trip {t}')
             df = temp_df[temp_df['avl_arr_time'].astype(str).str[:10] == d]
             df = df.sort_values(by='stop_sequence')
             stop_seq = df['stop_sequence'].tolist()
@@ -226,11 +223,10 @@ def get_inbound_travel_time(path_stop_times, start_time, end_time, dates, nr_int
                         idx = get_interval(schd_sec[0], interval_length) - start_interval
                         dep_delay1[idx].append(-1*dep_delay)
                         trip_times1[idx].append(arrival_sec[-1] - dep_sec[0])
-                        print('something went in')
-                        if stop_seq[1] == 2:
-                            dep_delay_ahead = schd_sec[1] - (dep_sec[1] % 86400)
-                            dep_delay_1_ahead[idx].append(-1*dep_delay_ahead)
-                            print('dep delay ahead went in')
+                    if stop_seq[1] == 2:
+                        idx = get_interval(schd_sec[1], interval_length) - start_interval
+                        dep_delay_ahead = schd_sec[1] - (dep_sec[1] % 86400)
+                        dep_delay_1_ahead[idx].append(-1*dep_delay_ahead)
                 # if stop_seq[0] == 1 and stop_seq_terminal2 in stop_seq:
                 #     deadhead_df = df[df['stop_sequence'] <= stop_seq_terminal2]
                 #     deadhead_dep_t = deadhead_df['avl_dep_sec'].tolist()[0]
@@ -271,22 +267,18 @@ def get_inbound_travel_time(path_stop_times, start_time, end_time, dates, nr_int
                             dep_delay_ahead = schd_sec[1] - (dep_sec[1] % 86400)
                             dep_delay_2_ahead[idx].append(-1*dep_delay_ahead)
                             # print('dep delay ahead went in')
-    print([len(dd) for dd in dep_delay1])
-    print([len(dd) for dd in dep_delay_1_ahead])
-    print([len(dd) for dd in dep_delay2])
-    print([len(dd) for dd in dep_delay_2_ahead])
-    fig, axs = plt.subplots(nrows=4, sharex='all')
-    axs[0].hist([remove_outliers(np.array(dep_delay1[4])).tolist(), remove_outliers(np.array(dep_delay_1_ahead[4])).tolist()],
-                density=True, ec='black', label=['terminal', 'stop 1'])
+    fig, axs = plt.subplots(nrows=2, sharex='all')
+    t_idx = 6
+    dep_delay_arr = np.array(dep_delay1[t_idx])
+    dep_delay_ahead_arr = np.array(dep_delay_1_ahead[t_idx])
+    dep_delay2_arr = np.array(dep_delay2[t_idx])
+    dep_delay2_ahead_arr = np.array(dep_delay_2_ahead[t_idx])
+    axs[0].hist([dep_delay_arr[dep_delay_arr<500], dep_delay_ahead_arr[dep_delay_ahead_arr<500]],
+                ec='black', label=['terminal', 'stop 1'], bins=12)
 
-    axs[1].hist([remove_outliers(np.array(dep_delay2[4])).tolist(), remove_outliers(np.array(dep_delay_2_ahead[4])).tolist()],
-                density=True, ec='black', label=['terminal', 'stop 1'])
-    axs[2].hist([remove_outliers(np.array(dep_delay1[5])).tolist(), remove_outliers(np.array(dep_delay_1_ahead[5])).tolist()],
-                density=True, ec='black', label=['terminal', 'stop 1'])
-
-    axs[3].hist([remove_outliers(np.array(dep_delay2[5])).tolist(), remove_outliers(np.array(dep_delay_2_ahead[5])).tolist()],
-                density=True, ec='black', label=['terminal', 'stop 1'])
-    plt.show()
+    axs[1].hist([remove_outliers(dep_delay2_arr), remove_outliers(dep_delay2_ahead_arr)],
+                ec='black', label=['terminal', 'stop 1'])
+    plt.savefig('in/vis/dep_delay_800.png')
     plt.close()
 
     arrival_headway = []
