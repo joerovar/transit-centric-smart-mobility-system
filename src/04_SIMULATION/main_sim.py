@@ -196,6 +196,7 @@ def fancy_plots():
     plt.ylabel('mean wait time (min)')
     plt.savefig('out/compare/sensitivity compliance/wt_fancy.png')
     plt.close()
+
     return
 
 
