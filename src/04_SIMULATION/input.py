@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 from pre_process import *
 from file_paths import *
@@ -8,16 +9,21 @@ from datetime import timedelta
 
 def extract_params(outbound_route_params=False, inbound_route_params=False, demand=False, validation=False):
     if outbound_route_params:
-        stops, trips_in_info, link_times_info, sched_arrs_in = get_route(path_stop_times,
-                                                                         START_TIME_SEC, END_TIME_SEC,
-                                                                         TIME_NR_INTERVALS,
-                                                                         TIME_START_INTERVAL, TIME_INTERVAL_LENGTH_MINS,
-                                                                         DATES, TRIP_WITH_FULL_STOP_PATTERN,
-                                                                         path_avl)
+        stops, trips_out_info, link_times_info, sched_arrs_out, dep_delay_out = get_route(path_stop_times,
+                                                                                          START_TIME_SEC, END_TIME_SEC,
+                                                                                          TIME_NR_INTERVALS,
+                                                                                          TIME_START_INTERVAL,
+                                                                                          TIME_INTERVAL_LENGTH_MINS,
+                                                                                          DATES,
+                                                                                          TRIP_WITH_FULL_STOP_PATTERN,
+                                                                                          path_avl,
+                                                                                          DELAY_INTERVAL_LENGTH_MINS,
+                                                                                          DELAY_START_INTERVAL)
         save(path_route_stops, stops)
         save(path_link_times_mean, link_times_info)
-        save('in/xtr/trips_outbound_info.pkl', trips_in_info)
-        save('in/xtr/scheduled_arrivals_outbound.pkl', sched_arrs_in)
+        save('in/xtr/trips_outbound_info.pkl', trips_out_info)
+        save('in/xtr/scheduled_arrivals_outbound.pkl', sched_arrs_out)
+        save('in/xtr/dep_delay_dist_out.pkl', dep_delay_out)
         stop_df = pd.read_csv('in/raw/gtfs/stops.txt')
         stop_df = stop_df[stop_df['stop_id'].isin([int(s) for s in stops])]
 
@@ -29,14 +35,17 @@ def extract_params(outbound_route_params=False, inbound_route_params=False, dema
         stop_df.to_csv('in/raw/rt20_in_stops.txt', index=False)
 
     if inbound_route_params:
-        trips1_info_out, trips2_info_out, sched_arrs_out, trip_times1_params, trip_times2_params = get_inbound_travel_time(
+        trips1_info_out, trips2_info_out, sched_arrs_out, trip_times1_params, trip_times2_params,\
+            delay1_dist, delay2_dist = get_inbound_travel_time(
             path_stop_times, START_TIME_SEC, END_TIME_SEC, DATES, TRIP_TIME_NR_INTERVALS, TRIP_TIME_START_INTERVAL,
-            TRIP_TIME_INTERVAL_LENGTH_MINS, path_avl)
+            TRIP_TIME_INTERVAL_LENGTH_MINS, path_avl, DELAY_INTERVAL_LENGTH_MINS, DELAY_START_INTERVAL)
         save('in/xtr/trips1_info_inbound.pkl', trips1_info_out)
         save('in/xtr/trips2_info_inbound.pkl', trips2_info_out)
         save('in/xtr/scheduled_arrivals_inbound.pkl', sched_arrs_out)
         save('in/xtr/trip_time1_params.pkl', trip_times1_params)
         save('in/xtr/trip_time2_params.pkl', trip_times2_params)
+        save('in/xtr/dep_delay1_dist_in.pkl', delay1_dist)
+        save('in/xtr/dep_delay2_dist_in.pkl', delay2_dist)
         # save('in/xtr/deadhead_times_params.pkl', deadhead_time_params)
 
     if demand:
@@ -125,15 +134,15 @@ def extract_params(outbound_route_params=False, inbound_route_params=False, dema
 def get_params_outbound():
     stops_out = load(path_route_stops)
     link_times_info = load(path_link_times_mean)
-    trips_in_info = load('in/xtr/trips_outbound_info.pkl')
+    trips_out_info = load('in/xtr/trips_outbound_info.pkl')
     odt_rates_old = load(path_odt_rates_xtr)
     sched_arrivals = load('in/xtr/scheduled_arrivals_outbound.pkl')
     odt_rates_scaled = np.load('in/xtr/rt_20_odt_rates_30_scaled.npy')
     odt_stop_ids = np.load('in/xtr/rt_20_odt_stops.npy')
     odt_stop_ids = list(odt_stop_ids)
     odt_stop_ids = [str(int(s)) for s in odt_stop_ids]
-
-    return stops_out, link_times_info, trips_in_info, odt_rates_scaled, odt_stop_ids, sched_arrivals, odt_rates_old
+    dep_delay_dist_out = load('in/xtr/dep_delay_dist_out.pkl')
+    return stops_out, link_times_info, trips_out_info, odt_rates_scaled, odt_stop_ids, sched_arrivals, odt_rates_old, dep_delay_dist_out
 
 
 def get_params_inbound():
@@ -143,13 +152,41 @@ def get_params_inbound():
     trips2_out_info = load('in/xtr/trips2_info_inbound.pkl')
     deadhead_times_params = load('in/xtr/deadhead_times_params.pkl')
     sched_arrs = load('in/xtr/scheduled_arrivals_inbound.pkl')
-    return trip_times1_params, trip_times2_params, trips1_out_info, trips2_out_info, deadhead_times_params, sched_arrs
+    dep_delay1_dist_in = load('in/xtr/dep_delay1_dist_in.pkl')
+    dep_delay2_dist_in = load('in/xtr/dep_delay2_dist_in.pkl')
+    return trip_times1_params, trip_times2_params, trips1_out_info, trips2_out_info, deadhead_times_params, sched_arrs, dep_delay1_dist_in, dep_delay2_dist_in
 
 
-extract_params(inbound_route_params=True)
+# extract_params(outbound_route_params=True, inbound_route_params=True)
 
-STOPS_OUTBOUND, LINK_TIMES_INFO, TRIPS_IN_INFO, SCALED_ODT_RATES, ODT_STOP_IDS, SCHED_ARRS_IN, ODT_RATES_OLD = get_params_outbound()
-TRIP_TIMES1_PARAMS, TRIP_TIMES2_PARAMS, TRIPS1_INFO_OUT, TRIPS2_INFO_OUT, DEADHEAD_TIME_PARAMS, SCHED_ARRS_OUT = get_params_inbound()
+STOPS_OUTBOUND, LINK_TIMES_INFO, TRIPS_IN_INFO, SCALED_ODT_RATES, ODT_STOP_IDS, SCHED_ARRS_IN, ODT_RATES_OLD, DEP_DELAY_DIST_OUT = get_params_outbound()
+TRIP_TIMES1_PARAMS, TRIP_TIMES2_PARAMS, TRIPS1_INFO_OUT, TRIPS2_INFO_OUT, DEADHEAD_TIME_PARAMS, SCHED_ARRS_OUT, DEP_DELAY1_DIST_IN, DEP_DELAY2_DIST_IN = get_params_inbound()
+
+dep_delay_dist_out_samp = [[] for _ in range(len(DEP_DELAY_DIST_OUT))]
+dep_delay1_dist_in_samp = [[] for _ in range(len(DEP_DELAY1_DIST_IN))]
+dep_delay2_dist_in_samp = [[] for _ in range(len(DEP_DELAY2_DIST_IN))]
+
+n_samples = 30
+for i in range(len(DEP_DELAY_DIST_OUT)):
+    sample_percentiles = np.random.uniform(low=0.0, high=100.0, size=n_samples)
+    if DEP_DELAY_DIST_OUT[i]:
+        dep_delay_dist_out_samp[i] = list(np.percentile(DEP_DELAY_DIST_OUT[i], sample_percentiles))
+    if DEP_DELAY1_DIST_IN[i]:
+        dep_delay1_dist_in_samp[i] = list(np.percentile(DEP_DELAY1_DIST_IN[i], sample_percentiles))
+    if DEP_DELAY2_DIST_IN[i]:
+        dep_delay2_dist_in_samp[i] = list(np.percentile(DEP_DELAY2_DIST_IN[i], sample_percentiles))
+fig, axs = plt.subplots(nrows=2, ncols=3, sharey='all', sharex='col')
+for i in range(2, 4):
+    axs[i-2, 0].hist([DEP_DELAY_DIST_OUT[i], dep_delay_dist_out_samp[i]], density=True, label=['historical', 'sampled'])
+    axs[i-2, 1].hist([DEP_DELAY1_DIST_IN[i], dep_delay1_dist_in_samp[i]], density=True, label=['historical', 'sampled'])
+    axs[i-2, 2].hist([DEP_DELAY2_DIST_IN[i], dep_delay2_dist_in_samp[i]], density=True, label=['historical', 'sampled'])
+axs[0, 0].set_title('outbound')
+axs[0, 1].set_title('inbound long')
+axs[0, 2].set_title('inbound short')
+plt.legend()
+plt.savefig('out/compare/validate/initial_delay.png')
+plt.close()
+
 TRIP_IDS_OUT = [ti[0] for ti in TRIPS1_INFO_OUT]
 TRIP_IDS_OUT += [ti[0] for ti in TRIPS2_INFO_OUT]
 LINK_TIMES_MEAN, LINK_TIMES_EXTREMES, LINK_TIMES_PARAMS = LINK_TIMES_INFO
@@ -175,8 +212,8 @@ layover_t = {'2-0': [[] for _ in range(TRIP_TIME_NR_INTERVALS)],
              '1-0': [[] for _ in range(TRIP_TIME_NR_INTERVALS)],
              '0-1': [[] for _ in range(TRIP_TIME_NR_INTERVALS)]}
 after_layover_t = {'2-0': [[] for _ in range(TRIP_TIME_NR_INTERVALS)],
-             '1-0': [[] for _ in range(TRIP_TIME_NR_INTERVALS)],
-             '0-1': [[] for _ in range(TRIP_TIME_NR_INTERVALS)]}
+                   '1-0': [[] for _ in range(TRIP_TIME_NR_INTERVALS)],
+                   '0-1': [[] for _ in range(TRIP_TIME_NR_INTERVALS)]}
 sched_layover_t = {'2-0': [[] for _ in range(TRIP_TIME_NR_INTERVALS)],
                    '1-0': [[] for _ in range(TRIP_TIME_NR_INTERVALS)],
                    '0-1': [[] for _ in range(TRIP_TIME_NR_INTERVALS)]}
