@@ -36,7 +36,7 @@ def extract_params(outbound_route_params=False, inbound_route_params=False, dema
 
     if inbound_route_params:
         trips1_info_out, trips2_info_out, sched_arrs_out, trip_times1_params, trip_times2_params,\
-            delay1_dist, delay2_dist = get_inbound_travel_time(
+            delay1_dist, delay2_dist, trip_t1_dist, trip_t2_dist = get_inbound_travel_time(
             path_stop_times, START_TIME_SEC, END_TIME_SEC, DATES, TRIP_TIME_NR_INTERVALS, TRIP_TIME_START_INTERVAL,
             TRIP_TIME_INTERVAL_LENGTH_MINS, path_avl, DELAY_INTERVAL_LENGTH_MINS, DELAY_START_INTERVAL)
         save('in/xtr/trips1_info_inbound.pkl', trips1_info_out)
@@ -46,6 +46,8 @@ def extract_params(outbound_route_params=False, inbound_route_params=False, dema
         save('in/xtr/trip_time2_params.pkl', trip_times2_params)
         save('in/xtr/dep_delay1_dist_in.pkl', delay1_dist)
         save('in/xtr/dep_delay2_dist_in.pkl', delay2_dist)
+        save('in/xtr/trip_t1_dist_in.pkl', trip_t1_dist)
+        save('in/xtr/trip_t2_dist_in.pkl', trip_t2_dist)
         # save('in/xtr/deadhead_times_params.pkl', deadhead_time_params)
 
     if demand:
@@ -128,6 +130,38 @@ def extract_params(outbound_route_params=False, inbound_route_params=False, dema
         plt.savefig('in/vis/pax_profile_observed.png')
         plt.close()
         save('in/xtr/load_profile.pkl', load_profile)
+
+        dep_delay_dist_out = load('in/xtr/dep_delay_dist_out.pkl')
+        dep_delay1_dist_in = load('in/xtr/dep_delay1_dist_in.pkl')
+        dep_delay2_dist_in = load('in/xtr/dep_delay2_dist_in.pkl')
+        dep_delay_dist_out_samp = [[] for _ in range(len(dep_delay_dist_out))]
+        dep_delay1_dist_in_samp = [[] for _ in range(len(dep_delay1_dist_in))]
+        dep_delay2_dist_in_samp = [[] for _ in range(len(dep_delay2_dist_in))]
+
+        n_samples = 30
+        for i in range(len(dep_delay_dist_out)):
+            sample_percentiles = np.random.uniform(low=0.0, high=100.0, size=n_samples)
+            if dep_delay_dist_out[i]:
+                dep_delay_dist_out_samp[i] = list(np.percentile(dep_delay_dist_out[i], sample_percentiles))
+            if dep_delay1_dist_in[i]:
+                dep_delay1_dist_in_samp[i] = list(np.percentile(dep_delay1_dist_in[i], sample_percentiles))
+            if dep_delay2_dist_in[i]:
+                dep_delay2_dist_in_samp[i] = list(np.percentile(dep_delay2_dist_in[i], sample_percentiles))
+        fig, axs = plt.subplots(nrows=2, ncols=3, sharey='all', sharex='col')
+        for i in range(2, 4):
+            axs[i - 2, 0].hist([dep_delay_dist_out[i], dep_delay_dist_out_samp[i]], density=True,
+                               label=['historical', 'sampled'])
+            axs[i - 2, 1].hist([dep_delay1_dist_in[i], dep_delay1_dist_in_samp[i]], density=True,
+                               label=['historical', 'sampled'])
+            axs[i - 2, 2].hist([dep_delay2_dist_in[i], dep_delay2_dist_in_samp[i]], density=True,
+                               label=['historical', 'sampled'])
+        axs[0, 0].set_title('outbound')
+        axs[0, 1].set_title('inbound long')
+        axs[0, 2].set_title('inbound short')
+        plt.legend()
+        plt.savefig('out/compare/validate/initial_delay.png')
+        plt.close()
+
     return
 
 
@@ -154,44 +188,49 @@ def get_params_inbound():
     sched_arrs = load('in/xtr/scheduled_arrivals_inbound.pkl')
     dep_delay1_dist_in = load('in/xtr/dep_delay1_dist_in.pkl')
     dep_delay2_dist_in = load('in/xtr/dep_delay2_dist_in.pkl')
-    return trip_times1_params, trip_times2_params, trips1_out_info, trips2_out_info, deadhead_times_params, sched_arrs, dep_delay1_dist_in, dep_delay2_dist_in
+    trip_t1_dist_in = load('in/xtr/trip_t1_dist_in.pkl')
+    trip_t2_dist_in = load('in/xtr/trip_t2_dist_in.pkl')
+    return trip_times1_params, trip_times2_params, trips1_out_info, trips2_out_info, deadhead_times_params, sched_arrs, dep_delay1_dist_in, dep_delay2_dist_in, trip_t1_dist_in, trip_t2_dist_in
 
 
-# extract_params(outbound_route_params=True, inbound_route_params=True)
+# extract_params(inbound_route_params=True)
 
 STOPS_OUTBOUND, LINK_TIMES_INFO, TRIPS_IN_INFO, SCALED_ODT_RATES, ODT_STOP_IDS, SCHED_ARRS_IN, ODT_RATES_OLD, DEP_DELAY_DIST_OUT = get_params_outbound()
-TRIP_TIMES1_PARAMS, TRIP_TIMES2_PARAMS, TRIPS1_INFO_OUT, TRIPS2_INFO_OUT, DEADHEAD_TIME_PARAMS, SCHED_ARRS_OUT, DEP_DELAY1_DIST_IN, DEP_DELAY2_DIST_IN = get_params_inbound()
+TRIP_TIMES1_PARAMS, TRIP_TIMES2_PARAMS, TRIPS1_INFO_OUT, TRIPS2_INFO_OUT, DEADHEAD_TIME_PARAMS, SCHED_ARRS_OUT, DEP_DELAY1_DIST_IN, DEP_DELAY2_DIST_IN, TRIP_T1_DIST_IN, TRIP_T2_DIST_IN = get_params_inbound()
 
-dep_delay_dist_out_samp = [[] for _ in range(len(DEP_DELAY_DIST_OUT))]
-dep_delay1_dist_in_samp = [[] for _ in range(len(DEP_DELAY1_DIST_IN))]
-dep_delay2_dist_in_samp = [[] for _ in range(len(DEP_DELAY2_DIST_IN))]
 
+trip_t1_dist_in_samp = [[] for _ in range(len(TRIP_T1_DIST_IN))]
+trip_t2_dist_in_samp = [[] for _ in range(len(TRIP_T2_DIST_IN))]
 n_samples = 30
-for i in range(len(DEP_DELAY_DIST_OUT)):
+for i in range(len(TRIP_T1_DIST_IN)):
     sample_percentiles = np.random.uniform(low=0.0, high=100.0, size=n_samples)
-    if DEP_DELAY_DIST_OUT[i]:
-        dep_delay_dist_out_samp[i] = list(np.percentile(DEP_DELAY_DIST_OUT[i], sample_percentiles))
-    if DEP_DELAY1_DIST_IN[i]:
-        dep_delay1_dist_in_samp[i] = list(np.percentile(DEP_DELAY1_DIST_IN[i], sample_percentiles))
-    if DEP_DELAY2_DIST_IN[i]:
-        dep_delay2_dist_in_samp[i] = list(np.percentile(DEP_DELAY2_DIST_IN[i], sample_percentiles))
-fig, axs = plt.subplots(nrows=2, ncols=3, sharey='all', sharex='col')
+    if TRIP_T1_DIST_IN[i]:
+        trip_t1_dist_in_samp[i] = list(np.percentile(TRIP_T1_DIST_IN[i], sample_percentiles))
+    if TRIP_T2_DIST_IN[i]:
+        trip_t2_dist_in_samp[i] = list(np.percentile(TRIP_T2_DIST_IN[i], sample_percentiles))
+fig, axs = plt.subplots(nrows=2, ncols=2, sharey='col', sharex='col')
 for i in range(2, 4):
-    axs[i-2, 0].hist([DEP_DELAY_DIST_OUT[i], dep_delay_dist_out_samp[i]], density=True, label=['historical', 'sampled'])
-    axs[i-2, 1].hist([DEP_DELAY1_DIST_IN[i], dep_delay1_dist_in_samp[i]], density=True, label=['historical', 'sampled'])
-    axs[i-2, 2].hist([DEP_DELAY2_DIST_IN[i], dep_delay2_dist_in_samp[i]], density=True, label=['historical', 'sampled'])
-axs[0, 0].set_title('outbound')
-axs[0, 1].set_title('inbound long')
-axs[0, 2].set_title('inbound short')
+    arr1 = np.array(TRIP_T1_DIST_IN[i])/60
+    arr2 = np.array(trip_t1_dist_in_samp[i])/60
+    axs[i - 2, 0].hist([arr1, arr2], density=True,
+                       label=['historical', 'sampled'])
+    arr1 = np.array(TRIP_T2_DIST_IN[i])/60
+    arr2 = np.array(trip_t2_dist_in_samp[i])/60
+    axs[i - 2, 1].hist([arr1, arr2], density=True,
+                       label=['historical', 'sampled'])
+axs[0, 0].set_title('long')
+axs[0, 1].set_title('short')
 plt.legend()
-plt.savefig('out/compare/validate/initial_delay.png')
+plt.tight_layout()
+plt.savefig('out/compare/validate/trip_t_inbound.png')
 plt.close()
+
 
 TRIP_IDS_OUT = [ti[0] for ti in TRIPS1_INFO_OUT]
 TRIP_IDS_OUT += [ti[0] for ti in TRIPS2_INFO_OUT]
 LINK_TIMES_MEAN, LINK_TIMES_EXTREMES, LINK_TIMES_PARAMS = LINK_TIMES_INFO
 
-scaled_arr_rates = np.sum(SCALED_ODT_RATES, axis=-1)
+SCALED_ARR_RATES = np.sum(SCALED_ODT_RATES, axis=-1)
 TRIP_IDS_IN, SCHED_DEP_IN, BLOCK_IDS_IN = [], [], []
 for item in TRIPS_IN_INFO:
     TRIP_IDS_IN.append(item[0]), SCHED_DEP_IN.append(item[1]), BLOCK_IDS_IN.append(item[2])
@@ -232,62 +271,62 @@ for b in block_ids:
     route_types = block_df['route_type'].tolist()
     BLOCK_TRIPS_INFO.append((b, list(zip(trip_ids, sched_deps, route_types))))
 
-    terminal1_id = 386
-    prev_terminal1_id = 14800
-    after_terminal1_id = 388
-
-    terminal2_id = 8613
-    prev_terminal2_id = 3954
-    after_terminal2_id = 6360
-
-    # for i in range(len(trip_ids) - 1):
-    #     rt_from = int(route_types[i])
-    #     rt_to = int(route_types[i + 1])
-    #     trip_from = trip_ids[i]
-    #     trip_to = trip_ids[i + 1]
-    #     df_trip_from = avl_df[avl_df['trip_id'] == trip_from]
-    #     df_trip_to = avl_df[avl_df['trip_id'] == trip_to]
-    #     rt_from_to = str(rt_from) + '-' + str(rt_to)
-    #     interval_idx = get_interval(sched_deps[i + 1], TRIP_TIME_INTERVAL_LENGTH_MINS) - TRIP_TIME_START_INTERVAL
-    #     for d in DATES:
-    #         df_trip_from_temp = df_trip_from[df_trip_from['avl_arr_time'].astype(str).str[:10] == d]
-    #         df_trip_to_temp = df_trip_to[df_trip_to['avl_arr_time'].astype(str).str[:10] == d]
-    #         if rt_from == 1 or rt_from == 2:
-    #             terminal_arr = df_trip_from_temp[df_trip_from_temp['stop_id'] == terminal1_id]['avl_arr_sec'].tolist()
-    #             prev_terminal_arr = df_trip_from_temp[df_trip_from_temp['stop_id'] == prev_terminal1_id][
-    #                 'avl_arr_sec'].tolist()
-    #             sched_terminal_arr = df_trip_from_temp[df_trip_from_temp['stop_id'] == terminal1_id][
-    #                 'schd_sec'].tolist()
-    #
-    #             terminal_dep = df_trip_to_temp[df_trip_to_temp['stop_id'] == terminal1_id]['avl_dep_sec'].tolist()
-    #             after_terminal_dep = df_trip_to_temp[df_trip_to_temp['stop_id'] == after_terminal1_id][
-    #                 'avl_dep_sec'].tolist()
-    #             sched_terminal_dep = df_trip_to_temp[df_trip_to_temp['stop_id'] == terminal1_id][
-    #                 'schd_sec'].tolist()
-    #         else:
-    #             assert rt_from == 0 and rt_to == 1
-    #             terminal_arr = df_trip_from_temp[df_trip_from_temp['stop_id'] == terminal2_id]['avl_arr_sec'].tolist()
-    #             prev_terminal_arr = df_trip_from_temp[df_trip_from_temp['stop_id'] == prev_terminal2_id][
-    #                 'avl_arr_sec'].tolist()
-    #             sched_terminal_arr = df_trip_from_temp[df_trip_from_temp['stop_id'] == terminal2_id][
-    #                 'schd_sec'].tolist()
-    #
-    #             terminal_dep = df_trip_to_temp[df_trip_to_temp['stop_id'] == terminal2_id]['avl_dep_sec'].tolist()
-    #             after_terminal_dep = df_trip_to_temp[df_trip_to_temp['stop_id'] == after_terminal2_id][
-    #                 'avl_dep_sec'].tolist()
-    #             sched_terminal_dep = df_trip_to_temp[df_trip_to_temp['stop_id'] == terminal2_id][
-    #                 'schd_sec'].tolist()
-    #         if terminal_arr and terminal_dep:
-    #             layover_t[rt_from_to][interval_idx].append(terminal_dep[0] - terminal_arr[0])
-    #             delay[rt_from_to][interval_idx].append(terminal_dep[0]%86400 - sched_terminal_dep[0])
-    #         if prev_terminal_arr and after_terminal_dep:
-    #             after_layover_t[rt_from_to][interval_idx].append(after_terminal_dep[0] - prev_terminal_arr[0])
-    #         if sched_terminal_arr and sched_terminal_dep:
-    #             sched_layover_t[rt_from_to][interval_idx].append(sched_terminal_dep[0] - sched_terminal_arr[0])
-    #         if sched_terminal_dep and terminal_arr and terminal_dep:
-    #             if (terminal_dep[0]%86400) - sched_terminal_dep[0] > 50:
-    #                 late_layover_t[rt_from_to][interval_idx].append(terminal_dep[0] - terminal_arr[0])
-
+#     terminal1_id = 386
+#     prev_terminal1_id = 14800
+#     after_terminal1_id = 388
+#
+#     terminal2_id = 8613
+#     prev_terminal2_id = 3954
+#     after_terminal2_id = 6360
+#
+#     for i in range(len(trip_ids) - 1):
+#         rt_from = int(route_types[i])
+#         rt_to = int(route_types[i + 1])
+#         trip_from = trip_ids[i]
+#         trip_to = trip_ids[i + 1]
+#         df_trip_from = avl_df[avl_df['trip_id'] == trip_from]
+#         df_trip_to = avl_df[avl_df['trip_id'] == trip_to]
+#         rt_from_to = str(rt_from) + '-' + str(rt_to)
+#         interval_idx = get_interval(sched_deps[i + 1], TRIP_TIME_INTERVAL_LENGTH_MINS) - TRIP_TIME_START_INTERVAL
+#         for d in DATES:
+#             df_trip_from_temp = df_trip_from[df_trip_from['avl_arr_time'].astype(str).str[:10] == d]
+#             df_trip_to_temp = df_trip_to[df_trip_to['avl_arr_time'].astype(str).str[:10] == d]
+#             if rt_from == 1 or rt_from == 2:
+#                 terminal_arr = df_trip_from_temp[df_trip_from_temp['stop_id'] == terminal1_id]['avl_arr_sec'].tolist()
+#                 prev_terminal_arr = df_trip_from_temp[df_trip_from_temp['stop_id'] == prev_terminal1_id][
+#                     'avl_arr_sec'].tolist()
+#                 sched_terminal_arr = df_trip_from_temp[df_trip_from_temp['stop_id'] == terminal1_id][
+#                     'schd_sec'].tolist()
+#
+#                 terminal_dep = df_trip_to_temp[df_trip_to_temp['stop_id'] == terminal1_id]['avl_dep_sec'].tolist()
+#                 after_terminal_dep = df_trip_to_temp[df_trip_to_temp['stop_id'] == after_terminal1_id][
+#                     'avl_dep_sec'].tolist()
+#                 sched_terminal_dep = df_trip_to_temp[df_trip_to_temp['stop_id'] == terminal1_id][
+#                     'schd_sec'].tolist()
+#             else:
+#                 assert rt_from == 0 and rt_to == 1
+#                 terminal_arr = df_trip_from_temp[df_trip_from_temp['stop_id'] == terminal2_id]['avl_arr_sec'].tolist()
+#                 prev_terminal_arr = df_trip_from_temp[df_trip_from_temp['stop_id'] == prev_terminal2_id][
+#                     'avl_arr_sec'].tolist()
+#                 sched_terminal_arr = df_trip_from_temp[df_trip_from_temp['stop_id'] == terminal2_id][
+#                     'schd_sec'].tolist()
+#
+#                 terminal_dep = df_trip_to_temp[df_trip_to_temp['stop_id'] == terminal2_id]['avl_dep_sec'].tolist()
+#                 after_terminal_dep = df_trip_to_temp[df_trip_to_temp['stop_id'] == after_terminal2_id][
+#                     'avl_dep_sec'].tolist()
+#                 sched_terminal_dep = df_trip_to_temp[df_trip_to_temp['stop_id'] == terminal2_id][
+#                     'schd_sec'].tolist()
+#             if terminal_arr and terminal_dep:
+#                 layover_t[rt_from_to][interval_idx].append(terminal_dep[0] - terminal_arr[0])
+#                 delay[rt_from_to][interval_idx].append(terminal_dep[0]%86400 - sched_terminal_dep[0])
+#             if prev_terminal_arr and after_terminal_dep:
+#                 after_layover_t[rt_from_to][interval_idx].append(after_terminal_dep[0] - prev_terminal_arr[0])
+#             if sched_terminal_arr and sched_terminal_dep:
+#                 sched_layover_t[rt_from_to][interval_idx].append(sched_terminal_dep[0] - sched_terminal_arr[0])
+#             if sched_terminal_dep and terminal_arr and terminal_dep:
+#                 if (terminal_dep[0]%86400) - sched_terminal_dep[0] > 50:
+#                     late_layover_t[rt_from_to][interval_idx].append(terminal_dep[0] - terminal_arr[0])
+#
 # # print(layover_t['2-0'])
 # print(sched_layover_t)
 # # print(late_layover_t['2-0'])

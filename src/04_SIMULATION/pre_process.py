@@ -55,6 +55,8 @@ def get_route(path_stop_times, start_time_sec, end_time_sec, nr_intervals, start
     delay_nr_intervals = int(nr_intervals * interval_length/delay_interval_length)
     dep_delay_dist = [[] for _ in range(delay_nr_intervals)]
     dep_delay_ahead_dist = [[] for _ in range(delay_nr_intervals)]
+
+    write_outbound_trajectories(path_avl, ordered_trip_ids)
     for t in ordered_trip_ids:
         temp = avl_df[avl_df['trip_id'] == t]
         temp = temp.sort_values(by='stop_sequence')
@@ -179,7 +181,7 @@ def bi_proportional_fitting(od, target_ons, target_offs):
 
 def get_inbound_travel_time(path_stop_times, start_time, end_time, dates, nr_intervals,
                             start_interval, interval_length, path_avl, delay_interval_length,
-                            delay_start_interval, tolerance_early_dep=1 * 60):
+                            delay_start_interval, tolerance_early_dep=0.5 * 60):
     # dep_delay_record_short = []
     # dep_delay_record_long = []
     trip_time_record_long = []
@@ -234,6 +236,7 @@ def get_inbound_travel_time(path_stop_times, start_time, end_time, dates, nr_int
     delay_nr_intervals = int(nr_intervals * interval_length/delay_interval_length)
     dep_delay1 = [[] for _ in range(delay_nr_intervals)]
     dep_delay_1_ahead = [[] for _ in range(delay_nr_intervals)]
+    trip_t1_empirical = [[] for _ in range(nr_intervals)]
     # deadhead_times = [[] for _ in range(nr_intervals)]
     # stop_seq_terminal2 = 41
     # dep_delay1 = []
@@ -254,7 +257,9 @@ def get_inbound_travel_time(path_stop_times, start_time, end_time, dates, nr_int
                         trip_time_record_long.append(arrival_sec[-1] - dep_sec[0])
 
                     delay_idx = get_interval(schd_sec[0], delay_interval_length) - delay_start_interval
+                    trip_t_idx = get_interval(schd_sec[0], interval_length) - start_interval
                     dep_delay1[delay_idx].append(-1 * dep_delay)
+                    trip_t1_empirical[trip_t_idx].append(arrival_sec[-1] - dep_sec[0])
                     if stop_seq[1] == 2:
                         dep_delay_ahead = schd_sec[1] - (dep_sec[1] % 86400)
                         dep_delay_1_ahead[delay_idx].append(-1 * dep_delay_ahead)
@@ -278,6 +283,7 @@ def get_inbound_travel_time(path_stop_times, start_time, end_time, dates, nr_int
     trip_times2 = [[] for _ in range(nr_intervals)]
     dep_delay2 = [[] for _ in range(delay_nr_intervals)]
     dep_delay_2_ahead = [[] for _ in range(delay_nr_intervals)]
+    trip_t2_empirical = [[] for _ in range(nr_intervals)]
     # dep_delay2 = []
     for t in ordered_trip_ids2:
         temp_df = avl_df[avl_df['trip_id'] == t]
@@ -295,7 +301,10 @@ def get_inbound_travel_time(path_stop_times, start_time, end_time, dates, nr_int
                         trip_time_record_short.append(arrival_sec[-1] - dep_sec[0])
 
                     delay_idx = get_interval(schd_sec[0], delay_interval_length) - delay_start_interval
+                    trip_t_idx = get_interval(schd_sec[0], delay_interval_length) - start_interval
                     dep_delay2[delay_idx].append(-1 * dep_delay)
+                    if dep_delay <tolerance_early_dep:
+                        trip_t2_empirical[trip_t_idx].append(arrival_sec[-1] - dep_sec[0])
                     if stop_seq[1] == 2:
                         dep_delay_ahead = schd_sec[1] - (dep_sec[1] % 86400)
                         dep_delay_2_ahead[delay_idx].append(-1 * dep_delay_ahead)
@@ -345,6 +354,31 @@ def get_inbound_travel_time(path_stop_times, start_time, end_time, dates, nr_int
     plt.savefig('in/vis/dep_delay_pk_in_clipped.png')
     plt.close()
 
+    fig, axs = plt.subplots(nrows=2, ncols=2, sharex='col', sharey='col')
+    for t_idx in range(2, 4):
+        arr1 = remove_outliers(np.array(trip_t1_empirical[t_idx]))
+        arr2 = remove_outliers(np.array(trip_t2_empirical[t_idx]))
+        trip_t1_empirical[t_idx] = list(arr1)
+        trip_t2_empirical[t_idx] = list(arr2)
+        axs[t_idx - 2, 0].hist(arr1/60, ec='black')
+        if arr2.size:
+            axs[t_idx - 2, 1].hist(arr2/60, ec='black')
+        # dep_delay_arr = np.array(dep_delay1[t_idx])
+        # dep_delay_ahead_arr = np.array(dep_delay_1_ahead[t_idx])
+        # dep_delay2_arr = np.array(dep_delay2[t_idx])
+        # dep_delay2_ahead_arr = np.array(dep_delay_2_ahead[t_idx])
+        # axs[t_idx - 2, 0].hist([dep_delay_arr, dep_delay_ahead_arr],
+        #                        label=['terminal', 'stop 1'])
+        # axs[t_idx - 2, 1].hist([dep_delay2_arr, dep_delay2_ahead_arr],
+        #                        label=['terminal', 'stop 1'])
+    axs[-1, 0].set_xlabel('trip time (min)')
+    axs[-1, 1].set_xlabel('trip time (min)')
+    axs[0, 0].set_title('long')
+    axs[0, 1].set_title('short')
+    plt.tight_layout()
+    plt.savefig('in/vis/trip_t_in_hist.png')
+    plt.close()
+
     arrival_headway = []
     df = avl_df[avl_df['trip_id'].isin(all_trip_ids)]
     df = df.sort_values(by=['stop_sequence', 'schd_sec'])
@@ -380,15 +414,13 @@ def get_inbound_travel_time(path_stop_times, start_time, end_time, dates, nr_int
     trips1_info = [(x, y, z) for x, y, z in zip(ordered_trip_ids1, ordered_deps1, ordered_block_ids1)]
     trips2_info = [(x, y, z) for x, y, z in zip(ordered_trip_ids2, ordered_deps2, ordered_block_ids2)]
 
-    # all_delays = [dep_delay_record_long, dep_delay_record_short]
-
     all_trip_times = [trip_time_record_long, trip_time_record_short]
 
     # fill in the nans for extreme cases
-    trip_times1_params[1] = trip_times1_params[2]
-    trip_times2_params[-4] = trip_times2_params[-5]
-    trip_times1_params[-1] = trip_times1_params[-2]
-    return trips1_info, trips2_info, sched_arrivals, trip_times1_params, trip_times2_params, dep_delay1, dep_delay2
+    # trip_times1_params[1] = trip_times1_params[2]
+    # trip_times2_params[-4] = trip_times2_params[-5]
+    # trip_times1_params[-1] = trip_times1_params[-2]
+    return trips1_info, trips2_info, sched_arrivals, trip_times1_params, trip_times2_params, dep_delay1, dep_delay2, trip_t1_empirical, trip_t2_empirical
 
 
 def get_trip_times(path_avl, focus_trips, dates, stops):

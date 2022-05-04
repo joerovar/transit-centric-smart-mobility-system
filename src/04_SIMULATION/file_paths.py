@@ -149,6 +149,6 @@ path_dir_s2 = 'out/compare/sensitivity compliance/'
 # UPDATED DEMAND RESULTS
 # path_tr_nc_b2 = 'out/NC/0423-195804-trajectory_set.pkl'
 # path_p_nc_b2 = 'out/NC/0423-195804-pax_set.pkl'
-# + UPDATED TRIP TIME RETURN
-path_tr_nc_b2 = 'out/NC/0429-221124-trajectory_set.pkl'
-path_p_nc_b2 = 'out/NC/0429-221124-pax_set.pkl'
+# + UPDATED TRIP TIME RETURN WITH EMPIRICAL DISTRIBUTION AND DEP DELAY MODELING
+path_tr_nc_b2 = 'out/NC/0504-141619-trajectory_set.pkl'
+path_p_nc_b2 = 'out/NC/0504-141619-pax_set.pkl'

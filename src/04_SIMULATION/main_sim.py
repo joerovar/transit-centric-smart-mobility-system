@@ -23,6 +23,7 @@ def validate_nc():
                         [path_p_nc_b2], ['NC'], N_REPLICATIONS,
                         'out/compare/validate/')
     prc.pax_profile_base()
+    prc.write_trajectories(only_nc=True)
     results = {}
     results.update(prc.headway(save_nc=True))
     results.update(prc.trip_times(keep_nc=True))
@@ -217,5 +218,5 @@ N_REPLICATIONS = 40
 # weight_comparison(compute_rbt=True)
 # benchmark_comparison(compute_rbt=False)
 # sensitivity_run_t(compute_rbt=True)
-# validate_nc()
+validate_nc()
 # sensitivity_compliance(compute_rbt=True)

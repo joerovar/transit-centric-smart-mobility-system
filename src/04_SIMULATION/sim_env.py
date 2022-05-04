@@ -214,8 +214,17 @@ class DetailedSimulationEnv(SimulationEnv):
             trip = bus.active_trip[0]
             if trip.route_type == 0:
                 bus.last_stop_id = STOPS_OUTBOUND[0]
-            random_delay = max(random.uniform(DEP_DELAY_FROM, DEP_DELAY_TO), 0)
-            bus.next_event_time = trip.sched_time + random_delay
+            interval_delay = get_interval(trip.sched_time, DELAY_INTERVAL_LENGTH_MINS) - DELAY_START_INTERVAL
+            rand_percentile = np.random.uniform(0.0, 100.0)
+            if trip.route_type == 0:
+                delay = np.percentile(DEP_DELAY_DIST_OUT[interval_delay], rand_percentile)
+            elif trip.route_type == 1:
+                delay = np.percentile(DEP_DELAY1_DIST_IN[interval_delay], rand_percentile)
+            else:
+                assert trip.route_type == 2
+                delay = np.percentile(DEP_DELAY2_DIST_IN[interval_delay], rand_percentile)
+            # random_delay = max(random.uniform(DEP_DELAY_FROM, DEP_DELAY_TO), 0)
+            bus.next_event_time = trip.sched_time + max(delay, 0)
             bus.next_event_type = 3 if trip.route_type else 0
         # initialize passenger demand
         self.completed_pax = []
@@ -473,15 +482,19 @@ class DetailedSimulationEnv(SimulationEnv):
         route_type = trip.route_type
         # types {1: long, 2: short}
         if route_type == 1:
-            interval = get_interval(self.time, TRIP_TIME_INTERVAL_LENGTH_MINS) - TRIP_TIME_START_INTERVAL
-            trip_time_params = TRIP_TIMES1_PARAMS[interval]
-            run_time = lognorm.rvs(*trip_time_params)
+            interval_idx = get_interval(self.time, TRIP_TIME_INTERVAL_LENGTH_MINS) - TRIP_TIME_START_INTERVAL
+            # trip_time_params = TRIP_TIMES1_PARAMS[interval]
+            # run_time = lognorm.rvs(*trip_time_params)
+            rand_percentile = np.random.uniform(0.0, 100.0)
+            run_time = np.percentile(TRIP_T1_DIST_IN[interval_idx], rand_percentile)
             arr_time = self.time + run_time
         else:
             assert route_type == 2
-            interval = get_interval(self.time, TRIP_TIME_INTERVAL_LENGTH_MINS) - TRIP_TIME_START_INTERVAL
-            trip_time_params = TRIP_TIMES2_PARAMS[interval]
-            run_time = lognorm.rvs(*trip_time_params)
+            interval_idx = get_interval(self.time, TRIP_TIME_INTERVAL_LENGTH_MINS) - TRIP_TIME_START_INTERVAL
+            # trip_time_params = TRIP_TIMES2_PARAMS[interval]
+            # run_time = lognorm.rvs(*trip_time_params)
+            rand_percentile = np.random.uniform(0.0, 100.0)
+            run_time = np.percentile(TRIP_T2_DIST_IN[interval_idx], rand_percentile)
             arr_time = self.time + run_time
         bus.dep_t = self.time
         bus.next_event_time = arr_time
@@ -514,7 +527,8 @@ class DetailedSimulationEnv(SimulationEnv):
             bus.active_trip.append(bus.pending_trips[0])
             bus.pending_trips.pop(0)
             bus.last_stop_id = STOPS_OUTBOUND[0]
-            bus.next_event_time = max(self.time, bus.active_trip[0].sched_time)
+            layover_t = LAYOVER_T + max(np.random.uniform(-ERR_LAYOVER_TIME, ERR_LAYOVER_TIME), 0)
+            bus.next_event_time = max(self.time + layover_t, bus.active_trip[0].sched_time)
             bus.next_event_type = 0
         bus.arr_t = self.time
         self.log.recorded_arrivals[self.bus.finished_trips[-1].trip_id] = bus.arr_t
@@ -840,8 +854,18 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
             trip = bus.active_trip[0]
             if trip.route_type == 0:
                 bus.last_stop_id = STOPS_OUTBOUND[0]
-            random_delay = max(random.uniform(DEP_DELAY_FROM, DEP_DELAY_TO), 0)
-            bus.next_event_time = trip.sched_time + random_delay
+
+            interval_delay = get_interval(trip.sched_time, DELAY_INTERVAL_LENGTH_MINS) - DELAY_START_INTERVAL
+            rand_percentile = np.random.uniform(0.0, 100.0)
+            if trip.route_type == 0:
+                dep_delay = np.percentile(DEP_DELAY_DIST_OUT[interval_delay], rand_percentile)
+            elif trip.route_type == 1:
+                dep_delay = np.percentile(DEP_DELAY1_DIST_IN[interval_delay], rand_percentile)
+            else:
+                assert trip.route_type == 2
+                dep_delay = np.percentile(DEP_DELAY2_DIST_IN[interval_delay], rand_percentile)
+            # random_delay = max(random.uniform(DEP_DELAY_FROM, DEP_DELAY_TO), 0)
+            bus.next_event_time = trip.sched_time + max(dep_delay, 0)
             bus.next_event_type = 3 if trip.route_type else 0
         # initialize passenger demand
         self.completed_pax = []
