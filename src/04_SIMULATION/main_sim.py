@@ -205,8 +205,9 @@ def fancy_plots():
 
 N_REPLICATIONS = 40
 
-# run_base_detailed(replications=40, save_results=True)
-
+run_base_detailed(replications=40, save_results=False)
+# validate_nc()
+# run_base_control_detailed(replications=40, save_results=True)
 # prc = PostProcessor([path_tr_nc_b2, path_tr_nc_b],
 #                     [path_p_nc_b2, path_p_nc_b],
 #                     cp_tags=['new demand', 'old demand'], path_dir='out/compare/', nr_reps=N_REPLICATIONS)
@@ -218,5 +219,5 @@ N_REPLICATIONS = 40
 # weight_comparison(compute_rbt=True)
 # benchmark_comparison(compute_rbt=False)
 # sensitivity_run_t(compute_rbt=True)
-validate_nc()
+
 # sensitivity_compliance(compute_rbt=True)

@@ -9,8 +9,8 @@ class Trip:
         # this will serve as a copy for pax who finished the trip (main one is an attribute of the simulation class)
         self.completed_pax = []
         # route_type_dict = {0: inbound, 1: outbound long, 2: outbound short}
-        # event_dict = {0: 'inbound dispatch', 1: 'inbound intermediate', 2: 'inbound arrival',
-        #               3: 'outbound dispatch', 4: 'outbound arrival'}
+        # event_dict = {0: 'outbound dispatch', 1: 'outbound intermediate', 2: 'outbound arrival',
+        #               3: 'inbound dispatch', 4: 'inbound arrival'}
 
 
 class Passenger:
@@ -31,6 +31,7 @@ class Stop:
         self.stop_id = stop_id
         self.pax = []
         self.passed_trips = []
+        self.last_arr_t = []
 
 
 class Bus:
