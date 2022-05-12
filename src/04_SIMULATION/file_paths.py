@@ -153,6 +153,8 @@ path_dir_s2 = 'out/compare/sensitivity compliance/'
 # path_tr_nc_b2 = 'out/NC/0504-141619-trajectory_set.pkl'
 # path_p_nc_b2 = 'out/NC/0504-141619-pax_set.pkl'
 # REMOVE THE NO OVERTAKE ASSUMPTION
-path_tr_nc_b2 = 'out/NC/0511-192927-trajectory_set.pkl'
-path_p_nc_b2 = 'out/NC/0511-192927-pax_set.pkl'
+path_tr_nc_b2 = 'out/NC/0511-220449-trajectory_set.pkl'
+path_p_nc_b2 = 'out/NC/0511-220449-pax_set.pkl'
+path_tr_eh_b2 = 'out/EH/0511-222419-trajectory_set.pkl'
+path_p_eh_b2 = 'out/EH/0511-222419-pax_set.pkl'
 

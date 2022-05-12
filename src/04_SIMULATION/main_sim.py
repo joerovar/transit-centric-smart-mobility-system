@@ -205,12 +205,13 @@ def fancy_plots():
 
 N_REPLICATIONS = 40
 
-run_base_detailed(replications=40, save_results=False)
+# run_base_detailed(replications=40, save_results=True)
 # validate_nc()
 # run_base_control_detailed(replications=40, save_results=True)
-# prc = PostProcessor([path_tr_nc_b2, path_tr_nc_b],
-#                     [path_p_nc_b2, path_p_nc_b],
-#                     cp_tags=['new demand', 'old demand'], path_dir='out/compare/', nr_reps=N_REPLICATIONS)
+prc = PostProcessor([path_tr_nc_b2, path_tr_eh_b2],
+                    [path_p_nc_b2, path_p_eh_b2],
+                    cp_tags=['NC', 'EH'], path_dir='out/compare/ncvseh/', nr_reps=N_REPLICATIONS)
+prc.headway(plot_cv=True)
 # results = {}
 # results.update(prc.load_profile(plot_single=True))
 # prc.pax_profile_base()

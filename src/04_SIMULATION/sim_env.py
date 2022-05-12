@@ -17,22 +17,22 @@ def run_base_detailed(replications=4, save_results=False, time_dep_tt=True, time
         done = env.reset_simulation()
         while not done:
             done = env.prep()
-        cv_per_stop = []
-        for s in env.stops:
-            arr_times = np.array(s.last_arr_t)
-            arr_times = arr_times[(arr_times>FOCUS_START_TIME_SEC) & (arr_times<FOCUS_END_TIME_SEC+3600)]
-            arr_times = arr_times.tolist()
-            hw = [arr_times[i] - arr_times[i-1] for i in range(1, len(arr_times))]
-            cv = np.std(hw) / np.mean(hw)
-            cv_per_stop.append(cv)
-        cv_set.append(cv_per_stop)
+        # cv_per_stop = []
+        # for s in env.stops:
+        #     arr_times = np.array(s.last_arr_t)
+        #     arr_times = arr_times[(arr_times>FOCUS_START_TIME_SEC) & (arr_times<FOCUS_END_TIME_SEC+3600)]
+        #     arr_times = arr_times.tolist()
+        #     hw = [arr_times[i] - arr_times[i-1] for i in range(1, len(arr_times))]
+        #     cv = np.std(hw) / np.mean(hw)
+        #     cv_per_stop.append(cv)
+        # cv_set.append(cv_per_stop)
         if save:
             env.process_results()
             trajectories_set.append(env.trajectories)
             pax_set.append(env.completed_pax)
-    plt.plot(np.array(cv_set).mean(axis=0))
-    plt.show()
-    plt.close()
+    # plt.plot(np.array(cv_set).mean(axis=0))
+    # plt.show()
+    # plt.close()
     if save_results:
         path_trajectories = 'out/NC/'+tstamp+'-trajectory_set' + ext_var
         path_completed_pax = 'out/NC/'+tstamp+'-pax_set' + ext_var
@@ -162,6 +162,7 @@ class DetailedSimulationEnv(SimulationEnv):
         self.bus = Bus(0, [])
         self.log = Log(TRIP_IDS_IN + TRIP_IDS_OUT)
         self.trip_log = []
+        self.focus_trips_finished = []
 
     def backward_headway(self):
         # terminal
@@ -272,6 +273,7 @@ class DetailedSimulationEnv(SimulationEnv):
 
     def reset_simulation(self):
         self.time = START_TIME_SEC
+        self.focus_trips_finished = []
         self.bus = Bus(0, [])
         # for records
         self.trajectories = {}
@@ -536,6 +538,8 @@ class DetailedSimulationEnv(SimulationEnv):
         bus.dep_t = float(bus.arr_t) + dwell_time
         self.record_trajectories(offs=bus.offs)
         bus.finished_trips.append(bus.active_trip[0])
+        if bus.active_trip[0].trip_id in FOCUS_TRIPS:
+            self.focus_trips_finished.append(bus.active_trip[0].trip_id)
         bus.active_trip.pop(0)
         if bus.pending_trips:
             bus.active_trip.append(bus.pending_trips[0])
@@ -689,8 +693,7 @@ class DetailedSimulationEnv(SimulationEnv):
 
     def prep(self):
         done = self.next_event()
-        last_focus_bus = [bus for bus in self.buses if bus.bus_id == LAST_FOCUS_TRIP_BLOCK]
-        if done or LAST_FOCUS_TRIP in [t.trip_id for t in last_focus_bus[0].finished_trips]:
+        if done or all(elem in self.focus_trips_finished for elem in FOCUS_TRIPS):
             return True
 
         if self.bus.next_event_type == 0:
@@ -809,7 +812,7 @@ class DetailedSimulationEnvWithControl(DetailedSimulationEnv):
         else:
             print(f'what? last arrival time shows nan for controlled trip at time {self.time/60/60}')
             forward_headway = SCHED_DEP_IN[1] - SCHED_DEP_IN[0]
-        print(f'forward {round(forward_headway/60, 2)} and backward {round(backward_headway/60, 2)}')
+        # print(f'forward {round(forward_headway/60, 2)} and backward {round(backward_headway/60, 2)}')
         # min_allowed_hw = self.control_strength * CONTROL_MEAN_HW
         # limit_holding = max(0, (last_arr_t + min_allowed_hw) - self.time)
         if stop.stop_id == STOPS_OUTBOUND[0]:
@@ -852,7 +855,7 @@ class DetailedSimulationEnvWithControl(DetailedSimulationEnv):
     def prep(self):
         done = self.next_event()
         last_focus_bus = [bus for bus in self.buses if bus.bus_id == LAST_FOCUS_TRIP_BLOCK]
-        if done or LAST_FOCUS_TRIP in [t.trip_id for t in last_focus_bus[0].finished_trips]:
+        if done or all(elem in self.focus_trips_finished for elem in FOCUS_TRIPS):
             return True
 
         if self.bus.next_event_type == 0:
@@ -910,6 +913,7 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
 
     def reset_simulation(self):
         self.time = START_TIME_SEC
+        self.focus_trips_finished = []
         self.bool_terminal_state = False
         self.pool_sars = []
         self.bus = Bus(0, [])
@@ -1240,7 +1244,7 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
     def prep(self):
         done = self.next_event()
         last_focus_bus = [bus for bus in self.buses if bus.bus_id == LAST_FOCUS_TRIP_BLOCK]
-        if done or LAST_FOCUS_TRIP in [t.trip_id for t in last_focus_bus[0].finished_trips]:
+        if done or all(elem in self.focus_trips_finished for elem in FOCUS_TRIPS):
             return True
         if self.bus.next_event_type == 0:
             # if the trip is initialized, check that it does not leave before the trip has departed

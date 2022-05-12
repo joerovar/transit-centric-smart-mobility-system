@@ -198,7 +198,27 @@ def get_headway_from_trajectory_set(trajectory_set, idx_arr_t, stops, peak_load_
         i += 1
     for s in stops:
         cv_hw_per_stop.append(np.mean(cv_hw[s]))
-    return cv_hw_per_stop, cv_hw_tp, cv_hw_mean, hw_peak_point
+
+    n_stops = len(stops)
+    cv_set = []
+    rep_count = 0
+    for trajectories in trajectory_set:
+        cv_replication = []
+        for n in range(n_stops):
+            arr_times = []
+            for trip in trajectories:
+                assert len(trajectories[trip][n]) == 9
+                arr_times.append(trajectories[trip][n][idx_arr_t])
+            arr_times = sorted(arr_times)
+            hw = [arr_times[i] - arr_times[i-1] for i in range(1, len(arr_times))]
+            cv = np.std(hw) / np.mean(hw)
+            cv_replication.append(cv)
+        # print(len(cv_replication))
+        cv_set.append(cv_replication)
+        rep_count += 1
+    cv_set = np.array(cv_set)
+    cv_mean_per_stop = np.mean(cv_set, axis=0).tolist()
+    return cv_hw_per_stop, cv_hw_tp, cv_hw_mean, hw_peak_point, cv_mean_per_stop
 
 
 def load_from_trajectory_set(trajectory_set, stops, idx_load, peak_load_stop):

@@ -56,19 +56,21 @@ class PostProcessor:
         cv_all_reps = []
         cv_hw_tp_set = []
         hw_peak_set = []
+        cv_mean_per_stop_set = []
         for trips in self.cp_trips:
-            temp_cv_hw, cv_hw_tp, cv_hw_mean, hw_peak = get_headway_from_trajectory_set(trips, IDX_ARR_T, STOPS_OUTBOUND,
+            temp_cv_hw, cv_hw_tp, cv_hw_mean, hw_peak, cv_mean_per_stop = get_headway_from_trajectory_set(trips, IDX_ARR_T, STOPS_OUTBOUND,
                                                                                         STOPS_OUTBOUND[50],
                                                                                         controlled_stops=CONTROLLED_STOPS)
             cv_hw_tp_set.append(cv_hw_tp)
             cv_hw_set.append(temp_cv_hw)
             cv_all_reps.append(cv_hw_mean)
             hw_peak_set.append(hw_peak)
+            cv_mean_per_stop_set.append(cv_mean_per_stop)
         if len(self.cp_tags) <= len(self.colors) and plot_cv:
-            plot_headway(cv_hw_set, STOPS_OUTBOUND, self.cp_tags, self.colors, pathname=self.path_dir + 'hw.png',
+            plot_headway(cv_mean_per_stop_set, STOPS_OUTBOUND, self.cp_tags, self.colors, pathname=self.path_dir + 'hw.png',
                          controlled_stops=CONTROLLED_STOPS[:-1])
         if save_nc:
-            save(self.path_dir + 'cv_hw_sim.pkl', cv_hw_set[0])
+            save(self.path_dir + 'cv_hw_sim.pkl', cv_mean_per_stop_set[0])
         results_hw = {'cv_h_tp': [np.around(np.mean(cv), decimals=2) for cv in cv_hw_tp_set],
                       'err_cv_h_tp': [np.around(np.power(1.96, 2) * np.var(cv) / np.sqrt(self.nr_reps), decimals=3)
                                       for cv in cv_hw_tp_set],
