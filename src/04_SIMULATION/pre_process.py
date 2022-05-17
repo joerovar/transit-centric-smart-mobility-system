@@ -65,6 +65,8 @@ def get_route(path_stop_times, start_time_sec, end_time_sec, nr_intervals, start
 
         temp_extract_schedule = temp.drop_duplicates(subset='stop_sequence')
         extract_schedule = temp_extract_schedule['schd_sec'].tolist()
+        if len(extract_schedule) < 67:
+            print(f'trip {t}')
         extract_stops = temp_extract_schedule['stop_id'].tolist()
         ordered_schedule.append(extract_schedule)
         ordered_stops.append([str(s) for s in extract_stops])

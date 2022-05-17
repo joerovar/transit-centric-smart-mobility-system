@@ -1,4 +1,8 @@
 import numpy as np
+import pandas as pd
 
-a = [(3, 5, 6, 7), (7, 8, 9, 0)]
-print([(x,y,z) for x,y,z,w in a])
+a = [['12', '10'], ['11', '13']]
+b = [1, 2]
+df=pd.DataFrame(list(zip(a, b)))
+print(df.loc[:,0].tolist())
+print(a)

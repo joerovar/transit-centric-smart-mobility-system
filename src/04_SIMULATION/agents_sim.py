@@ -1,8 +1,10 @@
 class Trip:
-    def __init__(self, trip_id, sched_time, route_type):
+    def __init__(self, trip_id, sched_time, route_type, stops, schedule):
         self.trip_id = trip_id
         self.sched_time = sched_time
         self.route_type = route_type
+        self.stops = stops
+        self.schedule = schedule
         # this will serve as a copy for pax who finished the trip (main one is an attribute of the simulation class)
         self.completed_pax = []
         # route_type_dict = {0: inbound, 1: outbound long, 2: outbound short}
@@ -34,7 +36,7 @@ class Stop:
 class Bus:
     def __init__(self, bus_id, trips_info):
         self.bus_id = bus_id
-        self.pending_trips = [Trip(ti[0], ti[1], ti[2]) for ti in trips_info]
+        self.pending_trips = [Trip(ti[0], ti[1], ti[2], ti[3], ti[4]) for ti in trips_info]
         self.active_trip = []
         self.finished_trips = []
         self.next_event_time = 0.0
@@ -47,3 +49,10 @@ class Bus:
         self.ons = 0
         self.offs = 0
         self.denied = 0
+
+
+class TripLog:
+    def __init__(self, trip_id, stops):
+        self.trip_id = trip_id
+        self.stop_arr_times = {s: None for s in stops}
+        self.stop_dep_times = {s: None for s in stops}

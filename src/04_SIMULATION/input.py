@@ -226,48 +226,50 @@ plt.close()
 
 
 LINK_TIMES_MEAN, LINK_TIMES_EXTREMES, LINK_TIMES_PARAMS = LINK_TIMES_INFO
-
 SCALED_ARR_RATES = np.sum(SCALED_ODT_RATES, axis=-1)
+
 TRIP_IDS_OUT, SCHED_DEP_OUT, BLOCK_IDS_OUT = [], [], []
 for item in TRIPS_OUT_INFO:
     TRIP_IDS_OUT.append(item[0]), SCHED_DEP_OUT.append(item[1]), BLOCK_IDS_OUT.append(item[2])
-trips_out = [(x, y, str(timedelta(seconds=y)), z, 0) for x, y, z, w, v in TRIPS_OUT_INFO]
-trips_in1 = [(x, y, str(timedelta(seconds=y)), z, 1) for x, y, z in TRIPS1_IN_INFO]
-trips_in2 = [(x, y, str(timedelta(seconds=y)), z, 2) for x, y, z in TRIPS2_IN_INFO]
+trips_out = [(x, y, str(timedelta(seconds=y)), z, 0, w, v) for x, y, z, w, v in TRIPS_OUT_INFO]
+trips_in1 = [(x, y, str(timedelta(seconds=y)), z, 1, [], []) for x, y, z in TRIPS1_IN_INFO]
+trips_in2 = [(x, y, str(timedelta(seconds=y)), z, 2, [], []) for x, y, z in TRIPS2_IN_INFO]
 
 trips_df = pd.DataFrame(trips_out + trips_in1 + trips_in2,
-                        columns=['trip_id', 'schd_sec', 'schd_time', 'block_id', 'route_type'])
+                        columns=['trip_id', 'schd_sec', 'schd_time', 'block_id', 'route_type', 'schedule', 'stops'])
 trips_df['block_id'] = trips_df['block_id'].astype(str).str[6:].astype(int)
 trips_df = trips_df.sort_values(by=['block_id', 'schd_sec'])
 # trips_df.to_csv('in/vis/block_info.csv', index=False)
 block_ids = trips_df['block_id'].unique().tolist()
 BLOCK_TRIPS_INFO = []
 BLOCK_DICT = {}
-
-layover_t = {'2-0': [[] for _ in range(TRIP_TIME_NR_INTERVALS)],
-             '1-0': [[] for _ in range(TRIP_TIME_NR_INTERVALS)],
-             '0-1': [[] for _ in range(TRIP_TIME_NR_INTERVALS)]}
-after_layover_t = {'2-0': [[] for _ in range(TRIP_TIME_NR_INTERVALS)],
-                   '1-0': [[] for _ in range(TRIP_TIME_NR_INTERVALS)],
-                   '0-1': [[] for _ in range(TRIP_TIME_NR_INTERVALS)]}
-sched_layover_t = {'2-0': [[] for _ in range(TRIP_TIME_NR_INTERVALS)],
-                   '1-0': [[] for _ in range(TRIP_TIME_NR_INTERVALS)],
-                   '0-1': [[] for _ in range(TRIP_TIME_NR_INTERVALS)]}
-late_layover_t = {'2-0': [[] for _ in range(TRIP_TIME_NR_INTERVALS)],
-                  '1-0': [[] for _ in range(TRIP_TIME_NR_INTERVALS)],
-                  '0-1': [[] for _ in range(TRIP_TIME_NR_INTERVALS)]}
-delay = {'2-0': [[] for _ in range(TRIP_TIME_NR_INTERVALS)],
-         '1-0': [[] for _ in range(TRIP_TIME_NR_INTERVALS)],
-         '0-1': [[] for _ in range(TRIP_TIME_NR_INTERVALS)]}
 # avl_df = pd.read_csv('in/raw/rt20_avl.csv')
 for b in block_ids:
     block_df = trips_df[trips_df['block_id'] == b]
     trip_ids = block_df['trip_id'].tolist()
     sched_deps = block_df['schd_sec'].tolist()
+    lst_stops = block_df['stops'].tolist()
+    lst_schedule = block_df['schedule'].tolist()
     BLOCK_DICT[b] = trip_ids
     route_types = block_df['route_type'].tolist()
-    BLOCK_TRIPS_INFO.append((b, list(zip(trip_ids, sched_deps, route_types))))
-print(BLOCK_TRIPS_INFO)
+    BLOCK_TRIPS_INFO.append((b, list(zip(trip_ids, sched_deps, route_types, lst_stops, lst_schedule))))
+# print(BLOCK_TRIPS_INFO)
+
+# layover_t = {'2-0': [[] for _ in range(TRIP_TIME_NR_INTERVALS)],
+#              '1-0': [[] for _ in range(TRIP_TIME_NR_INTERVALS)],
+#              '0-1': [[] for _ in range(TRIP_TIME_NR_INTERVALS)]}
+# after_layover_t = {'2-0': [[] for _ in range(TRIP_TIME_NR_INTERVALS)],
+#                    '1-0': [[] for _ in range(TRIP_TIME_NR_INTERVALS)],
+#                    '0-1': [[] for _ in range(TRIP_TIME_NR_INTERVALS)]}
+# sched_layover_t = {'2-0': [[] for _ in range(TRIP_TIME_NR_INTERVALS)],
+#                    '1-0': [[] for _ in range(TRIP_TIME_NR_INTERVALS)],
+#                    '0-1': [[] for _ in range(TRIP_TIME_NR_INTERVALS)]}
+# late_layover_t = {'2-0': [[] for _ in range(TRIP_TIME_NR_INTERVALS)],
+#                   '1-0': [[] for _ in range(TRIP_TIME_NR_INTERVALS)],
+#                   '0-1': [[] for _ in range(TRIP_TIME_NR_INTERVALS)]}
+# delay = {'2-0': [[] for _ in range(TRIP_TIME_NR_INTERVALS)],
+#          '1-0': [[] for _ in range(TRIP_TIME_NR_INTERVALS)],
+#          '0-1': [[] for _ in range(TRIP_TIME_NR_INTERVALS)]}
 #     terminal1_id = 386
 #     prev_terminal1_id = 14800
 #     after_terminal1_id = 388
