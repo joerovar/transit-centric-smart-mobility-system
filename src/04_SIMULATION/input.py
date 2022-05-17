@@ -1,5 +1,3 @@
-import numpy as np
-import pandas as pd
 from pre_process import *
 from file_paths import *
 from constants import *
@@ -115,10 +113,11 @@ def extract_params(outbound_route_params=False, inbound_route_params=False, dema
         schedule_arr = np.array(scheduled_dep_in)
         focus_trips = ordered_trips_in[
             (schedule_arr <= FOCUS_END_TIME_SEC) & (schedule_arr >= FOCUS_START_TIME_SEC)].tolist()
-        trip_times, headway_out, headway_out_cv = get_trip_times(path_avl, focus_trips, DATES, stops)
+        trip_times, headway_out, headway_out_cv, hw_out_cv2 = get_trip_times(path_avl, focus_trips, DATES, stops)
         save('in/xtr/trip_t_outbound.pkl', trip_times)
         save('in/xtr/departure_headway_outbound.pkl', headway_out)
         save('in/xtr/cv_hw_outbound.pkl', headway_out_cv)
+        save('in/xtr/cv_hw_out2.pkl', hw_out_cv2)
         load_profile, ons, offs = get_load_profile(path_stop_times, focus_trips, stops)
         fig, ax = plt.subplots()
         ax1 = ax.twinx()
@@ -193,10 +192,10 @@ def get_params_inbound():
     return trip_times1_params, trip_times2_params, trips1_out_info, trips2_out_info, deadhead_times_params, sched_arrs, dep_delay1_dist_in, dep_delay2_dist_in, trip_t1_dist_in, trip_t2_dist_in
 
 
-# extract_params(inbound_route_params=True)
-
-STOPS_OUTBOUND, LINK_TIMES_INFO, TRIPS_IN_INFO, SCALED_ODT_RATES, ODT_STOP_IDS, SCHED_ARRS_IN, ODT_RATES_OLD, DEP_DELAY_DIST_OUT = get_params_outbound()
-TRIP_TIMES1_PARAMS, TRIP_TIMES2_PARAMS, TRIPS1_INFO_OUT, TRIPS2_INFO_OUT, DEADHEAD_TIME_PARAMS, SCHED_ARRS_OUT, DEP_DELAY1_DIST_IN, DEP_DELAY2_DIST_IN, TRIP_T1_DIST_IN, TRIP_T2_DIST_IN = get_params_inbound()
+# extract_params(outbound_route_params=True)
+# analyze_inbound(path_avl, START_TIME_SEC, END_TIME_SEC, DELAY_INTERVAL_LENGTH_MINS)
+STOPS_OUTBOUND, LINK_TIMES_INFO, TRIPS_OUT_INFO, SCALED_ODT_RATES, ODT_STOP_IDS, SCHED_ARRS_OUT, ODT_RATES_OLD, DEP_DELAY_DIST_OUT = get_params_outbound()
+TRIP_TIMES1_PARAMS, TRIP_TIMES2_PARAMS, TRIPS1_IN_INFO, TRIPS2_IN_INFO, DEADHEAD_TIME_PARAMS, SCHED_ARRS_IN, DEP_DELAY1_DIST_IN, DEP_DELAY2_DIST_IN, TRIP_T1_DIST_IN, TRIP_T2_DIST_IN = get_params_inbound()
 
 
 trip_t1_dist_in_samp = [[] for _ in range(len(TRIP_T1_DIST_IN))]
@@ -226,17 +225,15 @@ plt.savefig('out/compare/validate/trip_t_inbound.png')
 plt.close()
 
 
-TRIP_IDS_OUT = [ti[0] for ti in TRIPS1_INFO_OUT]
-TRIP_IDS_OUT += [ti[0] for ti in TRIPS2_INFO_OUT]
 LINK_TIMES_MEAN, LINK_TIMES_EXTREMES, LINK_TIMES_PARAMS = LINK_TIMES_INFO
 
 SCALED_ARR_RATES = np.sum(SCALED_ODT_RATES, axis=-1)
-TRIP_IDS_IN, SCHED_DEP_IN, BLOCK_IDS_IN = [], [], []
-for item in TRIPS_IN_INFO:
-    TRIP_IDS_IN.append(item[0]), SCHED_DEP_IN.append(item[1]), BLOCK_IDS_IN.append(item[2])
-trips_out = [(x, y, str(timedelta(seconds=y)), z, 0) for x, y, z in TRIPS_IN_INFO]
-trips_in1 = [(x, y, str(timedelta(seconds=y)), z, 1) for x, y, z in TRIPS1_INFO_OUT]
-trips_in2 = [(x, y, str(timedelta(seconds=y)), z, 2) for x, y, z in TRIPS2_INFO_OUT]
+TRIP_IDS_OUT, SCHED_DEP_OUT, BLOCK_IDS_OUT = [], [], []
+for item in TRIPS_OUT_INFO:
+    TRIP_IDS_OUT.append(item[0]), SCHED_DEP_OUT.append(item[1]), BLOCK_IDS_OUT.append(item[2])
+trips_out = [(x, y, str(timedelta(seconds=y)), z, 0) for x, y, z, w, v in TRIPS_OUT_INFO]
+trips_in1 = [(x, y, str(timedelta(seconds=y)), z, 1) for x, y, z in TRIPS1_IN_INFO]
+trips_in2 = [(x, y, str(timedelta(seconds=y)), z, 2) for x, y, z in TRIPS2_IN_INFO]
 
 trips_df = pd.DataFrame(trips_out + trips_in1 + trips_in2,
                         columns=['trip_id', 'schd_sec', 'schd_time', 'block_id', 'route_type'])
@@ -262,7 +259,7 @@ late_layover_t = {'2-0': [[] for _ in range(TRIP_TIME_NR_INTERVALS)],
 delay = {'2-0': [[] for _ in range(TRIP_TIME_NR_INTERVALS)],
          '1-0': [[] for _ in range(TRIP_TIME_NR_INTERVALS)],
          '0-1': [[] for _ in range(TRIP_TIME_NR_INTERVALS)]}
-avl_df = pd.read_csv('in/raw/rt20_avl.csv')
+# avl_df = pd.read_csv('in/raw/rt20_avl.csv')
 for b in block_ids:
     block_df = trips_df[trips_df['block_id'] == b]
     trip_ids = block_df['trip_id'].tolist()
@@ -270,7 +267,7 @@ for b in block_ids:
     BLOCK_DICT[b] = trip_ids
     route_types = block_df['route_type'].tolist()
     BLOCK_TRIPS_INFO.append((b, list(zip(trip_ids, sched_deps, route_types))))
-
+print(BLOCK_TRIPS_INFO)
 #     terminal1_id = 386
 #     prev_terminal1_id = 14800
 #     after_terminal1_id = 388
@@ -362,11 +359,11 @@ for s0, s1 in zip(STOPS_OUTBOUND, STOPS_OUTBOUND[1:]):
     ltime = ltimes[np.isfinite(ltimes)][0]
     PAX_INIT_TIME.append(ltime)
 PAX_INIT_TIME = np.array(PAX_INIT_TIME).cumsum()
-PAX_INIT_TIME += SCHED_DEP_IN[0] - ((SCHED_DEP_IN[1] - SCHED_DEP_IN[0]) / 2)
+PAX_INIT_TIME += SCHED_DEP_OUT[0] - ((SCHED_DEP_OUT[1] - SCHED_DEP_OUT[0]) / 2)
 
 # trip id focused for results
-ordered_trips_arr = np.array([TRIP_IDS_IN])
-scheduled_deps_arr = np.array([SCHED_DEP_IN])
+ordered_trips_arr = np.array([TRIP_IDS_OUT])
+scheduled_deps_arr = np.array([SCHED_DEP_OUT])
 FOCUS_TRIPS = ordered_trips_arr[
     (scheduled_deps_arr <= FOCUS_END_TIME_SEC) & (scheduled_deps_arr >= FOCUS_START_TIME_SEC)].tolist()
 FOCUS_TRIPS_SCHED = scheduled_deps_arr[
@@ -377,20 +374,20 @@ FOCUS_TRIPS_HW_CV = round(np.std(focus_trips_hw) / np.mean(focus_trips_hw), 2)
 LAST_FOCUS_TRIP = FOCUS_TRIPS[-1]
 LAST_FOCUS_TRIP_BLOCK = trips_df[trips_df['trip_id'] == LAST_FOCUS_TRIP]['block_id'].tolist()[0]
 LAST_FOCUS_TRIP_BLOCK_IDX = block_ids.index(LAST_FOCUS_TRIP_BLOCK)
-FOCUS_TRIP_IDS_OUT_LONG = [ti[0] for ti in TRIPS1_INFO_OUT if
+FOCUS_TRIP_IDS_OUT_LONG = [ti[0] for ti in TRIPS1_IN_INFO if
                            (ti[1] > START_TIME_SEC + 3600) and (ti[1] < END_TIME_SEC - 6400)]
-FOCUS_TRIP_IDS_OUT_SHORT = [ti[0] for ti in TRIPS2_INFO_OUT if
+FOCUS_TRIP_IDS_OUT_SHORT = [ti[0] for ti in TRIPS2_IN_INFO if
                             (ti[1] > START_TIME_SEC + 3600) and (ti[1] < END_TIME_SEC - 6400)]
-FOCUS_TRIP_DEP_T_OUT_LONG = [ti[1] for ti in TRIPS1_INFO_OUT if
+FOCUS_TRIP_DEP_T_OUT_LONG = [ti[1] for ti in TRIPS1_IN_INFO if
                              (ti[1] > START_TIME_SEC + 3600) and (ti[1] < END_TIME_SEC - 6400)]
-FOCUS_TRIP_DEP_T_OUT_SHORT = [ti[1] for ti in TRIPS2_INFO_OUT if
+FOCUS_TRIP_DEP_T_OUT_SHORT = [ti[1] for ti in TRIPS2_IN_INFO if
                               (ti[1] > START_TIME_SEC + 3600) and (ti[1] < END_TIME_SEC - 6400)]
 
 # trip id focused for control
-NO_CONTROL_TRIP_IDS = TRIP_IDS_IN[:9] + TRIP_IDS_IN[-11:]
-NO_CONTROL_SCHED = SCHED_DEP_IN[:9] + SCHED_DEP_IN[-11:]
-CONTROL_TRIP_IDS = TRIP_IDS_IN[9:-11]
-CONTROL_SCHEDULE = SCHED_DEP_IN[9:-11]
+NO_CONTROL_TRIP_IDS = TRIP_IDS_OUT[:9] + TRIP_IDS_OUT[-11:]
+NO_CONTROL_SCHED = SCHED_DEP_OUT[:9] + SCHED_DEP_OUT[-11:]
+CONTROL_TRIP_IDS = TRIP_IDS_OUT[9:-11]
+CONTROL_SCHEDULE = SCHED_DEP_OUT[9:-11]
 CONTROL_HW = [t1 - t0 for t1, t0 in zip(CONTROL_SCHEDULE[1:], CONTROL_SCHEDULE[:-1])]
 CONTROL_MEAN_HW = sum(CONTROL_HW) / len(CONTROL_HW)
 

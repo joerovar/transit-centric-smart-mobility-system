@@ -1,6 +1,3 @@
-from input import *
-
-
 class Trip:
     def __init__(self, trip_id, sched_time, route_type):
         self.trip_id = trip_id
@@ -50,16 +47,3 @@ class Bus:
         self.ons = 0
         self.offs = 0
         self.denied = 0
-
-
-class Log:
-    def __init__(self, trip_identifiers):
-        self.recorded_departures = {t: None for t in trip_identifiers}
-        self.recorded_arrivals = {t: None for t in trip_identifiers}
-
-
-class TripLog:
-    def __init__(self, trip_id, stops):
-        self.trip_id = trip_id
-        self.stop_arr_times = {s: None for s in stops}
-        self.stop_dep_times = {s: None for s in stops}

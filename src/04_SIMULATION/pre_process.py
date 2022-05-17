@@ -42,6 +42,8 @@ def get_route(path_stop_times, start_time_sec, end_time_sec, nr_intervals, start
     ordered_trip_ids = df['trip_id'].tolist()
     ordered_sched_dep = df['schd_sec'].tolist()
     ordered_block_ids = df['block_id'].tolist()
+    ordered_schedule = []
+    ordered_stops = []
 
     df_arrivals = stop_times_df[stop_times_df['trip_id'].isin(ordered_trip_ids)]
     df_arrivals = df_arrivals[df_arrivals['stop_sequence'] == 67]
@@ -60,6 +62,13 @@ def get_route(path_stop_times, start_time_sec, end_time_sec, nr_intervals, start
     for t in ordered_trip_ids:
         temp = avl_df[avl_df['trip_id'] == t]
         temp = temp.sort_values(by='stop_sequence')
+
+        temp_extract_schedule = temp.drop_duplicates(subset='stop_sequence')
+        extract_schedule = temp_extract_schedule['schd_sec'].tolist()
+        extract_stops = temp_extract_schedule['stop_id'].tolist()
+        ordered_schedule.append(extract_schedule)
+        ordered_stops.append([str(s) for s in extract_stops])
+
         for d in dates:
             date_specific = temp[temp['avl_arr_time'].astype(str).str[:10] == d]
             schd_sec = date_specific['schd_sec'].tolist()
@@ -153,7 +162,7 @@ def get_route(path_stop_times, start_time_sec, end_time_sec, nr_intervals, start
     fit_params_link_t['3954-8613'][2] = fit_params_link_t['3954-8613'][3]
     link_times_info = (mean_link_times, extreme_link_times, fit_params_link_t)
 
-    trips_info = [(x, y, z) for x, y, z in zip(ordered_trip_ids, ordered_sched_dep, ordered_block_ids)]
+    trips_info = [(v, w, x, y, z) for v, w, x, y, z in zip(ordered_trip_ids, ordered_sched_dep, ordered_block_ids, ordered_schedule, ordered_stops)]
     return stops, trips_info, link_times_info, sched_arrivals, dep_delay_dist
 
 
@@ -423,6 +432,83 @@ def get_inbound_travel_time(path_stop_times, start_time, end_time, dates, nr_int
     return trips1_info, trips2_info, sched_arrivals, trip_times1_params, trip_times2_params, dep_delay1, dep_delay2, trip_t1_empirical, trip_t2_empirical
 
 
+def analyze_inbound(path_avl, start_time, end_time, delay_interval_length):
+    avl_df = pd.read_csv(path_avl)
+
+    end_terminal_id = 386
+    terminal_seq_long = 63
+    terminal_seq_short = 23
+
+    arr_delays_long = []
+    arr_delays_short = []
+    # arrivals
+    arr_long_df = avl_df[avl_df['stop_id'] == end_terminal_id]
+    arr_long_df = arr_long_df[arr_long_df['stop_sequence'] == terminal_seq_long]
+    arr_long_df['avl_arr_sec'] = arr_long_df['avl_arr_sec'] % 86400
+
+    arr_short_df = avl_df[avl_df['stop_id'] == end_terminal_id]
+    arr_short_df = arr_short_df[arr_short_df['stop_sequence'] == terminal_seq_short]
+    arr_short_df['avl_arr_sec'] = arr_short_df['avl_arr_sec'] % 86400
+
+    start_terminal_id_long = 8613
+    start_terminal_id_short = 15136
+
+    dep_delays_long = []
+    dep_delays_short = []
+    # departures
+    dep_long_df = avl_df[avl_df['stop_id'] == start_terminal_id_long]
+    dep_long_df = dep_long_df[dep_long_df['stop_sequence'] == 1]
+    dep_long_df['avl_dep_sec'] = dep_long_df['avl_dep_sec'] % 86400
+
+    dep_short_df = avl_df[avl_df['stop_id'] == start_terminal_id_short]
+    dep_short_df = dep_short_df[dep_short_df['stop_sequence'] == 1]
+    dep_short_df['avl_dep_sec'] = dep_short_df['avl_dep_sec'] % 86400
+
+    interval0 = get_interval(start_time, delay_interval_length)
+    interval1 = get_interval(end_time, delay_interval_length)
+
+    for interval in range(interval0, interval1):
+        # arrivals
+        temp_df = arr_long_df[arr_long_df['schd_sec']>=interval*delay_interval_length*60]
+        temp_df = temp_df[temp_df['schd_sec']<=(interval+1)*delay_interval_length*60]
+        temp_df['delay'] = temp_df['avl_arr_sec'] - temp_df['schd_sec']
+        d = remove_outliers(temp_df['delay'].to_numpy())
+        arr_delays_long.append(d.tolist())
+
+        temp_df = arr_short_df[arr_short_df['schd_sec'] >= interval * delay_interval_length * 60]
+        temp_df = temp_df[temp_df['schd_sec'] <= (interval + 1) * delay_interval_length * 60]
+        temp_df['delay'] = temp_df['avl_arr_sec'] - temp_df['schd_sec']
+        d = remove_outliers(temp_df['delay'].to_numpy())
+        arr_delays_short.append(d.tolist())
+
+        # departures
+        temp_df = dep_long_df[dep_long_df['schd_sec'] >= interval * delay_interval_length * 60]
+        temp_df = temp_df[temp_df['schd_sec'] <= (interval + 1) * delay_interval_length * 60]
+        temp_df['delay'] = temp_df['avl_dep_sec'] - temp_df['schd_sec']
+        d = remove_outliers(temp_df['delay'].to_numpy())
+        dep_delays_long.append(d.tolist())
+
+        temp_df = dep_short_df[dep_short_df['schd_sec'] >= interval * delay_interval_length * 60]
+        temp_df = temp_df[temp_df['schd_sec'] <= (interval + 1) * delay_interval_length * 60]
+        temp_df['delay'] = temp_df['avl_dep_sec'] - temp_df['schd_sec']
+        d = remove_outliers(temp_df['delay'].to_numpy())
+        dep_delays_short.append(d.tolist())
+
+    # short
+    fig, ax = plt.subplots(nrows=3, ncols=2)
+    for i in range(len(arr_delays_short)):
+        ax.flat[i].hist([dep_delays_short[i], arr_delays_short[i]])
+    plt.show()
+    plt.close()
+
+    fig, ax = plt.subplots(nrows=3, ncols=2)
+    for i in range(len(arr_delays_long)):
+        ax.flat[i].hist([dep_delays_long[i], arr_delays_long[i]])
+    plt.show()
+    plt.close()
+    return
+
+
 def get_trip_times(path_avl, focus_trips, dates, stops):
     # TRIP TIMES ARE USED FOR CALIBRATION THEREFORE THEY ONLY USE THE FOCUS TRIPS FOR RESULTS ANALYSIS
     trip_times = []
@@ -449,6 +535,22 @@ def get_trip_times(path_avl, focus_trips, dates, stops):
                     tt = arrival_sec[arr_idx] - dep_sec[dep_idx]
                     if tt > 57 * 60:
                         trip_times.append(tt)
+    hws = [[] for _ in stops]
+    for d in dates:
+        date_df = stop_times_df[stop_times_df['avl_arr_time'].astype(str).str[:10] == d]
+        date_df = date_df[date_df['trip_id'].isin(focus_trips)]
+        for j in range(len(stops)):
+            df = date_df[date_df['stop_id'] == int(stops[j])]
+            df = df.sort_values(by='avl_arr_sec')
+            arr_sec = df['avl_arr_sec'].tolist()
+            if len(arr_sec) > 1:
+                for i in range(1, len(arr_sec)):
+                    hws[j].append(arr_sec[i] - arr_sec[i-1])
+    cv_hws = []
+    for i in range(len(hws)):
+        hws[i] = remove_outliers(np.array(hws[i])).tolist()
+        print(hws[i])
+        cv_hws.append(np.std(hws[i]) / np.mean(hws[i]))
     # PROCESS HEADWAY
     hw_in_all = {s: [] for s in stops[1:]}
     hw_in_cv = []
@@ -489,7 +591,9 @@ def get_trip_times(path_avl, focus_trips, dates, stops):
     hw_arr = np.array(hw)
     hw_arr = hw_arr[hw_arr >= 15]
     hw = remove_outliers(hw_arr).tolist()
-    return trip_times, hw, hw_in_cv
+
+
+    return trip_times, hw, hw_in_cv, cv_hws
 
 
 def get_dwell_times(stop_times_path, focus_trips, stops, dates):

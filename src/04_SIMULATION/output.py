@@ -1,5 +1,5 @@
 from input import STOPS_OUTBOUND, CONTROLLED_STOPS, IDX_ARR_T, IDX_LOAD, IDX_PICK, IDX_DROP, IDX_HOLD_TIME, IDX_DEP_T, \
-    TRIP_IDS_IN, SCHED_DEP_IN, IDX_RT_PROGRESS, IDX_FW_H, IDX_BW_H, IDX_LOAD_RL, IDX_SKIPPED, FOCUS_TRIPS
+    TRIP_IDS_OUT, SCHED_DEP_OUT, IDX_SKIPPED
 from post_process import *
 
 
@@ -218,7 +218,7 @@ class PostProcessor:
 
     def departure_delay_validation(self):
         dep_delay_in_input = load('in/xtr/dep_delay_in.pkl')
-        dep_delay_in_simul = get_departure_delay(self.cp_trips[0], IDX_DEP_T, TRIP_IDS_IN, SCHED_DEP_IN)
+        dep_delay_in_simul = get_departure_delay(self.cp_trips[0], IDX_DEP_T, TRIP_IDS_OUT, SCHED_DEP_OUT)
         sns.kdeplot(dep_delay_in_input, label='observed')
         sns.kdeplot(dep_delay_in_simul, label='simulated')
         plt.legend()

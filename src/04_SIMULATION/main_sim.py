@@ -27,9 +27,10 @@ def validate_nc():
     results = {}
     results.update(prc.headway(save_nc=True))
     results.update(prc.trip_times(keep_nc=True))
-    cv_hw_obs = load('in/xtr/cv_hw_outbound.pkl')
+    cv_hw_observed = load('in/xtr/cv_hw_outbound.pkl')
+    # cv_hw_observed = load('in/xtr/cv_hw_out2.pkl')
     cv_hw_sim = load('out/compare/validate/cv_hw_sim.pkl')
-    plt.plot(cv_hw_obs, label='observed')
+    plt.plot(cv_hw_observed, label='observed')
     plt.plot(cv_hw_sim, label='simulated')
     plt.xlabel('stop')
     plt.ylabel('headway coefficient of variation')
@@ -208,10 +209,10 @@ N_REPLICATIONS = 40
 # run_base_detailed(replications=40, save_results=True)
 # validate_nc()
 # run_base_control_detailed(replications=40, save_results=True)
-prc = PostProcessor([path_tr_nc_b2, path_tr_eh_b2],
-                    [path_p_nc_b2, path_p_eh_b2],
-                    cp_tags=['NC', 'EH'], path_dir='out/compare/ncvseh/', nr_reps=N_REPLICATIONS)
-prc.headway(plot_cv=True)
+# prc = PostProcessor([path_tr_nc_b2, path_tr_eh_b2],
+#                     [path_p_nc_b2, path_p_eh_b2],
+#                     cp_tags=['NC', 'EH'], path_dir='out/compare/ncvseh/', nr_reps=N_REPLICATIONS)
+# prc.headway(plot_cv=True)
 # results = {}
 # results.update(prc.load_profile(plot_single=True))
 # prc.pax_profile_base()

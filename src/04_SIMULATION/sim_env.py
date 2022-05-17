@@ -3,8 +3,7 @@ import numpy as np
 from scipy.stats import lognorm
 import random
 from copy import deepcopy
-from agents_sim import Passenger, Stop, Bus, Log, TripLog
-from datetime import timedelta
+from agents_sim import Passenger, Stop, Bus
 
 
 def run_base_detailed(replications=4, save_results=False, time_dep_tt=True, time_dep_dem=True):
@@ -28,7 +27,7 @@ def run_base_detailed(replications=4, save_results=False, time_dep_tt=True, time
         # cv_set.append(cv_per_stop)
         if save:
             env.process_results()
-            trajectories_set.append(env.trajectories)
+            trajectories_set.append(env.trajectories_out)
             pax_set.append(env.completed_pax)
     # plt.plot(np.array(cv_set).mean(axis=0))
     # plt.show()
@@ -56,7 +55,7 @@ def run_base_control_detailed(replications=2, control_strength=0.7,
             done = env.prep()
         if save:
             env.process_results()
-            trajectories_set.append(env.trajectories)
+            trajectories_set.append(env.trajectories_out)
             pax_set.append(env.completed_pax)
     if save_results:
         path_trajectories = 'out/EH/' + tstamp + '-trajectory_set' + ext_var
@@ -140,7 +139,7 @@ def _compute_reward(action, fw_h, bw_h, prev_bw_h, prev_fw_h, prev_pax_at_s):
 
 
 class SimulationEnv:
-    def __init__(self, no_overtake_policy=True, time_dependent_travel_time=True, time_dependent_demand=True,
+    def __init__(self, time_dependent_travel_time=True, time_dependent_demand=True,
                  tt_factor=1.0, hold_adj_factor=0.0):
         # THE ONLY NECESSARY TRIP INFORMATION TO CARRY THROUGHOUT SIMULATION
         # self.no_overtake_policy = no_overtake_policy
@@ -148,7 +147,7 @@ class SimulationEnv:
         self.time_dependent_demand = time_dependent_demand
         self.time = 0.0
         # RECORDINGS
-        self.trajectories = {}
+        self.trajectories_out = {}
         self.tt_factor = tt_factor
         self.hold_adj_factor = hold_adj_factor
 
@@ -160,7 +159,6 @@ class DetailedSimulationEnv(SimulationEnv):
         self.completed_pax = []
         self.buses = []
         self.bus = Bus(0, [])
-        self.log = Log(TRIP_IDS_IN + TRIP_IDS_OUT)
         self.trip_log = []
         self.focus_trips_finished = []
 
@@ -225,14 +223,14 @@ class DetailedSimulationEnv(SimulationEnv):
         else:
             # this might happen if the episode is still running and we control the last dispatched trip
             print(f'no future arrival found at hour {self.time/60/60}')
-            return SCHED_DEP_IN[-1] - SCHED_DEP_IN[-2]
+            return SCHED_DEP_OUT[-1] - SCHED_DEP_OUT[-2]
 
     def record_trajectories(self, pickups=0, offs=0, denied_board=0, hold=0, skip=False):
         bus = self.bus
         trip_id = bus.active_trip[0].trip_id
         trajectory = [bus.last_stop_id, round(bus.arr_t, 1), round(bus.dep_t, 1),
                       len(bus.pax), pickups, offs, denied_board, hold, int(skip)]
-        self.trajectories[trip_id].append(trajectory)
+        self.trajectories_out[trip_id].append(trajectory)
         return
 
     def get_travel_time(self):
@@ -276,10 +274,9 @@ class DetailedSimulationEnv(SimulationEnv):
         self.focus_trips_finished = []
         self.bus = Bus(0, [])
         # for records
-        self.trajectories = {}
-        for trip_id in TRIP_IDS_IN:
-            self.trajectories[trip_id] = []
-            self.trip_log.append(TripLog(trip_id, STOPS_OUTBOUND))
+        self.trajectories_out = {}
+        for trip_id in TRIP_IDS_OUT:
+            self.trajectories_out[trip_id] = []
         # initialize buses (we treat each block as a separate bus)
         self.buses = []
         for block_trip_set in BLOCK_TRIPS_INFO:
@@ -309,8 +306,6 @@ class DetailedSimulationEnv(SimulationEnv):
         # initialize passenger demand
         self.completed_pax = []
         self.initialize_pax_demand()
-        # initialize log of arrival/departures for delay analysis
-        self.log = Log(TRIP_IDS_IN + TRIP_IDS_OUT)
         return False
 
     def initialize_pax_demand(self):
@@ -358,7 +353,7 @@ class DetailedSimulationEnv(SimulationEnv):
         bus.last_stop_id = STOPS_OUTBOUND[curr_stop_idx]
         bus.next_stop_id = STOPS_OUTBOUND[curr_stop_idx + 1]
         bus.arr_t = self.time
-        curr_trip_idx = TRIP_IDS_IN.index(bus.active_trip[0].trip_id)
+        curr_trip_idx = TRIP_IDS_OUT.index(bus.active_trip[0].trip_id)
         self.trip_log[curr_trip_idx].stop_arr_times[STOPS_OUTBOUND[curr_stop_idx]] = bus.arr_t
         self.stops[curr_stop_idx].last_arr_t.append(bus.arr_t)
         bus.offs = 0
@@ -395,7 +390,6 @@ class DetailedSimulationEnv(SimulationEnv):
 
     def fixed_stop_depart(self, hold=0):
         bus = self.bus
-        curr_trip_idx = TRIP_IDS_IN.index(bus.active_trip[0].trip_id)
         curr_stop_idx = STOPS_OUTBOUND.index(bus.last_stop_id)
         dwell_time_error = max(random.uniform(-DWELL_TIME_ERROR, DWELL_TIME_ERROR), 0)
         dwell_time_pax = max(ACC_DEC_TIME + bus.ons * BOARDING_TIME,
@@ -404,10 +398,6 @@ class DetailedSimulationEnv(SimulationEnv):
         if hold:
             dwell_time = max(hold, dwell_time_pax)
         bus.dep_t = self.time + dwell_time
-
-        # if self.no_overtake_policy and curr_trip_idx:
-        #     prev_dep_t = self.trip_log[curr_trip_idx-1].stop_dep_times[bus.last_stop_id]
-        #     bus.dep_t = max(prev_dep_t + NO_OVERTAKE_BUFFER, bus.dep_t)
 
         for p in self.stops[curr_stop_idx].pax.copy():
             if p.arr_time <= bus.dep_t:
@@ -424,7 +414,7 @@ class DetailedSimulationEnv(SimulationEnv):
             else:
                 break
 
-        curr_trip_idx = TRIP_IDS_IN.index(bus.active_trip[0].trip_id)
+        curr_trip_idx = TRIP_IDS_OUT.index(bus.active_trip[0].trip_id)
         self.trip_log[curr_trip_idx].stop_dep_times[STOPS_OUTBOUND[curr_stop_idx]] = bus.dep_t
         runtime = self.get_travel_time()
         bus.next_event_time = bus.dep_t + runtime
@@ -440,7 +430,7 @@ class DetailedSimulationEnv(SimulationEnv):
         bus.last_stop_id = STOPS_OUTBOUND[0]
         bus.next_stop_id = STOPS_OUTBOUND[1]
         bus.arr_t = self.time
-        curr_trip_idx = TRIP_IDS_IN.index(bus.active_trip[0].trip_id)
+        curr_trip_idx = TRIP_IDS_OUT.index(bus.active_trip[0].trip_id)
         self.trip_log[curr_trip_idx].stop_arr_times[STOPS_OUTBOUND[0]] = bus.arr_t
         self.stops[0].last_arr_t.append(bus.arr_t)
         return
@@ -473,15 +463,6 @@ class DetailedSimulationEnv(SimulationEnv):
 
         bus.dep_t = self.time + dwell_time
 
-        # if self.no_overtake_policy and trip_idx:
-        #     prev_dep_t = self.trip_log[trip_idx-1].stop_dep_times[STOPS_OUTBOUND[0]]
-        #     if prev_dep_t is None:
-        #         print('---report')
-        #         print(f'trips in question {TRIP_IDS_IN[trip_idx - 1:trip_idx + 1]}')
-        #         print(f'time {round(self.time)}')
-        #         print(f'stop {0}')
-        #     bus.dep_t = max(bus.dep_t, prev_dep_t + NO_OVERTAKE_BUFFER)
-
         # FOR THOSE PAX WHO ARRIVE DURING THE DWELL TIME
         if bus.dep_t > self.time:
             for p in self.stops[0].pax.copy():
@@ -499,25 +480,21 @@ class DetailedSimulationEnv(SimulationEnv):
                 else:
                     break
 
-        curr_trip_idx = TRIP_IDS_IN.index(bus.active_trip[0].trip_id)
+        curr_trip_idx = TRIP_IDS_OUT.index(bus.active_trip[0].trip_id)
         self.trip_log[curr_trip_idx].stop_dep_times[STOPS_OUTBOUND[0]] = bus.dep_t
 
         self.record_trajectories(pickups=bus.ons, denied_board=bus.denied, hold=hold)
         runtime = self.get_travel_time()
         bus.next_event_time = bus.dep_t + runtime
-        # if self.no_overtake_policy:
-        #     bus.next_event_time = deepcopy(self.no_overtake())
         bus.next_event_type = 1
 
         self.stops[0].passed_trips.append(bus.active_trip[0].trip_id)
-        self.log.recorded_departures[self.bus.active_trip[0].trip_id] = bus.dep_t
         return
 
     def outbound_arrival(self):
         bus = self.bus
         bus.arr_t = self.time
-        self.log.recorded_arrivals[self.bus.active_trip[0].trip_id] = bus.arr_t
-        trip_idx = TRIP_IDS_IN.index(self.bus.active_trip[0].trip_id)
+        trip_idx = TRIP_IDS_OUT.index(self.bus.active_trip[0].trip_id)
         self.trip_log[trip_idx].stop_arr_times[STOPS_OUTBOUND[-1]] = bus.arr_t
         curr_stop_idx = STOPS_OUTBOUND.index(bus.next_stop_id)
         for p in bus.pax.copy():
@@ -583,24 +560,7 @@ class DetailedSimulationEnv(SimulationEnv):
         bus.dep_t = self.time
         bus.next_event_time = arr_time
         bus.next_event_type = 4
-        self.log.recorded_departures[trip.trip_id] = bus.dep_t
         return
-
-    def no_overtake(self):
-        next_instance_t = deepcopy(self.bus.next_event_time)
-        trip_idx = TRIP_IDS_IN.index(self.bus.active_trip[0].trip_id)
-        next_stop_id = self.bus.next_stop_id
-        if trip_idx:
-            leader_arr_t_next_stop = self.trip_log[trip_idx-1].stop_arr_times[next_stop_id]
-            if leader_arr_t_next_stop is None:
-                prev_trip_id = TRIP_IDS_IN[trip_idx - 1]
-                active_buses = [bus for bus in self.buses if bus.active_trip]
-                leading_bus = [bus for bus in active_buses if bus.active_trip[0].trip_id == prev_trip_id]
-                assert next_stop_id == leading_bus[0].next_stop_id
-                next_instance_t = max(next_instance_t, leading_bus[0].next_event_time + NO_OVERTAKE_BUFFER)
-            else:
-                next_instance_t = max(next_instance_t, leader_arr_t_next_stop + NO_OVERTAKE_BUFFER)
-        return next_instance_t
 
     def inbound_arrival(self):
         bus = self.bus
@@ -615,62 +575,7 @@ class DetailedSimulationEnv(SimulationEnv):
             bus.next_event_time = max(self.time + layover, bus.active_trip[0].sched_time)
             bus.next_event_type = 0
         bus.arr_t = self.time
-        self.log.recorded_arrivals[self.bus.finished_trips[-1].trip_id] = bus.arr_t
         return
-
-    # def smart_dispatch(self):
-    #     # check if previous trip has departed by the ready to dispatch time of the current trip else SWITCH
-    #     bus = self.bus
-    #     trip = bus.pending_trips[0]
-    #     trip_idx = TRIP_IDS_IN.index(trip.trip_id)
-    #     if trip_idx:
-    #         prev_trip_idx_passed = TRIP_IDS_IN.index(self.stops[0].passed_trips[-1])
-    #         if prev_trip_idx_passed < trip_idx - 1:
-    #             for prev_trip_idx in range(prev_trip_idx_passed+1, trip_idx):
-    #                 prev_trip_id = TRIP_IDS_IN[prev_trip_idx]
-    #                 lead_bus_id = next(key for key, value_lst in BLOCK_DICT.items() if prev_trip_id in value_lst)
-    #                 lead_bus = next(bu for bu in self.buses if bu.bus_id == lead_bus_id)
-    #                 lead_bus_pending_trip_ids = [t.trip_id for t in lead_bus.pending_trips]
-    #                 if prev_trip_id in lead_bus_pending_trip_ids:
-    #                     switch_idx = lead_bus_pending_trip_ids.index(prev_trip_id)
-    #                     trips_bus = bus.pending_trips
-    #                     bus_id = bus.bus_id
-    #                     trips_lead_bus = lead_bus.pending_trips
-    #
-    #                     bus.bus_id = lead_bus_id
-    #                     bus.pending_trips = trips_lead_bus[switch_idx:]
-    #                     lead_bus.bus_id = bus_id
-    #                     lead_bus.pending_trips = trips_lead_bus[:switch_idx] + trips_bus
-    #                     break
-    #     return
-
-    # def smart_dispatch_initialized(self):
-    #     bus = self.bus
-    #     trip = self.bus.active_trip[0]
-    #     trip_idx = TRIP_IDS_IN.index(trip.trip_id)
-    #     if trip_idx:
-    #         prev_trip_idx_passed = TRIP_IDS_IN.index(self.stops[0].passed_trips[-1])
-    #         if prev_trip_idx_passed < trip_idx - 1:
-    #             for prev_trip_idx in range(prev_trip_idx_passed, trip_idx):
-    #                 prev_trip_id = TRIP_IDS_IN[prev_trip_idx]
-    #                 lead_bus_id = next(key for key, value_lst in BLOCK_DICT.items() if prev_trip_id in value_lst)
-    #                 lead_bus = next(bu for bu in self.buses if bu.bus_id == lead_bus_id)
-    #                 lead_bus_pending_trip_ids = [t.trip_id for t in lead_bus.pending_trips]
-    #                 if prev_trip_id in lead_bus_pending_trip_ids:
-    #                     switch_idx = lead_bus_pending_trip_ids.index(prev_trip_id)
-    #                     trips_bus = bus.pending_trips
-    #                     bus_id = bus.bus_id
-    #                     trips_lead_bus = lead_bus.pending_trips
-    #                     bus.bus_id = lead_bus_id
-    #                     bus.active_trip[0] = trips_lead_bus[switch_idx]
-    #                     if switch_idx > len(trips_lead_bus) - 1:
-    #                         bus.pending_trips = trips_lead_bus[switch_idx+1:]
-    #                     else:
-    #                         bus.pending_trips = []
-    #                     lead_bus.bus_id = bus_id
-    #                     lead_bus.pending_trips = trips_lead_bus[:switch_idx] + trips_bus
-    #                     break
-    #     return
 
     def chop_pax(self):
         for p in self.completed_pax.copy():
@@ -697,8 +602,6 @@ class DetailedSimulationEnv(SimulationEnv):
             return True
 
         if self.bus.next_event_type == 0:
-            # if not self.bus.finished_trips:
-            #     self.smart_dispatch_initialized()
             self.outbound_ready_to_dispatch()
             self.outbound_dispatch()
             return False
@@ -722,72 +625,15 @@ class DetailedSimulationEnv(SimulationEnv):
             return False
 
     def chop_trajectories(self):
-        for trip in self.trajectories.copy():
+        for trip in self.trajectories_out.copy():
             if trip not in FOCUS_TRIPS:
-                self.trajectories.pop(trip)
-        for trip_id in self.log.recorded_departures.copy():
-            if trip_id not in (FOCUS_TRIP_IDS_OUT_SHORT + FOCUS_TRIP_IDS_OUT_LONG):
-                self.log.recorded_departures.pop(trip_id)
-                self.log.recorded_arrivals.pop(trip_id)
+                self.trajectories_out.pop(trip)
         return
 
     def process_results(self):
         self.chop_trajectories()
         self.chop_pax()
         return
-
-    def get_backward_headway(self):
-        stop = self.stops[STOPS_OUTBOUND.index(self.bus.last_stop_id)]
-        idx_trip_id = TRIP_IDS_IN.index(self.bus.active_trip[0].trip_id)
-        if stop.stop_id == STOPS_OUTBOUND[0]:
-            # terminal holding
-            next_trip_id = TRIP_IDS_IN[idx_trip_id + 1]
-            active_buses = [bus for bus in self.buses if bus.active_trip]
-            next_dispatch_bus = [bus for bus in active_buses if bus.active_trip[0].trip_id == next_trip_id]
-
-            if not next_dispatch_bus:
-                pending_bus = [bus for bus in active_buses if bus.pending_trips]
-                if pending_bus:
-                    next_dispatch_bus = [bus for bus in pending_bus if bus.pending_trips[0].trip_id == next_trip_id]
-                if not next_dispatch_bus:
-                    print(f'time is {str(timedelta(seconds=round(self.time)))}')
-                    print(f'trip {TRIP_IDS_IN[idx_trip_id]} arriving at stop {stop.stop_id}')
-                    print(f'looking for {next_trip_id} in {[bus.pending_trips[0].trip_id for bus in pending_bus]}')
-                    print(f'previous departures {self.log.recorded_departures}')
-                    print(f'previous arrivals {self.log.recorded_arrivals}')
-            next_sched_dep_t = SCHED_DEP_IN[idx_trip_id + 1]
-            next_dep_t = max(next_dispatch_bus[0].next_event_time, next_sched_dep_t)
-            backward_headway = next_dep_t - self.time
-            assert backward_headway >= 0.0
-
-        else:
-            next_trip_id = TRIP_IDS_IN[idx_trip_id + 1]
-            active_buses = [bus for bus in self.buses if bus.active_trip]
-            active_neighbor = [bus for bus in active_buses if bus.active_trip[0].trip_id == next_trip_id]
-            if active_neighbor:
-                dep_t = active_neighbor[0].dep_t
-                stop0 = active_neighbor[0].last_stop_id
-                if dep_t == 0:
-                    assert stop0 == STOPS_OUTBOUND[0]
-                    dep_t = SCHED_DEP_IN[idx_trip_id + 1]
-            else:
-                pending_bus = [bus for bus in active_buses if bus.pending_trips]
-                next_dispatch_bus = [bus for bus in pending_bus if bus.pending_trips[0].trip_id == next_trip_id]
-                if not next_dispatch_bus:
-                    print(f'time is {str(timedelta(seconds=round(self.time)))}')
-                    print(f'trip {TRIP_IDS_IN[idx_trip_id]} arriving at stop {stop.stop_id}')
-                    print(f'looking for {next_trip_id} in {[bus.pending_trips[0].trip_id for bus in pending_bus]}')
-                    print(f'previous departures {self.log.recorded_departures}')
-                    print(f'previous arrivals {self.log.recorded_arrivals}')
-                next_sched_dep_t = SCHED_DEP_IN[idx_trip_id + 1]
-                dep_t = max(next_dispatch_bus[0].next_event_time, next_sched_dep_t)
-                stop0 = STOPS_OUTBOUND[0]
-            stop1 = self.bus.last_stop_id
-            behind_trip_arrival_time = estimate_arrival_time(dep_t, stop0, stop1, self.time_dependent_travel_time, self.time)
-            backward_headway = behind_trip_arrival_time - self.time
-            if backward_headway < 0.0:
-                backward_headway = 0.0
-        return backward_headway
 
 
 class DetailedSimulationEnvWithControl(DetailedSimulationEnv):
@@ -811,20 +657,8 @@ class DetailedSimulationEnvWithControl(DetailedSimulationEnv):
             forward_headway = self.time - last_arr_t[-2]
         else:
             print(f'what? last arrival time shows nan for controlled trip at time {self.time/60/60}')
-            forward_headway = SCHED_DEP_IN[1] - SCHED_DEP_IN[0]
-        # print(f'forward {round(forward_headway/60, 2)} and backward {round(backward_headway/60, 2)}')
-        # min_allowed_hw = self.control_strength * CONTROL_MEAN_HW
-        # limit_holding = max(0, (last_arr_t + min_allowed_hw) - self.time)
+            forward_headway = SCHED_DEP_OUT[1] - SCHED_DEP_OUT[0]
         if stop.stop_id == STOPS_OUTBOUND[0]:
-            # if backward_headway > forward_headway:
-            #
-            #     holding_time = min(limit_holding, (backward_headway - forward_headway)/2)
-            #     if self.hold_adj_factor > 0.0 and holding_time > 0:
-            #         holding_time = np.random.uniform(self.hold_adj_factor * holding_time, holding_time)
-            #     assert holding_time >= 0
-            #     self.outbound_dispatch(hold=holding_time)
-            # else:
-            #     self.outbound_dispatch()
             holding_time = min(LIMIT_HOLDING, max((backward_headway - forward_headway) / 2, 0))
             if self.hold_adj_factor > 0.0 and holding_time > 0:
                 holding_time = np.random.uniform(self.hold_adj_factor * holding_time, holding_time)
@@ -833,15 +667,6 @@ class DetailedSimulationEnvWithControl(DetailedSimulationEnv):
                 self.hold_ts = np.append(self.hold_ts, holding_time)
             self.outbound_dispatch(hold=holding_time)
         else:
-            # self.fixed_stop_load()
-            # if backward_headway > forward_headway:
-            #     holding_time = min(limit_holding, (backward_headway - forward_headway)/2)
-            #     if self.hold_adj_factor > 0.0 and holding_time > 0:
-            #         holding_time = np.random.uniform(self.hold_adj_factor * holding_time, holding_time)
-            #     assert holding_time >= 0
-            #     self.fixed_stop_depart(hold=holding_time)
-            # else:
-            #     self.fixed_stop_depart()
             self.fixed_stop_load()
             holding_time = min(LIMIT_HOLDING, max((backward_headway - forward_headway)/2,0))
             if self.hold_adj_factor > 0.0 and holding_time > 0:
@@ -854,16 +679,10 @@ class DetailedSimulationEnvWithControl(DetailedSimulationEnv):
 
     def prep(self):
         done = self.next_event()
-        last_focus_bus = [bus for bus in self.buses if bus.bus_id == LAST_FOCUS_TRIP_BLOCK]
         if done or all(elem in self.focus_trips_finished for elem in FOCUS_TRIPS):
             return True
 
         if self.bus.next_event_type == 0:
-            # if the trip is initialized, check that it does not leave before the trip has departed
-            # if there is a time conflict, then update its dispatch time to at least the next dispatch time
-            # if not self.bus.finished_trips:
-            #     # this function, if the previous trip hasn't departed, updates the dispatch time and returns False
-            #     self.smart_dispatch_initialized()
             arrival_stop = STOPS_OUTBOUND[0]
             trip_id = self.bus.active_trip[0].trip_id
             if trip_id not in NO_CONTROL_TRIP_IDS:
@@ -919,11 +738,10 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
         self.bus = Bus(0, [])
 
         # for records
-        self.trajectories = {}
+        self.trajectories_out = {}
         self.trips_sars = {}
-        for trip_id in TRIP_IDS_IN:
-            self.trajectories[trip_id] = []
-            self.trip_log.append(TripLog(trip_id, STOPS_OUTBOUND))
+        for trip_id in TRIP_IDS_OUT:
+            self.trajectories_out[trip_id] = []
         for trip_id in CONTROL_TRIP_IDS:
             self.trips_sars[trip_id] = []
 
@@ -982,7 +800,7 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
 
     def fixed_stop_depart(self, hold=0, skip=False):
         bus = self.bus
-        trip_idx = TRIP_IDS_IN.index(bus.active_trip[0].trip_id)
+        trip_idx = TRIP_IDS_OUT.index(bus.active_trip[0].trip_id)
         curr_stop_idx = STOPS_OUTBOUND.index(bus.last_stop_id)
         dwell_time_error = max(random.uniform(-DWELL_TIME_ERROR, DWELL_TIME_ERROR), 0)
         if skip:
@@ -998,15 +816,6 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
             dwell_time = (bus.ons + bus.offs > 0) * dwell_time
 
         bus.dep_t = self.time + dwell_time
-
-        # if self.no_overtake_policy and trip_idx:
-        #     prev_dep_t = self.trip_log[trip_idx-1].stop_dep_times[STOPS_OUTBOUND[curr_stop_idx]]
-        #     if prev_dep_t is None:
-        #         print('---report')
-        #         print(f'trips in question {TRIP_IDS_IN[trip_idx - 1:trip_idx + 1]}')
-        #         print(f'time {round(self.time)}')
-        #         print(f'stop {curr_stop_idx}')
-        #     bus.dep_t = max(prev_dep_t + NO_OVERTAKE_BUFFER, bus.dep_t)
 
         if not skip:
             for p in self.stops[curr_stop_idx].pax.copy():
@@ -1100,11 +909,11 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
         s0_idx = STOPS_OUTBOUND.index(s0) # you check from those pax boarding next to the control stop (impacted)
         s1_idx = STOPS_OUTBOUND.index(s1) # next control point
         trip_id = bus.active_trip[0].trip_id
-        trip_idx = TRIP_IDS_IN.index(trip_id)
+        trip_idx = TRIP_IDS_OUT.index(trip_id)
 
         # FRONT NEIGHBOR'S REWARD
         agent_trip_idx = trip_idx - 1
-        agent_trip_id = TRIP_IDS_IN[agent_trip_idx]
+        agent_trip_id = TRIP_IDS_OUT[agent_trip_idx]
         # agent bus not considered responsible for the wait time impact in the control point upon arrival to it
         # only responsible for the impact on wait time at the control point for the following trip
         # and the riding time impact in case of holding which is accounted for later
@@ -1210,8 +1019,8 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
             k = CONTROLLED_STOPS.index(bus.last_stop_id)
             curr_control_stop = CONTROLLED_STOPS[k]
             prev_control_stop = CONTROLLED_STOPS[k - 1]
-            trip_idx = TRIP_IDS_IN.index(trip_id)
-            neighbor_trip_id = TRIP_IDS_IN[trip_idx - 1]
+            trip_idx = TRIP_IDS_OUT.index(trip_id)
+            neighbor_trip_id = TRIP_IDS_OUT[trip_idx - 1]
             sars_idx = k - 1
             assert sars_idx >= 0
             assert sars_idx < len(self.trips_sars[neighbor_trip_id])
@@ -1222,7 +1031,7 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
                 prev_action = prev_sars[1]
                 prev_hold = (prev_action - 1) * BASE_HOLDING_TIME if prev_action > 1 else 0
                 fw_h1 = prev_sars[3][IDX_FW_H]
-                planned_fw_h = SCHED_DEP_IN[trip_idx] - SCHED_DEP_IN[trip_idx - 1]
+                planned_fw_h = SCHED_DEP_OUT[trip_idx] - SCHED_DEP_OUT[trip_idx - 1]
                 hw_variation = (fw_h1 - planned_fw_h)/planned_fw_h
                 if self.hold_adj_factor > 0.0:
                     prev_hold = prev_hold - (prev_hold - self.hold_adj_factor * prev_hold)/2
@@ -1247,11 +1056,6 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
         if done or all(elem in self.focus_trips_finished for elem in FOCUS_TRIPS):
             return True
         if self.bus.next_event_type == 0:
-            # if the trip is initialized, check that it does not leave before the trip has departed
-            # if there is a time conflict, then update its dispatch time to at least the next dispatch time
-            # if not self.bus.finished_trips:
-            #     # this function, if the previous trip hasn't departed, updates the dispatch time and returns False
-            #     self.smart_dispatch_initialized()
             arrival_stop = STOPS_OUTBOUND[0]
             trip_id = self.bus.active_trip[0].trip_id
             if trip_id not in NO_CONTROL_TRIP_IDS:
