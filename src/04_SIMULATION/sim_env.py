@@ -8,6 +8,7 @@ from agents_sim import Passenger, Stop, Bus, TripLog
 
 def run_base_detailed(replications=4, save_results=False, time_dep_tt=True, time_dep_dem=True):
     tstamp = datetime.now().strftime('%m%d-%H%M%S')
+    all_trajectories_set = []
     trajectories_set = []
     pax_set = []
     cv_set = []
@@ -26,6 +27,7 @@ def run_base_detailed(replications=4, save_results=False, time_dep_tt=True, time
         #     cv_per_stop.append(cv)
         # cv_set.append(cv_per_stop)
         if save:
+            all_trajectories_set.append(env.trajectories_out)
             env.process_results()
             trajectories_set.append(env.trajectories_out)
             pax_set.append(env.completed_pax)
@@ -33,8 +35,10 @@ def run_base_detailed(replications=4, save_results=False, time_dep_tt=True, time
     # plt.show()
     # plt.close()
     if save_results:
+        path_all_trajectories = 'out/NC/'+tstamp+'-all_trajectory_set'+ext_var
         path_trajectories = 'out/NC/'+tstamp+'-trajectory_set' + ext_var
         path_completed_pax = 'out/NC/'+tstamp+'-pax_set' + ext_var
+        save(path_all_trajectories, all_trajectories_set)
         save(path_trajectories, trajectories_set)
         save(path_completed_pax, pax_set)
     return
@@ -150,6 +154,7 @@ class SimulationEnv:
         self.trajectories_out = {}
         self.tt_factor = tt_factor
         self.hold_adj_factor = hold_adj_factor
+        self.trajectories_in = {}
 
 
 class DetailedSimulationEnv(SimulationEnv):
@@ -548,41 +553,48 @@ class DetailedSimulationEnv(SimulationEnv):
     def inbound_dispatch(self):
         bus = self.bus
         trip = bus.active_trip[0]
+        trip_id = trip.trip_id
         route_type = trip.route_type
-        # types {1: long, 2: short}
         if route_type == 1:
             interval_idx = get_interval(self.time, TRIP_TIME_INTERVAL_LENGTH_MINS) - TRIP_TIME_START_INTERVAL
-            # trip_time_params = TRIP_TIMES1_PARAMS[interval]
-            # run_time = lognorm.rvs(*trip_time_params)
             rand_percentile = np.random.uniform(0.0, 100.0)
             run_time = np.percentile(TRIP_T1_DIST_IN[interval_idx], rand_percentile)
             arr_time = self.time + run_time
+            start_stop_id = INBOUND_LONG_START_STOP
         else:
             assert route_type == 2
             interval_idx = get_interval(self.time, TRIP_TIME_INTERVAL_LENGTH_MINS) - TRIP_TIME_START_INTERVAL
-            # trip_time_params = TRIP_TIMES2_PARAMS[interval]
-            # run_time = lognorm.rvs(*trip_time_params)
             rand_percentile = np.random.uniform(0.0, 100.0)
             run_time = np.percentile(TRIP_T2_DIST_IN[interval_idx], rand_percentile)
             arr_time = self.time + run_time
+            start_stop_id = INBOUND_SHORT_START_STOP
         bus.dep_t = self.time
+        schd_sec = bus.active_trip[0].sched_time
+        self.trajectories_in[trip_id] = [[start_stop_id, bus.dep_t, schd_sec]]
         bus.next_event_time = arr_time
         bus.next_event_type = 4
         return
 
     def inbound_arrival(self):
         bus = self.bus
+        bus.arr_t = self.time
+        trip_id = bus.active_trip[0].trip_id
+        route_type = bus.active_trip[0].route_type
+        if route_type == 1:
+
+        else:
+
+        self.trajectories_in[trip_id].append([])
         bus.finished_trips.append(bus.active_trip[0])
         bus.active_trip.pop(0)
         if bus.pending_trips:
-            # self.smart_dispatch()
             bus.active_trip.append(bus.pending_trips[0])
             bus.pending_trips.pop(0)
             bus.last_stop_id = STOPS_OUTBOUND[0]
             layover = MIN_LAYOVER_T + max(np.random.uniform(-ERR_LAYOVER_TIME, ERR_LAYOVER_TIME), 0)
             bus.next_event_time = max(self.time + layover, bus.active_trip[0].sched_time)
             bus.next_event_type = 0
-        bus.arr_t = self.time
+
         return
 
     def chop_pax(self):

@@ -192,7 +192,7 @@ def get_params_inbound():
     return trip_times1_params, trip_times2_params, trips1_out_info, trips2_out_info, deadhead_times_params, sched_arrs, dep_delay1_dist_in, dep_delay2_dist_in, trip_t1_dist_in, trip_t2_dist_in
 
 
-# extract_params(outbound_route_params=True)
+# extract_params(inbound_route_params=True)
 # analyze_inbound(path_avl, START_TIME_SEC, END_TIME_SEC, DELAY_INTERVAL_LENGTH_MINS)
 STOPS_OUTBOUND, LINK_TIMES_INFO, TRIPS_OUT_INFO, SCALED_ODT_RATES, ODT_STOP_IDS, SCHED_ARRS_OUT, ODT_RATES_OLD, DEP_DELAY_DIST_OUT = get_params_outbound()
 TRIP_TIMES1_PARAMS, TRIP_TIMES2_PARAMS, TRIPS1_IN_INFO, TRIPS2_IN_INFO, DEADHEAD_TIME_PARAMS, SCHED_ARRS_IN, DEP_DELAY1_DIST_IN, DEP_DELAY2_DIST_IN, TRIP_T1_DIST_IN, TRIP_T2_DIST_IN = get_params_inbound()
@@ -232,8 +232,8 @@ TRIP_IDS_OUT, SCHED_DEP_OUT, BLOCK_IDS_OUT = [], [], []
 for item in TRIPS_OUT_INFO:
     TRIP_IDS_OUT.append(item[0]), SCHED_DEP_OUT.append(item[1]), BLOCK_IDS_OUT.append(item[2])
 trips_out = [(x, y, str(timedelta(seconds=y)), z, 0, w, v) for x, y, z, w, v in TRIPS_OUT_INFO]
-trips_in1 = [(x, y, str(timedelta(seconds=y)), z, 1, [], []) for x, y, z in TRIPS1_IN_INFO]
-trips_in2 = [(x, y, str(timedelta(seconds=y)), z, 2, [], []) for x, y, z in TRIPS2_IN_INFO]
+trips_in1 = [(x, y, str(timedelta(seconds=y)), z, 1, w, v) for x, y, z, w, v in TRIPS1_IN_INFO]
+trips_in2 = [(x, y, str(timedelta(seconds=y)), z, 2, w, v) for x, y, z, w, v in TRIPS2_IN_INFO]
 
 trips_df = pd.DataFrame(trips_out + trips_in1 + trips_in2,
                         columns=['trip_id', 'schd_sec', 'schd_time', 'block_id', 'route_type', 'schedule', 'stops'])

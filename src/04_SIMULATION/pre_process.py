@@ -210,6 +210,8 @@ def get_inbound_travel_time(path_stop_times, start_time, end_time, dates, nr_int
     ordered_trip_ids1 = df1['trip_id'].tolist()
     ordered_deps1 = df1['schd_sec'].tolist()
     ordered_block_ids1 = df1['block_id'].tolist()
+    ordered_schedules1 = []
+    ordered_stops1 = []
 
     add_sched_dep_time = (datetime.strptime('7:33:30', '%H:%M:%S') - datetime(1900, 1, 1)).total_seconds()
     add_trip_id = 911266020
@@ -232,6 +234,8 @@ def get_inbound_travel_time(path_stop_times, start_time, end_time, dates, nr_int
     ordered_trip_ids2 = df2['trip_id'].tolist()
     ordered_deps2 = df2['schd_sec'].tolist()
     ordered_block_ids2 = df2['block_id'].tolist()
+    ordered_schedules2 = []
+    ordered_stops2 = []
 
     all_trip_ids = ordered_trip_ids1 + ordered_trip_ids2
     df_arrivals = stop_times_df[stop_times_df['trip_id'].isin(all_trip_ids)]
@@ -253,6 +257,10 @@ def get_inbound_travel_time(path_stop_times, start_time, end_time, dates, nr_int
     # dep_delay1 = []
     for t in ordered_trip_ids1:
         temp_df = avl_df[avl_df['trip_id'] == t]
+        schedule_df = temp_df.drop_duplicates(subset='schd_sec')
+        schedule_df = schedule_df.sort_values(by='schd_sec')
+        ordered_schedules1.append(schedule_df['schd_sec'].tolist())
+        ordered_stops1.append(schedule_df['stop_id'].tolist())
         for d in dates:
             df = temp_df[temp_df['avl_arr_time'].astype(str).str[:10] == d]
             df = df.sort_values(by='stop_sequence')
@@ -298,6 +306,10 @@ def get_inbound_travel_time(path_stop_times, start_time, end_time, dates, nr_int
     # dep_delay2 = []
     for t in ordered_trip_ids2:
         temp_df = avl_df[avl_df['trip_id'] == t]
+        schedule_df = temp_df.drop_duplicates(subset='schd_sec')
+        schedule_df = schedule_df.sort_values(by='schd_sec')
+        ordered_schedules2.append(schedule_df['schd_sec'].tolist())
+        ordered_stops2.append(schedule_df['stop_id'].tolist())
         for d in dates:
             df = temp_df[temp_df['avl_arr_time'].astype(str).str[:10] == d]
             df = df.sort_values(by='stop_sequence')
@@ -422,8 +434,8 @@ def get_inbound_travel_time(path_stop_times, start_time, end_time, dates, nr_int
         trip_times1_params.append(lognorm_params1)
         trip_times2_params.append(lognorm_params2)
         # deadhead_times_params.append(norm.fit(deadhead_times[i]))
-    trips1_info = [(x, y, z) for x, y, z in zip(ordered_trip_ids1, ordered_deps1, ordered_block_ids1)]
-    trips2_info = [(x, y, z) for x, y, z in zip(ordered_trip_ids2, ordered_deps2, ordered_block_ids2)]
+    trips1_info = [(x, y, z, w, v) for x, y, z, w, v in zip(ordered_trip_ids1, ordered_deps1, ordered_block_ids1, ordered_schedules1, ordered_stops1)]
+    trips2_info = [(x, y, z, w, v) for x, y, z, w, v in zip(ordered_trip_ids2, ordered_deps2, ordered_block_ids2, ordered_schedules2, ordered_stops2)]
 
     all_trip_times = [trip_time_record_long, trip_time_record_short]
 

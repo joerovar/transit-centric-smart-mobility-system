@@ -62,3 +62,6 @@ N_STATE_PARAMS_RL = 6
                                                                                       range(N_STATE_PARAMS_RL)]
 SKIP_ACTION = 0
 # WEIGHT_WAIT_TIME = 1.4
+
+INBOUND_SHORT_START_STOP = '15136'
+INBOUND_LONG_START_STOP = '8613'
