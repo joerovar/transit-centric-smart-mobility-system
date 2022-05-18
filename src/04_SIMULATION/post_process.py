@@ -44,6 +44,29 @@ def write_trajectory_set(trajectory_set, pathname, idx_arr_t, idx_dep_t, idx_hol
     return
 
 
+def write_trajectory_set_inbound(pathname, idx_arr_t, ):
+    with open(pathname, 'w', newline='') as f:
+        wf = csv.writer(f, delimiter=',', quotechar=' ', quoting=csv.QUOTE_MINIMAL)
+        i = 1
+        if header:
+            wf.writerow(header)
+        for trajectories in trajectory_set:
+            day = i
+            for trip in trajectories:
+                for stop_info in trajectories[trip]:
+                    stop_lst = deepcopy(stop_info)
+                    stop_lst[idx_arr_t] = str(timedelta(seconds=round(stop_lst[idx_arr_t])))
+                    stop_lst[idx_dep_t] = str(timedelta(seconds=round(stop_lst[idx_dep_t])))
+                    stop_lst[idx_hold] = round(stop_lst[idx_hold])
+                    stop_lst.insert(0, trip)
+                    stop_lst.append(day)
+                    stop_lst.append(round(stop_info[idx_arr_t]))
+                    stop_lst.append(round(stop_info[idx_dep_t]))
+                    stop_lst.append(round(stop_info[idx_dep_t]-stop_info[idx_arr_t]))
+                    wf.writerow(stop_lst)
+            i += 1
+    return
+
 def write_sars(trip_data, pathname, header=None):
     with open(pathname, 'w', newline='') as f:
         wf = csv.writer(f, delimiter=',', quotechar=' ', quoting=csv.QUOTE_MINIMAL)

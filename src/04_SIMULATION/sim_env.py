@@ -9,6 +9,7 @@ from agents_sim import Passenger, Stop, Bus, TripLog
 def run_base_detailed(replications=4, save_results=False, time_dep_tt=True, time_dep_dem=True):
     tstamp = datetime.now().strftime('%m%d-%H%M%S')
     all_trajectories_set = []
+    all_trajectories_in_set = []
     trajectories_set = []
     pax_set = []
     cv_set = []
@@ -28,6 +29,7 @@ def run_base_detailed(replications=4, save_results=False, time_dep_tt=True, time
         # cv_set.append(cv_per_stop)
         if save:
             all_trajectories_set.append(env.trajectories_out)
+            all_trajectories_in_set.append(env.trajectories_in)
             env.process_results()
             trajectories_set.append(env.trajectories_out)
             pax_set.append(env.completed_pax)
@@ -35,12 +37,14 @@ def run_base_detailed(replications=4, save_results=False, time_dep_tt=True, time
     # plt.show()
     # plt.close()
     if save_results:
-        path_all_trajectories = 'out/NC/'+tstamp+'-all_trajectory_set'+ext_var
+        path_all_trajectories = 'out/NC/'+ tstamp + '-all_trajectory_set' + ext_var
+        path_all_trajectories_in = 'out/NC/' + tstamp + '-all_trajectory_in_set' + ext_var
         path_trajectories = 'out/NC/'+tstamp+'-trajectory_set' + ext_var
         path_completed_pax = 'out/NC/'+tstamp+'-pax_set' + ext_var
         save(path_all_trajectories, all_trajectories_set)
         save(path_trajectories, trajectories_set)
         save(path_completed_pax, pax_set)
+        save(path_all_trajectories_in, all_trajectories_in_set)
     return
 
 
@@ -579,12 +583,9 @@ class DetailedSimulationEnv(SimulationEnv):
         bus = self.bus
         bus.arr_t = self.time
         trip_id = bus.active_trip[0].trip_id
-        route_type = bus.active_trip[0].route_type
-        if route_type == 1:
-
-        else:
-
-        self.trajectories_in[trip_id].append([])
+        if bus.active_trip[0].stops[-1] == STOPS_OUTBOUND[0]:
+            schd_sec = bus.active_trip[0].sched_time[-1]
+            self.trajectories_in[trip_id].append([STOPS_OUTBOUND[0], bus.arr_t, schd_sec])
         bus.finished_trips.append(bus.active_trip[0])
         bus.active_trip.pop(0)
         if bus.pending_trips:

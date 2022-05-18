@@ -253,6 +253,7 @@ for b in block_ids:
     BLOCK_DICT[b] = trip_ids
     route_types = block_df['route_type'].tolist()
     BLOCK_TRIPS_INFO.append((b, list(zip(trip_ids, sched_deps, route_types, lst_stops, lst_schedule))))
+
 # print(BLOCK_TRIPS_INFO)
 
 # layover_t = {'2-0': [[] for _ in range(TRIP_TIME_NR_INTERVALS)],
