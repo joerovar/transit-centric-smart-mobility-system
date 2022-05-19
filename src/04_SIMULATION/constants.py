@@ -50,7 +50,8 @@ ODT_START_INTERVAL = int(START_TIME_SEC / (60 * ODT_INTERVAL_LEN_MIN))
 ODT_END_INTERVAL = int(END_TIME_SEC / (60 * ODT_INTERVAL_LEN_MIN))
 
 # OTHER SERVICE PARAMETERS: DWELL TIME, SIMULATION LENGTH
-[IDX_ARR_T, IDX_DEP_T, IDX_LOAD, IDX_PICK, IDX_DROP, IDX_DENIED, IDX_HOLD_TIME, IDX_SKIPPED] = [i for i in range(1, 9)]
+[IDX_ARR_T, IDX_DEP_T, IDX_LOAD, IDX_PICK, IDX_DROP, IDX_DENIED, IDX_HOLD_TIME, IDX_SKIPPED, IDX_SCHED] = [i for i in
+                                                                                                           range(1, 10)]
 NO_OVERTAKE_BUFFER = 5
 
 # REINFORCEMENT LEARNING
@@ -65,3 +66,9 @@ SKIP_ACTION = 0
 
 INBOUND_SHORT_START_STOP = '15136'
 INBOUND_LONG_START_STOP = '8613'
+[IDX_ARR_T_IN, IDX_SCHED_IN] = [i for i in range(1, 3)]
+
+OUT_TRIP_RECORD_COLS = ['trip_id', 'stop_id', 'arr_sec', 'dep_sec', 'pax_load', 'ons', 'offs', 'denied',
+                        'hold_time', 'skipped', 'schd_sec', 'stop_sequence'] # and replication goes at the end
+IN_TRIP_RECORD_COLS = ['trip_id', 'stop_id', 'arr_sec', 'schd_sec', 'stop_sequence']
+PAX_RECORD_COLS = ['orig_idx', 'dest_idx', 'arr_time', 'board_time', 'alight_time', 'trip_id', 'denied']

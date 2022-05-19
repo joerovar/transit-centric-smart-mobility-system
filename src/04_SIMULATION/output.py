@@ -131,14 +131,7 @@ class PostProcessor:
                         '95_load': [np.around(np.percentile(peak_load, 95), decimals=2) for peak_load in peak_load_set]}
         return results_load
 
-    def sample_trajectories(self):
-        for i in range(len(self.cp_trips)):
-            trips = self.cp_trips[i][35:38]
-            plot_trajectories(trips, IDX_ARR_T, IDX_DEP_T, 'out/trajectories/' + self.cp_tags[i] + '.png',
-                              STOPS_OUTBOUND, controlled_stops=CONTROLLED_STOPS)
-        return
-
-    def write_trajectories(self, only_nc=False):
+    def write_trajectories(self, only_nc=False, all_trajectories_out=None, trajectories_in=None):
         i = 0
         compare_trips = self.cp_trips
         if only_nc:

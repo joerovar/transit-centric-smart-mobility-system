@@ -20,8 +20,8 @@ class Passenger:
         self.board_time = 0.0
         self.alight_time = 0.0
         self.denied = 0
-        self.wait_time = 0.0
-        self.journey_time = 0.0
+        # self.wait_time = 0.0
+        # self.journey_time = 0.0
         self.trip_id = 0
 
 

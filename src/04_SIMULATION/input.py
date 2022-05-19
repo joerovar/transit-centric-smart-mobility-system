@@ -1,7 +1,7 @@
 from pre_process import *
 from file_paths import *
 from constants import *
-from post_process import save, load
+from post_process import save, load, analyze_inbound_results
 from datetime import timedelta
 
 
@@ -193,7 +193,16 @@ def get_params_inbound():
 
 
 # extract_params(inbound_route_params=True)
-# analyze_inbound(path_avl, START_TIME_SEC, END_TIME_SEC, DELAY_INTERVAL_LENGTH_MINS)
+arr_delays_long, arr_delays_short, dep_delays_long, dep_delays_short = analyze_inbound(path_avl, START_TIME_SEC, END_TIME_SEC, DELAY_INTERVAL_LENGTH_MINS)
+save('in/xtr/arr_delay_long.pkl', arr_delays_long)
+save('in/xtr/arr_delay_short.pkl', arr_delays_short)
+save('in/xtr/dep_delay_long.pkl', dep_delays_long)
+save('in/xtr/dep_delay_short.pkl', dep_delays_short)
+
+in_trip_record = pd.read_pickle('out/NC/0518-202258-in_trip_record.pkl')
+arr_delays_long_sim, arr_delays_short_sim, dep_delays_long_sim, dep_delays_sim = analyze_inbound_results(in_trip_record, START_TIME_SEC, END_TIME_SEC, DELAY_INTERVAL_LENGTH_MINS)
+
+
 STOPS_OUTBOUND, LINK_TIMES_INFO, TRIPS_OUT_INFO, SCALED_ODT_RATES, ODT_STOP_IDS, SCHED_ARRS_OUT, ODT_RATES_OLD, DEP_DELAY_DIST_OUT = get_params_outbound()
 TRIP_TIMES1_PARAMS, TRIP_TIMES2_PARAMS, TRIPS1_IN_INFO, TRIPS2_IN_INFO, DEADHEAD_TIME_PARAMS, SCHED_ARRS_IN, DEP_DELAY1_DIST_IN, DEP_DELAY2_DIST_IN, TRIP_T1_DIST_IN, TRIP_T2_DIST_IN = get_params_inbound()
 

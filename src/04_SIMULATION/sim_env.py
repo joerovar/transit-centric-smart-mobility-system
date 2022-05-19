@@ -8,12 +8,15 @@ from agents_sim import Passenger, Stop, Bus, TripLog
 
 def run_base_detailed(replications=4, save_results=False, time_dep_tt=True, time_dep_dem=True):
     tstamp = datetime.now().strftime('%m%d-%H%M%S')
-    all_trajectories_set = []
-    all_trajectories_in_set = []
-    trajectories_set = []
-    pax_set = []
-    cv_set = []
-    for _ in range(replications):
+    # all_trajectories_set = []
+    # all_trajectories_in_set = []
+    # trajectories_set = []
+    # pax_set = []
+    # cv_set = []
+    out_trip_record_set = []
+    in_trip_record_set = []
+    pax_record_set = []
+    for i in range(replications):
         env = DetailedSimulationEnv(time_dependent_travel_time=time_dep_tt, time_dependent_demand=time_dep_dem)
         done = env.reset_simulation()
         while not done:
@@ -27,24 +30,49 @@ def run_base_detailed(replications=4, save_results=False, time_dep_tt=True, time
         #     cv = np.std(hw) / np.mean(hw)
         #     cv_per_stop.append(cv)
         # cv_set.append(cv_per_stop)
-        if save:
-            all_trajectories_set.append(env.trajectories_out)
-            all_trajectories_in_set.append(env.trajectories_in)
-            env.process_results()
-            trajectories_set.append(env.trajectories_out)
-            pax_set.append(env.completed_pax)
+        if save_results:
+            out_trip_record_df = pd.DataFrame(env.out_trip_record, columns=OUT_TRIP_RECORD_COLS)
+            out_trip_record_df['replication'] = pd.Series([i+1 for _ in range(len(out_trip_record_df.index))])
+            out_trip_record_set.append(out_trip_record_df)
+
+            in_trip_record_df = pd.DataFrame(env.in_trip_record, columns=IN_TRIP_RECORD_COLS)
+            in_trip_record_df['replication'] = pd.Series([i+1 for _ in range(len(in_trip_record_df.index))])
+            in_trip_record_set.append(in_trip_record_df)
+
+            pax_record_df = pd.DataFrame(env.completed_pax_record, columns=PAX_RECORD_COLS)
+            pax_record_df['replication'] = pd.Series([i+1 for _ in range(len(in_trip_record_df.index))])
+            pax_record_set.append(pax_record_df)
+
+            # all_trajectories_set.append(env.trajectories_out)
+            # all_trajectories_in_set.append(env.trajectories_in)
+            # env.process_results()
+            # trajectories_set.append(env.trajectories_out)
+            # pax_set.append(env.completed_pax)
     # plt.plot(np.array(cv_set).mean(axis=0))
     # plt.show()
     # plt.close()
+
     if save_results:
-        path_all_trajectories = 'out/NC/'+ tstamp + '-all_trajectory_set' + ext_var
-        path_all_trajectories_in = 'out/NC/' + tstamp + '-all_trajectory_in_set' + ext_var
-        path_trajectories = 'out/NC/'+tstamp+'-trajectory_set' + ext_var
-        path_completed_pax = 'out/NC/'+tstamp+'-pax_set' + ext_var
-        save(path_all_trajectories, all_trajectories_set)
-        save(path_trajectories, trajectories_set)
-        save(path_completed_pax, pax_set)
-        save(path_all_trajectories_in, all_trajectories_in_set)
+        # path_all_trajectories = 'out/NC/'+ tstamp + '-all_trajectory_set' + ext_var
+        # path_all_trajectories_in = 'out/NC/' + tstamp + '-all_trajectory_in_set' + ext_var
+        # path_trajectories = 'out/NC/'+tstamp+'-trajectory_set' + ext_var
+        # path_completed_pax = 'out/NC/'+tstamp+'-pax_set' + ext_var
+
+        path_out_trip_record = 'out/NC/' + tstamp + '-out_trip_record' + ext_var
+        path_in_trip_record = 'out/NC/' + tstamp + '-in_trip_record' + ext_var
+        path_pax_record = 'out/NC/' + tstamp + '-pax_record' + ext_var
+
+        out_trip_record = pd.concat(out_trip_record_set, ignore_index=True)
+        in_trip_record = pd.concat(in_trip_record_set, ignore_index=True)
+        pax_record = pd.concat(pax_record_set, ignore_index=True)
+
+        out_trip_record.to_pickle(path_out_trip_record)
+        in_trip_record.to_pickle(path_in_trip_record)
+        pax_record.to_pickle(path_pax_record)
+        # save(path_all_trajectories, all_trajectories_set)
+        # save(path_trajectories, trajectories_set)
+        # save(path_completed_pax, pax_set)
+        # save(path_all_trajectories_in, all_trajectories_in_set)
     return
 
 
@@ -61,19 +89,19 @@ def run_base_control_detailed(replications=2, control_strength=0.7,
         done = env.reset_simulation()
         while not done:
             done = env.prep()
-        if save:
-            env.process_results()
-            trajectories_set.append(env.trajectories_out)
-            pax_set.append(env.completed_pax)
-    if save_results:
-        path_trajectories = 'out/EH/' + tstamp + '-trajectory_set' + ext_var
-        path_completed_pax = 'out/EH/' + tstamp + '-pax_set' + ext_var
-        params = {'param': ['control_strength'],
-                  'value': [control_strength]}
-        df_params = pd.DataFrame(params)
-        df_params.to_csv('out/EH/' + tstamp + '-params_used' + ext_var, index=False)
-        save(path_trajectories, trajectories_set)
-        save(path_completed_pax, pax_set)
+        # if save:
+            # env.process_results()
+            # trajectories_set.append(env.trajectories_out)
+            # pax_set.append(env.completed_pax)
+    # if save_results:
+        # path_trajectories = 'out/EH/' + tstamp + '-trajectory_set' + ext_var
+        # path_completed_pax = 'out/EH/' + tstamp + '-pax_set' + ext_var
+        # params = {'param': ['control_strength'],
+        #           'value': [control_strength]}
+        # df_params = pd.DataFrame(params)
+        # df_params.to_csv('out/EH/' + tstamp + '-params_used' + ext_var, index=False)
+        # save(path_trajectories, trajectories_set)
+        # save(path_completed_pax, pax_set)
     return
 
 
@@ -170,6 +198,9 @@ class DetailedSimulationEnv(SimulationEnv):
         self.bus = Bus(0, [])
         self.trip_log = []
         self.focus_trips_finished = []
+        self.completed_pax_record = []
+        self.out_trip_record = []
+        self.in_trip_record = []
 
     def backward_headway(self):
         # terminal
@@ -241,6 +272,8 @@ class DetailedSimulationEnv(SimulationEnv):
         trajectory = [bus.last_stop_id, round(bus.arr_t, 1), round(bus.dep_t, 1),
                       len(bus.pax), pickups, offs, denied_board, hold, int(skip), scheduled_sec]
         self.trajectories_out[trip_id].append(trajectory)
+        self.out_trip_record.append([trip_id, bus.last_stop_id, bus.arr_t, bus.dep_t, len(bus.pax), pickups, offs,
+                                     denied_board, hold, int(skip), scheduled_sec, stop_idx+1])
         return
 
     def get_travel_time(self):
@@ -284,6 +317,8 @@ class DetailedSimulationEnv(SimulationEnv):
         self.focus_trips_finished = []
         self.bus = Bus(0, [])
         # for records
+        self.out_trip_record = []
+        self.in_trip_record = []
         self.trajectories_out = {}
         for trip_id in TRIP_IDS_OUT:
             self.trajectories_out[trip_id] = []
@@ -316,6 +351,7 @@ class DetailedSimulationEnv(SimulationEnv):
             bus.next_event_type = 3 if trip.route_type else 0
         # initialize passenger demand
         self.completed_pax = []
+        self.completed_pax_record = []
         self.initialize_pax_demand()
         return False
 
@@ -371,9 +407,11 @@ class DetailedSimulationEnv(SimulationEnv):
         for p in self.bus.pax.copy():
             if p.dest_idx == curr_stop_idx:
                 p.alight_time = float(self.time)
-                p.journey_time = float(p.alight_time - p.arr_time)
+                # p.journey_time = float(p.alight_time - p.arr_time)
                 self.completed_pax.append(p)
                 self.bus.active_trip[0].completed_pax.append(p)
+                self.completed_pax_record.append([p.orig_idx, p.dest_idx, p.arr_time, p.board_time, p.alight_time,
+                                                  p.trip_id, p.denied])
                 self.bus.pax.remove(p)
                 bus.offs += 1
         return
@@ -515,8 +553,10 @@ class DetailedSimulationEnv(SimulationEnv):
         for p in self.bus.pax.copy():
             if p.dest_idx == curr_stop_idx:
                 p.alight_time = float(self.time)
-                p.journey_time = float(p.alight_time - p.arr_time)
+                # p.journey_time = float(p.alight_time - p.arr_time)
                 self.completed_pax.append(p)
+                self.completed_pax_record.append([p.orig_idx, p.dest_idx, p.arr_time, p.board_time, p.alight_time,
+                                                  p.trip_id, p.denied])
                 self.bus.active_trip[0].completed_pax.append(p)
                 bus.pax.remove(p)
                 bus.offs += 1
@@ -573,8 +613,9 @@ class DetailedSimulationEnv(SimulationEnv):
             arr_time = self.time + run_time
             start_stop_id = INBOUND_SHORT_START_STOP
         bus.dep_t = self.time
-        schd_sec = bus.active_trip[0].sched_time
-        self.trajectories_in[trip_id] = [[start_stop_id, bus.dep_t, schd_sec]]
+        schd_sec = bus.active_trip[0].schedule[0]
+        self.trajectories_in[trip_id] = [[start_stop_id, bus.dep_t, schd_sec, 1]]
+        self.in_trip_record.append([trip_id, start_stop_id, bus.dep_t, schd_sec, 1])
         bus.next_event_time = arr_time
         bus.next_event_type = 4
         return
@@ -584,8 +625,9 @@ class DetailedSimulationEnv(SimulationEnv):
         bus.arr_t = self.time
         trip_id = bus.active_trip[0].trip_id
         if bus.active_trip[0].stops[-1] == STOPS_OUTBOUND[0]:
-            schd_sec = bus.active_trip[0].sched_time[-1]
+            schd_sec = bus.active_trip[0].schedule[-1]
             self.trajectories_in[trip_id].append([STOPS_OUTBOUND[0], bus.arr_t, schd_sec])
+            self.in_trip_record.append([trip_id, STOPS_OUTBOUND[0], bus.arr_t, schd_sec, len(bus.active_trip[0].stops)])
         bus.finished_trips.append(bus.active_trip[0])
         bus.active_trip.pop(0)
         if bus.pending_trips:
@@ -598,11 +640,11 @@ class DetailedSimulationEnv(SimulationEnv):
 
         return
 
-    def chop_pax(self):
-        for p in self.completed_pax.copy():
-            if p.trip_id not in FOCUS_TRIPS:
-                self.completed_pax.remove(p)
-        return
+    # def chop_pax(self):
+    #     for p in self.completed_pax.copy():
+    #         if p.trip_id not in FOCUS_TRIPS:
+    #             self.completed_pax.remove(p)
+    #     return
 
     def next_event(self):
         active_buses = [bus for bus in self.buses if bus.active_trip]
@@ -645,16 +687,16 @@ class DetailedSimulationEnv(SimulationEnv):
             self.inbound_arrival()
             return False
 
-    def chop_trajectories(self):
-        for trip in self.trajectories_out.copy():
-            if trip not in FOCUS_TRIPS:
-                self.trajectories_out.pop(trip)
-        return
+    # def chop_trajectories(self):
+    #     for trip in self.trajectories_out.copy():
+    #         if trip not in FOCUS_TRIPS:
+    #             self.trajectories_out.pop(trip)
+    #     return
 
-    def process_results(self):
-        self.chop_trajectories()
-        self.chop_pax()
-        return
+    # def process_results(self):
+    #     self.chop_trajectories()
+    #     self.chop_pax()
+    #     return
 
 
 class DetailedSimulationEnvWithControl(DetailedSimulationEnv):
@@ -757,6 +799,8 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
         self.bus = Bus(0, [])
 
         # for records
+        self.out_trip_record = []
+        self.in_trip_record = []
         self.trajectories_out = {}
         self.trips_sars = {}
         for trip_id in TRIP_IDS_OUT:
@@ -794,6 +838,7 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
             bus.next_event_type = 3 if trip.route_type else 0
         # initialize passenger demand
         self.completed_pax = []
+        self.completed_pax_record = []
         self.initialize_pax_demand()
         return False
 
@@ -954,10 +999,10 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
         for pax in self.completed_pax:
             if pax.trip_id == agent_trip_id and pax.orig_idx in stop_idx_set:
                 pax_count += 1
-                wait = pax.wait_time
+                wait = pax.board_time - pax.arr_time
                 ride = min(pax.alight_time - pax.board_time, t1_agent - pax.board_time)
                 assert ride > 0
-                if pax.orig_idx == stop_idx_set[0] and pax.wait_time != 0.0:
+                if pax.orig_idx == stop_idx_set[0] and wait != 0.0:
                     wait += neighbor_prev_hold
                 sum_rew_agent_wait_time += wait
                 sum_rew_agent_ride_time += ride
@@ -973,10 +1018,10 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
             for pax in front_active_bus[0].pax:
                 if pax.orig_idx in stop_idx_set:
                     pax_count += 1
-                    wait = pax.wait_time
+                    wait = pax.board_time - pax.arr_time
                     ride = t1_agent - pax.board_time
                     assert ride > 0
-                    if pax.orig_idx == stop_idx_set[0] and pax.wait_time != 0.0:
+                    if pax.orig_idx == stop_idx_set[0] and wait != 0.0:
                         wait += neighbor_prev_hold
                     sum_rew_agent_wait_time += wait
                     sum_rew_agent_ride_time += ride
@@ -995,7 +1040,8 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
         for pax in bus.pax:
             if pax.orig_idx in stop_idx_set:
                 pax_count += 1
-                sum_rew_behind_wait_time += pax.wait_time
+                wait = pax.board_time - pax.arr_time
+                sum_rew_behind_wait_time += wait
                 ride = t1_behind - pax.board_time
                 assert ride > 0
                 sum_rew_behind_ride_time += ride
@@ -1008,7 +1054,8 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
         for pax in self.completed_pax:
             if pax.trip_id == trip_id and pax.orig_idx in stop_idx_set:
                 pax_count += 1
-                sum_rew_behind_wait_time += pax.wait_time
+                wait = pax.board_time - pax.arr_time
+                sum_rew_behind_wait_time += wait
                 ride = pax.alight_time - pax.board_time
                 assert ride > 0
                 sum_rew_behind_ride_time += ride

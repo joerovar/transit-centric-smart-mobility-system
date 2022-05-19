@@ -260,7 +260,8 @@ def get_inbound_travel_time(path_stop_times, start_time, end_time, dates, nr_int
         schedule_df = temp_df.drop_duplicates(subset='schd_sec')
         schedule_df = schedule_df.sort_values(by='schd_sec')
         ordered_schedules1.append(schedule_df['schd_sec'].tolist())
-        ordered_stops1.append(schedule_df['stop_id'].tolist())
+        extract_stops = schedule_df['stop_id'].tolist()
+        ordered_stops1.append([str(s) for s in extract_stops])
         for d in dates:
             df = temp_df[temp_df['avl_arr_time'].astype(str).str[:10] == d]
             df = df.sort_values(by='stop_sequence')
@@ -309,7 +310,8 @@ def get_inbound_travel_time(path_stop_times, start_time, end_time, dates, nr_int
         schedule_df = temp_df.drop_duplicates(subset='schd_sec')
         schedule_df = schedule_df.sort_values(by='schd_sec')
         ordered_schedules2.append(schedule_df['schd_sec'].tolist())
-        ordered_stops2.append(schedule_df['stop_id'].tolist())
+        extract_stops = schedule_df['stop_id'].tolist()
+        ordered_stops2.append([str(s) for s in extract_stops])
         for d in dates:
             df = temp_df[temp_df['avl_arr_time'].astype(str).str[:10] == d]
             df = df.sort_values(by='stop_sequence')
@@ -509,18 +511,19 @@ def analyze_inbound(path_avl, start_time, end_time, delay_interval_length):
         dep_delays_short.append(d.tolist())
 
     # short
-    fig, ax = plt.subplots(nrows=3, ncols=2)
-    for i in range(len(arr_delays_short)):
-        ax.flat[i].hist([dep_delays_short[i], arr_delays_short[i]])
-    plt.show()
-    plt.close()
 
-    fig, ax = plt.subplots(nrows=3, ncols=2)
-    for i in range(len(arr_delays_long)):
-        ax.flat[i].hist([dep_delays_long[i], arr_delays_long[i]])
-    plt.show()
-    plt.close()
-    return
+    # fig, ax = plt.subplots(nrows=3, ncols=2)
+    # for i in range(len(arr_delays_short)):
+    #     ax.flat[i].hist([dep_delays_short[i], arr_delays_short[i]])
+    # plt.show()
+    # plt.close()
+    #
+    # fig, ax = plt.subplots(nrows=3, ncols=2)
+    # for i in range(len(arr_delays_long)):
+    #     ax.flat[i].hist([dep_delays_long[i], arr_delays_long[i]])
+    # plt.show()
+    # plt.close()
+    return arr_delays_long, arr_delays_short, dep_delays_long, dep_delays_short
 
 
 def get_trip_times(path_avl, focus_trips, dates, stops):

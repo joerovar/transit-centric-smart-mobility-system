@@ -6,6 +6,77 @@ import pickle
 from copy import deepcopy
 import seaborn as sns
 from datetime import timedelta
+from pre_process import get_interval
+
+
+def analyze_inbound_results(avl_df, start_time, end_time, delay_interval_length):
+
+    end_terminal_id = 386
+    terminal_seq_long = 63
+    terminal_seq_short = 23
+
+    arr_delays_long = []
+    arr_delays_short = []
+    # arrivals
+    arr_long_df = avl_df[avl_df['stop_id'] == str(end_terminal_id)]
+    arr_long_df = arr_long_df[arr_long_df['stop_sequence'] == terminal_seq_long]
+
+    arr_short_df = avl_df[avl_df['stop_id'] == str(end_terminal_id)]
+    arr_short_df = arr_short_df[arr_short_df['stop_sequence'] == terminal_seq_short]
+
+    start_terminal_id_long = 8613
+    start_terminal_id_short = 15136
+
+    dep_delays_long = []
+    dep_delays_short = []
+    # departures
+    dep_long_df = avl_df[avl_df['stop_id'] == str(start_terminal_id_long)]
+    dep_short_df = avl_df[avl_df['stop_id'] == str(start_terminal_id_short)]
+
+    interval0 = get_interval(start_time, delay_interval_length)
+    interval1 = get_interval(end_time, delay_interval_length)
+
+    for interval in range(interval0, interval1):
+        # arrivals
+        temp_df = arr_long_df[arr_long_df['schd_sec']>=interval*delay_interval_length*60]
+        temp_df = temp_df[temp_df['schd_sec']<=(interval+1)*delay_interval_length*60]
+        temp_df['delay'] = temp_df['arr_sec'] - temp_df['schd_sec']
+        d = temp_df['delay']
+        arr_delays_long.append(d.tolist())
+
+        temp_df = arr_short_df[arr_short_df['schd_sec'] >= interval * delay_interval_length * 60]
+        temp_df = temp_df[temp_df['schd_sec'] <= (interval + 1) * delay_interval_length * 60]
+        temp_df['delay'] = temp_df['avl_arr_sec'] - temp_df['schd_sec']
+        d = temp_df['delay']
+        arr_delays_short.append(d.tolist())
+
+        # departures
+        temp_df = dep_long_df[dep_long_df['schd_sec'] >= interval * delay_interval_length * 60]
+        temp_df = temp_df[temp_df['schd_sec'] <= (interval + 1) * delay_interval_length * 60]
+        temp_df['delay'] = temp_df['arr_sec'] - temp_df['schd_sec']
+        d = temp_df['delay']
+        dep_delays_long.append(d.tolist())
+
+        temp_df = dep_short_df[dep_short_df['schd_sec'] >= interval * delay_interval_length * 60]
+        temp_df = temp_df[temp_df['schd_sec'] <= (interval + 1) * delay_interval_length * 60]
+        temp_df['delay'] = temp_df['arr_sec'] - temp_df['schd_sec']
+        d = temp_df['delay']
+        dep_delays_short.append(d.tolist())
+
+    # short
+
+    # fig, ax = plt.subplots(nrows=3, ncols=2)
+    # for i in range(len(arr_delays_short)):
+    #     ax.flat[i].hist([dep_delays_short[i], arr_delays_short[i]])
+    # plt.show()
+    # plt.close()
+    #
+    # fig, ax = plt.subplots(nrows=3, ncols=2)
+    # for i in range(len(arr_delays_long)):
+    #     ax.flat[i].hist([dep_delays_long[i], arr_delays_long[i]])
+    # plt.show()
+    # plt.close()
+    return arr_delays_long, arr_delays_short, dep_delays_long, dep_delays_short
 
 
 def save(pathname, par):
@@ -44,7 +115,7 @@ def write_trajectory_set(trajectory_set, pathname, idx_arr_t, idx_dep_t, idx_hol
     return
 
 
-def write_trajectory_set_inbound(pathname, idx_arr_t, ):
+def write_trajectory_set_inbound(trajectory_set, pathname, idx_arr_t, idx_schd_sec, header=None):
     with open(pathname, 'w', newline='') as f:
         wf = csv.writer(f, delimiter=',', quotechar=' ', quoting=csv.QUOTE_MINIMAL)
         i = 1
@@ -56,16 +127,15 @@ def write_trajectory_set_inbound(pathname, idx_arr_t, ):
                 for stop_info in trajectories[trip]:
                     stop_lst = deepcopy(stop_info)
                     stop_lst[idx_arr_t] = str(timedelta(seconds=round(stop_lst[idx_arr_t])))
-                    stop_lst[idx_dep_t] = str(timedelta(seconds=round(stop_lst[idx_dep_t])))
-                    stop_lst[idx_hold] = round(stop_lst[idx_hold])
+                    stop_lst[idx_schd_sec] = str(timedelta(seconds=round(stop_lst[idx_schd_sec])))
                     stop_lst.insert(0, trip)
                     stop_lst.append(day)
                     stop_lst.append(round(stop_info[idx_arr_t]))
-                    stop_lst.append(round(stop_info[idx_dep_t]))
-                    stop_lst.append(round(stop_info[idx_dep_t]-stop_info[idx_arr_t]))
+                    stop_lst.append(round(stop_info[idx_schd_sec]))
                     wf.writerow(stop_lst)
             i += 1
     return
+
 
 def write_sars(trip_data, pathname, header=None):
     with open(pathname, 'w', newline='') as f:

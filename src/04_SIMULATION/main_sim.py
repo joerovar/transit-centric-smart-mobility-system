@@ -85,7 +85,6 @@ def benchmark_comparison(compute_rbt=False):
                         path_dir_b)
 
     prc.pax_profile_base()
-    prc.sample_trajectories()
     results = {}
     results.update(prc.pax_times_fast(include_rbt=compute_rbt))
 
@@ -206,7 +205,7 @@ def fancy_plots():
 
 N_REPLICATIONS = 40
 
-# run_base_detailed(replications=40, save_results=True)
+run_base_detailed(replications=10, save_results=True)
 # validate_nc()
 # run_base_control_detailed(replications=40, save_results=True)
 # prc = PostProcessor([path_tr_nc_b2, path_tr_eh_b2],
