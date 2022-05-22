@@ -1,7 +1,7 @@
 from pre_process import *
 from file_paths import *
 from constants import *
-from post_process import save, load, analyze_inbound_results
+from post_process import save, load, analyze_inbound_results, cv_headway_by_interval
 from datetime import timedelta
 
 
@@ -113,7 +113,7 @@ def extract_params(outbound_route_params=False, inbound_route_params=False, dema
         schedule_arr = np.array(scheduled_dep_in)
         focus_trips = ordered_trips_in[
             (schedule_arr <= FOCUS_END_TIME_SEC) & (schedule_arr >= FOCUS_START_TIME_SEC)].tolist()
-        trip_times, headway_out, headway_out_cv, hw_out_cv2 = get_trip_times(path_avl, focus_trips, DATES, stops)
+        trip_times, headway_out, headway_out_cv, hw_out_cv2 = get_trip_times(path_avl, focus_trips, DATES, stops, DELAY_INTERVAL_LENGTH_MINS, START_TIME_SEC, END_TIME_SEC)
         save('in/xtr/trip_t_outbound.pkl', trip_times)
         save('in/xtr/departure_headway_outbound.pkl', headway_out)
         save('in/xtr/cv_hw_outbound.pkl', headway_out_cv)
@@ -192,20 +192,59 @@ def get_params_inbound():
     return trip_times1_params, trip_times2_params, trips1_out_info, trips2_out_info, deadhead_times_params, sched_arrs, dep_delay1_dist_in, dep_delay2_dist_in, trip_t1_dist_in, trip_t2_dist_in
 
 
-# extract_params(inbound_route_params=True)
+extract_params(validation=True)
 arr_delays_long, arr_delays_short, dep_delays_long, dep_delays_short = analyze_inbound(path_avl, START_TIME_SEC, END_TIME_SEC, DELAY_INTERVAL_LENGTH_MINS)
 save('in/xtr/arr_delay_long.pkl', arr_delays_long)
 save('in/xtr/arr_delay_short.pkl', arr_delays_short)
 save('in/xtr/dep_delay_long.pkl', dep_delays_long)
 save('in/xtr/dep_delay_short.pkl', dep_delays_short)
 
-in_trip_record = pd.read_pickle('out/NC/0518-202258-in_trip_record.pkl')
-arr_delays_long_sim, arr_delays_short_sim, dep_delays_long_sim, dep_delays_sim = analyze_inbound_results(in_trip_record, START_TIME_SEC, END_TIME_SEC, DELAY_INTERVAL_LENGTH_MINS)
+in_trip_record = pd.read_pickle('out/NC/0519-092526-in_trip_record.pkl')
+arr_delays_long_sim, arr_delays_short_sim, dep_delays_long_sim, dep_delays_short_sim = analyze_inbound_results(in_trip_record, START_TIME_SEC, END_TIME_SEC, DELAY_INTERVAL_LENGTH_MINS)
 
+fig, ax = plt.subplots(nrows=2, ncols=2)
+for i in range(ax.size):
+    ax.flat[i].hist([arr_delays_short[i], arr_delays_short_sim[i]], density=True)
+plt.tight_layout()
+plt.savefig('out/compare/validate/arr_delays_in_short.png')
+plt.close()
+
+fig, ax = plt.subplots(nrows=2, ncols=2)
+for i in range(ax.size):
+    ax.flat[i].hist([arr_delays_long[i], arr_delays_long_sim[i]], density=True)
+plt.tight_layout()
+plt.savefig('out/compare/validate/arr_delays_in_long.png')
+plt.close()
+
+fig, ax = plt.subplots(nrows=2, ncols=2)
+for i in range(ax.size):
+    ax.flat[i].hist([dep_delays_short[i], dep_delays_short_sim[i]], density=True)
+plt.tight_layout()
+plt.savefig('out/compare/validate/dep_delays_in_short.png')
+plt.close()
+
+fig, ax = plt.subplots(nrows=2, ncols=2)
+for i in range(ax.size):
+    ax.flat[i].hist([dep_delays_long[i], dep_delays_long_sim[i]], density=True)
+plt.tight_layout()
+plt.savefig('out/compare/validate/dep_delays_in_long.png')
+plt.close()
 
 STOPS_OUTBOUND, LINK_TIMES_INFO, TRIPS_OUT_INFO, SCALED_ODT_RATES, ODT_STOP_IDS, SCHED_ARRS_OUT, ODT_RATES_OLD, DEP_DELAY_DIST_OUT = get_params_outbound()
 TRIP_TIMES1_PARAMS, TRIP_TIMES2_PARAMS, TRIPS1_IN_INFO, TRIPS2_IN_INFO, DEADHEAD_TIME_PARAMS, SCHED_ARRS_IN, DEP_DELAY1_DIST_IN, DEP_DELAY2_DIST_IN, TRIP_T1_DIST_IN, TRIP_T2_DIST_IN = get_params_inbound()
 
+hw_out_cv = load('in/xtr/cv_hw_out2.pkl')
+out_trip_record = pd.read_pickle('out/NC/0519-092526-out_trip_record.pkl')
+hw_out_cv_sim = cv_headway_by_interval(out_trip_record, START_TIME_SEC, END_TIME_SEC, DELAY_INTERVAL_LENGTH_MINS, STOPS_OUTBOUND)
+fig, ax = plt.subplots(nrows=2, ncols=2, sharey='all')
+for i in range(ax.size):
+    ax.flat[i].plot(hw_out_cv[i], label='avl')
+    ax.flat[i].plot(hw_out_cv_sim[i], label='sim')
+# plt.ylim(0.2, 1.2)
+plt.legend()
+plt.tight_layout()
+plt.savefig('out/compare/validate/cv_hw.png')
+plt.close()
 
 trip_t1_dist_in_samp = [[] for _ in range(len(TRIP_T1_DIST_IN))]
 trip_t2_dist_in_samp = [[] for _ in range(len(TRIP_T2_DIST_IN))]

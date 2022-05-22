@@ -10,7 +10,6 @@ from pre_process import get_interval
 
 
 def analyze_inbound_results(avl_df, start_time, end_time, delay_interval_length):
-
     end_terminal_id = 386
     terminal_seq_long = 63
     terminal_seq_short = 23
@@ -46,7 +45,7 @@ def analyze_inbound_results(avl_df, start_time, end_time, delay_interval_length)
 
         temp_df = arr_short_df[arr_short_df['schd_sec'] >= interval * delay_interval_length * 60]
         temp_df = temp_df[temp_df['schd_sec'] <= (interval + 1) * delay_interval_length * 60]
-        temp_df['delay'] = temp_df['avl_arr_sec'] - temp_df['schd_sec']
+        temp_df['delay'] = temp_df['arr_sec'] - temp_df['schd_sec']
         d = temp_df['delay']
         arr_delays_short.append(d.tolist())
 
@@ -62,21 +61,72 @@ def analyze_inbound_results(avl_df, start_time, end_time, delay_interval_length)
         temp_df['delay'] = temp_df['arr_sec'] - temp_df['schd_sec']
         d = temp_df['delay']
         dep_delays_short.append(d.tolist())
-
-    # short
-
-    # fig, ax = plt.subplots(nrows=3, ncols=2)
-    # for i in range(len(arr_delays_short)):
-    #     ax.flat[i].hist([dep_delays_short[i], arr_delays_short[i]])
-    # plt.show()
-    # plt.close()
-    #
-    # fig, ax = plt.subplots(nrows=3, ncols=2)
-    # for i in range(len(arr_delays_long)):
-    #     ax.flat[i].hist([dep_delays_long[i], arr_delays_long[i]])
-    # plt.show()
-    # plt.close()
     return arr_delays_long, arr_delays_short, dep_delays_long, dep_delays_short
+
+
+def analyze_outbound_results(avl_df, start_time, end_time, delay_interval_length):
+    end_terminal_id = 386
+    terminal_seq_long = 67
+
+    arr_delays = []
+    # arrivals
+    arr_long_df = avl_df[avl_df['stop_id'] == str(end_terminal_id)]
+    arr_long_df = arr_long_df[arr_long_df['stop_sequence'] == terminal_seq_long]
+
+    start_terminal_id_long = 386
+
+    dep_delays = []
+    # departures
+    dep_long_df = avl_df[avl_df['stop_id'] == str(start_terminal_id_long)]
+
+    interval0 = get_interval(start_time, delay_interval_length)
+    interval1 = get_interval(end_time, delay_interval_length)
+
+    for interval in range(interval0, interval1):
+        # arrivals
+        temp_df = arr_long_df[arr_long_df['schd_sec']>=interval*delay_interval_length*60]
+        temp_df = temp_df[temp_df['schd_sec']<=(interval+1)*delay_interval_length*60]
+        temp_df['delay'] = temp_df['arr_sec'] - temp_df['schd_sec']
+        d = temp_df['delay']
+        arr_delays.append(d.tolist())
+
+        # departures
+        temp_df = dep_long_df[dep_long_df['schd_sec'] >= interval * delay_interval_length * 60]
+        temp_df = temp_df[temp_df['schd_sec'] <= (interval + 1) * delay_interval_length * 60]
+        temp_df['delay'] = temp_df['arr_sec'] - temp_df['schd_sec']
+        d = temp_df['delay']
+        dep_delays.append(d.tolist())
+    return arr_delays, dep_delays
+
+
+def cv_headway_by_interval(trip_record_df, start_time, end_time, interval_length, stops):
+    nr_replications = trip_record_df['replication'].max()
+    interval0 = get_interval(start_time, interval_length)
+    interval1 = get_interval(end_time, interval_length)
+    hws = [[[] for s in range(len(stops))] for interval in range(interval0, interval1)]
+    for rep_nr in range(1, nr_replications+1):
+        date_df = trip_record_df[trip_record_df['replication'] == rep_nr]
+        for interval in range(interval0, interval1):
+            temp_df = date_df[date_df['schd_sec'] >= interval * interval_length * 60]
+            if interval == interval0:
+                print(f'for hour {interval} we have {temp_df.shape[0]} data')
+            temp_df = temp_df[temp_df['schd_sec'] < (interval + 1) * interval_length * 60]
+            if interval == interval0:
+                print(f'for hour {interval} we have {temp_df.shape[0]} data')
+                print(f'---')
+            for j in range(len(stops)):
+                df = temp_df[temp_df['stop_id'] == stops[j]]
+                df = df.sort_values(by='arr_sec')
+                arr_sec = df['arr_sec'].tolist()
+                if len(arr_sec) > 1:
+                    for i in range(1, len(arr_sec)):
+                        hws[interval-interval0][j].append(arr_sec[i] - arr_sec[i-1])
+    cv_hws = []
+    for interval in range(len(hws)):
+        cv_hws.append([])
+        for stop_idx in range(len(hws[interval])):
+            cv_hws[-1].append(np.std(hws[interval][stop_idx]) / np.mean(hws[interval][stop_idx]))
+    return cv_hws
 
 
 def save(pathname, par):
