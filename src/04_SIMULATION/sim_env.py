@@ -58,8 +58,8 @@ def run_base_detailed(replications=4, save_results=False, time_dep_tt=True, time
         # path_trajectories = 'out/NC/'+tstamp+'-trajectory_set' + ext_var
         # path_completed_pax = 'out/NC/'+tstamp+'-pax_set' + ext_var
 
-        path_out_trip_record = 'out/NC/' + tstamp + '-out_trip_record' + ext_var
-        path_in_trip_record = 'out/NC/' + tstamp + '-in_trip_record' + ext_var
+        path_out_trip_record = 'out/NC/' + tstamp + '-trip_record_outbound' + ext_var
+        path_in_trip_record = 'out/NC/' + tstamp + '-trip_record_inbound' + ext_var
         path_pax_record = 'out/NC/' + tstamp + '-pax_record' + ext_var
 
         out_trip_record = pd.concat(out_trip_record_set, ignore_index=True)

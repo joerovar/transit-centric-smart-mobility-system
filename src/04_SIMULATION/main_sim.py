@@ -205,7 +205,7 @@ def fancy_plots():
 
 N_REPLICATIONS = 40
 
-# run_base_detailed(replications=10, save_results=True)
+run_base_detailed(replications=10, save_results=True)
 # validate_nc()
 # run_base_control_detailed(replications=40, save_results=True)
 # prc = PostProcessor([path_tr_nc_b2, path_tr_eh_b2],

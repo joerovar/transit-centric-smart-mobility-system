@@ -9,8 +9,90 @@ from datetime import timedelta
 from pre_process import get_interval, remove_outliers
 
 
+def validate_delay_inbound(avl_df, sim_df, start_t_sec, end_t_sec, start_interval, interval_mins=60):
+    start_interval = 5
+    arr_delays_long, arr_delays_short, dep_delays_long, dep_delays_short = delay_inbound(avl_df, start_t_sec,
+                                                                                         end_t_sec,
+                                                                                         interval_mins,
+                                                                                         'avl_arr_sec',
+                                                                                         'avl_dep_sec',
+                                                                                         [('15136', 1),
+                                                                                          ('386', 23)],
+                                                                                         [('8613', 1),
+                                                                                          ('386', 63)],
+                                                                                         outlier_removal=True)
+
+    arr_del_long_sim, arr_del_short_sim, dep_del_long_sim, dep_del_short_sim = delay_inbound(sim_df,
+                                                                                             start_t_sec,
+                                                                                             end_t_sec,
+                                                                                             interval_mins,
+                                                                                             'arr_sec',
+                                                                                             'arr_sec',
+                                                                                             [('15136', 1),
+                                                                                              ('386', 23)],
+                                                                                             [('8613', 1),
+                                                                                              ('386', 63)])
+
+    plot_calib_hist(arr_delays_long, arr_del_long_sim, start_interval, 'out/compare/validate/arr_delays_in_long.png',
+                    'arr delay (seconds)')
+    plot_calib_hist(arr_delays_short, arr_del_short_sim, start_interval, 'out/compare/validate/arr_delays_in_short.png',
+                    'arr delay (seconds)')
+    plot_calib_hist(dep_delays_long, dep_del_long_sim, start_interval, 'out/compare/validate/dep_delays_in_long.png',
+                    'dep delay (seconds)')
+    plot_calib_hist(dep_delays_short, dep_del_short_sim, start_interval, 'out/compare/validate/dep_delays_in_short.png',
+                    'dep delay (seconds)')
+    return
+
+
+def validate_delay_outbound(avl_df, sim_df, start_t_sec, end_t_sec, interval_mins=60):
+    start_interval = 5
+    arr_delays_out, dep_delays_out = delay_outbound(avl_df, start_t_sec, end_t_sec, interval_mins,
+                                                    'avl_arr_sec', 'avl_dep_sec', [('386', 1), ('8613', 67)],
+                                                    outlier_removal=True)
+    arr_delays_out_sim, dep_delays_out_sim = delay_outbound(sim_df, start_t_sec, end_t_sec,
+                                                            interval_mins, 'arr_sec', 'dep_sec',
+                                                            [('386', 1), ('8613', 67)])
+    plot_calib_hist(arr_delays_out, arr_delays_out_sim, start_interval, 'out/compare/validate/arr_delays_out.png',
+                    'arr delay (seconds)')
+    plot_calib_hist(dep_delays_out, dep_delays_out_sim, start_interval, 'out/compare/validate/dep_delays_out.png',
+                    'dep delay (seconds)')
+    return
+
+
+def plot_calib_hist(delay_avl, delay_sim, start_interval, filename, xlabel):
+    fig, ax = plt.subplots(nrows=2, ncols=2)
+    for i in range(ax.size):
+        ax.flat[i].hist([delay_avl[i], delay_sim[i]], density=True, label=['avl', 'sim'])
+        ax.flat[i].set_title(f'hour {start_interval + i}')
+        ax.flat[i].set_yticks([])
+        ax.flat[i].set_xlabel(xlabel)
+    plt.tight_layout()
+    plt.legend()
+    plt.savefig(filename)
+    plt.close()
+    return
+
+
+def validate_cv_hw_outbound(avl_df, sim_df, start_t_sec, end_t_sec, interval_min, stops, dates, start_interval=5):
+    hw_out_cv = cv_hw_from_avl(avl_df, start_t_sec, end_t_sec, interval_min, stops, dates)
+    hw_out_cv_sim = cv_hw(sim_df, start_t_sec, end_t_sec, interval_min, stops)
+    fig, ax = plt.subplots(nrows=2, ncols=2, sharey='all', sharex='all')
+    for i in range(ax.size):
+        ax.flat[i].plot(hw_out_cv[i], label='avl')
+        ax.flat[i].plot(hw_out_cv_sim[i], label='sim')
+        ax.flat[i].set_title(f'hour {start_interval+i}')
+        ax.flat[i].set_xlabel('stop')
+    ax[0,0].set_ylabel('c.v. headway')
+    ax[1,0].set_ylabel('c.v. headway')
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig('out/compare/validate/cv_hw.png')
+    plt.close()
+    return
+
+
 def delay_inbound(trips_df, start_time, end_time, delay_interval_length, col_arr_t, col_dep_t, terminals_short,
-                  terminals_long):
+                  terminals_long, outlier_removal=False):
     trips_df['stop_id'] = trips_df['stop_id'].astype(str)
 
     end_terminal_id = terminals_short[1][0]
@@ -50,31 +132,44 @@ def delay_inbound(trips_df, start_time, end_time, delay_interval_length, col_arr
         temp_df = arr_long_df[arr_long_df['schd_sec'] >= interval*delay_interval_length*60]
         temp_df = temp_df[temp_df['schd_sec'] <= (interval+1)*delay_interval_length*60]
         temp_df['delay'] = temp_df[col_arr_t] - temp_df['schd_sec']
-        d = temp_df['delay']
+        if outlier_removal:
+            d = remove_outliers(temp_df['delay'].to_numpy())
+        else:
+            d = temp_df['delay']
         arr_delays_long.append(d.tolist())
 
         temp_df = arr_short_df[arr_short_df['schd_sec'] >= interval * delay_interval_length * 60]
         temp_df = temp_df[temp_df['schd_sec'] <= (interval + 1) * delay_interval_length * 60]
         temp_df['delay'] = temp_df[col_arr_t] - temp_df['schd_sec']
-        d = temp_df['delay']
+        if outlier_removal:
+            d = remove_outliers(temp_df['delay'].to_numpy())
+        else:
+            d = temp_df['delay']
         arr_delays_short.append(d.tolist())
 
         # departures
         temp_df = dep_long_df[dep_long_df['schd_sec'] >= interval * delay_interval_length * 60]
         temp_df = temp_df[temp_df['schd_sec'] <= (interval + 1) * delay_interval_length * 60]
         temp_df['delay'] = temp_df[col_dep_t] - temp_df['schd_sec']
-        d = temp_df['delay']
+        if outlier_removal:
+            d = remove_outliers(temp_df['delay'].to_numpy())
+        else:
+            d = temp_df['delay']
         dep_delays_long.append(d.tolist())
 
         temp_df = dep_short_df[dep_short_df['schd_sec'] >= interval * delay_interval_length * 60]
         temp_df = temp_df[temp_df['schd_sec'] <= (interval + 1) * delay_interval_length * 60]
         temp_df['delay'] = temp_df[col_dep_t] - temp_df['schd_sec']
-        d = temp_df['delay']
+        if outlier_removal:
+            d = remove_outliers(temp_df['delay'].to_numpy())
+        else:
+            d = temp_df['delay']
         dep_delays_short.append(d.tolist())
     return arr_delays_long, arr_delays_short, dep_delays_long, dep_delays_short
 
 
-def delay_outbound(trips_df, start_time, end_time, delay_interval_length, col_arr_t, col_dep_t, terminals_info):
+def delay_outbound(trips_df, start_time, end_time, delay_interval_length, col_arr_t, col_dep_t, terminals_info,
+                   outlier_removal=False):
     trips_df['stop_id'] = trips_df['stop_id'].astype(str)
 
     end_terminal_id = terminals_info[1][0]
@@ -101,14 +196,20 @@ def delay_outbound(trips_df, start_time, end_time, delay_interval_length, col_ar
         temp_df = arr_long_df[arr_long_df['schd_sec']>=interval*delay_interval_length*60]
         temp_df = temp_df[temp_df['schd_sec']<=(interval+1)*delay_interval_length*60]
         temp_df['delay'] = temp_df[col_arr_t] - temp_df['schd_sec']
-        d = temp_df['delay']
+        if outlier_removal:
+            d = remove_outliers(temp_df['delay'].to_numpy())
+        else:
+            d = temp_df['delay']
         arr_delays.append(d.tolist())
 
         # departures
         temp_df = dep_long_df[dep_long_df['schd_sec'] >= interval * delay_interval_length * 60]
         temp_df = temp_df[temp_df['schd_sec'] <= (interval + 1) * delay_interval_length * 60]
         temp_df['delay'] = temp_df[col_dep_t] - temp_df['schd_sec']
-        d = temp_df['delay']
+        if outlier_removal:
+            d = remove_outliers(temp_df['delay'].to_numpy())
+        else:
+            d = temp_df['delay']
         dep_delays.append(d.tolist())
     return arr_delays, dep_delays
 

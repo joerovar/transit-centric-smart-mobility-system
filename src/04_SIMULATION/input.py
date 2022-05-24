@@ -1,7 +1,11 @@
-from pre_process import *
+# from pre_process import *
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from pre_process import extract_apc_counts, bi_proportional_fitting, get_trip_times, get_load_profile
 from file_paths import *
 from constants import *
-from post_process import save, load, delay_inbound, cv_hw, delay_outbound, cv_hw_from_avl
+from post_process import save, load
 from datetime import timedelta
 
 
@@ -105,137 +109,6 @@ DEP_DELAY1_DIST_IN = load('in/xtr/dep_delay1_dist_in.pkl')
 DEP_DELAY2_DIST_IN = load('in/xtr/dep_delay2_dist_in.pkl')
 TRIP_T1_DIST_IN = load('in/xtr/trip_t1_dist_in.pkl')
 TRIP_T2_DIST_IN = load('in/xtr/trip_t2_dist_in.pkl')
-
-avl_df = pd.read_csv(path_avl)
-arr_delays_long, arr_delays_short, dep_delays_long, dep_delays_short = delay_inbound(avl_df, START_TIME_SEC,
-                                                                                     END_TIME_SEC,
-                                                                                     DELAY_INTERVAL_LENGTH_MINS,
-                                                                                     'avl_arr_sec',
-                                                                                     'avl_dep_sec',
-                                                                                     [('15136', 1),
-                                                                                      ('386', 23)],
-                                                                                     [('8613', 1),
-                                                                                      ('386', 63)])
-
-in_trip_record = pd.read_pickle('out/NC/0519-092526-in_trip_record.pkl')
-arr_del_long_sim, arr_del_short_sim, dep_del_long_sim, dep_del_short_sim = delay_inbound(in_trip_record,
-                                                                                         START_TIME_SEC,
-                                                                                         END_TIME_SEC,
-                                                                                         DELAY_INTERVAL_LENGTH_MINS,
-                                                                                         'arr_sec',
-                                                                                         'arr_sec',
-                                                                                         [('15136', 1),
-                                                                                          ('386', 23)],
-                                                                                         [('8613', 1),
-                                                                                          ('386', 63)])
-
-fig, ax = plt.subplots(nrows=2, ncols=2)
-for i in range(ax.size):
-    ax.flat[i].hist([arr_delays_short[i], arr_del_short_sim[i]], density=True, label=['avl', 'sim'])
-    ax.flat[i].set_title(f'hour {DELAY_START_INTERVAL + i}')
-    ax.flat[i].set_yticks([])
-    ax.flat[i].set_xlabel('arr delay (seconds)')
-plt.tight_layout()
-plt.legend()
-plt.savefig('out/compare/validate/arr_delays_in_short.png')
-plt.close()
-
-fig, ax = plt.subplots(nrows=2, ncols=2)
-for i in range(ax.size):
-    ax.flat[i].hist([arr_delays_long[i], arr_del_long_sim[i]], density=True, label=['avl', 'sim'])
-    ax.flat[i].set_title(f'hour {DELAY_START_INTERVAL + i}')
-    ax.flat[i].set_yticks([])
-    ax.flat[i].set_xlabel('arr delay (seconds)')
-plt.tight_layout()
-plt.legend()
-plt.savefig('out/compare/validate/arr_delays_in_long.png')
-plt.close()
-
-fig, ax = plt.subplots(nrows=2, ncols=2)
-for i in range(ax.size):
-    ax.flat[i].hist([dep_delays_short[i], dep_del_short_sim[i]], density=True, label=['avl', 'sim'])
-    ax.flat[i].set_title(f'hour {DELAY_START_INTERVAL + i}')
-    ax.flat[i].set_yticks([])
-    ax.flat[i].set_xlabel('dep delay (seconds)')
-plt.tight_layout()
-plt.legend()
-plt.savefig('out/compare/validate/dep_delays_in_short.png')
-plt.close()
-
-fig, ax = plt.subplots(nrows=2, ncols=2)
-for i in range(ax.size):
-    ax.flat[i].hist([dep_delays_long[i], dep_del_long_sim[i]], density=True, label=['avl', 'sim'])
-    ax.flat[i].set_title(f'hour {DELAY_START_INTERVAL + i}')
-    ax.flat[i].set_yticks([])
-    ax.flat[i].set_xlabel('dep delay (seconds)')
-plt.tight_layout()
-plt.legend()
-plt.savefig('out/compare/validate/dep_delays_in_long.png')
-plt.close()
-
-hw_out_cv = cv_hw_from_avl(avl_df, START_TIME_SEC, END_TIME_SEC, 60, STOPS_OUTBOUND, DATES)
-out_trip_record = pd.read_pickle('out/NC/0519-092526-out_trip_record.pkl')
-hw_out_cv_sim = cv_hw(out_trip_record, START_TIME_SEC, END_TIME_SEC, 60, STOPS_OUTBOUND)
-fig, ax = plt.subplots(nrows=2, ncols=2, sharey='all')
-for i in range(ax.size):
-    ax.flat[i].plot(hw_out_cv[i], label='avl')
-    ax.flat[i].plot(hw_out_cv_sim[i], label='sim')
-plt.legend()
-plt.tight_layout()
-plt.savefig('out/compare/validate/cv_hw.png')
-plt.close()
-
-arr_delays_out, dep_delays_out = delay_outbound(avl_df, START_TIME_SEC, END_TIME_SEC, DELAY_INTERVAL_LENGTH_MINS,
-                                                'avl_arr_sec', 'avl_dep_sec', [('386', 1), ('8613', 67)])
-arr_delays_out_sim, dep_delays_out_sim = delay_outbound(out_trip_record, START_TIME_SEC, END_TIME_SEC,
-                                                        DELAY_INTERVAL_LENGTH_MINS, 'arr_sec', 'dep_sec',
-                                                        [('386', 1), ('8613', 67)])
-
-fig, ax = plt.subplots(nrows=2, ncols=2)
-for i in range(ax.size):
-    ax.flat[i].hist([arr_delays_out[i], arr_delays_out_sim[i]], density=True, label=['avl', 'sim'])
-    ax.flat[i].set_yticks([])
-    ax.flat[i].set_xlabel('arr delay (seconds)')
-plt.legend()
-plt.tight_layout()
-plt.savefig('out/compare/validate/arr_delays_out.png')
-plt.close()
-
-fig, ax = plt.subplots(nrows=2, ncols=2, sharey='all')
-for i in range(ax.size):
-    ax.flat[i].hist([dep_delays_out[i], dep_delays_out_sim[i]], density=True, label=['avl', 'sim'])
-    ax.flat[i].set_yticks([])
-    ax.flat[i].set_xlabel('dep delay (seconds)')
-plt.legend()
-plt.tight_layout()
-plt.savefig('out/compare/validate/dep_delays_out.png')
-plt.close()
-
-trip_t1_dist_in_samp = [[] for _ in range(len(TRIP_T1_DIST_IN))]
-trip_t2_dist_in_samp = [[] for _ in range(len(TRIP_T2_DIST_IN))]
-n_samples = 30
-for i in range(len(TRIP_T1_DIST_IN)):
-    sample_percentiles = np.random.uniform(low=0.0, high=100.0, size=n_samples)
-    if TRIP_T1_DIST_IN[i]:
-        trip_t1_dist_in_samp[i] = list(np.percentile(TRIP_T1_DIST_IN[i], sample_percentiles))
-    if TRIP_T2_DIST_IN[i]:
-        trip_t2_dist_in_samp[i] = list(np.percentile(TRIP_T2_DIST_IN[i], sample_percentiles))
-fig, axs = plt.subplots(nrows=2, ncols=2, sharey='col', sharex='col')
-for i in range(2, 4):
-    arr1 = np.array(TRIP_T1_DIST_IN[i]) / 60
-    arr2 = np.array(trip_t1_dist_in_samp[i]) / 60
-    axs[i - 2, 0].hist([arr1, arr2], density=True,
-                       label=['historical', 'sampled'])
-    arr1 = np.array(TRIP_T2_DIST_IN[i]) / 60
-    arr2 = np.array(trip_t2_dist_in_samp[i]) / 60
-    axs[i - 2, 1].hist([arr1, arr2], density=True,
-                       label=['historical', 'sampled'])
-axs[0, 0].set_title('long')
-axs[0, 1].set_title('short')
-plt.legend()
-plt.tight_layout()
-plt.savefig('out/compare/validate/trip_t_inbound.png')
-plt.close()
 
 LINK_TIMES_MEAN, LINK_TIMES_EXTREMES, LINK_TIMES_PARAMS = LINK_TIMES_INFO
 SCALED_ARR_RATES = np.sum(ODT_RATES_SCALED, axis=-1)

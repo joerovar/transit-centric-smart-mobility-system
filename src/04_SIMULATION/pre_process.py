@@ -3,7 +3,14 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.stats import lognorm
-from post_process import save
+# from post_process import save
+import pickle
+
+
+def save(pathname, par):
+    with open(pathname, 'wb') as tf:
+        pickle.dump(par, tf)
+    return
 
 
 def get_interval(t, len_i_mins):
@@ -12,20 +19,22 @@ def get_interval(t, len_i_mins):
     return interval
 
 
-def remove_outliers(data):
+def remove_outliers(data, factor=1.4):
+    # 1.5 is preferred
     if data.any():
         q1 = np.quantile(data, 0.25)
         q3 = np.quantile(data, 0.75)
         iqr = q3 - q1
-        lower_bound = q1 - 1.4 * iqr
-        upper_bound = q3 + 1.4 * iqr
+        lower_bound = q1 - factor * iqr
+        upper_bound = q3 + factor * iqr
         data = data[(data >= lower_bound) & (data <= upper_bound)]
     return data
 
 
-def extract_outbound_params(path_stop_times, start_time_sec, end_time_sec, nr_intervals, start_interval, interval_length,
-              dates, trip_choice, path_avl, delay_interval_length, delay_start_interval,
-              tolerance_early_departure=1.5 * 60):
+def extract_outbound_params(path_stop_times, start_time_sec, end_time_sec, nr_intervals, start_interval,
+                            interval_length,
+                            dates, trip_choice, path_avl, delay_interval_length, delay_start_interval,
+                            tolerance_early_departure=1.5 * 60):
     stop_times_df = pd.read_csv(path_stop_times)
     avl_df = pd.read_csv(path_avl)
 
@@ -49,7 +58,7 @@ def extract_outbound_params(path_stop_times, start_time_sec, end_time_sec, nr_in
     links = [str(s0) + '-' + str(s1) for s0, s1 in zip(stops[:-1], stops[1:])]
     link_times = {link: [[] for _ in range(nr_intervals)] for link in links}
 
-    delay_nr_intervals = int(nr_intervals * interval_length/delay_interval_length)
+    delay_nr_intervals = int(nr_intervals * interval_length / delay_interval_length)
     dep_delay_dist = [[] for _ in range(delay_nr_intervals)]
     dep_delay_ahead_dist = [[] for _ in range(delay_nr_intervals)]
 
@@ -104,9 +113,9 @@ def extract_outbound_params(path_stop_times, start_time_sec, end_time_sec, nr_in
     delay_max = 250
     for i in range(len(dep_delay_dist)):
         arr = np.array(dep_delay_dist[i])
-        arr = arr[(arr >= delay_min) & (arr<delay_max)]
+        arr = arr[(arr >= delay_min) & (arr < delay_max)]
         arr_ah = np.array(dep_delay_ahead_dist[i])
-        arr_ah = arr_ah[(arr_ah>=delay_min) & (arr_ah<delay_max)]
+        arr_ah = arr_ah[(arr_ah >= delay_min) & (arr_ah < delay_max)]
         dep_delay_dist[i] = list(np.clip(arr, a_min=0, a_max=None))
         dep_delay_ahead_dist[i] = list(np.clip(arr_ah, a_min=0, a_max=None))
     fig, axs = plt.subplots(nrows=2, sharex='all')
@@ -159,7 +168,8 @@ def extract_outbound_params(path_stop_times, start_time_sec, end_time_sec, nr_in
     fit_params_link_t['3954-8613'][2] = fit_params_link_t['3954-8613'][3]
     link_times_info = (mean_link_times, extreme_link_times, fit_params_link_t)
 
-    trips_info = [(v, w, x, y, z) for v, w, x, y, z in zip(ordered_trip_ids, ordered_sched_dep, ordered_block_ids, ordered_schedule, ordered_stops)]
+    trips_info = [(v, w, x, y, z) for v, w, x, y, z in
+                  zip(ordered_trip_ids, ordered_sched_dep, ordered_block_ids, ordered_schedule, ordered_stops)]
 
     stop_df = pd.read_csv('in/raw/gtfs/stops.txt')
     stop_df = stop_df[stop_df['stop_id'].isin([int(s) for s in stops])]
@@ -201,8 +211,8 @@ def bi_proportional_fitting(od, target_ons, target_offs):
 
 
 def extract_inbound_params(path_stop_times, start_time, end_time, dates, nr_intervals,
-                            start_interval, interval_length, path_avl, delay_interval_length,
-                            delay_start_interval, tolerance_early_dep=0.5 * 60):
+                           start_interval, interval_length, path_avl, delay_interval_length,
+                           delay_start_interval, tolerance_early_dep=0.5 * 60):
     trip_time_record_long = []
     trip_time_record_short = []
 
@@ -247,7 +257,7 @@ def extract_inbound_params(path_stop_times, start_time, end_time, dates, nr_inte
 
     trip_times1 = [[] for _ in range(nr_intervals)]
 
-    delay_nr_intervals = int(nr_intervals * interval_length/delay_interval_length)
+    delay_nr_intervals = int(nr_intervals * interval_length / delay_interval_length)
     dep_delay1 = [[] for _ in range(delay_nr_intervals)]
     dep_delay_1_ahead = [[] for _ in range(delay_nr_intervals)]
     trip_t1_empirical = [[] for _ in range(nr_intervals)]
@@ -311,7 +321,7 @@ def extract_inbound_params(path_stop_times, start_time, end_time, dates, nr_inte
                     delay_idx = get_interval(schd_sec[0], delay_interval_length) - delay_start_interval
                     trip_t_idx = get_interval(schd_sec[0], delay_interval_length) - start_interval
                     dep_delay2[delay_idx].append(-1 * dep_delay)
-                    if dep_delay <tolerance_early_dep:
+                    if dep_delay < tolerance_early_dep:
                         trip_t2_empirical[trip_t_idx].append(arrival_sec[-1] - dep_sec[0])
                     if stop_seq[1] == 2:
                         dep_delay_ahead = schd_sec[1] - (dep_sec[1] % 86400)
@@ -325,9 +335,9 @@ def extract_inbound_params(path_stop_times, start_time, end_time, dates, nr_inte
     delay1_max = 300
     for i in range(len(dep_delay1)):
         arr = np.array(dep_delay1[i])
-        arr = arr[(arr>=delay1_min) & (arr<delay1_max)]
+        arr = arr[(arr >= delay1_min) & (arr < delay1_max)]
         arr_ah = np.array(dep_delay_1_ahead[i])
-        arr_ah = arr_ah[(arr_ah>delay1_min) & (arr_ah<delay1_max)]
+        arr_ah = arr_ah[(arr_ah > delay1_min) & (arr_ah < delay1_max)]
         dep_delay1[i] = list(np.clip(arr, a_min=0, a_max=None))
         dep_delay_1_ahead[i] = list(np.clip(arr_ah, a_min=0, a_max=None))
 
@@ -336,11 +346,11 @@ def extract_inbound_params(path_stop_times, start_time, end_time, dates, nr_inte
     delay2_max = 200
     for i in range(len(dep_delay2)):
         arr = np.array(dep_delay2[i])
-        arr = arr[(arr>=delay2_min) & (arr<delay2_max)]
+        arr = arr[(arr >= delay2_min) & (arr < delay2_max)]
         arr_ah = np.array(dep_delay_2_ahead[i])
-        arr_ah = arr_ah[(arr_ah>delay2_min) & (arr_ah<delay2_max)]
+        arr_ah = arr_ah[(arr_ah > delay2_min) & (arr_ah < delay2_max)]
 
-        dep_delay2[i] = list(np.clip(arr, a_min=0,a_max=None))
+        dep_delay2[i] = list(np.clip(arr, a_min=0, a_max=None))
         dep_delay_2_ahead[i] = list(np.clip(arr_ah, a_min=0, a_max=None))
 
     fig, axs = plt.subplots(nrows=2, ncols=2, sharex='col', sharey='col')
@@ -349,9 +359,9 @@ def extract_inbound_params(path_stop_times, start_time, end_time, dates, nr_inte
         arr2 = remove_outliers(np.array(trip_t2_empirical[t_idx]))
         trip_t1_empirical[t_idx] = list(arr1)
         trip_t2_empirical[t_idx] = list(arr2)
-        axs[t_idx - 2, 0].hist(arr1/60, ec='black')
+        axs[t_idx - 2, 0].hist(arr1 / 60, ec='black')
         if arr2.size:
-            axs[t_idx - 2, 1].hist(arr2/60, ec='black')
+            axs[t_idx - 2, 1].hist(arr2 / 60, ec='black')
     axs[-1, 0].set_xlabel('trip time (min)')
     axs[-1, 1].set_xlabel('trip time (min)')
     axs[0, 0].set_title('long')
@@ -371,8 +381,10 @@ def extract_inbound_params(path_stop_times, start_time, end_time, dates, nr_inte
 
         trip_times1_params.append(lognorm_params1)
         trip_times2_params.append(lognorm_params2)
-    trips1_info = [(x, y, z, w, v) for x, y, z, w, v in zip(ordered_trip_ids1, ordered_deps1, ordered_block_ids1, ordered_schedules1, ordered_stops1)]
-    trips2_info = [(x, y, z, w, v) for x, y, z, w, v in zip(ordered_trip_ids2, ordered_deps2, ordered_block_ids2, ordered_schedules2, ordered_stops2)]
+    trips1_info = [(x, y, z, w, v) for x, y, z, w, v in
+                   zip(ordered_trip_ids1, ordered_deps1, ordered_block_ids1, ordered_schedules1, ordered_stops1)]
+    trips2_info = [(x, y, z, w, v) for x, y, z, w, v in
+                   zip(ordered_trip_ids2, ordered_deps2, ordered_block_ids2, ordered_schedules2, ordered_stops2)]
 
     save('in/xtr/trips1_info_inbound.pkl', trips1_info)
     save('in/xtr/trips2_info_inbound.pkl', trips2_info)
