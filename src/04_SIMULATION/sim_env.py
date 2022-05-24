@@ -369,7 +369,7 @@ class DetailedSimulationEnv(SimulationEnv):
                     end_edge_interval = start_edge_interval + ODT_INTERVAL_LEN_MIN * 60
                     odt_orig_idx = ODT_STOP_IDS.index(STOPS_OUTBOUND[orig_idx])
                     odt_dest_idx = ODT_STOP_IDS.index(STOPS_OUTBOUND[dest_idx])
-                    od_rate = SCALED_ODT_RATES[interval_idx, odt_orig_idx, odt_dest_idx]
+                    od_rate = ODT_RATES_SCALED[interval_idx, odt_orig_idx, odt_dest_idx]
                     if od_rate > 0:
                         max_size = int(np.ceil(od_rate) * (ODT_INTERVAL_LEN_MIN / 60) * 10)
                         temp_pax_interarr_times = np.random.exponential(3600 / od_rate, size=max_size)
@@ -581,15 +581,8 @@ class DetailedSimulationEnv(SimulationEnv):
             trip = bus.active_trip[0]
             route_type = trip.route_type
             # types {1: long, 2: short}
-            if route_type == 1:
-                next_dep_time = max(bus.dep_t, trip.sched_time)
-            else:
-                # this never happens
-                assert route_type == 2
-                interval = get_interval(bus.dep_t, TRIP_TIME_INTERVAL_LENGTH_MINS) - TRIP_TIME_START_INTERVAL
-                mean, std = DEADHEAD_TIME_PARAMS[interval]
-                deadhead_time = norm.rvs(loc=mean, scale=std)
-                next_dep_time = max(bus.dep_t + deadhead_time, trip.sched_time)
+            assert route_type == 1
+            next_dep_time = max(bus.dep_t, trip.sched_time)
             bus.next_event_time = next_dep_time
             bus.next_event_type = 3
         return
@@ -639,12 +632,6 @@ class DetailedSimulationEnv(SimulationEnv):
             bus.next_event_type = 0
 
         return
-
-    # def chop_pax(self):
-    #     for p in self.completed_pax.copy():
-    #         if p.trip_id not in FOCUS_TRIPS:
-    #             self.completed_pax.remove(p)
-    #     return
 
     def next_event(self):
         active_buses = [bus for bus in self.buses if bus.active_trip]

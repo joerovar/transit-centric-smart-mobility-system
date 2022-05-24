@@ -57,52 +57,52 @@ class PostProcessor:
         cv_hw_tp_set = []
         hw_peak_set = []
         cv_mean_per_stop_set = []
-        for trips in self.cp_trips:
-            temp_cv_hw, cv_hw_tp, cv_hw_mean, hw_peak, cv_mean_per_stop = get_headway_from_trajectory_set(trips, IDX_ARR_T, STOPS_OUTBOUND,
-                                                                                        STOPS_OUTBOUND[50],
-                                                                                        controlled_stops=CONTROLLED_STOPS)
-            cv_hw_tp_set.append(cv_hw_tp)
-            cv_hw_set.append(temp_cv_hw)
-            cv_all_reps.append(cv_hw_mean)
-            hw_peak_set.append(hw_peak)
-            cv_mean_per_stop_set.append(cv_mean_per_stop)
-        if len(self.cp_tags) <= len(self.colors) and plot_cv:
-            plot_headway(cv_mean_per_stop_set, STOPS_OUTBOUND, self.cp_tags, self.colors, pathname=self.path_dir + 'hw.png',
-                         controlled_stops=CONTROLLED_STOPS[:-1])
-        if save_nc:
-            save(self.path_dir + 'cv_hw_sim.pkl', cv_mean_per_stop_set[0])
-        results_hw = {'cv_h_tp': [np.around(np.mean(cv), decimals=2) for cv in cv_hw_tp_set],
-                      'err_cv_h_tp': [np.around(np.power(1.96, 2) * np.var(cv) / np.sqrt(self.nr_reps), decimals=3)
-                                      for cv in cv_hw_tp_set],
-                      'h_pk': [np.around(np.mean(hw), decimals=2) for hw in hw_peak_set],
-                      'std_h_pk': [np.around(np.std(hw), decimals=2) for hw in hw_peak_set],
-                      '95_h_pk': [np.around(np.percentile(hw, 95), decimals=2) for hw in hw_peak_set]}
-        # cv_hw_tp_set is for whisker plot
-        if plot_bars:
-            tags = self.cp_tags
-            idx_control_stops = [STOPS_OUTBOUND.index(cs) + 1 for cs in CONTROLLED_STOPS[:-1]]
-            cv_tp_set = []
-            for cv in cv_hw_set:
-                cv_tp_set.append([cv[k] for k in idx_control_stops])
-            x = np.arange(len(idx_control_stops))
-            width = 0.1
-            fig, ax = plt.subplots()
-            print(cv_tp_set)
-            bar1 = ax.bar(x - 3 * width / 2, cv_tp_set[0], width, label=tags[0], color='white', edgecolor='black')
-            bar2 = ax.bar(x - width / 2, cv_tp_set[1], width, label=tags[1], color='silver', edgecolor='black')
-            bar3 = ax.bar(x + width / 2, cv_tp_set[2], width, label=tags[2], color='gray', edgecolor='black')
-            bar4 = ax.bar(x + 3 * width / 2, cv_tp_set[3], width, label=tags[3], color='black', edgecolor='black')
+        # for trips in self.cp_trips:
+            # temp_cv_hw, cv_hw_tp, cv_hw_mean, hw_peak, cv_mean_per_stop = get_headway_from_trajectory_set(trips, IDX_ARR_T, STOPS_OUTBOUND,
+            #                                                                             STOPS_OUTBOUND[50],
+            #                                                                             controlled_stops=CONTROLLED_STOPS)
+            # cv_hw_tp_set.append(cv_hw_tp)
+            # cv_hw_set.append(temp_cv_hw)
+            # cv_all_reps.append(cv_hw_mean)
+            # hw_peak_set.append(hw_peak)
+            # cv_mean_per_stop_set.append(cv_mean_per_stop)
+        # if len(self.cp_tags) <= len(self.colors) and plot_cv:
+        #     plot_headway(cv_mean_per_stop_set, STOPS_OUTBOUND, self.cp_tags, self.colors, pathname=self.path_dir + 'hw.png',
+        #                  controlled_stops=CONTROLLED_STOPS[:-1])
+        # if save_nc:
+        #     save(self.path_dir + 'cv_hw_sim.pkl', cv_mean_per_stop_set[0])
+        # results_hw = {'cv_h_tp': [np.around(np.mean(cv), decimals=2) for cv in cv_hw_tp_set],
+        #               'err_cv_h_tp': [np.around(np.power(1.96, 2) * np.var(cv) / np.sqrt(self.nr_reps), decimals=3)
+        #                               for cv in cv_hw_tp_set],
+        #               'h_pk': [np.around(np.mean(hw), decimals=2) for hw in hw_peak_set],
+        #               'std_h_pk': [np.around(np.std(hw), decimals=2) for hw in hw_peak_set],
+        #               '95_h_pk': [np.around(np.percentile(hw, 95), decimals=2) for hw in hw_peak_set]}
+        # # cv_hw_tp_set is for whisker plot
+        # if plot_bars:
+        #     tags = self.cp_tags
+        #     idx_control_stops = [STOPS_OUTBOUND.index(cs) + 1 for cs in CONTROLLED_STOPS[:-1]]
+        #     cv_tp_set = []
+        #     for cv in cv_hw_set:
+        #         cv_tp_set.append([cv[k] for k in idx_control_stops])
+        #     x = np.arange(len(idx_control_stops))
+        #     width = 0.1
+        #     fig, ax = plt.subplots()
+        #     print(cv_tp_set)
+        #     bar1 = ax.bar(x - 3 * width / 2, cv_tp_set[0], width, label=tags[0], color='white', edgecolor='black')
+        #     bar2 = ax.bar(x - width / 2, cv_tp_set[1], width, label=tags[1], color='silver', edgecolor='black')
+        #     bar3 = ax.bar(x + width / 2, cv_tp_set[2], width, label=tags[2], color='gray', edgecolor='black')
+        #     bar4 = ax.bar(x + 3 * width / 2, cv_tp_set[3], width, label=tags[3], color='black', edgecolor='black')
+        #
+        #     ax.set_ylabel('coefficient of variation of headway')
+        #     ax.set_xlabel('control stop')
+        #     ax.set_xticks(x, idx_control_stops)
+        #     ax.legend()
+        #
+        #     fig.tight_layout()
+        #     plt.savefig(self.path_dir + 'cv_hw_bar.png')
+        #     plt.close()
 
-            ax.set_ylabel('coefficient of variation of headway')
-            ax.set_xlabel('control stop')
-            ax.set_xticks(x, idx_control_stops)
-            ax.legend()
-
-            fig.tight_layout()
-            plt.savefig(self.path_dir + 'cv_hw_bar.png')
-            plt.close()
-
-        return results_hw
+        return
 
     def load_profile(self, plot_grid=False, plot_single=False):
         load_profile_set = []
@@ -188,10 +188,10 @@ class PostProcessor:
         return results_tt
 
     def validation(self):
-        temp_cv_hw, cv_hw_tp, cv_hw_mean, hw_peak = get_headway_from_trajectory_set(self.cp_trips[0], IDX_ARR_T, STOPS_OUTBOUND,
-                                                                                    STOPS_OUTBOUND[50],
-                                                                                    controlled_stops=CONTROLLED_STOPS)
-        cv_hw_set = [cv_hw_tp]
+        # temp_cv_hw, cv_hw_tp, cv_hw_mean, hw_peak = get_headway_from_trajectory_set(self.cp_trips[0], IDX_ARR_T, STOPS_OUTBOUND,
+        #                                                                             STOPS_OUTBOUND[50],
+        #                                                                             controlled_stops=CONTROLLED_STOPS)
+        cv_hw_set = []
         plot_headway(cv_hw_set, STOPS_OUTBOUND, self.cp_tags, self.colors, pathname=self.path_dir + 'hw.png',
                      controlled_stops=CONTROLLED_STOPS[:-1])
         return
@@ -207,16 +207,6 @@ class PostProcessor:
         load_profile_set.append(lp_input)
         plot_load_profile_benchmark(load_profile_set, STOPS_OUTBOUND, ['simulated', 'observed'], self.colors,
                                     pathname='out/validation/lp.png', x_y_lbls=['stop id', 'avg load per trip'])
-        return
-
-    def departure_delay_validation(self):
-        dep_delay_in_input = load('in/xtr/dep_delay_in.pkl')
-        dep_delay_in_simul = get_departure_delay(self.cp_trips[0], IDX_DEP_T, TRIP_IDS_OUT, SCHED_DEP_OUT)
-        sns.kdeplot(dep_delay_in_input, label='observed')
-        sns.kdeplot(dep_delay_in_simul, label='simulated')
-        plt.legend()
-        plt.savefig('out/validation/dep_delay.png')
-        plt.close()
         return
 
     def pax_profile_base(self):

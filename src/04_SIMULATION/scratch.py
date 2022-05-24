@@ -1,23 +1,15 @@
-import random
-import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 from input import FOCUS_TRIPS
-# from input import STOPS_OUTBOUND
-from post_process import save, load
-from pre_process import bi_proportional_fitting
 
 trajectories_inbound = pd.read_csv('in/vis/trajectories_inbound.csv')
 trajectories_outbound = pd.read_csv('in/vis/trajectories_outbound.csv')
 block_info = pd.read_csv('in/vis/block_info.csv')
-# print(trajectories_outbound.shape[0]+trajectories_inbound.shape[0])
 
 block_info = block_info[['trip_id', 'block_id', 'route_type']]
 trajectories_df = pd.concat([trajectories_outbound, trajectories_inbound], axis=0, ignore_index=True)
-# print(trajectories_df.shape[0])
 
 trajectories_df = trajectories_df.merge(block_info, on='trip_id')
-# print(trajectories_df['block_id'].isna().sum())
 focus_blocks = block_info[block_info['trip_id'].isin(FOCUS_TRIPS)]['block_id'].unique()
 trajectories_df = trajectories_df[trajectories_df['block_id'].isin(focus_blocks)]
 trajectories_df['stop_direction'] = trajectories_df['stop_id'].astype(str) + '_' + trajectories_df['route_type'].astype(str)

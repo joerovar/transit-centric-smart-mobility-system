@@ -27,8 +27,8 @@ def validate_nc():
     results = {}
     results.update(prc.headway(save_nc=True))
     results.update(prc.trip_times(keep_nc=True))
-    cv_hw_observed = load('in/xtr/cv_hw_outbound.pkl')
-    # cv_hw_observed = load('in/xtr/cv_hw_out2.pkl')
+    # cv_hw_observed = load('in/xtr/cv_hw_outbound.pkl')
+    cv_hw_observed = load('in/xtr/cv_hw_out2.pkl')
     cv_hw_sim = load('out/compare/validate/cv_hw_sim.pkl')
     plt.plot(cv_hw_observed, label='observed')
     plt.plot(cv_hw_sim, label='simulated')
@@ -122,7 +122,7 @@ def sensitivity_run_t(compute_rbt=False):
 
     rbt_od_set = load(path_dir_s1 + 'rbt_numer.pkl')
     wt_all_set = load(path_dir_s1 + 'wt_numer.pkl')
-    plot_sensitivity_whisker_run_t(rbt_od_set, wt_all_set, ['EH', 'DDQN-LA (NR)' ,'DDQN-LA (R)', 'DDQN-HA (NR)', 'DDQN-HA (R)'],
+    plot_sensitivity_whisker_run_t(rbt_od_set, wt_all_set, ['EH', 'DDQN-LA (NR)','DDQN-LA (R)', 'DDQN-HA (NR)', 'DDQN-HA (R)'],
                              ['cv: -20%', 'cv: base', 'cv: +20%'], ['EH', 'DDQN-LA', 'DDQN-HA'],
                              'reliability buffer time (min)', 'avg pax wait time (min)', path_dir_s1 + 'pax_times.png')
     results.update({'rbt_od': [np.around(np.mean(rbt), decimals=2) for rbt in rbt_od_set]})

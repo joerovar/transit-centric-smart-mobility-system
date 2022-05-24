@@ -183,7 +183,7 @@ if __name__ == '__main__':
                         action = agent.choose_action(observation)
                     env.take_action(action)
                 done = env.prep()
-            env.process_results()
+            # env.process_results()
             trajectories_set.append(env.trajectories_out)
             sars_set.append(env.trips_sars)
             pax_set.append(env.completed_pax)
