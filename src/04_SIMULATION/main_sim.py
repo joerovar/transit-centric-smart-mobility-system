@@ -18,42 +18,6 @@ def run_benchmark(base=True, base_control=True, control_strength=0.7, hold_adj_f
     return
 
 
-def validate_nc():
-    prc = PostProcessor([path_tr_nc_b2],
-                        [path_p_nc_b2], ['NC'], N_REPLICATIONS,
-                        'out/compare/validate/')
-    prc.pax_profile_base()
-    prc.write_trajectories(only_nc=True)
-    results = {}
-    results.update(prc.headway(save_nc=True))
-    results.update(prc.trip_times(keep_nc=True))
-    # cv_hw_observed = load('in/xtr/cv_hw_outbound.pkl')
-    cv_hw_observed = load('in/xtr/cv_hw_out2.pkl')
-    cv_hw_sim = load('out/compare/validate/cv_hw_sim.pkl')
-    plt.plot(cv_hw_observed, label='observed')
-    plt.plot(cv_hw_sim, label='simulated')
-    plt.xlabel('stop')
-    plt.ylabel('headway coefficient of variation')
-    plt.legend()
-    plt.savefig('out/compare/validate/cv_hw.png')
-    plt.close()
-    trip_t_obs = load('in/xtr/trip_t_outbound.pkl')
-    t_out = load('out/compare/validate/trip_t_sim.pkl')
-    fig, ax = plt.subplots(1, sharex='all')
-    ax.hist([[i / 60 for i in trip_t_obs], [t / 60 for t in t_out]], color=['black', 'gray'], alpha=0.5,
-            density=True, label=['observed', 'simulated'], bins=12, ec='black')
-    ax.set_xlabel('trip time (min)')
-    # ax.set_yticks(np.arange(0.0, 0.16, 0.04))
-    # ax.set_yticklabels([str(f) + '%' for f in range(0, 16, 4)])
-    ax.set_ylabel('frequency (%)')
-    # plt.xlim(60, 81.0)
-    fig.legend()
-    plt.tight_layout()
-    plt.savefig('out/compare/validate/trip_t.png')
-    plt.close()
-    return
-
-
 def weight_comparison(compute_rbt=False):
     prc_w = PostProcessor([path_tr_ddqn_ha3, path_tr_ddqn_ha5, path_tr_ddqn_ha7, path_tr_ddqn_ha9, path_tr_ddqn_ha11],
                           [path_p_ddqn_ha3, path_p_ddqn_ha5, path_p_ddqn_ha7, path_p_ddqn_ha9, path_p_ddqn_ha11],

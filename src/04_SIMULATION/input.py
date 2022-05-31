@@ -122,9 +122,11 @@ trips_in2 = [(x, y, str(timedelta(seconds=y)), z, 2, w, v) for x, y, z, w, v in 
 
 trips_df = pd.DataFrame(trips_out + trips_in1 + trips_in2,
                         columns=['trip_id', 'schd_sec', 'schd_time', 'block_id', 'route_type', 'schedule', 'stops'])
+schedule = trips_df.loc[trips_df['trip_id'] == 911880020, 'schedule'].iloc[0]
+stops = trips_df.loc[trips_df['trip_id'] == 911880020, 'stops'].iloc[0]
+# print(type(stops[-1]))
 trips_df['block_id'] = trips_df['block_id'].astype(str).str[6:].astype(int)
 trips_df = trips_df.sort_values(by=['block_id', 'schd_sec'])
-# trips_df.to_csv('in/vis/block_info.csv', index=False)
 block_ids = trips_df['block_id'].unique().tolist()
 BLOCK_TRIPS_INFO = []
 BLOCK_DICT = {}

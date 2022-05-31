@@ -62,6 +62,23 @@ N_STATE_PARAMS_RL = 6
 [IDX_RT_PROGRESS, IDX_LOAD_RL, IDX_FW_H, IDX_BW_H, IDX_PAX_AT_STOP, IDX_PREV_FW_H] = [i for i in
                                                                                       range(N_STATE_PARAMS_RL)]
 SKIP_ACTION = 0
+
+LEARN_RATE = 0.0001
+EPS_MIN = 0.01
+DISCOUNT_FACTOR = 0.985
+EPS_DEC = 1.5e-5
+EPS = 0.64
+MAX_MEM = 8000
+BATCH_SIZE = 32
+EPISODES_REPLACE = 600
+FC_DIMS = 256
+ALGO = 'DDQNAgent'
+WEIGHT_RIDE_T = 0.0
+TT_FACTOR = 1.0
+HOLD_ADJ_FACTOR = 0.0
+ESTIMATED_PAX = False
+NETS_PATH = 'out/trained_nets/'
+
 # WEIGHT_WAIT_TIME = 1.4
 
 INBOUND_SHORT_START_STOP = '15136'

@@ -8,11 +8,6 @@ from agents_sim import Passenger, Stop, Bus, TripLog
 
 def run_base_detailed(replications=4, save_results=False, time_dep_tt=True, time_dep_dem=True):
     tstamp = datetime.now().strftime('%m%d-%H%M%S')
-    # all_trajectories_set = []
-    # all_trajectories_in_set = []
-    # trajectories_set = []
-    # pax_set = []
-    # cv_set = []
     out_trip_record_set = []
     in_trip_record_set = []
     pax_record_set = []
@@ -21,15 +16,6 @@ def run_base_detailed(replications=4, save_results=False, time_dep_tt=True, time
         done = env.reset_simulation()
         while not done:
             done = env.prep()
-        # cv_per_stop = []
-        # for s in env.stops:
-        #     arr_times = np.array(s.last_arr_t)
-        #     arr_times = arr_times[(arr_times>FOCUS_START_TIME_SEC) & (arr_times<FOCUS_END_TIME_SEC+3600)]
-        #     arr_times = arr_times.tolist()
-        #     hw = [arr_times[i] - arr_times[i-1] for i in range(1, len(arr_times))]
-        #     cv = np.std(hw) / np.mean(hw)
-        #     cv_per_stop.append(cv)
-        # cv_set.append(cv_per_stop)
         if save_results:
             out_trip_record_df = pd.DataFrame(env.out_trip_record, columns=OUT_TRIP_RECORD_COLS)
             out_trip_record_df['replication'] = pd.Series([i+1 for _ in range(len(out_trip_record_df.index))])
@@ -43,21 +29,7 @@ def run_base_detailed(replications=4, save_results=False, time_dep_tt=True, time
             pax_record_df['replication'] = pd.Series([i+1 for _ in range(len(in_trip_record_df.index))])
             pax_record_set.append(pax_record_df)
 
-            # all_trajectories_set.append(env.trajectories_out)
-            # all_trajectories_in_set.append(env.trajectories_in)
-            # env.process_results()
-            # trajectories_set.append(env.trajectories_out)
-            # pax_set.append(env.completed_pax)
-    # plt.plot(np.array(cv_set).mean(axis=0))
-    # plt.show()
-    # plt.close()
-
     if save_results:
-        # path_all_trajectories = 'out/NC/'+ tstamp + '-all_trajectory_set' + ext_var
-        # path_all_trajectories_in = 'out/NC/' + tstamp + '-all_trajectory_in_set' + ext_var
-        # path_trajectories = 'out/NC/'+tstamp+'-trajectory_set' + ext_var
-        # path_completed_pax = 'out/NC/'+tstamp+'-pax_set' + ext_var
-
         path_out_trip_record = 'out/NC/' + tstamp + '-trip_record_outbound' + ext_var
         path_in_trip_record = 'out/NC/' + tstamp + '-trip_record_inbound' + ext_var
         path_pax_record = 'out/NC/' + tstamp + '-pax_record' + ext_var
@@ -69,10 +41,6 @@ def run_base_detailed(replications=4, save_results=False, time_dep_tt=True, time
         out_trip_record.to_pickle(path_out_trip_record)
         in_trip_record.to_pickle(path_in_trip_record)
         pax_record.to_pickle(path_pax_record)
-        # save(path_all_trajectories, all_trajectories_set)
-        # save(path_trajectories, trajectories_set)
-        # save(path_completed_pax, pax_set)
-        # save(path_all_trajectories_in, all_trajectories_in_set)
     return
 
 
@@ -105,38 +73,6 @@ def run_base_control_detailed(replications=2, control_strength=0.7,
     return
 
 
-def run_sample_rl(episodes=1, simple_reward=False, weight_ride_t=0.0):
-    tstamp = datetime.now().strftime('%m%d-%H%M%S')
-    for _ in range(episodes):
-        env = DetailedSimulationEnvWithDeepRL(estimate_pax=True, weight_ride_t=weight_ride_t)
-        done = env.reset_simulation()
-        done = env.prep()
-        while not done:
-            trip_id = env.bus.active_trip[0].trip_id
-            all_sars = env.trips_sars[trip_id]
-            if not env.bool_terminal_state:
-                observation = np.array(all_sars[-1][0], dtype=np.float32)
-                route_progress = observation[IDX_RT_PROGRESS]
-                pax_at_stop = observation[IDX_PAX_AT_STOP]
-                curr_stop = [s for s in env.stops if s.stop_id == env.bus.last_stop_id]
-                previous_denied = False
-                for p in curr_stop[0].pax.copy():
-                    if p.arr_time <= env.time:
-                        if p.denied:
-                            previous_denied = True
-                            break
-                    else:
-                        break
-                if route_progress == 0.0 or pax_at_stop == 0 or previous_denied:
-                    action = random.randint(1, 4)
-                else:
-                    action = random.randint(0, 4)
-                env.take_action(action)
-            env.update_rewards(simple_reward=simple_reward)
-            done = env.prep()
-    return
-
-
 def get_interval(t, interval_length):
     # time in seconds, interval length in minutes
     interval = int(t / (interval_length * 60))
@@ -165,7 +101,6 @@ def estimate_arrival_time(start_time, start_stop, end_stop, time_dependent_tt, c
 
 
 def _compute_reward(action, fw_h, bw_h, prev_bw_h, prev_fw_h, prev_pax_at_s):
-
     hw_diff0 = abs(prev_fw_h - prev_bw_h)
     hw_diff1 = abs(fw_h - bw_h)
     reward = hw_diff0 - hw_diff1
@@ -268,7 +203,14 @@ class DetailedSimulationEnv(SimulationEnv):
         bus = self.bus
         trip_id = bus.active_trip[0].trip_id
         stop_idx = STOPS_OUTBOUND.index(bus.last_stop_id)
-        scheduled_sec = bus.active_trip[0].schedule[stop_idx]
+        try:
+            scheduled_sec = bus.active_trip[0].schedule[stop_idx]
+        except IndexError:
+            print(bus.active_trip[0].trip_id)
+            print(f'stop idx {stop_idx}')
+            print(f'schedule length {len(bus.active_trip[0].schedule)}')
+            print(f'schedule {bus.active_trip[0].schedule}')
+            raise
         trajectory = [bus.last_stop_id, round(bus.arr_t, 1), round(bus.dep_t, 1),
                       len(bus.pax), pickups, offs, denied_board, hold, int(skip), scheduled_sec]
         self.trajectories_out[trip_id].append(trajectory)
@@ -390,7 +332,6 @@ class DetailedSimulationEnv(SimulationEnv):
             for o, d, at in zip(pax_sorted_info['o_idx'], pax_sorted_info['d_idx'],
                                 pax_sorted_info['arr_t']):
                 self.stops[orig_idx].pax.append(Passenger(o, d, at))
-        # print([counter, round(counter_od_interv_1, 1), round(counter_od_interv_2, 1)])
         return
 
     def fixed_stop_unload(self):
@@ -407,7 +348,6 @@ class DetailedSimulationEnv(SimulationEnv):
         for p in self.bus.pax.copy():
             if p.dest_idx == curr_stop_idx:
                 p.alight_time = float(self.time)
-                # p.journey_time = float(p.alight_time - p.arr_time)
                 self.completed_pax.append(p)
                 self.bus.active_trip[0].completed_pax.append(p)
                 self.completed_pax_record.append([p.orig_idx, p.dest_idx, p.arr_time, p.board_time, p.alight_time,
@@ -674,17 +614,6 @@ class DetailedSimulationEnv(SimulationEnv):
             self.inbound_arrival()
             return False
 
-    # def chop_trajectories(self):
-    #     for trip in self.trajectories_out.copy():
-    #         if trip not in FOCUS_TRIPS:
-    #             self.trajectories_out.pop(trip)
-    #     return
-
-    # def process_results(self):
-    #     self.chop_trajectories()
-    #     self.chop_pax()
-    #     return
-
 
 class DetailedSimulationEnvWithControl(DetailedSimulationEnv):
     def __init__(self, control_strength=0.7, *args, **kwargs):
@@ -890,8 +819,10 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
         runtime = self.get_travel_time()
         bus.next_event_time = bus.dep_t + runtime
 
-        last_stop_trip = bus.active_trip[0].stops[-1]
-        bus.next_event_type = 2 if bus.next_stop_id == last_stop_trip else 1
+        last_stop = bus.active_trip[0].stops[-1]
+        bus.next_event_type = 2 if bus.next_stop_id == last_stop else 1
+        if TRIP_IDS_OUT[trip_idx] == 911880020 and curr_stop_idx > 60:
+            print(f'for last stop id {last_stop} next stop is {bus.next_stop_id} with index {curr_stop_idx} therefore next event type is {bus.next_event_type}')
         self.record_trajectories(pickups=bus.ons, offs=bus.offs, denied_board=bus.denied, hold=hold, skip=skip)
         return
 
@@ -1150,3 +1081,4 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
         if self.bus.next_event_type == 4:
             self.inbound_arrival()
             return self.prep()
+
