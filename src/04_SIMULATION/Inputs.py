@@ -94,6 +94,11 @@ OUT_TRIP_RECORD_COLS = ['trip_id', 'stop_id', 'arr_sec', 'dep_sec', 'pax_load', 
 IN_TRIP_RECORD_COLS = ['trip_id', 'stop_id', 'arr_sec', 'schd_sec', 'stop_sequence']
 PAX_RECORD_COLS = ['orig_idx', 'dest_idx', 'arr_time', 'board_time', 'alight_time', 'trip_id', 'denied']
 
+# TERMINAL DISPATCHING PARAMS
+EARLY_DEP_LIMIT_SEC = 60 # seconds
+MAX_DELAY_FOR_CONTROL = 120 # seconds
+IMPOSED_DELAY_LIMIT = 90
+HOLD_INTERVALS = 30
 # extract_demand(ODT_INTERVAL_LEN_MIN, DATES)
 # extract_outbound_params(path_stop_times, START_TIME_SEC, END_TIME_SEC, TIME_NR_INTERVALS,
 #                         TIME_START_INTERVAL, TIME_INTERVAL_LENGTH_MINS, DATES,
@@ -111,6 +116,7 @@ ODT_RATES_SCALED = np.load('in/xtr/rt_20_odt_rates_30_scaled.npy')
 ODT_STOP_IDS = list(np.load('in/xtr/rt_20_odt_stops.npy'))
 ODT_STOP_IDS = [str(int(s)) for s in ODT_STOP_IDS]
 DEP_DELAY_DIST_OUT = load('in/xtr/dep_delay_dist_out.pkl')
+
 
 # INBOUND
 TRIP_TIMES1_PARAMS = load('in/xtr/trip_time1_params.pkl')
@@ -134,25 +140,18 @@ trips_in2 = [(x, y, str(timedelta(seconds=y)), z, 2, w, v) for x, y, z, w, v in 
 
 trips_df = pd.DataFrame(trips_out + trips_in1 + trips_in2,
                         columns=['trip_id', 'schd_sec', 'schd_time', 'block_id', 'route_type', 'schedule', 'stops'])
-schedule = trips_df.loc[trips_df['trip_id'] == 911880020, 'schedule'].iloc[0]
-stops = trips_df.loc[trips_df['trip_id'] == 911880020, 'stops'].iloc[0]
-# print(type(stops[-1]))
 trips_df['block_id'] = trips_df['block_id'].astype(str).str[6:].astype(int)
 trips_df = trips_df.sort_values(by=['block_id', 'schd_sec'])
 block_ids = trips_df['block_id'].unique().tolist()
 BLOCK_TRIPS_INFO = []
-BLOCK_DICT = {}
 # avl_df = pd.read_csv('in/raw/rt20_avl.csv')
 for b in block_ids:
     block_df = trips_df[trips_df['block_id'] == b]
     trip_ids = block_df['trip_id'].tolist()
-    sched_deps = block_df['schd_sec'].tolist()
     lst_stops = block_df['stops'].tolist()
     lst_schedule = block_df['schedule'].tolist()
-    BLOCK_DICT[b] = trip_ids
     route_types = block_df['route_type'].tolist()
-    BLOCK_TRIPS_INFO.append((b, list(zip(trip_ids, sched_deps, route_types, lst_stops, lst_schedule))))
-
+    BLOCK_TRIPS_INFO.append((b, list(zip(trip_ids, route_types, lst_stops, lst_schedule))))
 PAX_INIT_TIME = [0]
 for s0, s1 in zip(STOPS_OUTBOUND, STOPS_OUTBOUND[1:]):
     ltimes = np.array(LINK_TIMES_MEAN[s0 + '-' + s1])

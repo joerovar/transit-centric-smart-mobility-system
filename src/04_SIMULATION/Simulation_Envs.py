@@ -79,9 +79,9 @@ class DetailedSimulationEnv(SimulationEnv):
             # HERE WE TAKE TRIPS THAT ARE MID-ROUTE IN THE INBOUND DIRECTION
             if bus.active_trip and bus.active_trip[0].route_type in [1, 2] and bus.pending_trips:
                 assert bus.next_event_type == 4 or bus.next_event_type == 3
-                prev_dep_t = max(bus.dep_t, bus.active_trip[0].sched_time)
+                prev_dep_t = max(bus.dep_t, bus.active_trip[0].schedule[0])
                 interv_idx = get_interval(prev_dep_t, TRIP_TIME_INTERVAL_LENGTH_MINS) - TRIP_TIME_START_INTERVAL
-                next_sched_t = bus.pending_trips[0].sched_time
+                next_sched_t = bus.pending_trips[0].schedule[0]
                 if bus.active_trip[0].route_type == 1:
                     estimated_in_run_t = np.mean(TRIP_T1_DIST_IN[interv_idx])
                 else:
@@ -211,7 +211,7 @@ class DetailedSimulationEnv(SimulationEnv):
             trip = bus.active_trip[0]
             if trip.route_type == 0:
                 bus.last_stop_id = STOPS_OUTBOUND[0]
-            interval_delay = get_interval(trip.sched_time, DELAY_INTERVAL_LENGTH_MINS) - DELAY_START_INTERVAL
+            interval_delay = get_interval(trip.schedule[0], DELAY_INTERVAL_LENGTH_MINS) - DELAY_START_INTERVAL
             rand_percentile = np.random.uniform(0.0, 100.0)
             if trip.route_type == 0:
                 delay = np.percentile(DEP_DELAY_DIST_OUT[interval_delay], rand_percentile)
@@ -221,7 +221,7 @@ class DetailedSimulationEnv(SimulationEnv):
                 assert trip.route_type == 2
                 delay = np.percentile(DEP_DELAY2_DIST_IN[interval_delay], rand_percentile)
             # random_delay = max(random.uniform(DEP_DELAY_FROM, DEP_DELAY_TO), 0)
-            bus.next_event_time = trip.sched_time + max(delay, 0)
+            bus.next_event_time = trip.schedule[0] + max(delay, 0)
             bus.dep_t = deepcopy(bus.next_event_time)
             bus.next_event_type = 3 if trip.route_type else 0
         # initialize passenger demand
@@ -455,7 +455,7 @@ class DetailedSimulationEnv(SimulationEnv):
             route_type = trip.route_type
             # types {1: long, 2: short}
             assert route_type == 1
-            next_dep_time = max(bus.dep_t, trip.sched_time)
+            next_dep_time = max(bus.dep_t, trip.schedule[0])
             bus.next_event_time = next_dep_time
             bus.next_event_type = 3
         return
@@ -501,9 +501,8 @@ class DetailedSimulationEnv(SimulationEnv):
             bus.pending_trips.pop(0)
             bus.last_stop_id = STOPS_OUTBOUND[0]
             layover = MIN_LAYOVER_T + max(np.random.uniform(-ERR_LAYOVER_TIME, ERR_LAYOVER_TIME), 0)
-            bus.next_event_time = max(self.time + layover, bus.active_trip[0].sched_time)
+            bus.next_event_time = max(self.time + layover, bus.active_trip[0].schedule[0])
             bus.next_event_type = 0
-
         return
 
     def next_event(self):
@@ -672,7 +671,7 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
             if trip.route_type == 0:
                 bus.last_stop_id = STOPS_OUTBOUND[0]
 
-            interval_delay = get_interval(trip.sched_time, DELAY_INTERVAL_LENGTH_MINS) - DELAY_START_INTERVAL
+            interval_delay = get_interval(trip.schedule[0], DELAY_INTERVAL_LENGTH_MINS) - DELAY_START_INTERVAL
             rand_percentile = np.random.uniform(0.0, 100.0)
             if trip.route_type == 0:
                 dep_delay = np.percentile(DEP_DELAY_DIST_OUT[interval_delay], rand_percentile)
@@ -682,7 +681,7 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
                 assert trip.route_type == 2
                 dep_delay = np.percentile(DEP_DELAY2_DIST_IN[interval_delay], rand_percentile)
             # random_delay = max(random.uniform(DEP_DELAY_FROM, DEP_DELAY_TO), 0)
-            bus.next_event_time = trip.sched_time + max(dep_delay, 0)
+            bus.next_event_time = trip.schedule[0] + max(dep_delay, 0)
             bus.dep_t = deepcopy(bus.next_event_time)
             bus.next_event_type = 3 if trip.route_type else 0
         # initialize passenger demand
@@ -1015,3 +1014,175 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
             self.inbound_arrival()
             return self.prep()
 
+
+class DetailedSimulationEnvWithDispatching(DetailedSimulationEnv):
+    def reset_simulation(self):
+        self.time = START_TIME_SEC
+        self.focus_trips_finished = []
+        self.bus = Bus(0, [])
+        # for records
+        self.out_trip_record = []
+        self.in_trip_record = []
+        self.trajectories_out = {}
+        for trip_id in TRIP_IDS_OUT:
+            self.trajectories_out[trip_id] = []
+            self.trip_log.append(TripLog(trip_id, STOPS_OUTBOUND))
+        # initialize buses (we treat each block as a separate bus)
+        self.buses = []
+        for block_trip_set in BLOCK_TRIPS_INFO:
+            block_id = block_trip_set[0]
+            trip_set = block_trip_set[1]
+            self.buses.append(Bus(block_id, trip_set))
+        # initialize bus trips (the first trip for each bus)
+        for bus in self.buses:
+            bus.active_trip.append(bus.pending_trips[0])
+            bus.pending_trips.pop(0)
+            trip = bus.active_trip[0]
+            if trip.route_type == 0:
+                bus.last_stop_id = STOPS_OUTBOUND[0]
+            interval_delay = get_interval(trip.schedule[0], DELAY_INTERVAL_LENGTH_MINS) - DELAY_START_INTERVAL
+            rand_percentile = np.random.uniform(0.0, 100.0)
+            if trip.route_type == 0:
+                delay = np.percentile(DEP_DELAY_DIST_OUT[interval_delay], rand_percentile)
+            elif trip.route_type == 1:
+                delay = np.percentile(DEP_DELAY1_DIST_IN[interval_delay], rand_percentile)
+            else:
+                assert trip.route_type == 2
+                delay = np.percentile(DEP_DELAY2_DIST_IN[interval_delay], rand_percentile)
+            # random_delay = max(random.uniform(DEP_DELAY_FROM, DEP_DELAY_TO), 0)
+            bus.next_event_time = trip.schedule[0] + max(delay, 0)
+            bus.dep_t = deepcopy(bus.next_event_time)
+            bus.next_event_type = 3 if trip.route_type else 0
+        # initialize passenger demand
+        self.completed_pax = []
+        self.completed_pax_record = []
+        self.initialize_pax_demand()
+        return False
+
+    def inbound_arrival(self):
+        bus = self.bus
+        bus.arr_t = self.time
+        trip_id = bus.active_trip[0].trip_id
+        if bus.active_trip[0].stops[-1] == STOPS_OUTBOUND[0]:
+            schd_sec = bus.active_trip[0].schedule[-1]
+            self.trajectories_in[trip_id].append([STOPS_OUTBOUND[0], bus.arr_t, schd_sec])
+            self.in_trip_record.append([trip_id, STOPS_OUTBOUND[0], bus.arr_t, schd_sec, len(bus.active_trip[0].stops)])
+        bus.finished_trips.append(bus.active_trip[0])
+        bus.active_trip.pop(0)
+        if bus.pending_trips:
+            bus.active_trip.append(bus.pending_trips[0])
+            bus.pending_trips.pop(0)
+            bus.last_stop_id = STOPS_OUTBOUND[0]
+            layover = MIN_LAYOVER_T + max(np.random.uniform(-ERR_LAYOVER_TIME, ERR_LAYOVER_TIME), 0)
+            # NEXT EVENT IS THE EARLIEST BETWEEN THE READY TIME AND THE EARLY DEPARTURE LIMIT
+            ready_time = self.time + layover
+            bus.next_event_time = max(ready_time, bus.active_trip[0].schedule[0] - EARLY_DEP_LIMIT_SEC)
+            bus.next_event_type = 5
+        return
+
+    def report_observations(self):
+        bus = self.bus
+        bus.next_event_time = max(self.time, bus.active_trip[0].schedule[0])
+        print(f'new event -----')
+        print(f'current time is {bus.next_event_time} and next event time is {bus.next_event_time}')
+        print(f'time with respect to schedule for trip {bus.active_trip[0].trip_id} is {self.time - bus.active_trip[0].schedule[0]}')
+        bus.next_event_type = 0
+        return
+
+    def outbound_ready_to_dispatch(self):
+        bus = self.bus
+        bus.last_stop_id = STOPS_OUTBOUND[0]
+        bus.next_stop_id = STOPS_OUTBOUND[1]
+        bus.arr_t = self.time
+        curr_trip_idx = TRIP_IDS_OUT.index(bus.active_trip[0].trip_id)
+        self.trip_log[curr_trip_idx].stop_arr_times[STOPS_OUTBOUND[0]] = bus.arr_t
+        self.stops[0].last_arr_t.append(bus.arr_t)
+        return
+
+    def outbound_dispatch(self, hold=0):
+        bus = self.bus
+        bus.denied = 0
+        stops_served = bus.active_trip[0].stops
+        for p in self.stops[0].pax.copy():
+            if p.arr_time <= self.time and STOPS_OUTBOUND[p.dest_idx] in stops_served:
+                if len(bus.pax) + 1 <= CAPACITY:
+                    p.trip_id = bus.active_trip[0].trip_id
+                    p.board_time = float(self.time)
+                    p.wait_time = float(p.board_time - p.arr_time)
+                    bus.pax.append(p)
+                    self.stops[0].pax.remove(p)
+                    bus.ons += 1
+                else:
+                    p.denied = 1
+                    bus.denied += 1
+            else:
+                break
+
+        dwell_time_error = max(random.uniform(-DWELL_TIME_ERROR, DWELL_TIME_ERROR), 0)
+        dwell_time = bus.ons * BOARDING_TIME + dwell_time_error
+        # herein we zero dwell time if no pax boarded
+        dwell_time = (bus.ons > 0) * dwell_time
+        if hold:
+            dwell_time = max(hold, dwell_time)
+
+        bus.dep_t = self.time + dwell_time
+
+        # FOR THOSE PAX WHO ARRIVE DURING THE DWELL TIME
+        if bus.dep_t > self.time:
+            for p in self.stops[0].pax.copy():
+                if p.arr_time <= bus.dep_t and STOPS_OUTBOUND[p.dest_idx] in stops_served:
+                    if len(bus.pax) + 1 <= CAPACITY:
+                        p.trip_id = bus.active_trip[0].trip_id
+                        p.board_time = float(p.arr_time)
+                        p.wait_time = float(p.board_time - p.arr_time)
+                        bus.pax.append(p)
+                        self.stops[0].pax.remove(p)
+                        bus.ons += 1
+                    else:
+                        p.denied = 1
+                        bus.denied += 1
+                else:
+                    break
+
+        curr_trip_idx = TRIP_IDS_OUT.index(bus.active_trip[0].trip_id)
+        self.trip_log[curr_trip_idx].stop_dep_times[STOPS_OUTBOUND[0]] = bus.dep_t
+
+        self.record_trajectories(pickups=bus.ons, denied_board=bus.denied, hold=hold)
+        runtime = self.get_travel_time()
+        bus.next_event_time = bus.dep_t + runtime
+        bus.next_event_type = 1
+
+        self.stops[0].passed_trips.append(bus.active_trip[0].trip_id)
+        return
+
+    def prep(self):
+        done = self.next_event()
+        if done or all(elem in self.focus_trips_finished for elem in FOCUS_TRIPS):
+            return True
+
+        if self.bus.next_event_type == 0:
+            self.outbound_ready_to_dispatch()
+            self.outbound_dispatch()
+            return False
+
+        if self.bus.next_event_type == 1:
+            self.fixed_stop_unload()
+            self.fixed_stop_load()
+            self.fixed_stop_depart()
+            return False
+
+        if self.bus.next_event_type == 2:
+            self.outbound_arrival()
+            return False
+
+        if self.bus.next_event_type == 3:
+            self.inbound_dispatch()
+            return False
+
+        if self.bus.next_event_type == 4:
+            self.inbound_arrival()
+            return False
+
+        if self.bus.next_event_type == 5: # outbound terminal dispatch decision point
+            self.report_observations()
+            return

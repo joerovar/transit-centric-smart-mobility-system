@@ -39,18 +39,19 @@ def plot_learning(x, scores, epsilons, filename, lines=None):
     plt.savefig(filename)
 
 
-def validate_trip_t_outbound(avl_df, sim_df, start_time, end_time, stops, path_trip_t, path_dwell_t, dates):
+def validate_trip_t_outbound(avl_df, sim_df, start_time, end_time, stops, path_trip_t, path_dwell_t, dates,
+                             ignore_terminals=False):
     trip_t_avl, dwell_t_avl = trip_t_outbound(avl_df, start_time, end_time, 60, stops, 'avl_arr_sec',
-                                              'avl_dep_sec', is_avl=True, dates=dates)
+                                              'avl_dep_sec', is_avl=True, dates=dates, ignore_terminals=ignore_terminals)
     trip_t_sim, dwell_t_sim = trip_t_outbound(sim_df, start_time, end_time, 60, stops, 'arr_sec',
-                                              'dep_sec')
-    plot_calib_hist(trip_t_avl, trip_t_sim, 5, path_trip_t, 'total trip time (seconds)')
-    plot_calib_hist(dwell_t_avl, dwell_t_sim, 5, path_dwell_t, 'dwell time (seconds)')
+                                              'dep_sec', ignore_terminals=ignore_terminals)
+    plot_calib_hist(trip_t_avl, trip_t_sim, 5, path_trip_t, 'total trip time (seconds)', share_x=True)
+    plot_calib_hist(dwell_t_avl, dwell_t_sim, 5, path_dwell_t, 'dwell time (seconds)', share_x=True)
     return
 
 
 def trip_t_outbound(df_out, start_time, end_time, interval_length, stops_out, col_arr_t, col_dep_t,
-                    is_avl=False, dates=None):
+                    is_avl=False, dates=None, ignore_terminals=False):
     focus_df_out = df_out[df_out['stop_sequence'] == 1].copy()
     focus_df_out = focus_df_out[focus_df_out['schd_sec'] < end_time]
     focus_df_out = focus_df_out[focus_df_out['schd_sec'] >= start_time]
@@ -76,8 +77,12 @@ def trip_t_outbound(df_out, start_time, end_time, interval_length, stops_out, co
             day_df = df_out[df_out['replication'] == i + 1]
         for trip in focus_trips:
             trip_df = day_df[day_df['trip_id'] == trip]
-            t0 = trip_df[trip_df['stop_sequence'] == 1]
-            t1 = trip_df[trip_df['stop_sequence'] == 67]
+            if ignore_terminals:
+                t0 = trip_df[trip_df['stop_sequence'] == 2]
+                t1 = trip_df[trip_df['stop_sequence'] == 66]
+            else:
+                t0 = trip_df[trip_df['stop_sequence'] == 1]
+                t1 = trip_df[trip_df['stop_sequence'] == 67]
             if not t0.empty and not t1.empty:
                 t0 = t0.iloc[0]
                 t1 = t1.iloc[0]
@@ -90,7 +95,7 @@ def trip_t_outbound(df_out, start_time, end_time, interval_length, stops_out, co
                 if is_avl:
                     mid_route_df = mid_route_df.drop_duplicates(subset='stop_sequence', keep='first')
                 if mid_route_df.shape[0] == 67 - 2:
-                    mid_route_df['dwell_t'] = mid_route_df[col_dep_t] - mid_route_df[col_arr_t]
+                    mid_route_df.loc[:, 'dwell_t'] = mid_route_df[col_dep_t] - mid_route_df[col_arr_t]
                     dwell_t[interval - interval0].append(mid_route_df['dwell_t'].sum())
     if is_avl:
         for i in range(interval1 - interval0):
@@ -151,13 +156,16 @@ def validate_delay_outbound(avl_df, sim_df, start_t_sec, end_t_sec, interval_min
     return
 
 
-def plot_calib_hist(delay_avl, delay_sim, start_interval, filename, xlabel):
-    fig, ax = plt.subplots(nrows=2, ncols=2)
+def plot_calib_hist(delay_avl, delay_sim, start_interval, filename, xlabel, share_x=False):
+    if share_x:
+        fig, ax = plt.subplots(nrows=2, ncols=2, sharex='all')
+    else:
+        fig, ax = plt.subplots(nrows=2, ncols=2)
     for i in range(ax.size):
         ax.flat[i].hist([delay_avl[i], delay_sim[i]], density=True, label=['avl', 'sim'])
         ax.flat[i].set_title(f'hour {start_interval + i}')
         ax.flat[i].set_yticks([])
-        ax.flat[i].set_xlabel(xlabel)
+    plt.xlabel(xlabel)
     plt.tight_layout()
     plt.legend()
     plt.savefig(filename)

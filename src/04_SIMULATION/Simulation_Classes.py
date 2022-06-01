@@ -1,7 +1,6 @@
 class Trip:
-    def __init__(self, trip_id, sched_time, route_type, stops, schedule):
+    def __init__(self, trip_id, route_type, stops, schedule):
         self.trip_id = trip_id
-        self.sched_time = sched_time
         self.route_type = route_type
         self.stops = stops
         self.schedule = schedule
@@ -36,7 +35,7 @@ class Stop:
 class Bus:
     def __init__(self, bus_id, trips_info):
         self.bus_id = bus_id
-        self.pending_trips = [Trip(ti[0], ti[1], ti[2], ti[3], ti[4]) for ti in trips_info]
+        self.pending_trips = [Trip(ti[0], ti[1], ti[2], ti[3]) for ti in trips_info]
         self.active_trip = []
         self.finished_trips = []
         self.next_event_time = 0.0

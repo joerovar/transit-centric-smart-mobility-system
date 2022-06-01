@@ -6,6 +6,45 @@ import Simulation_Envs
 import random
 
 
+def run_base_dispatching(replications=4, save_results=False):
+    tstamp = datetime.now().strftime('%m%d-%H%M%S')
+    out_trip_record_set = []
+    in_trip_record_set = []
+    pax_record_set = []
+    for i in range(replications):
+        env = Simulation_Envs.DetailedSimulationEnvWithDispatching()
+        done = env.reset_simulation()
+        while not done:
+            done = env.prep()
+        if save_results:
+            out_trip_record_df = pd.DataFrame(env.out_trip_record, columns=OUT_TRIP_RECORD_COLS)
+            out_trip_record_df['replication'] = pd.Series([i + 1 for _ in range(len(out_trip_record_df.index))])
+            out_trip_record_set.append(out_trip_record_df)
+
+            in_trip_record_df = pd.DataFrame(env.in_trip_record, columns=IN_TRIP_RECORD_COLS)
+            in_trip_record_df['replication'] = pd.Series([i + 1 for _ in range(len(in_trip_record_df.index))])
+            in_trip_record_set.append(in_trip_record_df)
+
+            pax_record_df = pd.DataFrame(env.completed_pax_record, columns=PAX_RECORD_COLS)
+            pax_record_df['replication'] = pd.Series([i + 1 for _ in range(len(in_trip_record_df.index))])
+            pax_record_set.append(pax_record_df)
+
+    if save_results:
+        case = 'NC_Terminal'
+        path_out_trip_record = 'out/' + case + '/' + tstamp + '-trip_record_outbound' + ext_var
+        path_in_trip_record = 'out/' + case + '/' + tstamp + '-trip_record_inbound' + ext_var
+        path_pax_record = 'out/' + case + '/' + tstamp + '-pax_record' + ext_var
+
+        out_trip_record = pd.concat(out_trip_record_set, ignore_index=True)
+        in_trip_record = pd.concat(in_trip_record_set, ignore_index=True)
+        pax_record = pd.concat(pax_record_set, ignore_index=True)
+
+        out_trip_record.to_pickle(path_out_trip_record)
+        in_trip_record.to_pickle(path_in_trip_record)
+        pax_record.to_pickle(path_pax_record)
+    return
+
+
 def run_base(replications=4, save_results=False, control_eh=False, hold_adj_factor=0.0, tt_factor=1.0,
              control_strength=0.7):
     tstamp = datetime.now().strftime('%m%d-%H%M%S')
