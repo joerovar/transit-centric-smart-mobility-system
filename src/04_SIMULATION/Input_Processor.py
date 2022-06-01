@@ -3,8 +3,63 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.stats import lognorm
-# from post_process import save
 import pickle
+from File_Paths import path_route_stops, path_stop_times
+
+
+def extract_demand(odt_interval_len_min, dates):
+    stops_outbound = load(path_route_stops)
+    odt_stops = np.load('in/xtr/rt_20_odt_stops.npy')
+    # comes from project with dingyi data
+    odt_pred = np.load('in/xtr/rt_20_odt_rates_30.npy')
+    # comes from project with dingyi data
+
+    nr_intervals = 24 / (odt_interval_len_min / 60)
+    apc_on_rates, apc_off_rates = extract_apc_counts(nr_intervals, odt_stops, path_stop_times, odt_interval_len_min,
+                                                     dates)
+    stops_lst = list(odt_stops)
+
+    # DISCOVERED IN DINGYI'S OD MATRIX TIME SHIFT
+    shifted_odt = np.concatenate((odt_pred[-6:], odt_pred[:-6]), axis=0)
+    scaled_odt = np.concatenate((odt_pred[-6:], odt_pred[:-6]), axis=0)
+
+    for i in range(shifted_odt.shape[0]):
+        print(f'interval {i}')
+        scaled_odt[i] = bi_proportional_fitting(shifted_odt[i], apc_on_rates[i], apc_off_rates[i])
+
+    np.save('in/xtr/rt_20_odt_rates_30_scaled.npy', scaled_odt)
+
+    # if wanted for comparison
+    idx_stops_out = [stops_lst.index(int(s)) for s in stops_outbound]
+    out_on_counts = apc_on_rates[:, idx_stops_out]
+    out_on_tot_count = np.nansum(out_on_counts, axis=-1)
+
+    arr_rates_shifted = np.nansum(shifted_odt, axis=-1)
+    out_arr_rates_shifted = arr_rates_shifted[:, idx_stops_out]
+    out_arr_tot_shifted = np.sum(out_arr_rates_shifted, axis=-1)
+
+    scaled_arr_rates = np.sum(scaled_odt, axis=-1)
+    scaled_out_arr_rates = scaled_arr_rates[:, idx_stops_out]
+    scaled_out_tot = np.sum(scaled_out_arr_rates, axis=-1)
+
+    x = np.arange(out_on_tot_count.shape[0])
+    plt.plot(x, scaled_out_tot, label='odt scaled')
+    plt.plot(x, out_arr_tot_shifted, label='odt')
+    plt.plot(x, out_on_tot_count, label='apc')
+    plt.xticks(np.arange(0, out_on_tot_count.shape[0], 2), np.arange(int(out_on_tot_count.shape[0] / 2)))
+    plt.xlabel('hour of day')
+    plt.ylabel('arrival rate (1/h)')
+    plt.yticks(np.arange(0, 1200, 200))
+    plt.legend()
+    # plt.show()
+    plt.close()
+    return
+
+
+def load(pathname):
+    with open(pathname, 'rb') as tf:
+        var = pickle.load(tf)
+    return var
 
 
 def save(pathname, par):
@@ -395,34 +450,6 @@ def extract_inbound_params(path_stop_times, start_time, end_time, dates, nr_inte
     save('in/xtr/trip_t1_dist_in.pkl', trip_t1_empirical)
     save('in/xtr/trip_t2_dist_in.pkl', trip_t2_empirical)
     return
-
-
-def get_trip_times(path_avl, focus_trips, dates, stops):
-    # TRIP TIMES ARE USED FOR CALIBRATION THEREFORE THEY ONLY USE THE FOCUS TRIPS FOR RESULTS ANALYSIS
-    trip_times = []
-    avl_df = pd.read_csv(path_avl)
-    arrival_times = {}
-    for t in focus_trips:
-        temp_df = avl_df[avl_df['trip_id'] == t]
-        for d in dates:
-            df = temp_df[temp_df['avl_arr_time'].astype(str).str[:10] == d]
-            df = df.sort_values(by='stop_sequence')
-            stop_seq = df['stop_sequence'].tolist()
-            arrival_sec = df['avl_arr_sec'].tolist()
-            dep_sec = df['avl_dep_sec'].tolist()
-            if stop_seq:
-                for s_idx in range(len(stop_seq)):
-                    if stop_seq[s_idx] != 1:
-                        ky = str(t) + str(d) + str(stops[stop_seq[s_idx] - 1])
-                        vl = arrival_sec[s_idx]
-                        arrival_times[ky] = vl
-                if 2 in stop_seq and 66 in stop_seq:
-                    dep_idx = stop_seq.index(2)
-                    arr_idx = stop_seq.index(66)
-                    tt = arrival_sec[arr_idx] - dep_sec[dep_idx]
-                    if tt > 57 * 60:
-                        trip_times.append(tt)
-    return trip_times
 
 
 def write_outbound_trajectories(stop_times_path, ordered_trips):

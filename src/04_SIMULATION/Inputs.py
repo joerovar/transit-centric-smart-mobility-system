@@ -1,88 +1,100 @@
-# from pre_process import *
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from pre_process import extract_apc_counts, bi_proportional_fitting, get_trip_times, get_load_profile
-from file_paths import *
-from constants import *
-from post_process import save, load
+from Input_Processor import extract_outbound_params, extract_inbound_params, extract_demand
+from File_Paths import *
+from datetime import datetime
+import math
+from Output_Processor import load
 from datetime import timedelta
 
+# SIMULATION
 
-def extract_params(demand=False, validation=False):
-    if demand:
-        stops_outbound = load(path_route_stops)
-        odt_stops = np.load('in/xtr/rt_20_odt_stops.npy')
-        # comes from project with dingyi data
-        odt_pred = np.load('in/xtr/rt_20_odt_rates_30.npy')
-        # comes from project with dingyi data
+START_TIME = datetime.strptime('05:00:00', "%H:%M:%S")
+END_TIME = datetime.strptime('10:00:00', "%H:%M:%S")
+START_TIME_SEC = (START_TIME - datetime(1900, 1, 1)).total_seconds()
+END_TIME_SEC = (END_TIME - datetime(1900, 1, 1)).total_seconds()
+TOTAL_MIN = (END_TIME - START_TIME).total_seconds() / 60
+FOCUS_START_TIME = datetime.strptime('07:28:00', "%H:%M:%S")
+FOCUS_END_TIME = datetime.strptime('08:15:00', "%H:%M:%S")
+FOCUS_START_TIME_SEC = (FOCUS_START_TIME - datetime(1900, 1, 1)).total_seconds()
+FOCUS_END_TIME_SEC = (FOCUS_END_TIME - datetime(1900, 1, 1)).total_seconds()
+# ROUTE NETWORK: NUMBER OF ROUTES, NUMBER OF STOPS, ROUTE STOPS
+DELAY_INTERVAL_LENGTH_MINS = 60
+DELAY_START_INTERVAL = int(START_TIME_SEC / (60 * DELAY_INTERVAL_LENGTH_MINS))
+# ROUTE 20 EAST
+TIME_INTERVAL_LENGTH_MINS = 30
+TIME_START_INTERVAL = int(START_TIME_SEC / (60 * TIME_INTERVAL_LENGTH_MINS))
+TIME_NR_INTERVALS = int(math.ceil(TOTAL_MIN / TIME_INTERVAL_LENGTH_MINS))
+# DATES = ['2019-09-03', '2019-09-04', '2019-09-05', '2019-09-06']
+DATES = ['2019-09-03', '2019-09-04', '2019-09-05', '2019-09-06',
+         '2019-09-09', '2019-09-10', '2019-09-11', '2019-09-12', '2019-09-13',
+         '2019-09-16', '2019-09-17', '2019-09-18', '2019-09-19', '2019-09-20',
+         '2019-09-23', '2019-09-24', '2019-09-25', '2019-09-26', '2019-09-27']
+TRIP_WITH_FULL_STOP_PATTERN = 911414030
+# INBOUND TO OUTBOUND LAYOVER TIME
+MIN_LAYOVER_T = 40
+ERR_LAYOVER_TIME = 20
+# INBOUND TIME DEPENDENT TRIP TIME DISTRIBUTION
+TRIP_TIME_INTERVAL_LENGTH_MINS = 60
+TRIP_TIME_START_INTERVAL = int(START_TIME_SEC / (60 * TRIP_TIME_INTERVAL_LENGTH_MINS))
+TRIP_TIME_NR_INTERVALS = int(math.ceil(TOTAL_MIN / TRIP_TIME_INTERVAL_LENGTH_MINS))
+# TRAVEL, DWELL TIME AND DEPARTURE DELAY DISTRIBUTION
+# NOT TUNED
+ACC_DEC_TIME = 5.0
+BOARDING_TIME = 2.5
+ALIGHTING_TIME = 1.5
+DWELL_TIME_ERROR = 3.0
+EXTREME_TT_BOUND = 1.00
+CAPACITY = 50
+DDD = 'UNIFORM'
+DEP_DELAY_FROM = -60
+DEP_DELAY_TO = 110
 
-        nr_intervals = 24 / (ODT_INTERVAL_LEN_MIN / 60)
-        apc_on_rates, apc_off_rates = extract_apc_counts(nr_intervals, odt_stops, path_stop_times, ODT_INTERVAL_LEN_MIN,
-                                                         DATES)
-        stops_lst = list(odt_stops)
+# DEMAND: NEW O-D RATES FROM DINGYI
+ODT_INTERVAL_LEN_MIN = 30
+ODT_START_INTERVAL = int(START_TIME_SEC / (60 * ODT_INTERVAL_LEN_MIN))
+ODT_END_INTERVAL = int(END_TIME_SEC / (60 * ODT_INTERVAL_LEN_MIN))
 
-        # DISCOVERED IN DINGYI'S OD MATRIX TIME SHIFT
-        shifted_odt = np.concatenate((odt_pred[-6:], odt_pred[:-6]), axis=0)
-        scaled_odt = np.concatenate((odt_pred[-6:], odt_pred[:-6]), axis=0)
+# OTHER SERVICE PARAMETERS: DWELL TIME, SIMULATION LENGTH
+[IDX_ARR_T, IDX_DEP_T, IDX_LOAD, IDX_PICK, IDX_DROP, IDX_DENIED, IDX_HOLD_TIME, IDX_SKIPPED, IDX_SCHED] = [i for i in
+                                                                                                           range(1, 10)]
+NO_OVERTAKE_BUFFER = 5
 
-        for i in range(shifted_odt.shape[0]):
-            print(f'interval {i}')
-            scaled_odt[i] = bi_proportional_fitting(shifted_odt[i], apc_on_rates[i], apc_off_rates[i])
+# REINFORCEMENT LEARNING
 
-        np.save('in/xtr/rt_20_odt_rates_30_scaled.npy', scaled_odt)
+CONTROLLED_STOPS = ['386', '409', '423', '16049', '3954']
+CONTROLLED_STOPS_ALTERNATIVE = ['386', '409', '428', '3954']
+N_STATE_PARAMS_RL = 6
+[IDX_RT_PROGRESS, IDX_LOAD_RL, IDX_FW_H, IDX_BW_H, IDX_PAX_AT_STOP, IDX_PREV_FW_H] = [i for i in
+                                                                                      range(N_STATE_PARAMS_RL)]
+SKIP_ACTION = 0
 
-        # if wanted for comparison
-        idx_stops_out = [stops_lst.index(int(s)) for s in stops_outbound]
-        out_on_counts = apc_on_rates[:, idx_stops_out]
-        out_on_tot_count = np.nansum(out_on_counts, axis=-1)
+LEARN_RATE = 0.0001
+EPS_MIN = 0.01
+DISCOUNT_FACTOR = 0.985
+EPS_DEC = 1.5e-5
+EPS = 0.64
+MAX_MEM = 8000
+BATCH_SIZE = 32
+EPISODES_REPLACE = 600
+FC_DIMS = 256
+ALGO = 'DDQNAgent'
+WEIGHT_RIDE_T = 0.0
+TT_FACTOR = 1.0
+HOLD_ADJ_FACTOR = 0.0
+ESTIMATED_PAX = False
+NETS_PATH = 'out/trained_nets/'
 
-        arr_rates_shifted = np.nansum(shifted_odt, axis=-1)
-        out_arr_rates_shifted = arr_rates_shifted[:, idx_stops_out]
-        out_arr_tot_shifted = np.sum(out_arr_rates_shifted, axis=-1)
+INBOUND_SHORT_START_STOP = '15136'
+INBOUND_LONG_START_STOP = '8613'
+[IDX_ARR_T_IN, IDX_SCHED_IN] = [i for i in range(1, 3)]
 
-        scaled_arr_rates = np.sum(scaled_odt, axis=-1)
-        scaled_out_arr_rates = scaled_arr_rates[:, idx_stops_out]
-        scaled_out_tot = np.sum(scaled_out_arr_rates, axis=-1)
+OUT_TRIP_RECORD_COLS = ['trip_id', 'stop_id', 'arr_sec', 'dep_sec', 'pax_load', 'ons', 'offs', 'denied',
+                        'hold_time', 'skipped', 'schd_sec', 'stop_sequence'] # and replication goes at the end
+IN_TRIP_RECORD_COLS = ['trip_id', 'stop_id', 'arr_sec', 'schd_sec', 'stop_sequence']
+PAX_RECORD_COLS = ['orig_idx', 'dest_idx', 'arr_time', 'board_time', 'alight_time', 'trip_id', 'denied']
 
-        x = np.arange(out_on_tot_count.shape[0])
-        plt.plot(x, scaled_out_tot, label='odt scaled')
-        plt.plot(x, out_arr_tot_shifted, label='odt')
-        plt.plot(x, out_on_tot_count, label='apc')
-        plt.xticks(np.arange(0, out_on_tot_count.shape[0], 2), np.arange(int(out_on_tot_count.shape[0] / 2)))
-        plt.xlabel('hour of day')
-        plt.ylabel('arrival rate (1/h)')
-        plt.yticks(np.arange(0, 1200, 200))
-        plt.legend()
-        # plt.show()
-        plt.close()
-
-    if validation:
-        stops = load(path_route_stops)
-        trips_outbound_info = load('in/xtr/trips_outbound_info.pkl')
-        scheduled_dep_in, ordered_trips_in = [], []
-        for t in trips_outbound_info:
-            scheduled_dep_in.append(t[1]), ordered_trips_in.append(t[0])
-        ordered_trips_in = np.array(ordered_trips_in)
-        schedule_arr = np.array(scheduled_dep_in)
-        focus_trips = ordered_trips_in[
-            (schedule_arr <= FOCUS_END_TIME_SEC) & (schedule_arr >= FOCUS_START_TIME_SEC)].tolist()
-        trip_times = get_trip_times(path_avl, focus_trips, DATES, stops)
-        save('in/xtr/trip_t_outbound.pkl', trip_times)
-        load_profile, ons, offs = get_load_profile(path_stop_times, focus_trips, stops)
-        fig, ax = plt.subplots()
-        ax1 = ax.twinx()
-        ax.plot(load_profile)
-        x = np.arange(len(load_profile))
-        w = 0.5
-        ax1.bar(x, ons, w)
-        ax1.bar(x + w, offs, w)
-        plt.savefig('in/vis/pax_profile_observed.png')
-        plt.close()
-        save('in/xtr/load_profile.pkl', load_profile)
-    return
-
-
+# extract_demand(ODT_INTERVAL_LEN_MIN, DATES)
 # extract_outbound_params(path_stop_times, START_TIME_SEC, END_TIME_SEC, TIME_NR_INTERVALS,
 #                         TIME_START_INTERVAL, TIME_INTERVAL_LENGTH_MINS, DATES,
 #                         TRIP_WITH_FULL_STOP_PATTERN, path_avl, DELAY_INTERVAL_LENGTH_MINS, DELAY_START_INTERVAL)

@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 import pandas as pd
-from input import FOCUS_TRIPS
+from Inputs import FOCUS_TRIPS
 
 trajectories_inbound = pd.read_csv('in/vis/trajectories_inbound.csv')
 trajectories_outbound = pd.read_csv('in/vis/trajectories_outbound.csv')
