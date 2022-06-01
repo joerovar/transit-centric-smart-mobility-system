@@ -1,6 +1,6 @@
 import numpy as np
 import torch as T
-from nets import DeepQNetwork, DuelingDeepQNetwork
+from RL_Networks import DeepQNetwork, DuelingDeepQNetwork
 # from replay_memory import ReplayBuffer
 from copy import deepcopy
 

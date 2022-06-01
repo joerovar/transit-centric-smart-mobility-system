@@ -1,76 +1,9 @@
-from input import *
+from Inputs import *
 import numpy as np
 from scipy.stats import lognorm
 import random
 from copy import deepcopy
-from agents_sim import Passenger, Stop, Bus, TripLog
-
-
-def run_base_detailed(replications=4, save_results=False, time_dep_tt=True, time_dep_dem=True):
-    tstamp = datetime.now().strftime('%m%d-%H%M%S')
-    out_trip_record_set = []
-    in_trip_record_set = []
-    pax_record_set = []
-    for i in range(replications):
-        env = DetailedSimulationEnv(time_dependent_travel_time=time_dep_tt, time_dependent_demand=time_dep_dem)
-        done = env.reset_simulation()
-        while not done:
-            done = env.prep()
-        if save_results:
-            out_trip_record_df = pd.DataFrame(env.out_trip_record, columns=OUT_TRIP_RECORD_COLS)
-            out_trip_record_df['replication'] = pd.Series([i+1 for _ in range(len(out_trip_record_df.index))])
-            out_trip_record_set.append(out_trip_record_df)
-
-            in_trip_record_df = pd.DataFrame(env.in_trip_record, columns=IN_TRIP_RECORD_COLS)
-            in_trip_record_df['replication'] = pd.Series([i+1 for _ in range(len(in_trip_record_df.index))])
-            in_trip_record_set.append(in_trip_record_df)
-
-            pax_record_df = pd.DataFrame(env.completed_pax_record, columns=PAX_RECORD_COLS)
-            pax_record_df['replication'] = pd.Series([i+1 for _ in range(len(in_trip_record_df.index))])
-            pax_record_set.append(pax_record_df)
-
-    if save_results:
-        path_out_trip_record = 'out/NC/' + tstamp + '-trip_record_outbound' + ext_var
-        path_in_trip_record = 'out/NC/' + tstamp + '-trip_record_inbound' + ext_var
-        path_pax_record = 'out/NC/' + tstamp + '-pax_record' + ext_var
-
-        out_trip_record = pd.concat(out_trip_record_set, ignore_index=True)
-        in_trip_record = pd.concat(in_trip_record_set, ignore_index=True)
-        pax_record = pd.concat(pax_record_set, ignore_index=True)
-
-        out_trip_record.to_pickle(path_out_trip_record)
-        in_trip_record.to_pickle(path_in_trip_record)
-        pax_record.to_pickle(path_pax_record)
-    return
-
-
-def run_base_control_detailed(replications=2, control_strength=0.7,
-                              save_results=False, time_dep_tt=True, time_dep_dem=True, hold_adj_factor=0.0,
-                              tt_factor=1.0):
-    tstamp = datetime.now().strftime('%m%d-%H%M%S')
-    trajectories_set = []
-    pax_set = []
-    for _ in range(replications):
-        env = DetailedSimulationEnvWithControl(time_dependent_travel_time=time_dep_tt,
-                                               time_dependent_demand=time_dep_dem, hold_adj_factor=hold_adj_factor,
-                                               tt_factor=tt_factor)
-        done = env.reset_simulation()
-        while not done:
-            done = env.prep()
-        # if save:
-            # env.process_results()
-            # trajectories_set.append(env.trajectories_out)
-            # pax_set.append(env.completed_pax)
-    # if save_results:
-        # path_trajectories = 'out/EH/' + tstamp + '-trajectory_set' + ext_var
-        # path_completed_pax = 'out/EH/' + tstamp + '-pax_set' + ext_var
-        # params = {'param': ['control_strength'],
-        #           'value': [control_strength]}
-        # df_params = pd.DataFrame(params)
-        # df_params.to_csv('out/EH/' + tstamp + '-params_used' + ext_var, index=False)
-        # save(path_trajectories, trajectories_set)
-        # save(path_completed_pax, pax_set)
-    return
+from Simulation_Classes import Passenger, Stop, Bus, TripLog
 
 
 def get_interval(t, interval_length):
