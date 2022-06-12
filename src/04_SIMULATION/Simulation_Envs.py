@@ -91,7 +91,8 @@ class DetailedSimulationEnv(SimulationEnv):
                     expected_arr_t.append(max(ready_time, next_sched_t))
                 else:
                     terminal_dep_t = max(ready_time, next_sched_t)
-                    arr_t = estimate_arrival_time(terminal_dep_t, STOPS_OUTBOUND[0], self.bus.last_stop_id, self.time_dependent_travel_time, self.time)
+                    arr_t = estimate_arrival_time(terminal_dep_t, STOPS_OUTBOUND[0], self.bus.last_stop_id,
+                                                  self.time_dependent_travel_time, self.time)
                     if not np.isnan(arr_t):
                         if arr_t - self.time < 0:
                             print(f'what? on buses on inbound')
@@ -103,7 +104,8 @@ class DetailedSimulationEnv(SimulationEnv):
                     expected_arr_t.append(bus.next_event_time)
                 else:
                     terminal_dep_t = bus.next_event_time
-                    arr_t = estimate_arrival_time(terminal_dep_t, STOPS_OUTBOUND[0], self.bus.last_stop_id, self.time_dependent_travel_time, self.time)
+                    arr_t = estimate_arrival_time(terminal_dep_t, STOPS_OUTBOUND[0], self.bus.last_stop_id,
+                                                  self.time_dependent_travel_time, self.time)
                     if not np.isnan(arr_t):
                         if arr_t - self.time < 0:
                             print(f'what? on garaged buses')
@@ -121,7 +123,8 @@ class DetailedSimulationEnv(SimulationEnv):
                     if not np.isnan(arr_t):
                         if arr_t - self.time < 0:
                             print(f'what? bus behind is {curr_stop_idx-behind_last_stop_idx} stops behind')
-                            print(f'behind bus departed {round((self.time - bus.dep_t)/60, 1)} mins ago but is expected to run for {round((arr_t - bus.dep_t)/60, 1)}')
+                            print(f'behind bus departed {round((self.time - bus.dep_t)/60, 1)} '
+                                  f'mins ago but is expected to run for {round((arr_t - bus.dep_t)/60, 1)}')
                         if arr_t - self.time >= 0:
                             expected_arr_t.append(arr_t)
 
@@ -754,7 +757,8 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
         last_stop = bus.active_trip[0].stops[-1]
         bus.next_event_type = 2 if bus.next_stop_id == last_stop else 1
         if TRIP_IDS_OUT[trip_idx] == 911880020 and curr_stop_idx > 60:
-            print(f'for last stop id {last_stop} next stop is {bus.next_stop_id} with index {curr_stop_idx} therefore next event type is {bus.next_event_type}')
+            print(f'for last stop id {last_stop} next stop is {bus.next_stop_id} '
+                  f'with index {curr_stop_idx} therefore next event type is {bus.next_event_type}')
         self.record_trajectories(pickups=bus.ons, offs=bus.offs, denied_board=bus.denied, hold=hold, skip=skip)
         return
 
@@ -1016,6 +1020,10 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
 
 
 class DetailedSimulationEnvWithDispatching(DetailedSimulationEnv):
+    def __init__(self, missing_trips=False, *args, **kwargs):
+        super(DetailedSimulationEnvWithDispatching, self).__init__(*args, **kwargs)
+        self.missing_trips = missing_trips
+
     def reset_simulation(self):
         self.time = START_TIME_SEC
         self.focus_trips_finished = []
@@ -1033,26 +1041,32 @@ class DetailedSimulationEnvWithDispatching(DetailedSimulationEnv):
             block_id = block_trip_set[0]
             trip_set = block_trip_set[1]
             self.buses.append(Bus(block_id, trip_set))
+        # insert here function for randomly assigning cancelled buses (blocks)
         # initialize bus trips (the first trip for each bus)
         for bus in self.buses:
-            bus.active_trip.append(bus.pending_trips[0])
-            bus.pending_trips.pop(0)
-            trip = bus.active_trip[0]
-            if trip.route_type == 0:
-                bus.last_stop_id = STOPS_OUTBOUND[0]
-            interval_delay = get_interval(trip.schedule[0], DELAY_INTERVAL_LENGTH_MINS) - DELAY_START_INTERVAL
-            rand_percentile = np.random.uniform(0.0, 100.0)
-            if trip.route_type == 0:
-                delay = np.percentile(DEP_DELAY_DIST_OUT[interval_delay], rand_percentile)
-            elif trip.route_type == 1:
-                delay = np.percentile(DEP_DELAY1_DIST_IN[interval_delay], rand_percentile)
+            if random.uniform(0, 1) <= PROB_CANCELLED_BLOCK and self.missing_trips:
+                trip = bus.pending_trips[0]
+                bus.will_cancel = True
+                bus.next_event_time = max(START_TIME_SEC, trip.schedule[0] - CANCEL_NOTICE_TIME)
+                bus.next_event_type = 6 # cancellation event
             else:
-                assert trip.route_type == 2
-                delay = np.percentile(DEP_DELAY2_DIST_IN[interval_delay], rand_percentile)
-            # random_delay = max(random.uniform(DEP_DELAY_FROM, DEP_DELAY_TO), 0)
-            bus.next_event_time = trip.schedule[0] + max(delay, 0)
-            bus.dep_t = deepcopy(bus.next_event_time)
-            bus.next_event_type = 3 if trip.route_type else 0
+                bus.active_trip.append(bus.pending_trips[0])
+                bus.pending_trips.pop(0)
+                trip = bus.active_trip[0]
+                if trip.route_type == 0:
+                    bus.last_stop_id = STOPS_OUTBOUND[0]
+                interval_delay = get_interval(trip.schedule[0], DELAY_INTERVAL_LENGTH_MINS) - DELAY_START_INTERVAL
+                rand_percentile = np.random.uniform(0.0, 100.0)
+                if trip.route_type == 0:
+                    delay = np.percentile(DEP_DELAY_DIST_OUT[interval_delay], rand_percentile)
+                elif trip.route_type == 1:
+                    delay = np.percentile(DEP_DELAY1_DIST_IN[interval_delay], rand_percentile)
+                else:
+                    assert trip.route_type == 2
+                    delay = np.percentile(DEP_DELAY2_DIST_IN[interval_delay], rand_percentile)
+                bus.next_event_time = trip.schedule[0] + max(delay, 0)
+                bus.dep_t = deepcopy(bus.next_event_time)
+                bus.next_event_type = 3 if trip.route_type else 0
         # initialize passenger demand
         self.completed_pax = []
         self.completed_pax_record = []
@@ -1185,4 +1199,8 @@ class DetailedSimulationEnvWithDispatching(DetailedSimulationEnv):
 
         if self.bus.next_event_type == 5: # outbound terminal dispatch decision point
             self.report_observations()
+            return
+
+        if self.bus.next_event_type == 6: # trip cancellation
+            self.bus.cancelled = True
             return
