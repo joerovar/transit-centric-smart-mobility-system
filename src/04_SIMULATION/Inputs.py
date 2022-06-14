@@ -101,6 +101,8 @@ IMPOSED_DELAY_LIMIT = 90
 HOLD_INTERVALS = 30
 PROB_CANCELLED_BLOCK = 0.2
 CANCEL_NOTICE_TIME = 10*60 # seconds
+FUTURE_HW_HORIZON = 2
+PAST_HW_HORIZON = 2
 # extract_demand(ODT_INTERVAL_LEN_MIN, DATES)
 # extract_outbound_params(path_stop_times, START_TIME_SEC, END_TIME_SEC, TIME_NR_INTERVALS,
 #                         TIME_START_INTERVAL, TIME_INTERVAL_LENGTH_MINS, DATES,
@@ -164,11 +166,11 @@ PAX_INIT_TIME += SCHED_DEP_OUT[0] - ((SCHED_DEP_OUT[1] - SCHED_DEP_OUT[0]) / 2)
 
 # trip id focused for results
 ordered_trips_arr = np.array([TRIP_IDS_OUT])
-scheduled_deps_arr = np.array([SCHED_DEP_OUT])
+sched_deps_arr = np.array([SCHED_DEP_OUT])
 FOCUS_TRIPS = ordered_trips_arr[
-    (scheduled_deps_arr <= FOCUS_END_TIME_SEC) & (scheduled_deps_arr >= FOCUS_START_TIME_SEC)].tolist()
-FOCUS_TRIPS_SCHED = scheduled_deps_arr[
-    (scheduled_deps_arr <= FOCUS_END_TIME_SEC) & (scheduled_deps_arr >= FOCUS_START_TIME_SEC)].tolist()
+    (sched_deps_arr <= FOCUS_END_TIME_SEC) & (sched_deps_arr >= FOCUS_START_TIME_SEC)].tolist()
+FOCUS_TRIPS_SCHED = sched_deps_arr[
+    (sched_deps_arr <= FOCUS_END_TIME_SEC) & (sched_deps_arr >= FOCUS_START_TIME_SEC)].tolist()
 focus_trips_hw = [i - j for i, j in zip(FOCUS_TRIPS_SCHED[1:], FOCUS_TRIPS_SCHED[:-1])]
 FOCUS_TRIPS_MEAN_HW = np.mean(focus_trips_hw)
 FOCUS_TRIPS_HW_CV = round(np.std(focus_trips_hw) / np.mean(focus_trips_hw), 2)

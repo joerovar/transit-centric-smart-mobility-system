@@ -30,6 +30,7 @@ class Stop:
         self.pax = []
         self.passed_trips = []
         self.last_arr_t = []
+        self.last_dep_t = []
 
 
 class Bus:
