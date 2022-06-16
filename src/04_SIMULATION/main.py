@@ -8,7 +8,7 @@ from Input_Processor import get_interval
 from Simulation_Processor import run_base, train_rl, test_rl, run_base_dispatching
 
 
-# run_base_dispatching(replications=5, save_results=True)
+run_base_dispatching(replications=2)
 # sim_df_out = pd.read_pickle('out/NC/0524-153428-trip_record_outbound.pkl')
 
 # run_base(replications=10, control_eh=True, save_results=True)

@@ -81,12 +81,12 @@ class DetailedSimulationEnv(SimulationEnv):
                 assert bus.next_event_type == 4 or bus.next_event_type == 3
                 prev_dep_t = max(bus.dep_t, bus.active_trip[0].schedule[0])
                 interv_idx = get_interval(prev_dep_t, TRIP_TIME_INTERVAL_LENGTH_MINS) - TRIP_TIME_START_INTERVAL
-                next_sched_t = bus.pending_trips[0].schedule[0]
                 if bus.active_trip[0].route_type == 1:
                     estimated_in_run_t = np.mean(TRIP_T1_DIST_IN[interv_idx])
                 else:
                     estimated_in_run_t = np.mean(TRIP_T2_DIST_IN[interv_idx])
                 ready_time = prev_dep_t + estimated_in_run_t + MIN_LAYOVER_T
+                next_sched_t = bus.pending_trips[0].schedule[0]
                 if self.bus.last_stop_id == STOPS_OUTBOUND[0]:
                     expected_arr_t.append(max(ready_time, next_sched_t))
                 else:
@@ -1071,45 +1071,40 @@ class DetailedSimulationEnvWithDispatching(DetailedSimulationEnv):
                 # HERE WE TAKE TRIPS THAT ARE MID-ROUTE IN THE INBOUND DIRECTION
                 if bus.active_trip and bus.active_trip[0].route_type in [1, 2] and bus.pending_trips and bus.bus_id != self.bus.bus_id:
                     assert bus.next_event_type == 4 or bus.next_event_type == 3
-                    dep_sched_dev = bus.dep_t - bus.active_trip[0].schedule[0]
-                    # interv_idx = get_interval(prev_dep_t, TRIP_TIME_INTERVAL_LENGTH_MINS) - TRIP_TIME_START_INTERVAL
-
-                    # if bus.active_trip[0].route_type == 1:
-                    #     estimated_in_run_t = np.mean(TRIP_T1_DIST_IN[interv_idx])
-                    # else:
-                    #     estimated_in_run_t = np.mean(TRIP_T2_DIST_IN[interv_idx])
+                    dep_sched_dev = max(0, bus.dep_t - bus.active_trip[0].schedule[0])
                     ready_time = bus.active_trip[0].schedule[-1] + dep_sched_dev  + MIN_LAYOVER_T
                     next_sched_dep_t = bus.pending_trips[0].schedule[0]
-                    if self.bus.last_stop_id == STOPS_OUTBOUND[0]:
-                        future_dep_t.append(max(ready_time, next_sched_dep_t))
+                    future_dep_t.append(max(ready_time, next_sched_dep_t))
 
                 # HERE WE TAKE TRIPS THAT ARE IN THE TERMINAL WAITING TO BE DISPATCHED
                 if bus.active_trip and bus.active_trip[0].route_type == 0 and bus.next_event_type == 0 and bus.bus_id != self.bus.bus_id:
                     future_dep_t.append(bus.next_event_time)
-            if len(future_dep_t) >= FUTURE_HW_HORIZON:
-                future_dep = sorted(future_dep_t)[:FUTURE_HW_HORIZON]
-                future_dep.insert(0, self.time)
-                future_dep_hw = [future_dep[i] - future_dep[i-1] for i in range(1, len(future_dep))]
-                return future_dep_hw
-            else:
-                # this might happen if the episode is still running and we control the last dispatched trip
-                print(f'no future arrival found at hour {self.time/60/60}')
-                return [SCHED_DEP_OUT[-1] - SCHED_DEP_OUT[-2]]*FUTURE_HW_HORIZON
+        if len(future_dep_t) >= FUTURE_HW_HORIZON:
+            future_dep = sorted(future_dep_t)[:FUTURE_HW_HORIZON]
+            future_dep.insert(0, self.time)
+            print(f'these are the future departures {[round(fd/60/60, 2) for fd in future_dep]}')
+            future_dep_hw = [future_dep[i] - future_dep[i-1] for i in range(1, len(future_dep))]
+            return future_dep_hw
+        else:
+            # this might happen if the episode is still running and we control the last dispatched trip
+            print(f'no future arrival found at hour {self.time/60/60}')
+            return [SCHED_DEP_OUT[-1] - SCHED_DEP_OUT[-2]]*FUTURE_HW_HORIZON
 
     def report_observations(self):
         bus = self.bus
         sched_dep = bus.active_trip[0].schedule[0]
 
         ref_dep_t = max(self.time, sched_dep) # this will be the reference point - future and past hw extracted based on
-        past_sched_dep = np.sort(sched_deps_arr[sched_deps_arr < ref_dep_t])[-PAST_HW_HORIZON:].tolist()
+        past_sched_dep = np.sort(sched_deps_arr[(sched_deps_arr < ref_dep_t) & (sched_deps_arr.astype(int) != int(sched_dep))])[-PAST_HW_HORIZON:].tolist()
         past_sched_dep.append(self.time)
+
         past_sched_hw = [past_sched_dep[i] - past_sched_dep[i-1] for i in range(1, len(past_sched_dep))]
 
         past_actual_dep = self.stops[0].last_dep_t[-PAST_HW_HORIZON:]
         past_actual_dep.append(self.time)
         past_actual_hw = [past_actual_dep[i] - past_actual_dep[i-1] for i in range(1, len(past_actual_dep))]
 
-        future_sched_dep = np.sort(sched_deps_arr[sched_deps_arr > ref_dep_t])[:FUTURE_HW_HORIZON].tolist()
+        future_sched_dep = np.sort(sched_deps_arr[(sched_deps_arr > ref_dep_t) & (sched_deps_arr.astype(int) != int(sched_dep))])[:FUTURE_HW_HORIZON].tolist()
         future_sched_dep.insert(0, self.time)
         future_sched_hw = [future_sched_dep[i] - future_sched_dep[i-1] for i in range(1, len(future_sched_dep))]
         
@@ -1119,9 +1114,17 @@ class DetailedSimulationEnvWithDispatching(DetailedSimulationEnv):
 
         bus.next_event_time = ref_dep_t
         print(f'new event -----')
-        print(f'current time is {bus.next_event_time} and next event time is {bus.next_event_time}')
-        print(f'time with respect to schedule for trip {bus.active_trip[0].trip_id} is {self.time - bus.active_trip[0].schedule[0]}')
-
+        print(f'current time is {round(self.time/60/60, 2)} '
+              f'and next event time is {round(bus.next_event_time/60/60,2)}')
+        print(f'time with respect to schedule for trip {bus.active_trip[0].trip_id} is '
+              f'{round((self.time - bus.active_trip[0].schedule[0])/60, 1)}')
+        print(f'schedule deviation {round(sched_dev/60,1)}')
+        print(f'past scheduled departures {[round(d/60/60,2) for d in past_sched_dep]}')
+        print(f'past sched hw {[round(hw/60,1) for hw in past_sched_hw]}')
+        print(f'past actual hw {[round(hw/60,1) for hw in past_actual_hw]}')
+        print(f'future scheduled departures {[round(d/60/60,2) for d in future_sched_dep]}')
+        print(f'future sched hw {[round(hw/60,1) for hw in future_sched_hw]}')
+        print(f'future actual hw {[round(hw/60,1) for hw in future_actual_hw]}')
         bus.next_event_type = 0
         return
 
