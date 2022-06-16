@@ -45,7 +45,7 @@ BOARDING_TIME = 2.5
 ALIGHTING_TIME = 1.5
 DWELL_TIME_ERROR = 3.0
 EXTREME_TT_BOUND = 1.00
-CAPACITY = 50
+CAPACITY = 60
 DDD = 'UNIFORM'
 DEP_DELAY_FROM = -60
 DEP_DELAY_TO = 110
@@ -89,8 +89,8 @@ INBOUND_SHORT_START_STOP = '15136'
 INBOUND_LONG_START_STOP = '8613'
 [IDX_ARR_T_IN, IDX_SCHED_IN] = [i for i in range(1, 3)]
 
-OUT_TRIP_RECORD_COLS = ['trip_id', 'stop_id', 'arr_sec', 'dep_sec', 'pax_load', 'ons', 'offs', 'denied',
-                        'hold_time', 'skipped', 'schd_sec', 'stop_sequence'] # and replication goes at the end
+OUT_TRIP_RECORD_COLS = ['bus_id', 'trip_id', 'stop_id', 'arr_sec', 'dep_sec', 'pax_load', 'ons', 'offs', 'denied',
+                        'hold_time', 'skipped', 'schd_sec', 'stop_sequence', 'dist_traveled'] # and replication goes at the end
 IN_TRIP_RECORD_COLS = ['trip_id', 'stop_id', 'arr_sec', 'schd_sec', 'stop_sequence']
 PAX_RECORD_COLS = ['orig_idx', 'dest_idx', 'arr_time', 'board_time', 'alight_time', 'trip_id', 'denied']
 
@@ -99,28 +99,31 @@ EARLY_DEP_LIMIT_SEC = 60 # seconds
 MAX_DELAY_FOR_CONTROL = 120 # seconds
 IMPOSED_DELAY_LIMIT = 90
 HOLD_INTERVALS = 30
-PROB_CANCELLED_BLOCK = 0.2
+PROB_CANCELLED_BLOCK = 0.0
 CANCEL_NOTICE_TIME = 10*60 # seconds
 FUTURE_HW_HORIZON = 2
 PAST_HW_HORIZON = 2
 # extract_demand(ODT_INTERVAL_LEN_MIN, DATES)
-# extract_outbound_params(path_stop_times, START_TIME_SEC, END_TIME_SEC, TIME_NR_INTERVALS,
+# extract_outbound_params(START_TIME_SEC, END_TIME_SEC, TIME_NR_INTERVALS,
 #                         TIME_START_INTERVAL, TIME_INTERVAL_LENGTH_MINS, DATES,
-#                         TRIP_WITH_FULL_STOP_PATTERN, path_avl, DELAY_INTERVAL_LENGTH_MINS, DELAY_START_INTERVAL)
+#                         TRIP_WITH_FULL_STOP_PATTERN, DELAY_INTERVAL_LENGTH_MINS, DELAY_START_INTERVAL)
 # extract_inbound_params(
-#     path_stop_times, START_TIME_SEC, END_TIME_SEC, DATES, TRIP_TIME_NR_INTERVALS, TRIP_TIME_START_INTERVAL,
-#     TRIP_TIME_INTERVAL_LENGTH_MINS, path_avl, DELAY_INTERVAL_LENGTH_MINS, DELAY_START_INTERVAL)
-# extract_params(validation=True)
+#     START_TIME_SEC, END_TIME_SEC, DATES, TRIP_TIME_NR_INTERVALS, TRIP_TIME_START_INTERVAL,
+#     TRIP_TIME_INTERVAL_LENGTH_MINS, DELAY_INTERVAL_LENGTH_MINS, DELAY_START_INTERVAL)
 
 # OUTBOUND
-STOPS_OUTBOUND = load(path_route_stops)
 LINK_TIMES_INFO = load(path_link_times_mean)
 TRIPS_OUT_INFO = load('in/xtr/trips_outbound_info.pkl')
 ODT_RATES_SCALED = np.load('in/xtr/rt_20_odt_rates_30_scaled.npy')
 ODT_STOP_IDS = list(np.load('in/xtr/rt_20_odt_stops.npy'))
 ODT_STOP_IDS = [str(int(s)) for s in ODT_STOP_IDS]
 DEP_DELAY_DIST_OUT = load('in/xtr/dep_delay_dist_out.pkl')
-
+gtfs_st_df = pd.read_csv('in/raw/gtfs/stop_times.txt')
+gtfs_st_df_out = gtfs_st_df[gtfs_st_df['stop_headsign'] == 'Illinois Center']
+gtfs_st_df_out = gtfs_st_df_out.drop_duplicates(subset='stop_sequence')
+gtfs_st_df_out = gtfs_st_df_out.sort_values(by='stop_sequence')
+DIST_TRAVELED_OUT = gtfs_st_df_out['shape_dist_traveled'].tolist()
+STOPS_OUTBOUND = gtfs_st_df_out['stop_id'].astype(str).tolist()
 
 # INBOUND
 TRIP_TIMES1_PARAMS = load('in/xtr/trip_time1_params.pkl')
@@ -133,6 +136,7 @@ TRIP_T1_DIST_IN = load('in/xtr/trip_t1_dist_in.pkl')
 TRIP_T2_DIST_IN = load('in/xtr/trip_t2_dist_in.pkl')
 
 LINK_TIMES_MEAN, LINK_TIMES_EXTREMES, LINK_TIMES_PARAMS = LINK_TIMES_INFO
+
 SCALED_ARR_RATES = np.sum(ODT_RATES_SCALED, axis=-1)
 
 TRIP_IDS_OUT, SCHED_DEP_OUT, BLOCK_IDS_OUT = [], [], []
@@ -144,11 +148,19 @@ trips_in2 = [(x, y, str(timedelta(seconds=y)), z, 2, w, v) for x, y, z, w, v in 
 
 trips_df = pd.DataFrame(trips_out + trips_in1 + trips_in2,
                         columns=['trip_id', 'schd_sec', 'schd_time', 'block_id', 'route_type', 'schedule', 'stops'])
+sched_link_times = trips_df[trips_df['trip_id'] == TRIP_WITH_FULL_STOP_PATTERN]['schedule'].iloc[0]
+SCHED_LINK_T = {}
+for i in range(len(STOPS_OUTBOUND)-1):
+    SCHED_LINK_T[STOPS_OUTBOUND[i] + '-' + STOPS_OUTBOUND[i+1]] = sched_link_times[i+1] - sched_link_times[i]
+LINK_TIMES_PARAMS['3954-8613'] = [np.nan for i in range(TIME_NR_INTERVALS)]
+LINK_TIMES_MEAN['3954-8613'] = [SCHED_LINK_T['3954-8613'] for i in range(TIME_NR_INTERVALS)]
+# for ky in LINK_TIMES_MEAN:
+#     print(f'link {ky} yields {LINK_TIMES_MEAN[ky]} and {SCHED_LINK_T[ky]} and {LINK_TIMES_EXTREMES[ky]}')
 trips_df['block_id'] = trips_df['block_id'].astype(str).str[6:].astype(int)
 trips_df = trips_df.sort_values(by=['block_id', 'schd_sec'])
 block_ids = trips_df['block_id'].unique().tolist()
 BLOCK_TRIPS_INFO = []
-# avl_df = pd.read_csv('in/raw/rt20_avl.csv')
+
 for b in block_ids:
     block_df = trips_df[trips_df['block_id'] == b]
     trip_ids = block_df['trip_id'].tolist()

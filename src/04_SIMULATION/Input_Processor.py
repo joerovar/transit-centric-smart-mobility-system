@@ -4,7 +4,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.stats import lognorm
 import pickle
-from File_Paths import path_route_stops, path_stop_times
+from File_Paths import path_route_stops, path_apc_counts, path_avl
 
 
 def extract_demand(odt_interval_len_min, dates):
@@ -15,7 +15,7 @@ def extract_demand(odt_interval_len_min, dates):
     # comes from project with dingyi data
 
     nr_intervals = 24 / (odt_interval_len_min / 60)
-    apc_on_rates, apc_off_rates = extract_apc_counts(nr_intervals, odt_stops, path_stop_times, odt_interval_len_min,
+    apc_on_rates, apc_off_rates = extract_apc_counts(int(nr_intervals), odt_stops, odt_interval_len_min,
                                                      dates)
     stops_lst = list(odt_stops)
 
@@ -86,19 +86,19 @@ def remove_outliers(data, factor=1.4):
     return data
 
 
-def extract_outbound_params(path_stop_times, start_time_sec, end_time_sec, nr_intervals, start_interval,
-                            interval_length,
-                            dates, trip_choice, path_avl, delay_interval_length, delay_start_interval,
+def extract_outbound_params(start_time_sec, end_time_sec, nr_intervals, start_interval,
+                            interval_length, dates, trip_choice, delay_interval_length, delay_start_interval,
                             tolerance_early_departure=1.5 * 60):
-    stop_times_df = pd.read_csv(path_stop_times)
+    # stop_times_df = pd.read_csv(path_stop_times)
     avl_df = pd.read_csv(path_avl)
 
-    df_for_stops = stop_times_df[stop_times_df['trip_id'] == trip_choice]
+    df_for_stops = avl_df[avl_df['trip_id'] == trip_choice].copy()
     df_for_stops = df_for_stops[df_for_stops['avl_arr_time'].astype(str).str[:10] == dates[0]]
     df_for_stops = df_for_stops.sort_values(by='stop_sequence')
     stops = df_for_stops['stop_id'].astype(str).tolist()
+    print(stops)
 
-    df = stop_times_df[stop_times_df['stop_id'] == 386]
+    df = avl_df[avl_df['stop_id'] == 386].copy()
     df = df[df['stop_sequence'] == 1]
     df = df[df['schd_sec'] % 86400 <= end_time_sec]
     df = df[df['schd_sec'] % 86400 >= start_time_sec]
@@ -119,7 +119,7 @@ def extract_outbound_params(path_stop_times, start_time_sec, end_time_sec, nr_in
 
     write_outbound_trajectories(path_avl, ordered_trip_ids)
     for t in ordered_trip_ids:
-        temp = avl_df[avl_df['trip_id'] == t]
+        temp = avl_df[avl_df['trip_id'] == t].copy()
         temp = temp.sort_values(by='stop_sequence')
 
         temp_extract_schedule = temp.drop_duplicates(subset='stop_sequence')
@@ -131,7 +131,7 @@ def extract_outbound_params(path_stop_times, start_time_sec, end_time_sec, nr_in
         ordered_stops.append([str(s) for s in extract_stops])
 
         for d in dates:
-            date_specific = temp[temp['avl_arr_time'].astype(str).str[:10] == d]
+            date_specific = temp[temp['avl_arr_time'].astype(str).str[:10] == d].copy()
             schd_sec = date_specific['schd_sec'].tolist()
             stop_id = date_specific['stop_id'].astype(str).tolist()
             avl_sec = date_specific['avl_arr_sec'].tolist()
@@ -140,13 +140,11 @@ def extract_outbound_params(path_stop_times, start_time_sec, end_time_sec, nr_in
             if len(avl_sec) > 1:
                 if stop_sequence[0] == 1:
                     dep_delay = schd_sec[0] - (avl_dep_sec[0] % 86400)
-
                     delay_idx = get_interval(schd_sec[0], delay_interval_length) - delay_start_interval
                     dep_delay_dist[delay_idx].append(-1 * dep_delay)
                     if stop_sequence[1] == 2:
                         dep_delay_ahead = (avl_dep_sec[1] % 86400) - schd_sec[1]
                         dep_delay_ahead_dist[delay_idx].append(dep_delay_ahead)
-
                     if dep_delay > tolerance_early_departure:
                         schd_sec.pop(0)
                         stop_id.pop(0)
@@ -215,12 +213,6 @@ def extract_outbound_params(path_stop_times, start_time_sec, end_time_sec, nr_in
             count += 1
 
     # well known outlier link
-    mean_link_times['3954-8613'][1] = mean_link_times['3954-8613'][3]
-    mean_link_times['3954-8613'][2] = mean_link_times['3954-8613'][3]
-    extreme_link_times['3954-8613'][1] = extreme_link_times['3954-8613'][3]
-    extreme_link_times['3954-8613'][2] = extreme_link_times['3954-8613'][3]
-    fit_params_link_t['3954-8613'][1] = fit_params_link_t['3954-8613'][3]
-    fit_params_link_t['3954-8613'][2] = fit_params_link_t['3954-8613'][3]
     link_times_info = (mean_link_times, extreme_link_times, fit_params_link_t)
 
     trips_info = [(v, w, x, y, z) for v, w, x, y, z in
@@ -265,16 +257,16 @@ def bi_proportional_fitting(od, target_ons, target_offs):
     return scaled_od_set
 
 
-def extract_inbound_params(path_stop_times, start_time, end_time, dates, nr_intervals,
-                           start_interval, interval_length, path_avl, delay_interval_length,
+def extract_inbound_params(start_time, end_time, dates, nr_intervals,
+                           start_interval, interval_length, delay_interval_length,
                            delay_start_interval, tolerance_early_dep=0.5 * 60):
     trip_time_record_long = []
     trip_time_record_short = []
 
-    stop_times_df = pd.read_csv(path_stop_times)
+    # stop_times_df = pd.read_csv(path_stop_times)
     avl_df = pd.read_csv(path_avl)
 
-    df1 = stop_times_df[stop_times_df['stop_sequence'] == 1]
+    df1 = avl_df[avl_df['stop_sequence'] == 1].copy()
     df1 = df1[df1['stop_id'] == 8613]
     df1 = df1[df1['schd_sec'] <= end_time]
     df1 = df1[df1['schd_sec'] >= start_time]
@@ -286,19 +278,19 @@ def extract_inbound_params(path_stop_times, start_time, end_time, dates, nr_inte
     ordered_schedules1 = []
     ordered_stops1 = []
 
-    add_sched_dep_time = (datetime.strptime('7:33:30', '%H:%M:%S') - datetime(1900, 1, 1)).total_seconds()
-    add_trip_id = 911266020
-    add_block_id_df = stop_times_df[stop_times_df['trip_id'] == add_trip_id]
-    add_block_id = int(add_block_id_df['block_id'].mean())
-    for i in range(1, len(ordered_trip_ids1) - 1):
-        if ordered_deps1[i - 1] < add_sched_dep_time < ordered_deps1[i]:
-            idx_insert = i - 1
-            break
-    ordered_trip_ids1.insert(idx_insert, add_trip_id)
-    ordered_deps1.insert(idx_insert, add_sched_dep_time)
-    ordered_block_ids1.insert(idx_insert, add_block_id)
+    # add_sched_dep_time = (datetime.strptime('7:33:30', '%H:%M:%S') - datetime(1900, 1, 1)).total_seconds()
+    # add_trip_id = 911266020
+    # add_block_id_df = avl_df[avl_df['trip_id'] == add_trip_id].copy()
+    # add_block_id = int(add_block_id_df['block_id'].mean())
+    # for i in range(1, len(ordered_trip_ids1) - 1):
+    #     if ordered_deps1[i - 1] < add_sched_dep_time < ordered_deps1[i]:
+    #         idx_insert = i - 1
+    #         break
+    # ordered_trip_ids1.insert(idx_insert, add_trip_id)
+    # ordered_deps1.insert(idx_insert, add_sched_dep_time)
+    # ordered_block_ids1.insert(idx_insert, add_block_id)
 
-    df2 = stop_times_df[stop_times_df['stop_sequence'] == 1]
+    df2 = avl_df[avl_df['stop_sequence'] == 1].copy()
     df2 = df2[df2['stop_id'] == 15136]
     df2 = df2[df2['schd_sec'] <= end_time]
     df2 = df2[df2['schd_sec'] >= start_time]
@@ -317,7 +309,7 @@ def extract_inbound_params(path_stop_times, start_time, end_time, dates, nr_inte
     dep_delay_1_ahead = [[] for _ in range(delay_nr_intervals)]
     trip_t1_empirical = [[] for _ in range(nr_intervals)]
     for t in ordered_trip_ids1:
-        temp_df = avl_df[avl_df['trip_id'] == t]
+        temp_df = avl_df[avl_df['trip_id'] == t].copy()
         schedule_df = temp_df.drop_duplicates(subset='schd_sec')
         schedule_df = schedule_df.sort_values(by='schd_sec')
         ordered_schedules1.append(schedule_df['schd_sec'].tolist())
@@ -354,7 +346,7 @@ def extract_inbound_params(path_stop_times, start_time, end_time, dates, nr_inte
     trip_t2_empirical = [[] for _ in range(nr_intervals)]
     # dep_delay2 = []
     for t in ordered_trip_ids2:
-        temp_df = avl_df[avl_df['trip_id'] == t]
+        temp_df = avl_df[avl_df['trip_id'] == t].copy()
         schedule_df = temp_df.drop_duplicates(subset='schd_sec')
         schedule_df = schedule_df.sort_values(by='schd_sec')
         ordered_schedules2.append(schedule_df['schd_sec'].tolist())
@@ -454,9 +446,9 @@ def extract_inbound_params(path_stop_times, start_time, end_time, dates, nr_inte
 
 def write_outbound_trajectories(stop_times_path, ordered_trips):
     stop_times_df = pd.read_csv(stop_times_path)
-    stop_times_df = stop_times_df[stop_times_df['trip_id'].isin(ordered_trips)]
-    stop_times_df = stop_times_df.sort_values(by=['stop_sequence', 'schd_sec'])
-    stop_times_df.to_csv('in/vis/trajectories_outbound.csv', index=False)
+    stop_times_df2 = stop_times_df[stop_times_df['trip_id'].isin(ordered_trips)].copy()
+    stop_times_df2 = stop_times_df2.sort_values(by=['stop_sequence', 'schd_sec'])
+    stop_times_df2.to_csv('in/vis/trajectories_outbound.csv', index=False)
     return
 
 
@@ -464,8 +456,8 @@ def get_load_profile(stop_times_path, focus_trips, stops):
     lp = []
     ons_set = []
     offs_set = []
-    stop_times_df = pd.read_csv(stop_times_path)
-    stop_times_df = stop_times_df[stop_times_df['trip_id'].isin(focus_trips)]
+    st_df = pd.read_csv(stop_times_path)
+    stop_times_df = st_df[st_df['trip_id'].isin(focus_trips)].copy()
     for s in stops:
         df = stop_times_df[stop_times_df['stop_id'] == int(s)]
         ons_df = df['ron'] + df['fon']
@@ -479,13 +471,13 @@ def get_load_profile(stop_times_path, focus_trips, stops):
     return lp, ons_set, offs_set
 
 
-def extract_apc_counts(nr_intervals, odt_ordered_stops, path_stop_times, interval_len_min, dates):
+def extract_apc_counts(nr_intervals, odt_ordered_stops, interval_len_min, dates):
     arr_rates = np.zeros(shape=(nr_intervals, len(odt_ordered_stops)))
     drop_rates = np.zeros(shape=(nr_intervals, len(odt_ordered_stops)))
-    stop_t_df = pd.read_csv(path_stop_times)
+    apc_df = pd.read_csv(path_apc_counts)
     for stop_idx in range(len(odt_ordered_stops)):
         print(f'stop {stop_idx + 1}')
-        temp_df = stop_t_df[stop_t_df['stop_id'] == int(odt_ordered_stops[stop_idx])]
+        temp_df = apc_df[apc_df['stop_id'] == int(odt_ordered_stops[stop_idx])].copy()
         for interval_idx in range(48):
             t_edge0 = interval_idx * interval_len_min * 60
             t_edge1 = (interval_idx + 1) * interval_len_min * 60

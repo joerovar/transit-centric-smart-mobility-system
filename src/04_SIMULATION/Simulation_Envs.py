@@ -150,8 +150,9 @@ class DetailedSimulationEnv(SimulationEnv):
         trajectory = [bus.last_stop_id, round(bus.arr_t, 1), round(bus.dep_t, 1),
                       len(bus.pax), pickups, offs, denied_board, hold, int(skip), scheduled_sec]
         self.trajectories_out[trip_id].append(trajectory)
-        self.out_trip_record.append([trip_id, bus.last_stop_id, bus.arr_t, bus.dep_t, len(bus.pax), pickups, offs,
-                                     denied_board, hold, int(skip), scheduled_sec, stop_idx+1])
+        self.out_trip_record.append([bus.bus_id, trip_id, bus.last_stop_id, bus.arr_t, bus.dep_t,
+                                     len(bus.pax), pickups, offs, denied_board, hold, int(skip),
+                                     scheduled_sec, stop_idx+1, DIST_TRAVELED_OUT[stop_idx]])
         return
 
     def get_travel_time(self):
@@ -164,30 +165,17 @@ class DetailedSimulationEnv(SimulationEnv):
             link_time_params = LINK_TIMES_PARAMS[link][interv_idx]
             link_time_extremes = LINK_TIMES_EXTREMES[link][interv_idx]
             if type(link_time_params) is not tuple:
-                if interv_idx == 0:
-                    link_time_params = LINK_TIMES_PARAMS[link][interv_idx + 1]
-                    link_time_extremes = LINK_TIMES_EXTREMES[link][interv_idx + 1]
+                return SCHED_LINK_T[link]
         else:
             link_time_params = SINGLE_LINK_TIMES_PARAMS[link]
             link_time_extremes = SINGLE_LINK_TIMES_EXTREMES
-        try:
-            link_time_params_light = (link_time_params[0]*self.tt_factor, link_time_params[1], link_time_params[2])
-            runtime = lognorm.rvs(*link_time_params_light)
-            minim, maxim = link_time_extremes
-            if runtime > maxim:
-                runtime = min(EXTREME_TT_BOUND*maxim, runtime)
-        except ValueError:
-            print(f'trip id {bus.active_trip[0].trip_id}')
-            print(f'link {link}')
-            print(f'time {self.time}')
-            raise
-        except TypeError:
-            print(f'trip id {bus.active_trip[0].trip_id}')
-            print(f'link {link}')
-            print(f'time {self.time}')
-            print(link_time_params)
-            print(f'interval {interv_idx}')
-            raise
+            if type(link_time_params) is not tuple:
+                return SCHED_LINK_T[link]
+        link_time_params_light = (link_time_params[0]*self.tt_factor, link_time_params[1], link_time_params[2])
+        runtime = lognorm.rvs(*link_time_params_light)
+        minim, maxim = link_time_extremes
+        if runtime > maxim:
+            runtime = min(EXTREME_TT_BOUND*maxim, runtime)
         return runtime
 
     def reset_simulation(self):
@@ -216,14 +204,8 @@ class DetailedSimulationEnv(SimulationEnv):
                 bus.last_stop_id = STOPS_OUTBOUND[0]
             interval_delay = get_interval(trip.schedule[0], DELAY_INTERVAL_LENGTH_MINS) - DELAY_START_INTERVAL
             rand_percentile = np.random.uniform(0.0, 100.0)
-            if trip.route_type == 0:
-                delay = np.percentile(DEP_DELAY_DIST_OUT[interval_delay], rand_percentile)
-            elif trip.route_type == 1:
-                delay = np.percentile(DEP_DELAY1_DIST_IN[interval_delay], rand_percentile)
-            else:
-                assert trip.route_type == 2
-                delay = np.percentile(DEP_DELAY2_DIST_IN[interval_delay], rand_percentile)
-            # random_delay = max(random.uniform(DEP_DELAY_FROM, DEP_DELAY_TO), 0)
+            delay_dist_by_route = [DEP_DELAY_DIST_OUT, DEP_DELAY1_DIST_IN, DEP_DELAY2_DIST_IN]
+            delay = np.percentile(delay_dist_by_route[trip.route_type][interval_delay], rand_percentile)
             bus.next_event_time = trip.schedule[0] + max(delay, 0)
             bus.dep_t = deepcopy(bus.next_event_time)
             bus.next_event_type = 3 if trip.route_type else 0
@@ -673,18 +655,11 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
             trip = bus.active_trip[0]
             if trip.route_type == 0:
                 bus.last_stop_id = STOPS_OUTBOUND[0]
-
             interval_delay = get_interval(trip.schedule[0], DELAY_INTERVAL_LENGTH_MINS) - DELAY_START_INTERVAL
             rand_percentile = np.random.uniform(0.0, 100.0)
-            if trip.route_type == 0:
-                dep_delay = np.percentile(DEP_DELAY_DIST_OUT[interval_delay], rand_percentile)
-            elif trip.route_type == 1:
-                dep_delay = np.percentile(DEP_DELAY1_DIST_IN[interval_delay], rand_percentile)
-            else:
-                assert trip.route_type == 2
-                dep_delay = np.percentile(DEP_DELAY2_DIST_IN[interval_delay], rand_percentile)
-            # random_delay = max(random.uniform(DEP_DELAY_FROM, DEP_DELAY_TO), 0)
-            bus.next_event_time = trip.schedule[0] + max(dep_delay, 0)
+            delay_dist_by_route = [DEP_DELAY_DIST_OUT, DEP_DELAY1_DIST_IN, DEP_DELAY2_DIST_IN]
+            delay = np.percentile(delay_dist_by_route[trip.route_type][interval_delay], rand_percentile)
+            bus.next_event_time = trip.schedule[0] + max(delay, 0)
             bus.dep_t = deepcopy(bus.next_event_time)
             bus.next_event_type = 3 if trip.route_type else 0
         # initialize passenger demand
@@ -1046,9 +1021,6 @@ class DetailedSimulationEnvWithDispatching(DetailedSimulationEnv):
         for bus in self.buses:
             if random.uniform(0, 1) <= PROB_CANCELLED_BLOCK and self.missing_trips:
                 bus.cancelled = True
-                # bus.will_cancel = True
-                # bus.next_event_time = max(START_TIME_SEC, trip.schedule[0] - CANCEL_NOTICE_TIME)
-                # bus.next_event_type = 6 # cancellation event
             else:
                 bus.active_trip.append(bus.pending_trips[0])
                 bus.pending_trips.pop(0)
@@ -1057,13 +1029,8 @@ class DetailedSimulationEnvWithDispatching(DetailedSimulationEnv):
                     bus.last_stop_id = STOPS_OUTBOUND[0]
                 interval_delay = get_interval(trip.schedule[0], DELAY_INTERVAL_LENGTH_MINS) - DELAY_START_INTERVAL
                 rand_percentile = np.random.uniform(0.0, 100.0)
-                if trip.route_type == 0:
-                    delay = np.percentile(DEP_DELAY_DIST_OUT[interval_delay], rand_percentile)
-                elif trip.route_type == 1:
-                    delay = np.percentile(DEP_DELAY1_DIST_IN[interval_delay], rand_percentile)
-                else:
-                    assert trip.route_type == 2
-                    delay = np.percentile(DEP_DELAY2_DIST_IN[interval_delay], rand_percentile)
+                delay_dist_by_route = [DEP_DELAY_DIST_OUT, DEP_DELAY1_DIST_IN, DEP_DELAY2_DIST_IN]
+                delay = np.percentile(delay_dist_by_route[trip.route_type][interval_delay], rand_percentile)
                 bus.next_event_time = trip.schedule[0] + max(delay, 0)
                 bus.dep_t = deepcopy(bus.next_event_time)
                 bus.next_event_type = 3 if trip.route_type else 0

@@ -16,8 +16,9 @@ dir_var = 'var/'
 # INPUT FILES
 
 path_trips_gtfs = path_to_ins + dir_raw + 'gtfs/trips.txt'
-path_stop_times = path_to_ins + dir_raw + 'rt20_stop_times.csv' # only includes first week of september
-path_avl = path_to_ins + dir_raw + 'rt20_avl.csv' # includes all of september
+path_apc_counts = path_to_ins + dir_raw + 'rt20_apc_counts.csv' # only includes first week of september
+# path_avl = path_to_ins + dir_raw + 'rt20_avl.csv' # includes all of september
+path_avl = path_to_ins + dir_raw + 'rt20_avl_2019-09.csv' # includes all of september
 path_stops_loc = path_to_ins + dir_raw + 'gtfs/stops.txt'
 path_od = path_to_ins + dir_raw + 'odt_for_opt.csv'
 path_dispatching_times = path_to_ins + dir_raw + 'dispatching_time.csv'

@@ -50,8 +50,6 @@ class Bus:
         self.offs = 0
         self.denied = 0
         self.cancelled = False
-        self.will_cancel = False
-        self.cancel_time = None
 
 
 class TripLog:

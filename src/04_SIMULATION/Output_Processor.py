@@ -39,6 +39,11 @@ def plot_learning(x, scores, epsilons, filename, lines=None):
     plt.savefig(filename)
 
 
+def plot_trajectory():
+
+    return
+
+
 def validate_trip_t_outbound(avl_df, sim_df, start_time, end_time, stops, path_trip_t, path_dwell_t, dates,
                              ignore_terminals=False):
     trip_t_avl, dwell_t_avl = trip_t_outbound(avl_df, start_time, end_time, 60, stops, 'avl_arr_sec',
@@ -440,41 +445,6 @@ def write_sars(trip_data, pathname, header=None):
                 stop_lst.insert(0, trip)
                 wf.writerow(stop_lst)
             i += 1
-    return
-
-
-def plot_trajectories(trip_data, idx_arr_t, idx_dep_t, pathname, ordered_stops, controlled_stops=None):
-    fig, axs = plt.subplots(ncols=3, sharey='all')
-    for i in range(3):
-        for trip in trip_data[i]:
-            td = np.array(trip_data[i][trip])[:52]
-            if np.size(td):
-                arr_times = td[:, idx_arr_t].astype(float)
-                dep_times = td[:, idx_dep_t].astype(float)
-                times = np.vstack((arr_times, dep_times))
-                times = times.flatten(order='F')
-                # print(times)
-                starting_stop = td[0, 0]
-                starting_stop_idx = ordered_stops.index(starting_stop)
-                y_axis = np.arange(starting_stop_idx, starting_stop_idx + len(arr_times))
-                y_axis = np.repeat(y_axis, 2)
-                axs[i].plot(times, y_axis, color='lightblue')
-        if controlled_stops:
-            for c in controlled_stops[:-1]:
-                stop_idx = ordered_stops.index(c)
-                axs[i].axhline(y=stop_idx, color='gray', alpha=0.5, linestyle='dashed')
-    # axs[0].set_yticks(np.arange(len(ordered_stops)))
-    axs[0].tick_params(axis='both', labelsize=6)
-    axs[1].tick_params(axis='x', labelsize=6)
-    axs[2].tick_params(axis='x', labelsize=6)
-    axs[0].set(xlabel='seconds', ylabel='stops')
-    # plt.tick_params(labelright=True)
-    fig.tight_layout(pad=0.05)
-    if pathname:
-        plt.savefig(pathname)
-    else:
-        plt.show()
-    plt.close()
     return
 
 
@@ -958,3 +928,92 @@ def plot_3_var_whisker(var1, var2, var3, tags, path_save, var1_label, var2_label
     plt.close()
     return
 
+
+def block_trajectories(focus_trip_ids):
+    trajectories_in_df = pd.read_csv('in/vis/trajectories_inbound.csv')
+    trajectories_out_df = pd.read_csv('in/vis/trajectories_outbound.csv')
+    block_info = pd.read_csv('in/vis/block_info.csv')
+
+    block_info = block_info[['trip_id', 'block_id', 'route_type']]
+    trajectories_df = pd.concat([trajectories_out_df, trajectories_in_df], axis=0, ignore_index=True)
+
+    trajectories_df = trajectories_df.merge(block_info, on='trip_id')
+    focus_blocks = block_info[block_info['trip_id'].isin(focus_trip_ids)]['block_id'].unique()
+    trajectories_df = trajectories_df[trajectories_df['block_id'].isin(focus_blocks)]
+    trajectories_df['stop_direction'] = trajectories_df['stop_id'].astype(str) + '_' + trajectories_df[
+        'route_type'].astype(str)
+    terminals = ['8613_1', '386_1', '15136_2', '386_2', '386_0', '8613_0']
+    trajectories_df = trajectories_df[trajectories_df['stop_direction'].isin(terminals)]
+    trajectories_df['date'] = trajectories_df['avl_arr_time'].str[8:10].astype(int)
+    trajectories_df = trajectories_df[
+        ['date', 'trip_id', 'block_id', 'stop_sequence', 'stop_id', 'avl_arr_sec', 'avl_dep_sec', 'schd_sec',
+         'route_type']]
+    trajectories_df = trajectories_df.sort_values(by=['date', 'schd_sec'])
+    trajectories_df['avl_arr_sec'] = trajectories_df['avl_arr_sec'] % 86400
+    trajectories_df['avl_dep_sec'] = trajectories_df['avl_dep_sec'] % 86400
+    unique_dates = trajectories_df['date'].unique()
+    fig, axs = plt.subplots(ncols=3, sharex='all', sharey='all')
+    i = 0
+    for d in [3, 11, 16]:
+        trajectories = trajectories_df[trajectories_df['date'] == d]
+
+        trajectories_arr_sec = trajectories[['block_id', 'stop_id', 'avl_arr_sec']]
+        trajectories_arr_sec = trajectories_arr_sec.rename(columns={'avl_arr_sec': 'avl_sec'})
+        trajectories_dep_sec = trajectories[['block_id', 'stop_id', 'avl_dep_sec']]
+        trajectories_dep_sec = trajectories_dep_sec.rename(columns={'avl_dep_sec': 'avl_sec'})
+        trajectories_schd_sec = trajectories[['block_id', 'stop_id', 'schd_sec']]
+        trajectories_schd_sec = trajectories_schd_sec.rename(columns={'schd_sec': 'avl_sec'})
+        trajectories_schd_sec['block_id'] = trajectories_schd_sec['block_id'] * 10
+
+        trajectories_plot = pd.concat([trajectories_arr_sec, trajectories_dep_sec], ignore_index=True)
+        trajectories_plot = trajectories_plot.sort_values(by='avl_sec')
+        trajectories_plot = trajectories_plot.set_index('avl_sec')
+        dict1 = {386: 0, 15136: 20, 8613: 67}
+        trajectories_plot = trajectories_plot.replace({'stop_id': dict1})
+
+        trajectories_plot.groupby(by='block_id')['stop_id'].plot(color='red', ax=axs[i])
+
+        trajectories_plot2 = trajectories_schd_sec.sort_values(by='avl_sec')
+        trajectories_plot2 = trajectories_plot2.set_index('avl_sec')
+        dict1 = {386: 0, 15136: 20, 8613: 67}
+        trajectories_plot2 = trajectories_plot2.replace({'stop_id': dict1})
+        trajectories_plot2.groupby(by='block_id')['stop_id'].plot(color='silver', alpha=0.5, ax=axs[i])
+        axs[i].set_xlim(26500, 34500)
+        i += 1
+    plt.close()
+
+    fig, axs = plt.subplots(ncols=3, sharex='all', sharey='all')
+    trajectories_sim = pd.read_csv('out/trajectories/NC.csv')
+    terminals = [386, 8613]
+    i = 0
+
+    for rep in [3, 11, 16]:
+        trajectories = trajectories_sim[trajectories_sim['replication'] == rep]
+        trajectories = trajectories[trajectories['stop_id'].isin(terminals)]
+
+        trajectories_arr_sec = trajectories[['trip_id', 'stop_id', 'arr_sec']]
+        trajectories_arr_sec = trajectories_arr_sec.rename(columns={'arr_sec': 'avl_sec'})
+        trajectories_dep_sec = trajectories[['trip_id', 'stop_id', 'dep_sec']]
+        trajectories_dep_sec = trajectories_dep_sec.rename(columns={'dep_sec': 'avl_sec'})
+
+        trajectories_real = trajectories_df[trajectories_df['date'] == d]
+        trajectories_real = trajectories_real[trajectories_real['trip_id'].isin(focus_trip_ids)]
+        trajectories_schd_sec = trajectories_real[['trip_id', 'stop_id', 'schd_sec']]
+        trajectories_schd_sec = trajectories_schd_sec.rename(columns={'schd_sec': 'avl_sec'})
+        # trajectories_schd_sec['trip_id'] = trajectories_schd_sec['trip_id']*10
+
+        trajectories_plot = pd.concat([trajectories_arr_sec, trajectories_dep_sec], ignore_index=True)
+        trajectories_plot = trajectories_plot.sort_values(by='avl_sec')
+        trajectories_plot = trajectories_plot.set_index('avl_sec')
+        dict1 = {386: 0, 15136: 20, 8613: 67}
+        trajectories_plot = trajectories_plot.replace({'stop_id': dict1})
+        trajectories_plot.groupby(by='trip_id')['stop_id'].plot(color='red', ax=axs[i])
+
+        trajectories_plot2 = trajectories_schd_sec.sort_values(by='avl_sec')
+        trajectories_plot2 = trajectories_plot2.set_index('avl_sec')
+        dict1 = {386: 0, 15136: 20, 8613: 67}
+        trajectories_plot2 = trajectories_plot2.replace({'stop_id': dict1})
+        trajectories_plot2.groupby(by='trip_id')['stop_id'].plot(color='silver', alpha=0.5, ax=axs[i])
+        axs[i].set_xlim(26500, 34500)
+        i += 1
+    return
