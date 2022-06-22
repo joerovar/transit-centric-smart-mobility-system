@@ -17,7 +17,8 @@ dir_var = 'var/'
 
 path_trips_gtfs = path_to_ins + dir_raw + 'gtfs/trips.txt'
 path_apc_counts = path_to_ins + dir_raw + 'rt20_apc_counts.csv' # only includes first week of september
-# path_avl = path_to_ins + dir_raw + 'rt20_avl.csv' # includes all of september
+path_stop_times = path_to_ins + dir_raw + 'gtfs/stop_times.txt'
+path_calendar = path_to_ins + dir_raw + 'gtfs/calendar.txt'
 path_avl = path_to_ins + dir_raw + 'rt20_avl_2019-09.csv' # includes all of september
 path_stops_loc = path_to_ins + dir_raw + 'gtfs/stops.txt'
 path_od = path_to_ins + dir_raw + 'odt_for_opt.csv'
@@ -26,7 +27,8 @@ path_ordered_dispatching = path_to_ins + dir_raw + 'outbound_ordered_dispatching
 
 # EXTRACT NETWORK PARAMS
 
-path_route_stops = path_to_ins + 'xtr/route_stops' + ext_var
+path_stops_out_full_pattern = path_to_ins + 'xtr/stops_out_full_pattern' + ext_var
+path_stops_out_all = path_to_ins + 'xtr/stops_out_all' + ext_var
 path_link_times_mean = path_to_ins + 'xtr/link_times_info' + ext_var
 path_arr_rates = path_to_ins + 'xtr/arr_rates' + ext_var
 path_alight_fractions = path_to_ins + 'xtr/alight_fractions' + ext_var

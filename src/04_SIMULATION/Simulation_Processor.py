@@ -6,16 +6,19 @@ import Simulation_Envs
 import random
 
 
-def run_base_dispatching(replications=4, save_results=False):
+def run_base_dispatching(prob_cancelled=0.0, replications=4, save_results=False):
     tstamp = datetime.now().strftime('%m%d-%H%M%S')
     out_trip_record_set = []
     in_trip_record_set = []
     pax_record_set = []
     for i in range(replications):
-        env = Simulation_Envs.DetailedSimulationEnvWithDispatching()
+        env = Simulation_Envs.DetailedSimulationEnvWithDispatching(prob_cancelled_block=prob_cancelled)
         done = env.reset_simulation()
         while not done:
             done = env.prep()
+            # if env.bus.next_event_type == 5:
+            #     print(str(timedelta(seconds=round(env.time))))
+            #     print(f'')
         if save_results:
             out_trip_record_df = pd.DataFrame(env.out_trip_record, columns=OUT_TRIP_RECORD_COLS)
             out_trip_record_df['replication'] = pd.Series([i + 1 for _ in range(len(out_trip_record_df.index))])

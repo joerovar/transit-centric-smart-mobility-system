@@ -1,14 +1,14 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from Inputs import STOPS_OUTBOUND, DATES, START_TIME_SEC, END_TIME_SEC, LINK_TIMES_MEAN, DIST_TRAVELED_OUT
+from Inputs import DATES, START_TIME_SEC, END_TIME_SEC, LINK_TIMES_MEAN
 from Output_Processor import validate_delay_outbound, validate_delay_inbound, validate_cv_hw_outbound, \
     validate_trip_t_outbound
 from Input_Processor import get_interval
 from Simulation_Processor import run_base, train_rl, test_rl, run_base_dispatching
 
 
-run_base_dispatching(replications=2)
+run_base_dispatching(replications=4, prob_cancelled=0.2, save_results=True)
 # sim_df_out = pd.read_pickle('out/NC/0524-153428-trip_record_outbound.pkl')
 
 # run_base(replications=10, control_eh=True, save_results=True)

@@ -30,7 +30,6 @@ DATES = ['2019-09-03', '2019-09-04', '2019-09-05', '2019-09-06',
          '2019-09-09', '2019-09-10', '2019-09-11', '2019-09-12', '2019-09-13',
          '2019-09-16', '2019-09-17', '2019-09-18', '2019-09-19', '2019-09-20',
          '2019-09-23', '2019-09-24', '2019-09-25', '2019-09-26', '2019-09-27']
-TRIP_WITH_FULL_STOP_PATTERN = 911414030
 # INBOUND TO OUTBOUND LAYOVER TIME
 MIN_LAYOVER_T = 40
 ERR_LAYOVER_TIME = 20
@@ -95,67 +94,57 @@ IN_TRIP_RECORD_COLS = ['trip_id', 'stop_id', 'arr_sec', 'schd_sec', 'stop_sequen
 PAX_RECORD_COLS = ['orig_idx', 'dest_idx', 'arr_time', 'board_time', 'alight_time', 'trip_id', 'denied']
 
 # TERMINAL DISPATCHING PARAMS
-EARLY_DEP_LIMIT_SEC = 60 # seconds
-MAX_DELAY_FOR_CONTROL = 120 # seconds
-IMPOSED_DELAY_LIMIT = 90
+EARLY_DEP_LIMIT_SEC = 120 # seconds
+IMPOSED_DELAY_LIMIT = 180
 HOLD_INTERVALS = 30
-PROB_CANCELLED_BLOCK = 0.0
-CANCEL_NOTICE_TIME = 10*60 # seconds
 FUTURE_HW_HORIZON = 2
 PAST_HW_HORIZON = 2
+END_TIME_SEC2 = END_TIME_SEC - 60*30
 # extract_demand(ODT_INTERVAL_LEN_MIN, DATES)
-# extract_outbound_params(START_TIME_SEC, END_TIME_SEC, TIME_NR_INTERVALS,
-#                         TIME_START_INTERVAL, TIME_INTERVAL_LENGTH_MINS, DATES,
-#                         TRIP_WITH_FULL_STOP_PATTERN, DELAY_INTERVAL_LENGTH_MINS, DELAY_START_INTERVAL)
-# extract_inbound_params(
-#     START_TIME_SEC, END_TIME_SEC, DATES, TRIP_TIME_NR_INTERVALS, TRIP_TIME_START_INTERVAL,
-#     TRIP_TIME_INTERVAL_LENGTH_MINS, DELAY_INTERVAL_LENGTH_MINS, DELAY_START_INTERVAL)
+# extract_outbound_params(START_TIME_SEC, END_TIME_SEC, TIME_NR_INTERVALS, TIME_START_INTERVAL, TIME_INTERVAL_LENGTH_MINS,
+#                         DATES, DELAY_INTERVAL_LENGTH_MINS, DELAY_START_INTERVAL)
+# extract_inbound_params(START_TIME_SEC, END_TIME_SEC, DATES, TRIP_TIME_NR_INTERVALS, TRIP_TIME_START_INTERVAL,
+#                        TRIP_TIME_INTERVAL_LENGTH_MINS, DELAY_INTERVAL_LENGTH_MINS, DELAY_START_INTERVAL)
 
 # OUTBOUND
 LINK_TIMES_INFO = load(path_link_times_mean)
 TRIPS_OUT_INFO = load('in/xtr/trips_outbound_info.pkl')
+
 ODT_RATES_SCALED = np.load('in/xtr/rt_20_odt_rates_30_scaled.npy')
 ODT_STOP_IDS = list(np.load('in/xtr/rt_20_odt_stops.npy'))
 ODT_STOP_IDS = [str(int(s)) for s in ODT_STOP_IDS]
-DEP_DELAY_DIST_OUT = load('in/xtr/dep_delay_dist_out.pkl')
-gtfs_st_df = pd.read_csv('in/raw/gtfs/stop_times.txt')
-gtfs_st_df_out = gtfs_st_df[gtfs_st_df['stop_headsign'] == 'Illinois Center']
-gtfs_st_df_out = gtfs_st_df_out.drop_duplicates(subset='stop_sequence')
-gtfs_st_df_out = gtfs_st_df_out.sort_values(by='stop_sequence')
-DIST_TRAVELED_OUT = gtfs_st_df_out['shape_dist_traveled'].tolist()
-STOPS_OUTBOUND = gtfs_st_df_out['stop_id'].astype(str).tolist()
+DEP_DELAY_DIST_OUT = load('in/xtr/dep_delay_dist_out.pkl') # empirical delay data , including negative
+STOPS_OUT_FULL_PATT = load(path_stops_out_full_pattern)
+STOPS_OUT_ALL = load(path_stops_out_all)
+STOPS_OUT_INFO = load('in/xtr/stops_out_info.pkl')
 
 # INBOUND
-TRIP_TIMES1_PARAMS = load('in/xtr/trip_time1_params.pkl')
-TRIP_TIMES2_PARAMS = load('in/xtr/trip_time2_params.pkl')
-TRIPS1_IN_INFO = load('in/xtr/trips1_info_inbound.pkl')
-TRIPS2_IN_INFO = load('in/xtr/trips2_info_inbound.pkl')
-DEP_DELAY1_DIST_IN = load('in/xtr/dep_delay1_dist_in.pkl')
-DEP_DELAY2_DIST_IN = load('in/xtr/dep_delay2_dist_in.pkl')
-TRIP_T1_DIST_IN = load('in/xtr/trip_t1_dist_in.pkl')
-TRIP_T2_DIST_IN = load('in/xtr/trip_t2_dist_in.pkl')
+TRIPS_IN_INFO = load('in/xtr/trips_inbound_info.pkl')
+RUN_T_DIST_IN = load('in/xtr/run_times_in.pkl')
+DELAY_DIST_IN = load('in/xtr/delay_in.pkl')
 
 LINK_TIMES_MEAN, LINK_TIMES_EXTREMES, LINK_TIMES_PARAMS = LINK_TIMES_INFO
-
 SCALED_ARR_RATES = np.sum(ODT_RATES_SCALED, axis=-1)
 
 TRIP_IDS_OUT, SCHED_DEP_OUT, BLOCK_IDS_OUT = [], [], []
 for item in TRIPS_OUT_INFO:
     TRIP_IDS_OUT.append(item[0]), SCHED_DEP_OUT.append(item[1]), BLOCK_IDS_OUT.append(item[2])
-trips_out = [(x, y, str(timedelta(seconds=y)), z, 0, w, v) for x, y, z, w, v in TRIPS_OUT_INFO]
-trips_in1 = [(x, y, str(timedelta(seconds=y)), z, 1, w, v) for x, y, z, w, v in TRIPS1_IN_INFO]
-trips_in2 = [(x, y, str(timedelta(seconds=y)), z, 2, w, v) for x, y, z, w, v in TRIPS2_IN_INFO]
+trips_out = [(x, y, str(timedelta(seconds=y)), z, 0, w, v, u) for x, y, z, w, v, u in TRIPS_OUT_INFO]
+trips_in = [(x, y, str(timedelta(seconds=y)), z, 1, w, v, u) for x, y, z, w, v, u in TRIPS_IN_INFO]
 
-trips_df = pd.DataFrame(trips_out + trips_in1 + trips_in2,
-                        columns=['trip_id', 'schd_sec', 'schd_time', 'block_id', 'route_type', 'schedule', 'stops'])
-sched_link_times = trips_df[trips_df['trip_id'] == TRIP_WITH_FULL_STOP_PATTERN]['schedule'].iloc[0]
-SCHED_LINK_T = {}
-for i in range(len(STOPS_OUTBOUND)-1):
-    SCHED_LINK_T[STOPS_OUTBOUND[i] + '-' + STOPS_OUTBOUND[i+1]] = sched_link_times[i+1] - sched_link_times[i]
-LINK_TIMES_PARAMS['3954-8613'] = [np.nan for i in range(TIME_NR_INTERVALS)]
-LINK_TIMES_MEAN['3954-8613'] = [SCHED_LINK_T['3954-8613'] for i in range(TIME_NR_INTERVALS)]
-# for ky in LINK_TIMES_MEAN:
-#     print(f'link {ky} yields {LINK_TIMES_MEAN[ky]} and {SCHED_LINK_T[ky]} and {LINK_TIMES_EXTREMES[ky]}')
+trips_df = pd.DataFrame(trips_out + trips_in, columns=['trip_id', 'schd_sec', 'schd_time',
+                                                       'block_id', 'route_type', 'schedule', 'stops', 'dist_traveled'])
+outbound_trips_df = trips_df[trips_df['route_type']==0]
+outbound_trips_df = outbound_trips_df.sort_values(by='schd_sec')
+trip_ids = outbound_trips_df['trip_id'].tolist()
+trip_schedules = outbound_trips_df['schedule'].tolist()
+trip_dist_traveled = outbound_trips_df['dist_traveled'].tolist()
+sched_out_trajectories = []
+for i in range(len(trip_ids)):
+    for j in range(len(trip_schedules[i])):
+        sched_out_trajectories.append([trip_ids[i], trip_schedules[i][j], trip_dist_traveled[i][j]])
+df_sched_t_rep = pd.DataFrame(sched_out_trajectories, columns=['trip_id', 'schd_sec', 'dist_traveled'])
+
 trips_df['block_id'] = trips_df['block_id'].astype(str).str[6:].astype(int)
 trips_df = trips_df.sort_values(by=['block_id', 'schd_sec'])
 block_ids = trips_df['block_id'].unique().tolist()
@@ -167,9 +156,10 @@ for b in block_ids:
     lst_stops = block_df['stops'].tolist()
     lst_schedule = block_df['schedule'].tolist()
     route_types = block_df['route_type'].tolist()
-    BLOCK_TRIPS_INFO.append((b, list(zip(trip_ids, route_types, lst_stops, lst_schedule))))
+    lst_dist_traveled = block_df['dist_traveled'].tolist()
+    BLOCK_TRIPS_INFO.append((b, list(zip(trip_ids, route_types, lst_stops, lst_schedule, lst_dist_traveled))))
 PAX_INIT_TIME = [0]
-for s0, s1 in zip(STOPS_OUTBOUND, STOPS_OUTBOUND[1:]):
+for s0, s1 in zip(STOPS_OUT_FULL_PATT, STOPS_OUT_FULL_PATT[1:]):
     ltimes = np.array(LINK_TIMES_MEAN[s0 + '-' + s1])
     ltime = ltimes[np.isfinite(ltimes)][0]
     PAX_INIT_TIME.append(ltime)
