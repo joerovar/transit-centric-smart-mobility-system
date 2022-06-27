@@ -4,8 +4,12 @@ import pandas as pd
 import numpy as np
 
 
-d = {'stop_id': ['2', '5'], 'stop_seq': [1, 2]}
+d = {'stop0': [1,2,3], 'stop_id':['386','8613','15136']}
 df = pd.DataFrame(d)
-s0 = df[df['stop_seq'] == 1]
-if not s0.empty:
-    print(s0['stop_id'].iloc[0])
+df['seq_diff'] = df['stop0'].diff().shift(-1)
+df['stop1'] = df['stop_id'].shift(-1)
+print(df)
+df = df.dropna(subset=['seq_diff'])
+df = df[df['seq_diff'] == 1.0]
+
+print(df)

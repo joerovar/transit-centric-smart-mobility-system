@@ -70,3 +70,4 @@ class TripLog:
         self.trip_id = trip_id
         self.stop_arr_times = {s: None for s in stops}
         self.stop_dep_times = {s: None for s in stops}
+

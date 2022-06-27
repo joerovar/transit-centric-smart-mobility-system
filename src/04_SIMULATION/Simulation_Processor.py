@@ -16,9 +16,32 @@ def run_base_dispatching(prob_cancelled=0.0, replications=4, save_results=False)
         done = env.reset_simulation()
         while not done:
             done = env.prep()
-            # if env.bus.next_event_type == 5:
-            #     print(str(timedelta(seconds=round(env.time))))
-            #     print(f'')
+            if env.obs and not done:
+                past_sched_hw = env.obs[PAST_HW_HORIZON+FUTURE_HW_HORIZON:PAST_HW_HORIZON*2+FUTURE_HW_HORIZON]
+                past_actual_hw = env.obs[:PAST_HW_HORIZON]
+                future_sched_hw = env.obs[PAST_HW_HORIZON*2+FUTURE_HW_HORIZON:PAST_HW_HORIZON*2+FUTURE_HW_HORIZON*2]
+                future_actual_hw = env.obs[PAST_HW_HORIZON:PAST_HW_HORIZON+FUTURE_HW_HORIZON]
+                # print(f'current time is {str(timedelta(seconds=round(env.time)))} '
+                #       f'and next event time is {str(timedelta(seconds=round(env.bus.next_event_time)))}')
+                # if not env.bus.pending_trips:
+                #     print(f'bus id {env.bus.bus_id} with next event type {env.bus.next_event_type} '
+                #           f'and active trip {env.bus.active_trip[0].trip_id} and finished trips {env.bus.finished_trips}')
+                # print(f'trip {env.bus.pending_trips[0].trip_id}')
+                # print(f'schedule deviation {round(env.obs[-1])}')
+                # if env.obs[-1] == -120:
+                # print(f'EARLY TRIP HAS DONE {len(env.bus.finished_trips)}')
+                # print(f'SANITY CHECK IS {env.bus.active_trip} that no active trips')
+
+                #
+                # print(f'past scheduled departures '
+                #       f'{[str(timedelta(seconds=round(d))) for d in past_sched_dep]}')
+                # print(f'past sched hw {[str(timedelta(seconds=round(hw))) for hw in past_sched_hw]}')
+                # print(f'past actual departures {[str(timedelta(seconds=round(d))) for d in past_actual_dep]}')
+                # print(f'past actual hw {[str(timedelta(seconds=round(hw))) for hw in past_actual_hw]}')
+                # print(f'future scheduled departures {[str(timedelta(seconds=round(d))) for d in future_sched_dep]}')
+                # print(f'future sched hw {[str(timedelta(seconds=round(hw))) for hw in future_sched_hw]}')
+                # print(f'future actual hw {[str(timedelta(seconds=round(hw))) for hw in future_actual_hw]}')
+                env.dispatch_decision()
         if save_results:
             out_trip_record_df = pd.DataFrame(env.out_trip_record, columns=OUT_TRIP_RECORD_COLS)
             out_trip_record_df['replication'] = pd.Series([i + 1 for _ in range(len(out_trip_record_df.index))])

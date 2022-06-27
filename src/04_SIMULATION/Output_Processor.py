@@ -39,11 +39,6 @@ def plot_learning(x, scores, epsilons, filename, lines=None):
     plt.savefig(filename)
 
 
-def plot_trajectory():
-
-    return
-
-
 def validate_trip_t_outbound(avl_df, sim_df, start_time, end_time, stops, path_trip_t, path_dwell_t, dates,
                              ignore_terminals=False):
     trip_t_avl, dwell_t_avl = trip_t_outbound(avl_df, start_time, end_time, 60, stops, 'avl_arr_sec',
@@ -112,16 +107,16 @@ def trip_t_outbound(df_out, start_time, end_time, interval_length, stops_out, co
 
 
 def validate_delay_inbound(avl_df, sim_df, start_t_sec, end_t_sec, start_interval, interval_mins=60):
-    start_interval = 5
+    # start_interval = 5
     arr_delays_long, arr_delays_short, dep_delays_long, dep_delays_short = delay_inbound(avl_df, start_t_sec,
                                                                                          end_t_sec,
                                                                                          interval_mins,
                                                                                          'avl_arr_sec',
                                                                                          'avl_dep_sec',
-                                                                                         [('15136', 1),
-                                                                                          ('386', 23)],
-                                                                                         [('8613', 1),
-                                                                                          ('386', 63)],
+                                                                                         [('17164', 2),
+                                                                                          ('14800', 22)],
+                                                                                         [('6360', 2),
+                                                                                          ('14800', 62)],
                                                                                          outlier_removal=True)
 
     arr_del_long_sim, arr_del_short_sim, dep_del_long_sim, dep_del_short_sim = delay_inbound(sim_df,
@@ -149,7 +144,7 @@ def validate_delay_inbound(avl_df, sim_df, start_t_sec, end_t_sec, start_interva
 def validate_delay_outbound(avl_df, sim_df, start_t_sec, end_t_sec, interval_mins=60):
     start_interval = 5
     arr_delays_out, dep_delays_out = delay_outbound(avl_df, start_t_sec, end_t_sec, interval_mins,
-                                                    'avl_arr_sec', 'avl_dep_sec', [('386', 1), ('8613', 67)],
+                                                    'avl_arr_sec', 'avl_dep_sec', [('388', 2), ('3954', 66)],
                                                     outlier_removal=True)
     arr_delays_out_sim, dep_delays_out_sim = delay_outbound(sim_df, start_t_sec, end_t_sec,
                                                             interval_mins, 'arr_sec', 'dep_sec',
@@ -218,16 +213,18 @@ def delay_inbound(trips_df, start_time, end_time, delay_interval_length, col_arr
 
     start_terminal_id_long = terminals_long[0][0]
     start_terminal_id_short = terminals_short[0][0]
+    start_terminal_seq_long = terminals_long[0][1]
+    start_terminal_seq_short = terminals_short[0][1]
 
     dep_delays_long = []
     dep_delays_short = []
     # departures
     dep_long_df = trips_df2[trips_df2['stop_id'] == start_terminal_id_long]
-    dep_long_df = dep_long_df[dep_long_df['stop_sequence'] == 1]
+    dep_long_df = dep_long_df[dep_long_df['stop_sequence'] == start_terminal_seq_long]
     dep_long_df[col_dep_t] = dep_long_df[col_dep_t] % 86400
 
     dep_short_df = trips_df2[trips_df2['stop_id'] == start_terminal_id_short]
-    dep_short_df = dep_short_df[dep_short_df['stop_sequence'] == 1]
+    dep_short_df = dep_short_df[dep_short_df['stop_sequence'] == start_terminal_seq_short]
     dep_short_df[col_dep_t] = dep_short_df[col_dep_t] % 86400
 
     interval0 = get_interval(start_time, delay_interval_length)
@@ -279,20 +276,21 @@ def delay_outbound(trips_df, start_time, end_time, delay_interval_length, col_ar
     trips_df2 = trips_df.copy()
     trips_df2['stop_id'] = trips_df2['stop_id'].astype(str)
 
+    start_terminal_seq = terminals_info[0][1]
     end_terminal_id = terminals_info[1][0]
-    terminal_seq_long = terminals_info[1][1]
+    end_terminal_seq = terminals_info[1][1]
 
     arr_delays = []
     # arrivals
     arr_long_df = trips_df2[trips_df2['stop_id'] == end_terminal_id]
-    arr_long_df = arr_long_df[arr_long_df['stop_sequence'] == terminal_seq_long]
+    arr_long_df = arr_long_df[arr_long_df['stop_sequence'] == end_terminal_seq]
     arr_long_df[col_arr_t] = arr_long_df[col_arr_t] % 86400
     start_terminal_id_long = terminals_info[0][0]
 
     dep_delays = []
     # departures
     dep_long_df = trips_df2[trips_df2['stop_id'] == start_terminal_id_long]
-    dep_long_df = dep_long_df[dep_long_df['stop_sequence'] == 1]
+    dep_long_df = dep_long_df[dep_long_df['stop_sequence'] == start_terminal_seq]
     dep_long_df[col_dep_t] = dep_long_df[col_dep_t] % 86400
 
     interval0 = get_interval(start_time, delay_interval_length)

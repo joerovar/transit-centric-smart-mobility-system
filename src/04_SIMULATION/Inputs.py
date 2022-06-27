@@ -100,6 +100,7 @@ HOLD_INTERVALS = 30
 FUTURE_HW_HORIZON = 2
 PAST_HW_HORIZON = 2
 END_TIME_SEC2 = END_TIME_SEC - 60*30
+WEIGHT_HOLD_T = 0.0
 # extract_demand(ODT_INTERVAL_LEN_MIN, DATES)
 # extract_outbound_params(START_TIME_SEC, END_TIME_SEC, TIME_NR_INTERVALS, TIME_START_INTERVAL, TIME_INTERVAL_LENGTH_MINS,
 #                         DATES, DELAY_INTERVAL_LENGTH_MINS, DELAY_START_INTERVAL)
@@ -114,6 +115,7 @@ ODT_RATES_SCALED = np.load('in/xtr/rt_20_odt_rates_30_scaled.npy')
 ODT_STOP_IDS = list(np.load('in/xtr/rt_20_odt_stops.npy'))
 ODT_STOP_IDS = [str(int(s)) for s in ODT_STOP_IDS]
 DEP_DELAY_DIST_OUT = load('in/xtr/dep_delay_dist_out.pkl') # empirical delay data , including negative
+print(DEP_DELAY_DIST_OUT)
 STOPS_OUT_FULL_PATT = load(path_stops_out_full_pattern)
 STOPS_OUT_ALL = load(path_stops_out_all)
 STOPS_OUT_INFO = load('in/xtr/stops_out_info.pkl')

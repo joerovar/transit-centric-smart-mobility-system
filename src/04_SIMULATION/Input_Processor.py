@@ -140,7 +140,6 @@ def extract_outbound_params(start_time_sec, end_time_sec, nr_intervals, start_in
     link_times = {}
 
     delay_nr_intervals = int(nr_intervals * interval_length / delay_interval_length)
-    dep_delay_dist = [[] for _ in range(delay_nr_intervals)]
     dep_delay_ahead_dist = [[] for _ in range(delay_nr_intervals)]
 
     write_outbound_trajectories(path_avl, trip_ids)
@@ -151,40 +150,57 @@ def extract_outbound_params(start_time_sec, end_time_sec, nr_intervals, start_in
         stops_by_trip.append(temp2['stop_id'].astype(str).tolist())
         dist_by_trip.append(temp2['shape_dist_traveled'].tolist())
 
-        temp = avl_df[avl_df['trip_id'] == t].copy()
-        temp = temp.sort_values(by='stop_sequence')
+        trip_df = avl_df[avl_df['trip_id'] == t].copy()
 
         for d in dates:
-            date_specific = temp[temp['avl_arr_time'].astype(str).str[:10] == d].copy()
-            schd_sec = date_specific['schd_sec'].tolist()
-            stop_id = date_specific['stop_id'].astype(str).tolist()
-            avl_sec = date_specific['avl_arr_sec'].tolist()
-            avl_dep_sec = date_specific['avl_dep_sec'].tolist()
-            stop_sequence = date_specific['stop_sequence'].tolist()
-            if len(avl_sec) > 1:
-                if stop_sequence[0] == 1:
-                    dep_delay = schd_sec[0] - (avl_dep_sec[0] % 86400)
-                    delay_idx = get_interval(schd_sec[0], delay_interval_length) - delay_start_interval
-                    dep_delay_dist[delay_idx].append(-1 * dep_delay)
-                    if stop_sequence[1] == 2:
-                        dep_delay_ahead = (avl_dep_sec[1] % 86400) - schd_sec[1]
-                        dep_delay_ahead_dist[delay_idx].append(dep_delay_ahead)
-                    if dep_delay > tolerance_early_departure:
-                        schd_sec.pop(0)
-                        stop_id.pop(0)
-                        avl_sec.pop(0)
-                        stop_sequence.pop(0)
-                        avl_dep_sec.pop(0)
-                for i in range(len(stop_id) - 1):
-                    if stop_sequence[i] == stop_sequence[i + 1] - 1:
-                        link = stop_id[i] + '-' + stop_id[i + 1]
-                        if link not in link_times:
-                            link_times[link] = [[] for _ in range(nr_intervals)]
-                        nr_bin = get_interval(avl_sec[i] % 86400, interval_length) - start_interval
-                        if 0 <= nr_bin < nr_intervals:
-                            lt2 = avl_sec[i + 1] - avl_dep_sec[i]
-                            if lt2 > 0:
-                                link_times[link][nr_bin].append(lt2)
+            temp = trip_df[trip_df['avl_arr_time'].astype(str).str[:10] == d].copy()
+            temp = temp.sort_values(by='stop_sequence')
+            temp['seq_diff'] = temp['stop_sequence'].diff().shift(-1)
+            temp['next_stop_id'] = temp['stop_id'].astype(str).shift(-1)
+            temp['next_arr_sec'] = temp['avl_arr_sec'].shift(-1)
+            temp = temp.dropna(subset=['seq_diff'])
+            temp = temp[temp['seq_diff'] == 1.0]
+            temp['link'] = temp['stop_id'].astype(str) + '-' + temp['next_stop_id']
+            temp['link_t'] = temp['next_arr_sec']%86400 - temp['avl_dep_sec']%86400
+            temp = temp[temp['link_t'] > 0.0]
+            temp_links = temp['link'].tolist()
+            temp_link_t = temp['link_t'].tolist()
+            temp_start_sec = temp['avl_dep_sec'].tolist()
+            for i in range(len(temp_links)):
+                interval_idx = get_interval(temp_start_sec[i], interval_length) - start_interval
+                link = temp_links[i]
+                if link not in link_times:
+                    link_times[link] = [[] for _ in range(nr_intervals)]
+                if 0 <= interval_idx < nr_intervals:
+                    link_times[link][interval_idx].append(temp_link_t[i])
+            # schd_sec = date_specific['schd_sec'].tolist()
+            # stop_id = date_specific['stop_id'].astype(str).tolist()
+            # avl_sec = date_specific['avl_arr_sec'].tolist()
+            # avl_dep_sec = date_specific['avl_dep_sec'].tolist()
+            # stop_sequence = date_specific['stop_sequence'].tolist()
+            # if len(avl_sec) > 1:
+            #     if stop_sequence[0] == 1:
+            #         delay_idx = get_interval(schd_sec[0], delay_interval_length) - delay_start_interval
+            #         dep_delay_dist[delay_idx].append(-1 * dep_delay)
+            #         if stop_sequence[1] == 2:
+            #             dep_delay_ahead = (avl_dep_sec[1] % 86400) - schd_sec[1]
+            #             dep_delay_ahead_dist[delay_idx].append(dep_delay_ahead)
+            #         if dep_delay > tolerance_early_departure:
+            #             schd_sec.pop(0)
+            #             stop_id.pop(0)
+            #             avl_sec.pop(0)
+            #             stop_sequence.pop(0)
+            #             avl_dep_sec.pop(0)
+            #     for i in range(len(stop_id) - 1):
+            #         if stop_sequence[i] == stop_sequence[i + 1] - 1:
+            #             link = stop_id[i] + '-' + stop_id[i + 1]
+            #             if link not in link_times:
+            #                 link_times[link] = [[] for _ in range(nr_intervals)]
+            #             nr_bin = get_interval(avl_sec[i] % 86400, interval_length) - start_interval
+            #             if 0 <= nr_bin < nr_intervals:
+            #                 lt2 = avl_sec[i + 1] - avl_dep_sec[i]
+            #                 if lt2 > 0:
+            #                     link_times[link][nr_bin].append(lt2)
     delay_max = 300
     for i in range(delay_nr_intervals):
         dep_delay_ahead_dist[i] = list(remove_outliers(np.array(dep_delay_ahead_dist[i])))
@@ -232,7 +248,7 @@ def extract_outbound_params(start_time_sec, end_time_sec, nr_intervals, start_in
 
     save(path_stops_out_full_pattern, full_pattern_stops)
     save(path_stops_out_all, all_stops)
-    save('in/xtr/link_times_info.pkl', link_times_info)
+    save('in/xtr/link_times_test.pkl', link_times_info)
     save('in/xtr/trips_outbound_info.pkl', trips_info)
     save('in/xtr/dep_delay_dist_out.pkl', dep_delay_ahead_dist)
     save('in/xtr/stops_out_info.pkl', stop_info)
