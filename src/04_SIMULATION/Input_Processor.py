@@ -90,8 +90,7 @@ def remove_outliers(data, factor=1.4):
 
 def extract_outbound_params(start_time_sec, end_time_sec, nr_intervals, start_interval,
                             interval_length, dates, delay_interval_length, delay_start_interval,
-                            tolerance_early_departure=1.5 * 60, full_pattern_sign='Illinois Center',
-                            rt_nr=20, rt_direction='East'):
+                            full_pattern_sign='Illinois Center', rt_nr=20, rt_direction='East'):
     stop_times_df = pd.read_csv(path_stop_times)
     trips_df = pd.read_csv(path_trips_gtfs)
     calendar_df = pd.read_csv(path_calendar)
@@ -166,6 +165,12 @@ def extract_outbound_params(start_time_sec, end_time_sec, nr_intervals, start_in
             temp_links = temp['link'].tolist()
             temp_link_t = temp['link_t'].tolist()
             temp_start_sec = temp['avl_dep_sec'].tolist()
+            stop_2 = temp[temp['stop_sequence']==2]
+            if not stop_2.empty:
+                stop_2_schd_sec = stop_2['schd_sec'].iloc[0]
+                stop_2_avl_sec = stop_2['avl_dep_sec'].iloc[0]%86400
+                delay_interv_idx = get_interval(stop_2_schd_sec, delay_interval_length) - delay_start_interval
+                dep_delay_ahead_dist[delay_interv_idx].append(stop_2_avl_sec - stop_2_schd_sec)
             for i in range(len(temp_links)):
                 interval_idx = get_interval(temp_start_sec[i], interval_length) - start_interval
                 link = temp_links[i]
@@ -173,35 +178,7 @@ def extract_outbound_params(start_time_sec, end_time_sec, nr_intervals, start_in
                     link_times[link] = [[] for _ in range(nr_intervals)]
                 if 0 <= interval_idx < nr_intervals:
                     link_times[link][interval_idx].append(temp_link_t[i])
-            # schd_sec = date_specific['schd_sec'].tolist()
-            # stop_id = date_specific['stop_id'].astype(str).tolist()
-            # avl_sec = date_specific['avl_arr_sec'].tolist()
-            # avl_dep_sec = date_specific['avl_dep_sec'].tolist()
-            # stop_sequence = date_specific['stop_sequence'].tolist()
-            # if len(avl_sec) > 1:
-            #     if stop_sequence[0] == 1:
-            #         delay_idx = get_interval(schd_sec[0], delay_interval_length) - delay_start_interval
-            #         dep_delay_dist[delay_idx].append(-1 * dep_delay)
-            #         if stop_sequence[1] == 2:
-            #             dep_delay_ahead = (avl_dep_sec[1] % 86400) - schd_sec[1]
-            #             dep_delay_ahead_dist[delay_idx].append(dep_delay_ahead)
-            #         if dep_delay > tolerance_early_departure:
-            #             schd_sec.pop(0)
-            #             stop_id.pop(0)
-            #             avl_sec.pop(0)
-            #             stop_sequence.pop(0)
-            #             avl_dep_sec.pop(0)
-            #     for i in range(len(stop_id) - 1):
-            #         if stop_sequence[i] == stop_sequence[i + 1] - 1:
-            #             link = stop_id[i] + '-' + stop_id[i + 1]
-            #             if link not in link_times:
-            #                 link_times[link] = [[] for _ in range(nr_intervals)]
-            #             nr_bin = get_interval(avl_sec[i] % 86400, interval_length) - start_interval
-            #             if 0 <= nr_bin < nr_intervals:
-            #                 lt2 = avl_sec[i + 1] - avl_dep_sec[i]
-            #                 if lt2 > 0:
-            #                     link_times[link][nr_bin].append(lt2)
-    delay_max = 300
+    delay_max = 360
     for i in range(delay_nr_intervals):
         dep_delay_ahead_dist[i] = list(remove_outliers(np.array(dep_delay_ahead_dist[i])))
         arr = np.array(dep_delay_ahead_dist[i])
@@ -311,13 +288,15 @@ def extract_inbound_params(start_time, end_time, dates, nr_intervals,
     stops_by_trip = []
     dist_by_trip = []
 
-
     avl_df = pd.read_csv(path_avl)
 
     delay_nr_intervals = int(nr_intervals * interval_length / delay_interval_length)
 
     run_times = {}
     dep_delay_new = {}
+
+    diff_tt = {}
+    diff_mm = {}
     for t in trip_ids:
         temp2 = wkday_st_df[wkday_st_df['schd_trip_id'] == t].copy()
         temp2 = temp2.sort_values(by='stop_sequence')
@@ -331,31 +310,44 @@ def extract_inbound_params(start_time, end_time, dates, nr_intervals,
 
         temp_df = avl_df[avl_df['trip_id'] == t].copy()
         trip_link = stop_ids[0] + '-' + stop_ids[-1]
+        sched_run_t = schd_sec[-1] - schd_sec[0]
         if trip_link not in run_times:
             run_times[trip_link] = [[] for _ in range(nr_intervals)]
+            diff_mm[trip_link] = []
+            diff_tt[trip_link] = []
         if stop_ids[0] not in dep_delay_new:
             dep_delay_new[stop_ids[0]] = [[] for _ in range(delay_nr_intervals)]
         delay_idx = get_interval(schd_sec[0], delay_interval_length) - delay_start_interval
         run_t_idx = get_interval(schd_sec[0], interval_length) - start_interval
+
         for d in dates:
             df = temp_df[temp_df['avl_arr_time'].astype(str).str[:10] == d].copy()
             s1 = df[df['stop_sequence'] == 1]
             sm = df[df['stop_sequence'] == 2]
             sm2 = df[df['stop_sequence'] == stop_seq[-2]]
             s2 = df[df['stop_sequence'] == stop_seq[-1]]
-            if not s1.empty and not s2.empty and not sm.empty and not sm2.empty:
-                s1_id = s1['stop_id'].iloc[0].astype(str)
-                s2_id = s2['stop_id'].iloc[0].astype(str)
-                link = s1_id + '-' + s2_id
-                assert link == stop_ids[0] + '-' + stop_ids[-1]
+            if not s1.empty and not s2.empty:
                 t1 = s1['avl_dep_sec'].iloc[0] % 86400
                 t2 = s2['avl_arr_sec'].iloc[0] % 86400
-                tm = sm['avl_dep_sec'].iloc[0] % 86400
+                diff_tt[trip_link].append(((t2-t1) - sched_run_t)/sched_run_t)
+
+            if not sm.empty and not sm2.empty:
+                sm1_id = sm['stop_id'].iloc[0].astype(str)
+                sm2_id = sm2['stop_id'].iloc[0].astype(str)
+                assert sm1_id + '-' + sm2_id == stop_ids[1] + '-' + stop_ids[-2]
+                tm = sm['avl_arr_sec'].iloc[0] % 86400
                 tm2 = sm2['avl_dep_sec'].iloc[0] % 86400
-                dep_del = t1 - schd_sec[0]
+                dep_del = tm - schd_sec[1]
                 dep_delay_new[stop_ids[0]][delay_idx].append(dep_del)
                 run_t = (tm2 - tm) + (schd_sec[1]-schd_sec[0]) + (schd_sec[-1]-schd_sec[-2])
-                run_times[link][run_t_idx].append(run_t)
+                if trip_link == '15136-386':
+                    run_t += (schd_sec[-1]-schd_sec[-2])
+                diff_mm[trip_link].append((run_t - sched_run_t)/sched_run_t)
+                run_times[trip_link][run_t_idx].append(run_t)
+    # for link in diff_mm:
+    #     print(link)
+    #     print(np.round(np.mean(diff_mm[link])*100, decimals=3))
+    #     print(np.round(np.mean(diff_tt[link])*100, decimals=3))
     for link in run_times:
         fig, axs = plt.subplots(nrows=nr_intervals, sharex='all', sharey='all')
         plt.suptitle(link)
@@ -363,7 +355,7 @@ def extract_inbound_params(start_time, end_time, dates, nr_intervals,
             # axs[interval].hist(run_times[link][interval], density=True)
             run_times[link][interval] = list(remove_outliers(np.array(run_times[link][interval])))
             axs[interval].hist(run_times[link][interval], density=True)
-        plt.show()
+        # plt.show()
         plt.close()
     for stop in dep_delay_new:
         fig, axs = plt.subplots(nrows=nr_intervals, sharex='all', sharey='all')
@@ -372,7 +364,7 @@ def extract_inbound_params(start_time, end_time, dates, nr_intervals,
             # axs[interval, 0].hist(dep_delay_new[stop][interval], density=True)
             dep_delay_new[stop][interval] = list(remove_outliers(np.array(dep_delay_new[stop][interval])))
             axs[interval].hist(dep_delay_new[stop][interval], density=True)
-        plt.show()
+        # plt.show()
         plt.close()
 
     trips_info = [(x, y, z, w, v, u) for x, y, z, w, v, u in

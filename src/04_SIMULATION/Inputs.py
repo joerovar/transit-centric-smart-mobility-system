@@ -43,7 +43,8 @@ ACC_DEC_TIME = 5.0
 BOARDING_TIME = 2.5
 ALIGHTING_TIME = 1.5
 DWELL_TIME_ERROR = 3.0
-EXTREME_TT_BOUND = 1.00
+EXTREME_TT_BOUND = 1.05
+BOOST_SCHED_RUN_T = 1.3 # FOR THOSE PROBLEMATIC LINKS (FIRST AND LAST) INCREASE SCHED RUN TIME BY 30 PCT
 CAPACITY = 60
 DDD = 'UNIFORM'
 DEP_DELAY_FROM = -60
@@ -59,15 +60,22 @@ ODT_END_INTERVAL = int(END_TIME_SEC / (60 * ODT_INTERVAL_LEN_MIN))
                                                                                                            range(1, 10)]
 NO_OVERTAKE_BUFFER = 5
 
-# REINFORCEMENT LEARNING
+# FOR RECORDS
+OUT_TRIP_RECORD_COLS = ['bus_id', 'trip_id', 'stop_id', 'arr_sec', 'dep_sec', 'pax_load', 'ons', 'offs', 'denied',
+                        'hold_time', 'skipped', 'schd_sec', 'stop_sequence', 'dist_traveled'] # and replication goes at the end
+IN_TRIP_RECORD_COLS = ['trip_id', 'stop_id', 'arr_sec', 'schd_sec', 'stop_sequence']
+PAX_RECORD_COLS = ['orig_idx', 'dest_idx', 'arr_time', 'board_time', 'alight_time', 'trip_id', 'denied']
 
-CONTROLLED_STOPS = ['386', '409', '423', '16049', '3954']
-CONTROLLED_STOPS_ALTERNATIVE = ['386', '409', '428', '3954']
-N_STATE_PARAMS_RL = 6
-[IDX_RT_PROGRESS, IDX_LOAD_RL, IDX_FW_H, IDX_BW_H, IDX_PAX_AT_STOP, IDX_PREV_FW_H] = [i for i in
-                                                                                      range(N_STATE_PARAMS_RL)]
-SKIP_ACTION = 0
+# TERMINAL DISPATCHING PARAMS
+EARLY_DEP_LIMIT_SEC = 120 # seconds
+IMPOSED_DELAY_LIMIT = 180
+HOLD_INTERVALS = 60
+FUTURE_HW_HORIZON = 2
+PAST_HW_HORIZON = 2
+END_TIME_SEC2 = END_TIME_SEC - 60*30
+WEIGHT_HOLD_T = 0.0
 
+# GENERAL RL PARAMS
 LEARN_RATE = 0.0001
 EPS_MIN = 0.01
 DISCOUNT_FACTOR = 0.985
@@ -78,29 +86,22 @@ BATCH_SIZE = 32
 EPISODES_REPLACE = 600
 FC_DIMS = 256
 ALGO = 'DDQNAgent'
+NETS_PATH = 'out/trained_nets/'
+
+# PARAMS FOR AT-STOP CONTROL WITH RL
+
+CONTROLLED_STOPS = ['386', '409', '423', '16049', '3954']
+CONTROLLED_STOPS_ALTERNATIVE = ['386', '409', '428', '3954']
+N_STATE_PARAMS_RL = 6
+[IDX_RT_PROGRESS, IDX_LOAD_RL, IDX_FW_H, IDX_BW_H, IDX_PAX_AT_STOP, IDX_PREV_FW_H] = [i for i in
+                                                                                      range(N_STATE_PARAMS_RL)]
+SKIP_ACTION = 0
+ESTIMATED_PAX = False
 WEIGHT_RIDE_T = 0.0
 TT_FACTOR = 1.0
 HOLD_ADJ_FACTOR = 0.0
-ESTIMATED_PAX = False
-NETS_PATH = 'out/trained_nets/'
 
-INBOUND_SHORT_START_STOP = '15136'
-INBOUND_LONG_START_STOP = '8613'
-[IDX_ARR_T_IN, IDX_SCHED_IN] = [i for i in range(1, 3)]
-
-OUT_TRIP_RECORD_COLS = ['bus_id', 'trip_id', 'stop_id', 'arr_sec', 'dep_sec', 'pax_load', 'ons', 'offs', 'denied',
-                        'hold_time', 'skipped', 'schd_sec', 'stop_sequence', 'dist_traveled'] # and replication goes at the end
-IN_TRIP_RECORD_COLS = ['trip_id', 'stop_id', 'arr_sec', 'schd_sec', 'stop_sequence']
-PAX_RECORD_COLS = ['orig_idx', 'dest_idx', 'arr_time', 'board_time', 'alight_time', 'trip_id', 'denied']
-
-# TERMINAL DISPATCHING PARAMS
-EARLY_DEP_LIMIT_SEC = 120 # seconds
-IMPOSED_DELAY_LIMIT = 180
-HOLD_INTERVALS = 30
-FUTURE_HW_HORIZON = 2
-PAST_HW_HORIZON = 2
-END_TIME_SEC2 = END_TIME_SEC - 60*30
-WEIGHT_HOLD_T = 0.0
+# EXTRACT FUNCTIONS
 # extract_demand(ODT_INTERVAL_LEN_MIN, DATES)
 # extract_outbound_params(START_TIME_SEC, END_TIME_SEC, TIME_NR_INTERVALS, TIME_START_INTERVAL, TIME_INTERVAL_LENGTH_MINS,
 #                         DATES, DELAY_INTERVAL_LENGTH_MINS, DELAY_START_INTERVAL)
@@ -110,12 +111,10 @@ WEIGHT_HOLD_T = 0.0
 # OUTBOUND
 LINK_TIMES_INFO = load(path_link_times_mean)
 TRIPS_OUT_INFO = load('in/xtr/trips_outbound_info.pkl')
-
 ODT_RATES_SCALED = np.load('in/xtr/rt_20_odt_rates_30_scaled.npy')
 ODT_STOP_IDS = list(np.load('in/xtr/rt_20_odt_stops.npy'))
 ODT_STOP_IDS = [str(int(s)) for s in ODT_STOP_IDS]
 DEP_DELAY_DIST_OUT = load('in/xtr/dep_delay_dist_out.pkl') # empirical delay data , including negative
-print(DEP_DELAY_DIST_OUT)
 STOPS_OUT_FULL_PATT = load(path_stops_out_full_pattern)
 STOPS_OUT_ALL = load(path_stops_out_all)
 STOPS_OUT_INFO = load('in/xtr/stops_out_info.pkl')

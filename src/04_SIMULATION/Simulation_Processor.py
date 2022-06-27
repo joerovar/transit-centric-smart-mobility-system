@@ -6,13 +6,29 @@ import Simulation_Envs
 import random
 
 
-def run_base_dispatching(prob_cancelled=0.0, replications=4, save_results=False):
+def write_results(scenario, t, out_record_set, in_record_set, pax_record_set):
+    path_out_trip_record = 'out/' + scenario + '/' + t + '-trip_record_outbound' + ext_var
+    path_in_trip_record = 'out/' + scenario + '/' + t + '-trip_record_inbound' + ext_var
+    path_pax_record = 'out/' + scenario + '/' + t + '-pax_record' + ext_var
+
+    out_trip_record = pd.concat(out_record_set, ignore_index=True)
+    in_trip_record = pd.concat(in_record_set, ignore_index=True)
+    pax_record = pd.concat(pax_record_set, ignore_index=True)
+
+    out_trip_record.to_pickle(path_out_trip_record)
+    in_trip_record.to_pickle(path_in_trip_record)
+    pax_record.to_pickle(path_pax_record)
+    return
+
+
+def run_base_dispatching(prob_cancelled=0.0, replications=4, save_results=False, control_type=None):
     tstamp = datetime.now().strftime('%m%d-%H%M%S')
     out_trip_record_set = []
     in_trip_record_set = []
     pax_record_set = []
     for i in range(replications):
-        env = Simulation_Envs.DetailedSimulationEnvWithDispatching(prob_cancelled_block=prob_cancelled)
+        env = Simulation_Envs.DetailedSimulationEnvWithDispatching(prob_cancelled_block=prob_cancelled,
+                                                                   control_type=control_type)
         done = env.reset_simulation()
         while not done:
             done = env.prep()
@@ -21,26 +37,18 @@ def run_base_dispatching(prob_cancelled=0.0, replications=4, save_results=False)
                 past_actual_hw = env.obs[:PAST_HW_HORIZON]
                 future_sched_hw = env.obs[PAST_HW_HORIZON*2+FUTURE_HW_HORIZON:PAST_HW_HORIZON*2+FUTURE_HW_HORIZON*2]
                 future_actual_hw = env.obs[PAST_HW_HORIZON:PAST_HW_HORIZON+FUTURE_HW_HORIZON]
-                # print(f'current time is {str(timedelta(seconds=round(env.time)))} '
-                #       f'and next event time is {str(timedelta(seconds=round(env.bus.next_event_time)))}')
-                # if not env.bus.pending_trips:
-                #     print(f'bus id {env.bus.bus_id} with next event type {env.bus.next_event_type} '
-                #           f'and active trip {env.bus.active_trip[0].trip_id} and finished trips {env.bus.finished_trips}')
-                # print(f'trip {env.bus.pending_trips[0].trip_id}')
-                # print(f'schedule deviation {round(env.obs[-1])}')
-                # if env.obs[-1] == -120:
-                # print(f'EARLY TRIP HAS DONE {len(env.bus.finished_trips)}')
-                # print(f'SANITY CHECK IS {env.bus.active_trip} that no active trips')
-
-                #
-                # print(f'past scheduled departures '
-                #       f'{[str(timedelta(seconds=round(d))) for d in past_sched_dep]}')
-                # print(f'past sched hw {[str(timedelta(seconds=round(hw))) for hw in past_sched_hw]}')
-                # print(f'past actual departures {[str(timedelta(seconds=round(d))) for d in past_actual_dep]}')
-                # print(f'past actual hw {[str(timedelta(seconds=round(hw))) for hw in past_actual_hw]}')
-                # print(f'future scheduled departures {[str(timedelta(seconds=round(d))) for d in future_sched_dep]}')
-                # print(f'future sched hw {[str(timedelta(seconds=round(hw))) for hw in future_sched_hw]}')
-                # print(f'future actual hw {[str(timedelta(seconds=round(hw))) for hw in future_actual_hw]}')
+                sched_dev = env.obs[-1]
+                print(f'current time is {str(timedelta(seconds=round(env.time)))} '
+                      f'and next event time is {str(timedelta(seconds=round(env.bus.next_event_time)))}')
+                print(f'trip {env.bus.pending_trips[0].trip_id}')
+                print(f'schedule deviation {round(env.obs[-1])}')
+                print(f'TRIP HAS DONE {len(env.bus.finished_trips)}')
+                print(f'SANITY CHECK IS {env.bus.active_trip} that no active trips')
+                print(f'past sched hw {[str(timedelta(seconds=round(hw))) for hw in past_sched_hw]}')
+                print(f'past actual hw {[str(timedelta(seconds=round(hw))) for hw in past_actual_hw]}')
+                print(f'future sched hw {[str(timedelta(seconds=round(hw))) for hw in future_sched_hw]}')
+                print(f'future actual hw {[str(timedelta(seconds=round(hw))) for hw in future_actual_hw]}')
+                hold_t_max = IMPOSED_DELAY_LIMIT - sched_dev
                 env.dispatch_decision()
         if save_results:
             out_trip_record_df = pd.DataFrame(env.out_trip_record, columns=OUT_TRIP_RECORD_COLS)
@@ -56,18 +64,7 @@ def run_base_dispatching(prob_cancelled=0.0, replications=4, save_results=False)
             pax_record_set.append(pax_record_df)
 
     if save_results:
-        case = 'NC_Terminal'
-        path_out_trip_record = 'out/' + case + '/' + tstamp + '-trip_record_outbound' + ext_var
-        path_in_trip_record = 'out/' + case + '/' + tstamp + '-trip_record_inbound' + ext_var
-        path_pax_record = 'out/' + case + '/' + tstamp + '-pax_record' + ext_var
-
-        out_trip_record = pd.concat(out_trip_record_set, ignore_index=True)
-        in_trip_record = pd.concat(in_trip_record_set, ignore_index=True)
-        pax_record = pd.concat(pax_record_set, ignore_index=True)
-
-        out_trip_record.to_pickle(path_out_trip_record)
-        in_trip_record.to_pickle(path_in_trip_record)
-        pax_record.to_pickle(path_pax_record)
+        write_results('NC_Terminal', tstamp, out_trip_record_set, in_trip_record_set, pax_record_set)
     return
 
 
@@ -100,18 +97,8 @@ def run_base(replications=4, save_results=False, control_eh=False, hold_adj_fact
             pax_record_set.append(pax_record_df)
 
     if save_results:
-        case = 'EH' if control_eh else 'NC'
-        path_out_trip_record = 'out/' + case + '/' + tstamp + '-trip_record_outbound' + ext_var
-        path_in_trip_record = 'out/' + case + '/' + tstamp + '-trip_record_inbound' + ext_var
-        path_pax_record = 'out/' + case + '/' + tstamp + '-pax_record' + ext_var
-
-        out_trip_record = pd.concat(out_trip_record_set, ignore_index=True)
-        in_trip_record = pd.concat(in_trip_record_set, ignore_index=True)
-        pax_record = pd.concat(pax_record_set, ignore_index=True)
-
-        out_trip_record.to_pickle(path_out_trip_record)
-        in_trip_record.to_pickle(path_in_trip_record)
-        pax_record.to_pickle(path_pax_record)
+        scenario = 'EH' if control_eh else 'NC'
+        write_results(scenario, tstamp, out_trip_record_set, in_trip_record_set, pax_record_set)
         if control_eh:
             params = {'param': ['control_strength'], 'value': [control_strength]}
             df_params = pd.DataFrame(params)
@@ -209,12 +196,12 @@ def train_rl(n_episodes_train, simple_reward=False):
     return
 
 
-def test_rl(n_episodes_test, tstamp_policy, test_save_folder='DDQN-HA', save_results=False, simple_reward=False):
+def test_rl(n_episodes_test, tstamp_policy, save_results=False, simple_reward=False):
     agent_ = getattr(Agents, ALGO)
     agent = agent_(gamma=DISCOUNT_FACTOR, epsilon=EPS, lr=LEARN_RATE, input_dims=[N_STATE_PARAMS_RL],
-                   n_actions=N_ACTIONS_RL,
-                   mem_size=MAX_MEM, eps_min=EPS_MIN, batch_size=BATCH_SIZE, replace=EPISODES_REPLACE, eps_dec=EPS_DEC,
-                   chkpt_dir=NETS_PATH + tstamp_policy + '/', algo=ALGO, env_name=tstamp_policy, fc_dims=FC_DIMS)
+                   n_actions=N_ACTIONS_RL, mem_size=MAX_MEM, eps_min=EPS_MIN, batch_size=BATCH_SIZE,
+                   replace=EPISODES_REPLACE, eps_dec=EPS_DEC, chkpt_dir=NETS_PATH + tstamp_policy + '/',
+                   algo=ALGO, env_name=tstamp_policy, fc_dims=FC_DIMS)
     agent.load_models()
     tstamp = datetime.now().strftime('%m%d-%H%M%S')
     out_trip_record_set = []
@@ -265,19 +252,10 @@ def test_rl(n_episodes_test, tstamp_policy, test_save_folder='DDQN-HA', save_res
             pax_record_df['replication'] = pd.Series([j + 1 for _ in range(len(in_trip_record_df.index))])
             pax_record_set.append(pax_record_df)
     if save_results:
-        path_out_trip_record = 'out/' + test_save_folder + '/' + tstamp + '-trip_record_outbound.pkl'
-        path_in_trip_record = 'out/' + test_save_folder + '/' + tstamp + '-trip_record_inbound.pkl'
-        path_pax_record = 'out/' + test_save_folder + '/' + tstamp + '-pax_record_outbound.pkl'
+        scenario = 'DDQN-HA'
+        write_results(scenario, tstamp, out_trip_record_set, in_trip_record_set, pax_record_set)
 
-        out_trip_record = pd.concat(out_trip_record_set, ignore_index=True)
-        in_trip_record = pd.concat(in_trip_record_set, ignore_index=True)
-        pax_record = pd.concat(pax_record_set, ignore_index=True)
-
-        out_trip_record.to_pickle(path_out_trip_record)
-        in_trip_record.to_pickle(path_in_trip_record)
-        pax_record.to_pickle(path_pax_record)
-
-        with open('out/' + test_save_folder + '/' + tstamp + '-net_used.csv', 'w') as f:
+        with open('out/' + scenario + '/' + tstamp + '-net_used.csv', 'w') as f:
             f.write(str(tstamp_policy))
     return
 

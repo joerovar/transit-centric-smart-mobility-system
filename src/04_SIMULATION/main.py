@@ -8,15 +8,15 @@ from Input_Processor import get_interval
 from Simulation_Processor import run_base, train_rl, test_rl, run_base_dispatching
 
 
-run_base_dispatching(replications=5, prob_cancelled=0.0, save_results=False)
+# run_base_dispatching(replications=5, prob_cancelled=0.0, save_results=True)
 # sim_df_out = pd.read_pickle('out/NC/0524-153428-trip_record_outbound.pkl')
 
 # run_base(replications=10, control_eh=True, save_results=True)
-# sim_df_out = pd.read_pickle('out/NC_Terminal/0626-211549-trip_record_outbound.pkl')
-# sim_df_in = pd.read_pickle('out/NC_Terminal/0626-211549-trip_record_inbound.pkl')
-# pax_df = pd.read_pickle('out/NC_Terminal/0626-211549-pax_record.pkl')
-#
-# # validate ----------------
+# sim_df_out = pd.read_pickle('out/NC_Terminal/0627-134924-trip_record_outbound.pkl')
+# sim_df_in = pd.read_pickle('out/NC_Terminal/0627-134924-trip_record_inbound.pkl')
+# pax_df = pd.read_pickle('out/NC_Terminal/0627-134924-pax_record.pkl')
+
+# validate ----------------
 # avl_df = pd.read_csv('in/raw/rt20_avl_2019-09.csv')
 # validate_delay_outbound(avl_df, sim_df_out, START_TIME_SEC, END_TIME_SEC)
 # validate_delay_inbound(avl_df, sim_df_in, START_TIME_SEC, END_TIME_SEC, 5)

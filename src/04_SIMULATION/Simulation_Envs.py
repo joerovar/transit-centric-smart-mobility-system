@@ -184,7 +184,7 @@ class DetailedSimulationEnv(SimulationEnv):
         first_link = stops[0] + '-' + stops[1]
         if link in [first_link, last_link]:
             # problematic
-            return bus.active_trip[0].schedule[stop_idx + 1] - bus.active_trip[0].schedule[stop_idx]
+            return (bus.active_trip[0].schedule[stop_idx + 1] - bus.active_trip[0].schedule[stop_idx])*1.7
         if self.time_dependent_travel_time:
             link_time_params = LINK_TIMES_PARAMS[link][interv_idx]
             link_time_extremes = LINK_TIMES_EXTREMES[link][interv_idx]
