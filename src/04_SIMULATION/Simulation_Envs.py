@@ -32,7 +32,7 @@ def single_hw_decision(fw_h, sched_fw_h, hold_max):
 def get_reward(fw_hs, bw_hs, hold_t, weight_hold_t):
     reward = 0
     for hs in (fw_hs, bw_hs):
-        reward -= abs(hs[1] - hs[0])
+        reward -= abs(hs[1] - hs[0]) / hs[1]
     reward -= weight_hold_t * hold_t
     return reward
 
@@ -165,8 +165,6 @@ class DetailedSimulationEnv(SimulationEnv):
             print(f'schedule length {len(bus.active_trip[0].schedule)}')
             print(f'schedule {bus.active_trip[0].schedule}')
             raise
-        trajectory = [bus.last_stop_id, round(bus.arr_t, 1), round(bus.dep_t, 1),
-                      len(bus.pax), pickups, offs, denied_board, hold, int(skip), scheduled_sec]
         self.out_trip_record.append([bus.bus_id, trip_id, bus.last_stop_id, bus.arr_t, bus.dep_t,
                                      len(bus.pax), pickups, offs, denied_board, hold, int(skip),
                                      scheduled_sec, stop_idx + 1, dist_traveled])
@@ -192,8 +190,6 @@ class DetailedSimulationEnv(SimulationEnv):
             link_time_params = SINGLE_LINK_TIMES_PARAMS[link]
             link_time_extremes = SINGLE_LINK_TIMES_EXTREMES
         if type(link_time_params) is not tuple and np.isnan(link_time_params):
-            print(f'for trip {bus.active_trip[0].trip_id} for link {link} at hour {TIME_START_INTERVAL + interv_idx}'
-                  f'could not find in {LINK_TIMES_PARAMS[link]}')
             return bus.active_trip[0].schedule[stop_idx + 1] - bus.active_trip[0].schedule[stop_idx]
         try:
             link_time_params_light = (link_time_params[0] * self.tt_factor, link_time_params[1], link_time_params[2])
@@ -431,6 +427,7 @@ class DetailedSimulationEnv(SimulationEnv):
         bus.next_event_type = 1
 
         self.stops[bus.last_stop_id].passed_trips.append(bus.active_trip[0].trip_id)
+        self.stops[bus.last_stop_id].last_dep_t.append(bus.dep_t)
         return
 
     def outbound_arrival(self):
@@ -469,7 +466,8 @@ class DetailedSimulationEnv(SimulationEnv):
         bus.active_trip.pop(0)
         if bus.pending_trips:
             trip = bus.pending_trips[0]
-            next_dep_time = max(bus.dep_t, trip.schedule[0])
+            layover = MIN_LAYOVER_T + max(np.random.uniform(-ERR_LAYOVER_TIME, ERR_LAYOVER_TIME), 0)
+            next_dep_time = max(bus.dep_t + layover, trip.schedule[0])
             bus.next_event_time = next_dep_time
             bus.next_event_type = 3
         else:
@@ -988,15 +986,17 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
 
 
 class DetailedSimulationEnvWithDispatching(DetailedSimulationEnv):
-    def __init__(self, prob_cancelled_block=0.0, weight_hold_t=0.0, control_type=None, *args, **kwargs):
+    def __init__(self, prob_cancelled_block=0.0, weight_hold_t=0.0, control_type=None, cancelled_blocks=None,
+                 *args, **kwargs):
         super(DetailedSimulationEnvWithDispatching, self).__init__(*args, **kwargs)
         self.prob_cancelled_block = prob_cancelled_block
         self.weight_hold_t = weight_hold_t
         self.control_type = control_type
+        self.cancelled_blocks = cancelled_blocks
         self.obs = []
         self.prev_obs = []
         self.prev_reward = None
-        self.prev_action = None
+        self.prev_hold_t = None
         self.prev_decision_t = None
 
     def reset_simulation(self):
@@ -1019,12 +1019,19 @@ class DetailedSimulationEnvWithDispatching(DetailedSimulationEnv):
         self.completed_pax_record = []
         self.initialize_pax_demand()
         # initialize bus trips (the first trip for each bus)
-        print('BUSES CANCELLED -----')
+        # print('BUSES CANCELLED -----')
+        #
+        # print(f'20 percent of buses is {int(0.2*len(self.buses))}')
         for bus in self.buses:
-            if random.uniform(0, 1) < self.prob_cancelled_block:
-                print(f'with ID {bus.bus_id} and scheduled outbound departures '
-                      f'{[str(timedelta(seconds=round(t.schedule[0]))) for t in bus.pending_trips if t.direction == 0]}')
-                bus.cancelled = True
+            if self.cancelled_blocks:
+                if bus.bus_id in self.cancelled_blocks:
+                    bus.cancelled = True
+            else:
+                if random.uniform(0, 1) < self.prob_cancelled_block:
+                    bus.cancelled = True
+            if bus.cancelled:
+                # print(f'with ID {bus.bus_id} and scheduled outbound departures '
+                #       f'{[str(timedelta(seconds=round(t.schedule[0]))) for t in bus.pending_trips if t.direction == 0]}')
                 bus.cancelled_trips = deepcopy(bus.pending_trips)
                 bus.pending_trips = []
                 bus.deactivate()
@@ -1051,7 +1058,7 @@ class DetailedSimulationEnvWithDispatching(DetailedSimulationEnv):
         self.obs = []
         self.prev_obs = []
         self.prev_reward = None
-        self.prev_action = None
+        self.prev_hold_t = None
         self.prev_decision_t = None
         return False
 
@@ -1074,7 +1081,7 @@ class DetailedSimulationEnvWithDispatching(DetailedSimulationEnv):
             bus.deactivate()
         return
 
-    def actual_future_headways(self):
+    def actual_future_headways(self, future_sched_dep):
         # terminal
         # search for active buses inbound and compute the time they will pick up pax at terminal (arrival time)
         future_dep_t = []
@@ -1090,82 +1097,97 @@ class DetailedSimulationEnvWithDispatching(DetailedSimulationEnv):
                 future_dep_t.append(max(ready_time, next_sched_t))
             if not bus.active_trip and bus.pending_trips and bus.bus_id != self.bus.bus_id:
                 if bus.pending_trips[0].direction == 0:
-                    if not bus.finished_trips:
-                        future_dep_t.append(bus.pending_trips[0].schedule[0])
+                    if bus.instructed_hold_time:
+                        # the bus could 'hold' to a time earlier than its scheduled departure
+                        future_dep_t.append(bus.next_event_time)
+                        assert bus.next_event_time >= self.time
                     else:
-                        # this means the bus is idle
-                        future_dep_t.append(max(bus.next_event_time, bus.pending_trips[0].schedule[0]))
+                        if not bus.finished_trips:
+                            # pull-out trip
+                            future_dep_t.append(bus.pending_trips[0].schedule[0])
+                        else:
+                            # bus layover at terminal without holding instruction
+                            future_dep_t.append(max(bus.next_event_time, bus.pending_trips[0].schedule[0]))
                 elif len(bus.pending_trips) > 1:
                     assert bus.pending_trips[1].direction == 0
                     future_dep_t.append(bus.pending_trips[1].schedule[0])
-        if len(future_dep_t) >= FUTURE_HW_HORIZON:
-            future_dep = sorted(future_dep_t)[:FUTURE_HW_HORIZON]
+        if len(future_dep_t) > 0:
+            future_dep = sorted(future_dep_t)
             future_dep.insert(0, self.time)
-            # print(f'future actual departures {[str(timedelta(seconds=round(fd))) for fd in future_dep]}')
             future_dep_hw = [future_dep[i] - future_dep[i - 1] for i in range(1, len(future_dep))]
             return future_dep_hw
         else:
             # this might happen if the episode is still running and we control the last dispatched trip
-            # print(f'no future arrival found at hour {self.time / 60 / 60}')
-            return [SCHED_DEP_OUT[-1] - SCHED_DEP_OUT[-2]] * FUTURE_HW_HORIZON
+            print(f'no future arrival found at time {str(timedelta(seconds=round(self.time)))}')
+            print(f'next scheduled departures {[str(timedelta(seconds=round(d))) for d in future_sched_dep]}')
+            return []
 
     def report_observations(self):
         bus = self.bus
         stops = bus.pending_trips[0].stops
         sched_dep = bus.pending_trips[0].schedule[0]
         # this will be the reference point - future and past hw extracted based on
-        ref_dep_t = max(self.time, sched_dep)
-        past_sched_dep = np.sort(
-            sched_deps_arr[(sched_deps_arr < ref_dep_t) & (sched_deps_arr.astype(int) != int(sched_dep))])[:].tolist()
-        past_sched_dep.append(self.time)
+        past_sched_dep = np.sort(sched_deps_arr[sched_deps_arr <= sched_dep])[:].tolist()
         past_sched_hw = [past_sched_dep[i] - past_sched_dep[i - 1] for i in range(1, len(past_sched_dep))]
 
         past_actual_dep = deepcopy(self.stops[stops[0]].last_dep_t)
         past_actual_dep.append(self.time)
         past_actual_hw = [past_actual_dep[i] - past_actual_dep[i - 1] for i in range(1, len(past_actual_dep))]
+        # print([str(timedelta(seconds=round(past_actual_dep[i]))) for i in range(len(past_actual_dep))])
 
-        future_sched_dep = np.sort(
-            sched_deps_arr[(sched_deps_arr > ref_dep_t) & (sched_deps_arr.astype(int) != int(sched_dep))])[
-                           :FUTURE_HW_HORIZON].tolist()
-        future_sched_dep.insert(0, self.time)
+        future_sched_dep = np.sort(sched_deps_arr[sched_deps_arr >= sched_dep])[:FUTURE_HW_HORIZON+1].tolist()
         future_sched_hw = [future_sched_dep[i] - future_sched_dep[i - 1] for i in range(1, len(future_sched_dep))]
 
-        # print(f'new event -----')
-        future_actual_hw = self.actual_future_headways()
+        future_actual_hw = self.actual_future_headways(future_sched_dep)
         sched_dev = self.time - sched_dep
 
-        if len(past_actual_hw) >= PAST_HW_HORIZON:
-            self.obs = past_actual_hw[-PAST_HW_HORIZON:] + future_actual_hw + past_sched_hw[
+        if len(past_actual_hw) >= PAST_HW_HORIZON and len(future_actual_hw) >= FUTURE_HW_HORIZON:
+            self.obs = past_actual_hw[-PAST_HW_HORIZON:] + future_actual_hw[:FUTURE_HW_HORIZON] + past_sched_hw[
                                                                              -PAST_HW_HORIZON:] + future_sched_hw + [
                            sched_dev]
             assert len(self.obs) == PAST_HW_HORIZON * 2 + FUTURE_HW_HORIZON * 2 + 1
+        elif len(past_actual_hw) > 0 and self.control_type and len(future_actual_hw) > 0:
+            hold_t = even_hw_decision(future_actual_hw[0], past_actual_hw[-1], max(IMPOSED_DELAY_LIMIT - sched_dev, 0))
+            bus.next_event_time = self.time + hold_t
+            bus.next_event_type = 0
+            bus.instructed_hold_time = hold_t
+            bus.instruction_time = deepcopy(self.time)
+            return self.prep()
         else:
             bus.next_event_time = max(self.time, sched_dep)
             bus.next_event_type = 0
-            self.obs = []
             return self.prep()
-        if self.prev_obs and self.control_type == 'RL':
-            prev_bw_h = self.prev_obs[PAST_HW_HORIZON + 1]
-            prev_fw_h = self.prev_obs[PAST_HW_HORIZON]
+        if self.prev_obs:
+            prev_bw_h = self.prev_obs[PAST_HW_HORIZON]
+            prev_fw_h = self.prev_obs[PAST_HW_HORIZON-1]
             prev_sched_dev = self.prev_obs[-1]
             prev_hold_t_max = max(IMPOSED_DELAY_LIMIT - prev_sched_dev, 0)
             hold_time = even_hw_decision(prev_bw_h, prev_fw_h, prev_hold_t_max)
 
-            resulting_fw_h = prev_fw_h + hold_time
-            resulting_bw_h = self.time - self.prev_decision_t + hold_time
-            sched_fw_h = self.prev_obs[PAST_HW_HORIZON * 2 + FUTURE_HW_HORIZON]
-            sched_bw_h = self.prev_obs[PAST_HW_HORIZON * 2 + FUTURE_HW_HORIZON + 1]
+            predicted_fw_h = prev_fw_h + hold_time
+            predicted_bw_h = max(self.time, sched_dep) - (self.prev_decision_t + hold_time)
+            sched_fw_h = self.prev_obs[PAST_HW_HORIZON * 2 + FUTURE_HW_HORIZON - 1]
+            sched_bw_h = self.prev_obs[PAST_HW_HORIZON * 2 + FUTURE_HW_HORIZON]
 
-            rew_baseline = get_reward((resulting_bw_h, sched_bw_h), (resulting_fw_h, sched_fw_h),
+            rew_baseline = get_reward((predicted_bw_h, sched_bw_h), (predicted_fw_h, sched_fw_h),
                                       hold_time, self.weight_hold_t)
 
-            resulting_fw_h = self.obs[PAST_HW_HORIZON - 1]
-            resulting_bw_h = self.obs[PAST_HW_HORIZON]
-            sched_fw_h = self.obs[PAST_HW_HORIZON * 2 + FUTURE_HW_HORIZON - 1]
-            sched_bw_h = self.obs[PAST_HW_HORIZON * 2 + FUTURE_HW_HORIZON]
-            hold_time = self.prev_action * HOLD_INTERVALS
-            rew_rl = get_reward((resulting_bw_h, sched_bw_h), (resulting_fw_h, sched_fw_h),
-                                hold_time, self.weight_hold_t)
+            # print(f'PREDICTED EVEN HEADWAY REWARD')
+            # print(f'PREDICTED HEADWAY PAIR {(str(timedelta(seconds=round(predicted_fw_h))), str(timedelta(seconds=round(predicted_bw_h))))}')
+            # print(f'SCHEDULED HEADWAY PAIR {(str(timedelta(seconds=round(sched_fw_h))), str(timedelta(seconds=round(sched_bw_h))))}')
+            # print(f'resulting reward {round(rew_baseline, 2)}')
+
+            sched_dev = deepcopy(self.obs[-1])
+            hold_time = deepcopy(self.prev_hold_t)
+            resulting_fw_h = self.obs[PAST_HW_HORIZON - 2]
+            resulting_bw_h = self.obs[PAST_HW_HORIZON - 1] - min(sched_dev, 0) # to add the component of early departure
+            rew_rl = get_reward((resulting_bw_h, sched_bw_h), (resulting_fw_h, sched_fw_h), hold_time,
+                                self.weight_hold_t)
+
+            # print(f'ACTUAL EVEN HEADWAY REWARD')
+            # print(f'RESULTING HEADWAY PAIR {(str(timedelta(seconds=round(resulting_fw_h))), str(timedelta(seconds=round(resulting_bw_h))))}')
+            # print(f'SCHEDULED HEADWAY PAIR {(str(timedelta(seconds=round(sched_fw_h))), str(timedelta(seconds=round(sched_bw_h))))}')
+            # print(f'resulting reward {round(rew_rl, 2)}')
 
             self.prev_reward = rew_rl - rew_baseline
         return
@@ -1177,28 +1199,36 @@ class DetailedSimulationEnvWithDispatching(DetailedSimulationEnv):
             obs = self.obs
             sched_dev = obs[-1]
             hold_time_max = max(IMPOSED_DELAY_LIMIT - sched_dev, 0)
-            fw_h = obs[PAST_HW_HORIZON]
+            fw_h = obs[PAST_HW_HORIZON-1]
             assert self.control_type in ['EH', 'SH', 'RL']
             if self.control_type == 'EH':
-                bw_h = obs[PAST_HW_HORIZON+1]
-                bus.next_event_time = self.time + even_hw_decision(bw_h, fw_h, hold_time_max)
+                bw_h = obs[PAST_HW_HORIZON]
+                hold_time = even_hw_decision(bw_h, fw_h, hold_time_max)
+                # print('HOLDING DECISION')
+                # print(f'Hold time of {round(hold_time)} <= {round(hold_time_max)}')
+                bus.next_event_time = self.time + hold_time
             if self.control_type == 'SH':
                 sched_fw_h = obs[PAST_HW_HORIZON+FUTURE_HW_HORIZON+PAST_HW_HORIZON]
-                bus.next_event_time = self.time + single_hw_decision(fw_h, sched_fw_h, hold_time_max)
+                hold_time = single_hw_decision(fw_h, sched_fw_h, hold_time_max)
+                bus.next_event_time = self.time + hold_time
             if self.control_type == 'RL':
                 bus.next_event_time = self.time + hold_time
-            self.prev_action = hold_time
+
+            bus.instructed_hold_time = hold_time
+            bus.instruction_time = deepcopy(self.time)
             self.prev_obs = deepcopy(self.obs)
-            self.obs = []
+            self.prev_decision_t = deepcopy(self.time)
+            self.prev_hold_t = deepcopy(hold_time)
         else:
             bus.next_event_time = max(self.time, sched_dep)
+        self.obs = []
         bus.next_event_type = 0
-        return self.prep()
+        return
 
     def outbound_dispatch(self, hold=0):
         bus = self.bus
-        curr_stop_idx = 0
-        next_stops = bus.active_trip[0].stops[curr_stop_idx + 1:]
+        stops = bus.active_trip[0].stops
+        next_stops = stops[1:]
         for p in self.stops[bus.last_stop_id].pax.copy():
             if p.arr_time <= self.time and p.dest_id in next_stops:
                 if len(bus.pax) + 1 <= CAPACITY:
@@ -1213,14 +1243,18 @@ class DetailedSimulationEnvWithDispatching(DetailedSimulationEnv):
                     bus.denied += 1
             else:
                 break
+
         dwell_time_error = max(random.uniform(-DWELL_TIME_ERROR, DWELL_TIME_ERROR), 0)
         dwell_time = bus.ons * BOARDING_TIME + dwell_time_error
         # herein we zero dwell time if no pax boarded
         dwell_time = (bus.ons > 0) * dwell_time
-        if hold:
-            dwell_time = max(hold, dwell_time)
+        if bus.instructed_hold_time:
+            bus.dep_t = self.time + max(dwell_time - bus.instructed_hold_time, 0)
+            bus.instructed_hold_time = None
+            bus.instruction_time = None
+        else:
+            bus.dep_t = self.time + dwell_time
 
-        bus.dep_t = self.time + dwell_time
         # FOR THOSE PAX WHO ARRIVE DURING THE DWELL TIME
         if bus.dep_t > self.time:
             for p in self.stops[bus.last_stop_id].pax.copy():
@@ -1240,8 +1274,10 @@ class DetailedSimulationEnvWithDispatching(DetailedSimulationEnv):
 
         curr_trip_idx = TRIP_IDS_OUT.index(bus.active_trip[0].trip_id)
         self.trip_log[curr_trip_idx].stop_dep_times[bus.last_stop_id] = bus.dep_t
-
-        self.record_trajectories(pickups=bus.ons, denied_board=bus.denied, hold=hold)
+        if bus.instructed_hold_time:
+            self.record_trajectories(pickups=bus.ons, denied_board=bus.denied, hold=bus.instructed_hold_time)
+        else:
+            self.record_trajectories(pickups=bus.ons, denied_board=bus.denied)
         runtime = self.get_travel_time()
         bus.next_event_time = bus.dep_t + runtime
         bus.next_event_type = 1

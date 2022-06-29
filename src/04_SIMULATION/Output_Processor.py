@@ -172,7 +172,7 @@ def plot_calib_hist(delay_avl, delay_sim, start_interval, filename, xlabel):
 
 def validate_cv_hw_outbound(avl_df, sim_df, start_t_sec, end_t_sec, interval_min, stops, dates, start_interval=5):
     hw_out_cv = cv_hw_from_avl(avl_df, start_t_sec, end_t_sec, interval_min, stops, dates)
-    hw_out_cv_sim = cv_hw(sim_df, start_t_sec, end_t_sec, interval_min, stops)
+    hw_out_cv_sim = cv_hw_by_intervals(sim_df, start_t_sec, end_t_sec, interval_min, stops)
     fig, ax = plt.subplots(nrows=2, ncols=2, sharey='all', sharex='all')
     for i in range(ax.size):
         ax.flat[i].plot(hw_out_cv[i], label='avl')
@@ -317,7 +317,27 @@ def delay_outbound(trips_df, start_time, end_time, delay_interval_length, col_ar
     return arr_delays, dep_delays
 
 
-def cv_hw(trip_record_df, start_time, end_time, interval_length, stops):
+def cv_hw_by_time(trip_record_df, start_time, end_time, stops):
+    nr_replications = trip_record_df['replication'].max()
+    hws = [[] for _ in range(len(stops))]
+    for rep_nr in range(1, nr_replications+1):
+        date_df = trip_record_df[trip_record_df['replication'] == rep_nr].copy()
+        temp_df = date_df[(date_df['arr_sec'] >= start_time) & (date_df['arr_sec'] <= end_time)].copy()
+        for j in range(len(stops)):
+            df = temp_df[temp_df['stop_id'] == stops[j]].copy()
+            df = df[df['stop_sequence'] == j + 1]
+            df = df.sort_values(by='arr_sec')
+            arr_sec = df['arr_sec'].tolist()
+            if len(arr_sec) > 1:
+                for i in range(1, len(arr_sec)):
+                    hws[j].append(arr_sec[i] - arr_sec[i - 1])
+    cv_hws = []
+    for stop_idx in range(len(hws)):
+        cv_hws.append(np.std(hws[stop_idx]) / np.mean(hws[stop_idx]))
+    return cv_hws
+
+
+def cv_hw_by_intervals(trip_record_df, start_time, end_time, interval_length, stops):
     nr_replications = trip_record_df['replication'].max()
     interval0 = get_interval(start_time, interval_length)
     interval1 = get_interval(end_time, interval_length)

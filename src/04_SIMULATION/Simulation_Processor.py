@@ -6,7 +6,13 @@ import Simulation_Envs
 import random
 
 
-def write_results(scenario, t, out_record_set, in_record_set, pax_record_set):
+def process_trip_record(record, record_col_names, rep_nr):
+    df = pd.DataFrame(record, columns=record_col_names)
+    df['replication'] = pd.Series([rep_nr + 1 for _ in range(len(df.index))])
+    return df
+
+
+def write_trip_records(scenario, t, out_record_set, in_record_set, pax_record_set):
     path_out_trip_record = 'out/' + scenario + '/' + t + '-trip_record_outbound' + ext_var
     path_in_trip_record = 'out/' + scenario + '/' + t + '-trip_record_inbound' + ext_var
     path_pax_record = 'out/' + scenario + '/' + t + '-pax_record' + ext_var
@@ -21,14 +27,17 @@ def write_results(scenario, t, out_record_set, in_record_set, pax_record_set):
     return
 
 
-def run_base_dispatching(prob_cancelled=0.0, replications=4, save_results=False, control_type=None):
+def run_base_dispatching(replications, prob_cancel=0.0, save_results=False, control_type=None, save_folder=None,
+                         cancelled_blocks=None):
     tstamp = datetime.now().strftime('%m%d-%H%M%S')
     out_trip_record_set = []
     in_trip_record_set = []
     pax_record_set = []
     for i in range(replications):
-        env = Simulation_Envs.DetailedSimulationEnvWithDispatching(prob_cancelled_block=prob_cancelled,
-                                                                   control_type=control_type)
+        cancelled = cancelled_blocks[i] if cancelled_blocks else None
+        env = Simulation_Envs.DetailedSimulationEnvWithDispatching(prob_cancelled_block=prob_cancel,
+                                                                   control_type=control_type,
+                                                                   cancelled_blocks=cancelled)
         done = env.reset_simulation()
         while not done:
             done = env.prep()
@@ -38,33 +47,114 @@ def run_base_dispatching(prob_cancelled=0.0, replications=4, save_results=False,
                 future_sched_hw = env.obs[PAST_HW_HORIZON*2+FUTURE_HW_HORIZON:PAST_HW_HORIZON*2+FUTURE_HW_HORIZON*2]
                 future_actual_hw = env.obs[PAST_HW_HORIZON:PAST_HW_HORIZON+FUTURE_HW_HORIZON]
                 sched_dev = env.obs[-1]
-                print(f'current time is {str(timedelta(seconds=round(env.time)))} '
-                      f'and next event time is {str(timedelta(seconds=round(env.bus.next_event_time)))}')
-                print(f'trip {env.bus.pending_trips[0].trip_id}')
-                print(f'schedule deviation {round(env.obs[-1])}')
-                print(f'TRIP HAS DONE {len(env.bus.finished_trips)}')
-                print(f'SANITY CHECK IS {env.bus.active_trip} that no active trips')
-                print(f'past sched hw {[str(timedelta(seconds=round(hw))) for hw in past_sched_hw]}')
-                print(f'past actual hw {[str(timedelta(seconds=round(hw))) for hw in past_actual_hw]}')
-                print(f'future sched hw {[str(timedelta(seconds=round(hw))) for hw in future_sched_hw]}')
-                print(f'future actual hw {[str(timedelta(seconds=round(hw))) for hw in future_actual_hw]}')
+                # print(f'current time is {str(timedelta(seconds=round(env.time)))} '
+                #       f'and next event time is {str(timedelta(seconds=round(env.bus.next_event_time)))}')
+                # print(f'trip {env.bus.pending_trips[0].trip_id}')
+                # print(f'schedule deviation {round(env.obs[-1])}')
+                # print(f'past sched hw {[str(timedelta(seconds=round(hw))) for hw in past_sched_hw]}')
+                # print(f'past actual hw {[str(timedelta(seconds=round(hw))) for hw in past_actual_hw]}')
+                # print(f'future sched hw {[str(timedelta(seconds=round(hw))) for hw in future_sched_hw]}')
+                # print(f'future actual hw {[str(timedelta(seconds=round(hw))) for hw in future_actual_hw]}')
                 hold_t_max = IMPOSED_DELAY_LIMIT - sched_dev
                 env.dispatch_decision()
         if save_results:
-            out_trip_record_df = pd.DataFrame(env.out_trip_record, columns=OUT_TRIP_RECORD_COLS)
-            out_trip_record_df['replication'] = pd.Series([i + 1 for _ in range(len(out_trip_record_df.index))])
-            out_trip_record_set.append(out_trip_record_df)
-
-            in_trip_record_df = pd.DataFrame(env.in_trip_record, columns=IN_TRIP_RECORD_COLS)
-            in_trip_record_df['replication'] = pd.Series([i + 1 for _ in range(len(in_trip_record_df.index))])
-            in_trip_record_set.append(in_trip_record_df)
-
-            pax_record_df = pd.DataFrame(env.completed_pax_record, columns=PAX_RECORD_COLS)
-            pax_record_df['replication'] = pd.Series([i + 1 for _ in range(len(in_trip_record_df.index))])
-            pax_record_set.append(pax_record_df)
+            out_trip_record_set.append(process_trip_record(env.out_trip_record, OUT_TRIP_RECORD_COLS, i))
+            in_trip_record_set.append(process_trip_record(env.in_trip_record, IN_TRIP_RECORD_COLS, i))
+            pax_record_set.append(process_trip_record(env.completed_pax_record, PAX_RECORD_COLS, i))
 
     if save_results:
-        write_results('NC_Terminal', tstamp, out_trip_record_set, in_trip_record_set, pax_record_set)
+        write_trip_records(save_folder, tstamp, out_trip_record_set, in_trip_record_set, pax_record_set)
+        key_params = {'prob_cancel': [prob_cancel], 'n_replications': [replications], 'cancelled_blocks': [cancelled_blocks]}
+        pd.DataFrame(key_params).to_csv('out/' + save_folder + '/' + tstamp + '-key_params' + ext_csv, index=False)
+    return
+
+
+def rl_dispatch(n_episodes, train=False, prob_cancel=0.0, weight_hold_t=0.0, save_results=False, save_folder=None,
+                cancelled_blocks=None, tstamp_policy=None):
+    if not tstamp_policy:
+        assert train
+        tstamp_policy = time.strftime("%m%d-%H%M")
+    agent_ = getattr(Agents, ALGO)
+    path_train_info = 'out/trained_nets/' + tstamp_policy + '_dispatch'
+    env_name = tstamp_policy + '-_dispatch'
+    agent = agent_(gamma=DISCOUNT_FACTOR, epsilon=EPS, lr=LEARN_RATE, input_dims=[NR_STATE_D_RL],
+                   n_actions=NR_ACTIONS_D_RL,
+                   mem_size=MAX_MEM, eps_min=EPS_MIN, batch_size=BATCH_SIZE, replace=EPOCHS_REPLACE, eps_dec=EPS_DEC,
+                   chkpt_dir=path_train_info + '/', algo=ALGO, env_name=env_name, fc_dims=FC_DIMS)
+    agent.load_models()
+    tstamp = datetime.now().strftime('%m%d-%H%M%S')
+    out_trip_record_set = []
+    in_trip_record_set = []
+    pax_record_set = []
+    best_score = -np.inf
+    if train:
+        os.mkdir(path_train_info)
+
+        arg_params = {'param': ['n_episodes', 'lr', 'eps_min', 'gamma', 'eps_dec', 'eps', 'max_mem', 'bs',
+                                'replace', 'algo', 'fc_dims'],
+                      'value': [n_episodes, LEARN_RATE, EPS_MIN, DISCOUNT_FACTOR, EPS_DEC, EPS, MAX_MEM,
+                                BATCH_SIZE, EPOCHS_REPLACE, ALGO, FC_DIMS]}
+        df_params = pd.DataFrame(arg_params)
+        params_file = path_train_info + '/input_params.csv'
+        df_params.to_csv(params_file, index=False)
+    figure_file = path_train_info + '/rew_curve.png'
+    scores_file = path_train_info + '/rew_nums.csv'
+    scores, eps_history, steps = [], [], []
+    n_steps = 0
+
+    for j in range(n_episodes):
+        score = 0
+        cancelled = cancelled_blocks[j] if cancelled_blocks else None
+        env = Simulation_Envs.DetailedSimulationEnvWithDispatching(prob_cancelled_block=prob_cancel,
+                                                                   control_type='RL', weight_hold_t=weight_hold_t,
+                                                                   cancelled_blocks=cancelled)
+        done = env.reset_simulation()
+        while not done:
+            done = env.prep()
+            if env.obs and not done:
+                if env.prev_reward and train:
+                    obs = np.array(env.prev_obs, dtype=np.float32)
+                    obs_ = np.array(env.obs, dtype=np.float32)
+                    score += env.prev_reward
+                    prev_action = int(env.prev_hold_t/HOLD_INTERVALS)
+                    agent.store_transition(obs, prev_action, env.prev_reward, obs_, 0)
+                    agent.learn()
+                    n_steps += 1
+                sched_dev = env.obs[-1]
+                obs_ = np.array(env.obs, dtype=np.float32)
+                hold_t_max = max(IMPOSED_DELAY_LIMIT - sched_dev, 0)
+                max_action = int(hold_t_max/HOLD_INTERVALS) + 1
+                if max_action == 0:
+                    action = 0
+                elif max_action < NR_ACTIONS_D_RL:
+                    action = agent.choose_action(obs_, mask_idx=[i for i in range(max_action, NR_ACTIONS_D_RL)])
+                else:
+                    action = agent.choose_action(obs_)
+                env.dispatch_decision(hold_time=action*HOLD_INTERVALS)
+        if not train and save_results:
+            out_trip_record_set.append(process_trip_record(env.out_trip_record, OUT_TRIP_RECORD_COLS, j))
+            in_trip_record_set.append(process_trip_record(env.in_trip_record, IN_TRIP_RECORD_COLS, j))
+            pax_record_set.append(process_trip_record(env.completed_pax_record, PAX_RECORD_COLS, j))
+        if train:
+            scores.append(score)
+            steps.append(n_steps)
+            avg_score = np.mean(scores[-100:])
+            print('episode ', j, 'score %.2f' % score, 'average score %.2f' % avg_score,
+                  'epsilon %.2f' % agent.epsilon, 'steps ', n_steps)
+            if avg_score > best_score:
+                agent.save_models()
+                best_score = avg_score
+            eps_history.append(agent.epsilon)
+    if train:
+        plot_learning(steps, scores, eps_history, figure_file)
+        scores_d = {'step': steps, 'score': scores, 'eps': eps_history}
+        scores_df = pd.DataFrame(scores_d)
+        scores_df.to_csv(scores_file, index=False)
+    if not train and save_results:
+        write_trip_records(save_folder, tstamp, out_trip_record_set, in_trip_record_set, pax_record_set)
+        key_params = {'prob_cancel': [prob_cancel], 'n_replications': [n_episodes],
+                      'cancelled_blocks': [cancelled_blocks]}
+        pd.DataFrame(key_params).to_csv('out/' + save_folder + '/' + tstamp + '-key_params' + ext_csv, index=False)
     return
 
 
@@ -84,21 +174,13 @@ def run_base(replications=4, save_results=False, control_eh=False, hold_adj_fact
         while not done:
             done = env.prep()
         if save_results:
-            out_trip_record_df = pd.DataFrame(env.out_trip_record, columns=OUT_TRIP_RECORD_COLS)
-            out_trip_record_df['replication'] = pd.Series([i + 1 for _ in range(len(out_trip_record_df.index))])
-            out_trip_record_set.append(out_trip_record_df)
-
-            in_trip_record_df = pd.DataFrame(env.in_trip_record, columns=IN_TRIP_RECORD_COLS)
-            in_trip_record_df['replication'] = pd.Series([i + 1 for _ in range(len(in_trip_record_df.index))])
-            in_trip_record_set.append(in_trip_record_df)
-
-            pax_record_df = pd.DataFrame(env.completed_pax_record, columns=PAX_RECORD_COLS)
-            pax_record_df['replication'] = pd.Series([i + 1 for _ in range(len(in_trip_record_df.index))])
-            pax_record_set.append(pax_record_df)
+            out_trip_record_set.append(process_trip_record(env.out_trip_record, OUT_TRIP_RECORD_COLS, i))
+            in_trip_record_set.append(process_trip_record(env.in_trip_record, IN_TRIP_RECORD_COLS, i))
+            pax_record_set.append(process_trip_record(env.completed_pax_record, PAX_RECORD_COLS, i))
 
     if save_results:
         scenario = 'EH' if control_eh else 'NC'
-        write_results(scenario, tstamp, out_trip_record_set, in_trip_record_set, pax_record_set)
+        write_trip_records(scenario, tstamp, out_trip_record_set, in_trip_record_set, pax_record_set)
         if control_eh:
             params = {'param': ['control_strength'], 'value': [control_strength]}
             df_params = pd.DataFrame(params)
@@ -109,24 +191,22 @@ def run_base(replications=4, save_results=False, control_eh=False, hold_adj_fact
 def train_rl(n_episodes_train, simple_reward=False):
     tstamp_policy = time.strftime("%m%d-%H%M")
     agent_ = getattr(Agents, ALGO)
+    path_train_info = 'out/trained_nets/' + tstamp_policy + '_at_stop'
     agent = agent_(gamma=DISCOUNT_FACTOR, epsilon=EPS, lr=LEARN_RATE,
                    input_dims=[N_STATE_PARAMS_RL], n_actions=N_ACTIONS_RL,
-                   mem_size=MAX_MEM, eps_min=EPS_MIN, batch_size=BATCH_SIZE, replace=EPISODES_REPLACE, eps_dec=EPS_DEC,
-                   chkpt_dir=NETS_PATH + tstamp_policy + '/', algo=ALGO, env_name=tstamp_policy, fc_dims=FC_DIMS)
+                   mem_size=MAX_MEM, eps_min=EPS_MIN, batch_size=BATCH_SIZE, replace=EPOCHS_REPLACE, eps_dec=EPS_DEC,
+                   chkpt_dir=path_train_info + '/', algo=ALGO, env_name=tstamp_policy, fc_dims=FC_DIMS)
     best_score = -np.inf
-    parent_dir = 'out/trained_nets/'
-    child_dir = tstamp_policy
-    path = os.path.join(parent_dir, child_dir)
-    os.mkdir(path)
-    figure_file = 'out/trained_nets/' + tstamp_policy + '/rew_curve.png'
-    scores_file = 'out/trained_nets/' + tstamp_policy + '/rew_nums.csv'
-    params_file = 'out/trained_nets/' + tstamp_policy + '/input_params.csv'
+    os.mkdir(path_train_info)
+    figure_file = path_train_info + '/rew_curve.png'
+    scores_file = path_train_info + '/rew_nums.csv'
+    params_file = path_train_info + '/input_params.csv'
 
     arg_params = {'param': ['n_episodes', 'lr', 'eps_min', 'gamma', 'eps_dec', 'eps', 'max_mem', 'bs',
                             'replace', 'algo', 'simple_rew', 'fc_dims', 'weight_ride_time', 'limit_hold',
                             'tt_factor', 'hold_adj_factor', 'estimated_pax'],
                   'value': [n_episodes_train, LEARN_RATE, EPS_MIN, DISCOUNT_FACTOR, EPS_DEC, EPS, MAX_MEM,
-                            BATCH_SIZE, EPISODES_REPLACE, ALGO, simple_reward, FC_DIMS,
+                            BATCH_SIZE, EPOCHS_REPLACE, ALGO, simple_reward, FC_DIMS,
                             WEIGHT_RIDE_T, LIMIT_HOLDING, TT_FACTOR, HOLD_ADJ_FACTOR, ESTIMATED_PAX]}
     df_params = pd.DataFrame(arg_params)
     df_params.to_csv(params_file, index=False)
@@ -198,9 +278,10 @@ def train_rl(n_episodes_train, simple_reward=False):
 
 def test_rl(n_episodes_test, tstamp_policy, save_results=False, simple_reward=False):
     agent_ = getattr(Agents, ALGO)
+    path_train_info = 'out/trained_nets/' + tstamp_policy + '_at_stop'
     agent = agent_(gamma=DISCOUNT_FACTOR, epsilon=EPS, lr=LEARN_RATE, input_dims=[N_STATE_PARAMS_RL],
                    n_actions=N_ACTIONS_RL, mem_size=MAX_MEM, eps_min=EPS_MIN, batch_size=BATCH_SIZE,
-                   replace=EPISODES_REPLACE, eps_dec=EPS_DEC, chkpt_dir=NETS_PATH + tstamp_policy + '/',
+                   replace=EPOCHS_REPLACE, eps_dec=EPS_DEC, chkpt_dir=path_train_info + '/',
                    algo=ALGO, env_name=tstamp_policy, fc_dims=FC_DIMS)
     agent.load_models()
     tstamp = datetime.now().strftime('%m%d-%H%M%S')
@@ -240,20 +321,12 @@ def test_rl(n_episodes_test, tstamp_policy, save_results=False, simple_reward=Fa
             done = env.prep()
 
         if save_results:
-            out_trip_record_df = pd.DataFrame(env.out_trip_record, columns=OUT_TRIP_RECORD_COLS)
-            out_trip_record_df['replication'] = pd.Series([j + 1 for _ in range(len(out_trip_record_df.index))])
-            out_trip_record_set.append(out_trip_record_df)
-
-            in_trip_record_df = pd.DataFrame(env.in_trip_record, columns=IN_TRIP_RECORD_COLS)
-            in_trip_record_df['replication'] = pd.Series([j + 1 for _ in range(len(in_trip_record_df.index))])
-            in_trip_record_set.append(in_trip_record_df)
-
-            pax_record_df = pd.DataFrame(env.completed_pax_record, columns=PAX_RECORD_COLS)
-            pax_record_df['replication'] = pd.Series([j + 1 for _ in range(len(in_trip_record_df.index))])
-            pax_record_set.append(pax_record_df)
+            out_trip_record_set.append(process_trip_record(env.out_trip_record, OUT_TRIP_RECORD_COLS, j))
+            in_trip_record_set.append(process_trip_record(env.in_trip_record, IN_TRIP_RECORD_COLS, j))
+            pax_record_set.append(process_trip_record(env.completed_pax_record, PAX_RECORD_COLS, j))
     if save_results:
         scenario = 'DDQN-HA'
-        write_results(scenario, tstamp, out_trip_record_set, in_trip_record_set, pax_record_set)
+        write_trip_records(scenario, tstamp, out_trip_record_set, in_trip_record_set, pax_record_set)
 
         with open('out/' + scenario + '/' + tstamp + '-net_used.csv', 'w') as f:
             f.write(str(tstamp_policy))

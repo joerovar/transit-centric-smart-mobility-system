@@ -51,6 +51,8 @@ class Bus:
         self.denied = float('nan')
         self.cancelled = False
         self.cancelled_trips = []
+        self.instructed_hold_time = None # at terminal
+        self.instruction_time = None
 
     def deactivate(self):
         # assert not self.pax

@@ -1,14 +1,46 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from Inputs import DATES, START_TIME_SEC, END_TIME_SEC, LINK_TIMES_MEAN, STOPS_OUT_FULL_PATT
+from Inputs import DATES, START_TIME_SEC, END_TIME_SEC, LINK_TIMES_MEAN, STOPS_OUT_FULL_PATT, BLOCK_TRIPS_INFO
 from Output_Processor import validate_delay_outbound, validate_delay_inbound, validate_cv_hw_outbound, \
     validate_trip_t_outbound
 from Input_Processor import get_interval
-from Simulation_Processor import run_base, train_rl, test_rl, run_base_dispatching
+from Simulation_Processor import run_base, train_rl, test_rl, run_base_dispatching, rl_dispatch
 
+nr_reps = 5
 
-# run_base_dispatching(replications=5, prob_cancelled=0.0, save_results=True)
+# run_base_dispatching(nr_reps, save_results=True, save_folder='NC_dispatch')
+# run_base_dispatching(nr_reps, save_results=True, control_type='EH', save_folder='EH_dispatch')
+# rl_dispatch(nr_reps, save_results=True, save_folder='RL_dispatch', tstamp_policy='0629-1713')
+# prob_cancel = 0.1
+# cancelled_blocks = [[] for _ in range(nr_reps)]
+# for i in range(nr_reps):
+#     for j in range(len(BLOCK_TRIPS_INFO)):
+#         if np.random.uniform(0, 1) < prob_cancel:
+#             cancelled_blocks[i].append(BLOCK_TRIPS_INFO[j][0])
+#
+# run_base_dispatching(nr_reps, save_results=True, save_folder='NC_dispatch',
+#                      prob_cancel=prob_cancel, cancelled_blocks=cancelled_blocks)
+# run_base_dispatching(nr_reps, save_results=True, control_type='EH', save_folder='EH_dispatch',
+#                      prob_cancel=prob_cancel, cancelled_blocks=cancelled_blocks)
+# rl_dispatch(nr_reps, save_results=True, save_folder='RL_dispatch', prob_cancel=prob_cancel,
+#             cancelled_blocks=cancelled_blocks, tstamp_policy='0629-1713')
+# prob_cancel = 0.2
+# cancelled_blocks = [[] for _ in range(nr_reps)]
+# for i in range(nr_reps):
+#     for j in range(len(BLOCK_TRIPS_INFO)):
+#         if np.random.uniform(0, 1) < prob_cancel:
+#             cancelled_blocks[i].append(BLOCK_TRIPS_INFO[j][0])
+#
+# run_base_dispatching(replications=nr_reps, save_results=True, save_folder='NC_dispatch',
+#                      prob_cancel=prob_cancel, cancelled_blocks=cancelled_blocks)
+# run_base_dispatching(replications=nr_reps, save_results=True, control_type='EH', save_folder='EH_dispatch',
+#                      prob_cancel=prob_cancel, cancelled_blocks=cancelled_blocks)
+# rl_dispatch(nr_reps, save_results=True, save_folder='RL_dispatch', prob_cancel=prob_cancel,
+#             cancelled_blocks=cancelled_blocks, tstamp_policy='0629-1713')
+# rl_dispatch(400, train=True, prob_cancel=0.2, weight_hold_t=1/1000)
+
+# run_base_dispatching(replications=25, prob_cancel=0.2, save_results=False)
 # sim_df_out = pd.read_pickle('out/NC/0524-153428-trip_record_outbound.pkl')
 
 # run_base(replications=10, control_eh=True, save_results=True)
