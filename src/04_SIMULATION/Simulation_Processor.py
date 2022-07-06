@@ -81,7 +81,7 @@ def rl_dispatch(n_episodes, train=False, prob_cancel=0.0, weight_hold_t=0.0, sav
                    n_actions=NR_ACTIONS_D_RL,
                    mem_size=MAX_MEM, eps_min=EPS_MIN, batch_size=BATCH_SIZE, replace=EPOCHS_REPLACE, eps_dec=EPS_DEC,
                    chkpt_dir=path_train_info + '/', algo=ALGO, env_name=env_name, fc_dims=FC_DIMS)
-    agent.load_models()
+
     tstamp = datetime.now().strftime('%m%d-%H%M%S')
     out_trip_record_set = []
     in_trip_record_set = []
@@ -97,6 +97,8 @@ def rl_dispatch(n_episodes, train=False, prob_cancel=0.0, weight_hold_t=0.0, sav
         df_params = pd.DataFrame(arg_params)
         params_file = path_train_info + '/input_params.csv'
         df_params.to_csv(params_file, index=False)
+    else:
+        agent.load_models()
     figure_file = path_train_info + '/rew_curve.png'
     scores_file = path_train_info + '/rew_nums.csv'
     scores, eps_history, steps = [], [], []
@@ -130,6 +132,20 @@ def rl_dispatch(n_episodes, train=False, prob_cancel=0.0, weight_hold_t=0.0, sav
                     action = agent.choose_action(obs_, mask_idx=[i for i in range(max_action, NR_ACTIONS_D_RL)])
                 else:
                     action = agent.choose_action(obs_)
+                past_sched_hw = env.obs[PAST_HW_HORIZON+FUTURE_HW_HORIZON:PAST_HW_HORIZON*2+FUTURE_HW_HORIZON]
+                past_actual_hw = env.obs[:PAST_HW_HORIZON]
+                future_sched_hw = env.obs[PAST_HW_HORIZON*2+FUTURE_HW_HORIZON:PAST_HW_HORIZON*2+FUTURE_HW_HORIZON*2]
+                future_actual_hw = env.obs[PAST_HW_HORIZON:PAST_HW_HORIZON+FUTURE_HW_HORIZON]
+                sched_dev = env.obs[-1]
+                print(f'current time is {str(timedelta(seconds=round(env.time)))} '
+                      f'and next event time is {str(timedelta(seconds=round(env.bus.next_event_time)))}')
+                print(f'trip {env.bus.pending_trips[0].trip_id}')
+                print(f'schedule deviation {round(env.obs[-1])}')
+                print(f'past sched hw {[str(timedelta(seconds=round(hw))) for hw in past_sched_hw]}')
+                print(f'past actual hw {[str(timedelta(seconds=round(hw))) for hw in past_actual_hw]}')
+                print(f'future sched hw {[str(timedelta(seconds=round(hw))) for hw in future_sched_hw]}')
+                print(f'future actual hw {[str(timedelta(seconds=round(hw))) for hw in future_actual_hw]}')
+                print(sched_dev)
                 env.dispatch_decision(hold_time=action*HOLD_INTERVALS)
         if not train and save_results:
             out_trip_record_set.append(process_trip_record(env.out_trip_record, OUT_TRIP_RECORD_COLS, j))

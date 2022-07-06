@@ -38,7 +38,7 @@ nr_reps = 5
 #                      prob_cancel=prob_cancel, cancelled_blocks=cancelled_blocks)
 # rl_dispatch(nr_reps, save_results=True, save_folder='RL_dispatch', prob_cancel=prob_cancel,
 #             cancelled_blocks=cancelled_blocks, tstamp_policy='0629-1713')
-# rl_dispatch(400, train=True, prob_cancel=0.2, weight_hold_t=1/1000)
+# rl_dispatch(600, train=True, prob_cancel=0.2, weight_hold_t=1/1000)
 
 # run_base_dispatching(replications=25, prob_cancel=0.2, save_results=False)
 # sim_df_out = pd.read_pickle('out/NC/0524-153428-trip_record_outbound.pkl')

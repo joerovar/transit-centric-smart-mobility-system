@@ -1172,10 +1172,10 @@ class DetailedSimulationEnvWithDispatching(DetailedSimulationEnv):
             rew_baseline = get_reward((predicted_bw_h, sched_bw_h), (predicted_fw_h, sched_fw_h),
                                       hold_time, self.weight_hold_t)
 
-            # print(f'PREDICTED EVEN HEADWAY REWARD')
-            # print(f'PREDICTED HEADWAY PAIR {(str(timedelta(seconds=round(predicted_fw_h))), str(timedelta(seconds=round(predicted_bw_h))))}')
-            # print(f'SCHEDULED HEADWAY PAIR {(str(timedelta(seconds=round(sched_fw_h))), str(timedelta(seconds=round(sched_bw_h))))}')
-            # print(f'resulting reward {round(rew_baseline, 2)}')
+            print(f'PREDICTED EVEN HEADWAY REWARD')
+            print(f'PREDICTED HEADWAY PAIR {(str(timedelta(seconds=round(predicted_fw_h))), str(timedelta(seconds=round(predicted_bw_h))))}')
+            print(f'SCHEDULED HEADWAY PAIR {(str(timedelta(seconds=round(sched_fw_h))), str(timedelta(seconds=round(sched_bw_h))))}')
+            print(f'resulting reward {round(rew_baseline, 2)}')
 
             sched_dev = deepcopy(self.obs[-1])
             hold_time = deepcopy(self.prev_hold_t)
@@ -1184,10 +1184,10 @@ class DetailedSimulationEnvWithDispatching(DetailedSimulationEnv):
             rew_rl = get_reward((resulting_bw_h, sched_bw_h), (resulting_fw_h, sched_fw_h), hold_time,
                                 self.weight_hold_t)
 
-            # print(f'ACTUAL EVEN HEADWAY REWARD')
-            # print(f'RESULTING HEADWAY PAIR {(str(timedelta(seconds=round(resulting_fw_h))), str(timedelta(seconds=round(resulting_bw_h))))}')
-            # print(f'SCHEDULED HEADWAY PAIR {(str(timedelta(seconds=round(sched_fw_h))), str(timedelta(seconds=round(sched_bw_h))))}')
-            # print(f'resulting reward {round(rew_rl, 2)}')
+            print(f'ACTUAL EVEN HEADWAY REWARD')
+            print(f'RESULTING HEADWAY PAIR {(str(timedelta(seconds=round(resulting_fw_h))), str(timedelta(seconds=round(resulting_bw_h))))}')
+            print(f'SCHEDULED HEADWAY PAIR {(str(timedelta(seconds=round(sched_fw_h))), str(timedelta(seconds=round(sched_bw_h))))}')
+            print(f'resulting reward {round(rew_rl, 2)}')
 
             self.prev_reward = rew_rl - rew_baseline
         return
