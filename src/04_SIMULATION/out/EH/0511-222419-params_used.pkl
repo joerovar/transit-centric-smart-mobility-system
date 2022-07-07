@@ -1,2 +1,0 @@
-param,value
-control_strength,0.7

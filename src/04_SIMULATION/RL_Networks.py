@@ -3,6 +3,8 @@ import os
 import torch.optim as optim
 import torch as T
 import torch.nn.functional as F
+from torch.distributions.categorical import Categorical
+import numpy as np
 
 
 class DeepQNetwork(nn.Module):
@@ -80,4 +82,7 @@ class DuelingDeepQNetwork(nn.Module):
     def load_checkpoint(self):
         print('...loading checkpoint...')
         self.load_state_dict(T.load(self.checkpoint_file))
+
+
+
 

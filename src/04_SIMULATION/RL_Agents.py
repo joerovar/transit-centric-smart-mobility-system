@@ -8,7 +8,7 @@ from copy import deepcopy
 class Agent:
     def __init__(self, gamma, epsilon, lr, n_actions, input_dims,
                  mem_size, batch_size, eps_min=0.01, eps_dec=5e-5,
-                 replace=500, algo=None, env_name=None, chkpt_dir='tmp/dqn', fc_dims=256):
+                 replace=500, algo=None, chkpt_dir='tmp/dqn', fc_dims=256):
         self.gamma = gamma
         self.epsilon = epsilon
         self.lr = lr
@@ -21,7 +21,6 @@ class Agent:
         self.batch_size = batch_size
         self.replace_target_cnt = replace
         self.algo = algo
-        self.env_name = env_name
         self.chkpt_dir = chkpt_dir
         self.memory = ReplayBuffer(mem_size, input_dims, n_actions)
         self.fc_dims = fc_dims
@@ -329,3 +328,5 @@ class ReplayBuffer:
         dones = self.terminal_memory[batch]
 
         return states, actions, rewards, states_, dones
+
+
