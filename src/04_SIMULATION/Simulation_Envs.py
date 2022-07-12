@@ -182,7 +182,7 @@ class DetailedSimulationEnv(SimulationEnv):
         first_link = stops[0] + '-' + stops[1]
         if link in [first_link, last_link]:
             # problematic
-            return (bus.active_trip[0].schedule[stop_idx + 1] - bus.active_trip[0].schedule[stop_idx])*1.7
+            return (bus.active_trip[0].schedule[stop_idx + 1] - bus.active_trip[0].schedule[stop_idx])*1.9
         if self.time_dependent_travel_time:
             link_time_params = LINK_TIMES_PARAMS[link][interv_idx]
             link_time_extremes = LINK_TIMES_EXTREMES[link][interv_idx]
@@ -1147,45 +1147,59 @@ class DetailedSimulationEnvWithDispatching(DetailedSimulationEnv):
                            sched_dev]
             assert len(self.obs) == PAST_HW_HORIZON * 2 + FUTURE_HW_HORIZON * 2 + 1
             if self.prev_obs:
+                # BASELINE REWARD
                 prev_bw_h = self.prev_obs[PAST_HW_HORIZON]
                 prev_fw_h = self.prev_obs[PAST_HW_HORIZON - 1]
                 prev_sched_dev = self.prev_obs[-1]
                 prev_hold_t_max = max(IMPOSED_DELAY_LIMIT - prev_sched_dev, 0)
-                eh_hold_time = even_hw_decision(prev_bw_h, prev_fw_h, prev_hold_t_max)
+                hold_t = max(-prev_sched_dev, 0)
+                # hold_t = even_hw_decision(prev_bw_h, prev_fw_h, prev_hold_t_max)
 
-                predicted_fw_h = prev_fw_h + eh_hold_time
-                predicted_bw_h = max(self.time, sched_dep) - (self.prev_decision_t + eh_hold_time)
+                predicted_fw_h = prev_fw_h + hold_t
+                predicted_bw_h = max(self.time, sched_dep) - (self.prev_decision_t + hold_t)
                 sched_fw_h = self.prev_obs[PAST_HW_HORIZON * 2 + FUTURE_HW_HORIZON - 1]
                 sched_bw_h = self.prev_obs[PAST_HW_HORIZON * 2 + FUTURE_HW_HORIZON]
 
-                rew_baseline = get_reward((predicted_bw_h, sched_bw_h), (predicted_fw_h, sched_fw_h),
-                                          eh_hold_time, self.weight_hold_t)
+                # rew_baseline = get_reward((predicted_bw_h, sched_bw_h), (predicted_fw_h, sched_fw_h),
+                #                           hold_t, self.weight_hold_t)
 
+                rew_baseline = -np.power((predicted_fw_h-predicted_bw_h)/1000, 2)
+
+                # RL REWARD
                 sched_dev = deepcopy(self.obs[-1])
                 hold_time = deepcopy(self.prev_hold_t)
                 resulting_fw_h = self.obs[PAST_HW_HORIZON - 2]
                 resulting_bw_h = self.obs[PAST_HW_HORIZON - 1] - min(sched_dev,
                                                                      0)  # to add the component of early departure
-                rew_rl = get_reward((resulting_bw_h, sched_bw_h), (resulting_fw_h, sched_fw_h), hold_time,
-                                    self.weight_hold_t)
+                # rew_rl = get_reward((resulting_bw_h, sched_bw_h), (resulting_fw_h, sched_fw_h), hold_time,
+                #                     self.weight_hold_t)
+                rew_rl = -np.power((resulting_fw_h-resulting_bw_h)/1000, 2)
+                # if eh_hold_time != hold_time:
+                #     self.prev_reward = rew_rl - rew_baseline
+                # else:
+                #     self.prev_reward = 0.0
 
-                # print(f'PREDICTED EVEN HEADWAY REWARD')
-                # print(
-                #     f'PREDICTED HEADWAY PAIR {(str(timedelta(seconds=round(predicted_fw_h))), str(timedelta(seconds=round(predicted_bw_h))))}')
-                # print(
-                #     f'SCHEDULED HEADWAY PAIR {(str(timedelta(seconds=round(sched_fw_h))), str(timedelta(seconds=round(sched_bw_h))))}')
-                # print(f'resulting reward {round(rew_baseline, 3)}')
-                #
-                # print(f'ACTUAL EVEN HEADWAY REWARD')
-                # print(
-                #     f'RESULTING HEADWAY PAIR {(str(timedelta(seconds=round(resulting_fw_h))), str(timedelta(seconds=round(resulting_bw_h))))}')
-                # print(
-                #     f'SCHEDULED HEADWAY PAIR {(str(timedelta(seconds=round(sched_fw_h))), str(timedelta(seconds=round(sched_bw_h))))}')
-                # print(f'resulting reward {round(rew_rl, 3)}')
-                if eh_hold_time != hold_time:
+                if abs(hold_time-hold_t)>(HOLD_INTERVALS/2):
                     self.prev_reward = rew_rl - rew_baseline
                 else:
                     self.prev_reward = 0.0
+                # print(f'BASELINE REWARD')
+                # print(
+                #     f'PREDICTED {(str(timedelta(seconds=round(predicted_fw_h))), str(timedelta(seconds=round(predicted_bw_h))))}')
+                # print(
+                #     f'SCHEDULED {(str(timedelta(seconds=round(sched_fw_h))), str(timedelta(seconds=round(sched_bw_h))))}')
+                # print(f'baseline hold time {round(hold_t)}')
+                # print(f'reward {round(rew_baseline, 3)}')
+                #
+                # print(f'ACTUAL REWARD')
+                # print(
+                #     f'RESULTING {(str(timedelta(seconds=round(resulting_fw_h))), str(timedelta(seconds=round(resulting_bw_h))))}')
+                # print(
+                #     f'SCHEDULED {(str(timedelta(seconds=round(sched_fw_h))), str(timedelta(seconds=round(sched_bw_h))))}')
+                # print(f'actual hold time {round(hold_time)}')
+                # print(f'reward {round(rew_rl, 3)}')
+                # print(f'FINAL REWARD {self.prev_reward}')
+
         elif len(past_actual_hw) > 0 and self.control_type and len(future_actual_hw) > 0:
             hold_t = even_hw_decision(future_actual_hw[0], past_actual_hw[-1], max(IMPOSED_DELAY_LIMIT - sched_dev, 0))
             bus.next_event_time = self.time + hold_t

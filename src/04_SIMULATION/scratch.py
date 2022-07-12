@@ -4,4 +4,5 @@ import pandas as pd
 import numpy as np
 import os
 
-kp = {'s1': []}
+lst = [12, 3]
+print(lst*3)

@@ -13,9 +13,9 @@ def process_trip_record(record, record_col_names, rep_nr):
 
 
 def write_trip_records(scenario, t, out_record_set, in_record_set, pax_record_set):
-    path_out_trip_record = 'out/' + scenario + '/' + t + '-trip_record_outbound' + ext_var
-    path_in_trip_record = 'out/' + scenario + '/' + t + '-trip_record_inbound' + ext_var
-    path_pax_record = 'out/' + scenario + '/' + t + '-pax_record' + ext_var
+    path_out_trip_record = 'out/' + scenario + '/' + t + '-trip_record_ob' + ext_var
+    path_in_trip_record = 'out/' + scenario + '/' + t + '-trip_record_ib' + ext_var
+    path_pax_record = 'out/' + scenario + '/' + t + '-pax_record_ob' + ext_var
 
     out_trip_record = pd.concat(out_record_set, ignore_index=True)
     in_trip_record = pd.concat(in_record_set, ignore_index=True)

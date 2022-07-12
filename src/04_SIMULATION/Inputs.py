@@ -25,7 +25,6 @@ DELAY_START_INTERVAL = int(START_TIME_SEC / (60 * DELAY_INTERVAL_LENGTH_MINS))
 TIME_INTERVAL_LENGTH_MINS = 30
 TIME_START_INTERVAL = int(START_TIME_SEC / (60 * TIME_INTERVAL_LENGTH_MINS))
 TIME_NR_INTERVALS = int(math.ceil(TOTAL_MIN / TIME_INTERVAL_LENGTH_MINS))
-# DATES = ['2019-09-03', '2019-09-04', '2019-09-05', '2019-09-06']
 DATES = ['2019-09-03', '2019-09-04', '2019-09-05', '2019-09-06',
          '2019-09-09', '2019-09-10', '2019-09-11', '2019-09-12', '2019-09-13',
          '2019-09-16', '2019-09-17', '2019-09-18', '2019-09-19', '2019-09-20',
@@ -76,25 +75,18 @@ END_TIME_SEC2 = END_TIME_SEC - 60*30
 WEIGHT_HOLD_T = 0.0
 
 # GENERAL RL PARAMS
-LEARN_RATE = 0.0005
+LEARN_RATE = 0.0009
 DISCOUNT_FACTOR = 0.99
 
 # DDQN PARAMS
 EPS_MIN = 0.01
-EPS_DEC = 0.00012
-EPS = 0.9
-MAX_MEM = 2500
-BATCH_SIZE = 32
-EPOCHS_REPLACE = 600
+EPS_DEC = 0.00006
+EPS = 0.99
+MAX_MEM = 600
+BATCH_SIZE = 16
+EPOCHS_REPLACE = 300
 FC_DIMS = 256
 ALGO = 'DDQNAgent'
-
-# PPO PARAMS
-GAE_LAMBDA = 0.95
-POLICY_CLIP = 0.23
-PPO_BATCH_SIZE = 5
-N_EPOCHS = 3
-STEPS_TO_LEARN = 30
 
 
 # PARAMS FOR DISPATCHING CONTROL WITH RL
@@ -152,11 +144,11 @@ outbound_trips_df = outbound_trips_df.sort_values(by='schd_sec')
 trip_ids = outbound_trips_df['trip_id'].tolist()
 trip_schedules = outbound_trips_df['schedule'].tolist()
 trip_dist_traveled = outbound_trips_df['dist_traveled'].tolist()
-sched_out_trajectories = []
+scheduled_trajectories_out = []
 for i in range(len(trip_ids)):
     for j in range(len(trip_schedules[i])):
-        sched_out_trajectories.append([trip_ids[i], trip_schedules[i][j], trip_dist_traveled[i][j]])
-df_sched_t_rep = pd.DataFrame(sched_out_trajectories, columns=['trip_id', 'schd_sec', 'dist_traveled'])
+        scheduled_trajectories_out.append([trip_ids[i], trip_schedules[i][j], trip_dist_traveled[i][j]])
+df_sched_t_rep = pd.DataFrame(scheduled_trajectories_out, columns=['trip_id', 'schd_sec', 'dist_traveled'])
 
 trips_df['block_id'] = trips_df['block_id'].astype(str).str[6:].astype(int)
 trips_df = trips_df.sort_values(by=['block_id', 'schd_sec'])

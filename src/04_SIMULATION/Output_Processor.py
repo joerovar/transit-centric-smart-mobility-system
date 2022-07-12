@@ -9,6 +9,143 @@ from datetime import timedelta
 from Input_Processor import get_interval, remove_outliers
 
 
+def load_plots(scenarios, scenario_tags, method_tags, stops, period, fig_dir=None):
+    numer_results = {'parameter': ['lp' for _ in range(len(scenario_tags))],
+                     'prc_cancel': scenario_tags}
+    for m in method_tags:
+        numer_results[m] = []
+    # scenario_tags = [0, 10, 25]
+    # method_tags = ['NC', 'EH']
+    # plt.close()
+    # numer_results = {}
+    fig, ax = plt.subplots(figsize=(10, 6))
+    linestyles = ['solid', 'dashdot', 'dotted']
+    colors = ['black', 'green', 'blue']
+    for i in range(len(method_tags)):
+        for j in range(len(scenario_tags)):
+            load = []
+            df = pd.read_pickle('out/' + scenarios[i][j] + '-trip_record_ob.pkl')
+            for s in stops:
+                load_tmp = df[(df['stop_id'] == s) & (df['arr_sec'] <= period[1]) &
+                (df['arr_sec'] >= period[0])]['pax_load'].quantile(0.95)
+                load.append(load_tmp)
+            numer_results[method_tags[i]].append(max(load))
+            ax.plot(load, label=method_tags[i] + ' ' + str(scenario_tags[j]) + '%', linestyle=linestyles[j],
+                    color=colors[i])
+    ax.set_ylabel('90th percentile load')
+    ax.set_xlabel('stops')
+    ax.legend()
+    if fig_dir:
+        plt.savefig(fig_dir)
+    else:
+        plt.show()
+    df = pd.DataFrame(numer_results)
+    return df
+
+
+def trajectory_plots(scenarios, scenario_titles, scheduled_trajectories, period, replication, fig_dir=None):
+
+    fig, axs = plt.subplots(nrows=len(scenarios), sharex='all', figsize=(12, 8))
+
+    df_sched_t_rep = pd.DataFrame(scheduled_trajectories, columns=['trip_id', 'schd_sec', 'dist_traveled'])
+    df_sched_t_rep['dist_traveled'] = df_sched_t_rep['dist_traveled'] / 3281
+    df_sched_t_rep = df_sched_t_rep[
+        (df_sched_t_rep['schd_sec'] >= period[0]) & (df_sched_t_rep['schd_sec'] <= period[1])]
+    df_sched_t_rep = df_sched_t_rep.set_index('schd_sec')
+    for i in range(len(scenarios)):
+        df_out = pd.read_pickle('out/' + scenarios[i] + '-trip_record_ob.pkl')
+        df_arr_t = df_out[['trip_id', 'replication', 'dist_traveled', 'arr_sec']].copy()
+        df_arr_t = df_arr_t.rename(columns={'arr_sec': 'seconds'})
+        df_dep_t = df_out[['trip_id', 'replication', 'dist_traveled', 'dep_sec']].copy()
+        df_dep_t = df_dep_t.rename(columns={'dep_sec': 'seconds'})
+
+        df_times = pd.concat([df_arr_t, df_dep_t], axis=0, ignore_index=True)
+        df_times['dist_traveled'] = df_times['dist_traveled'] / 3281
+        df_times = df_times.sort_values(by=['trip_id', 'seconds'])
+
+        df_times_rep = df_times[df_times['replication'] == replication].copy()
+
+        df_times_rep = df_times_rep[
+            (df_times_rep['seconds'] >= period[0]) & (df_times_rep['seconds'] <= period[1])]
+        df_times_rep = df_times_rep.set_index('seconds')
+
+        df_sched_t_rep.groupby('trip_id')['dist_traveled'].plot(color='silver', ax=axs[i])
+        df_times_rep.groupby('trip_id')['dist_traveled'].plot(color='red', ax=axs[i])
+        axs[i].set_title(scenario_titles[i])
+        axs[i].set_ylabel('km')
+    x_ticks = [x for x in range(period[0], period[1] + 30 * 60, 30 * 60)]
+    x_labels = [str(timedelta(seconds=round(x)))[:-3] for x in x_ticks]
+    plt.xticks(ticks=x_ticks, labels=x_labels)
+    if fig_dir:
+        plt.savefig(fig_dir)
+    else:
+        plt.show()
+    plt.close()
+    return
+
+
+def cv_hw_plot(scenarios, stops, period, scenario_tags, method_tags, fig_dir=None):
+    numer_results = {'parameter': ['cv_h' for _ in range(len(scenario_tags))],
+                     'prc_cancel': scenario_tags}
+    for m in method_tags:
+        numer_results[m] = []
+    linestyles = ['solid', 'dashdot', 'dotted']
+    colors = ['black', 'green', 'blue']
+    fig, ax = plt.subplots(figsize=(10,6))
+    for i in range(len(method_tags)):
+        for j in range(len(scenario_tags)):
+            df_out = pd.read_pickle('out/' + scenarios[i][j] + '-trip_record_ob.pkl')
+            lbl = method_tags[i] + ' ' + str(scenario_tags[j]) + '%'
+            cv = cv_hw_by_time(df_out, period[0], period[1], stops)
+            ax.plot(np.arange(len(stops)), cv, label=lbl, linestyle=linestyles[j], color=colors[i])
+            numer_results[method_tags[i]].append(np.mean(cv))
+    plt.ylabel('c.v. headway')
+    plt.xlabel('stops')
+    plt.legend()
+    if fig_dir:
+        plt.savefig(fig_dir)
+    else:
+        plt.show()
+    plt.close()
+    df = pd.DataFrame(numer_results)
+    return df
+
+
+def wait_time_plot(scenarios, stops, period, method_tags, scenario_tags, fig_dir=None):
+    numer_results = {'parameter': ['wt' for _ in range(len(scenario_tags))],
+                     'prc_cancel': scenario_tags}
+    for m in method_tags:
+        numer_results[m] = []
+    fig, axs = plt.subplots()
+    for i in range(len(method_tags)):
+        wt = []
+        high_wt = []
+        low_wt = []
+        for j in range(len(scenario_tags)):
+            df_pax = pd.read_pickle('out/' + scenarios[i][j] + '-pax_record_ob.pkl')
+            df_pax = df_pax[(df_pax['arr_time'] <= period[1]) & (df_pax['arr_time'] >= period[0])].copy()
+            df_pax['wt'] = df_pax['board_time'] - df_pax['arr_time']
+            wt_tmp = df_pax['wt'].copy()
+            wt.append(wt_tmp.mean())
+            high_wt.append(wt_tmp.quantile(0.80))
+            low_wt.append(wt_tmp.quantile(0.20))
+            numer_results[method_tags[i]].append(wt_tmp.mean()/60)
+        axs.plot(scenario_tags, np.array(wt)/60, marker='o', label=method_tags[i])
+        axs.fill_between(scenario_tags, np.array(low_wt)/60, np.array(high_wt)/60, alpha=0.2)
+    axs.legend()
+    axs.set_ylim(0, 10.0)
+    axs.set_xlabel('% runs cancelled')
+    axs.set_ylabel('average wait time (min)')
+    axs.set_xticks(scenario_tags)
+    if fig_dir:
+        plt.savefig(fig_dir)
+    else:
+        plt.show()
+    plt.close()
+    df = pd.DataFrame(numer_results)
+    return df
+
+
 def plot_learning(x, scores, filename, lines=None, epsilons=None):
     fig = plt.figure()
     ax = fig.add_subplot(111, label="1")
@@ -37,6 +174,23 @@ def plot_learning(x, scores, filename, lines=None, epsilons=None):
             plt.axvline(x=line)
 
     plt.savefig(filename)
+    return
+
+
+def compute_rbt(scenarios, pax_df, stops, period, scenario_tags, method_tags):
+    numer_results = {'parameter': ['wt' for _ in range(len(scenario_tags))],
+                     'prc_cancel': scenario_tags}
+    for m in method_tags:
+        numer_results[m] = []
+    for k in range(len(method_tags)):
+        for h in range(len(scenario_tags)):
+            rbt_counter = 0
+            pax_df_ = pax_df[(pax_df['arr_time'] <= period[1]) & (pax_df['arr_time'] >= period[0])].copy()
+            for i in range(len(stops)):
+                for j in range(i, len(stops)):
+                    tmp_df = pax_df_[(pax_df_['orig_idx'] == stops[i]) & (pax_df_['dest_idx'] == stops[j])].copy()
+            numer_results[method_tags[k]].append()
+    return
 
 
 def validate_trip_t_outbound(avl_df, sim_df, start_time, end_time, stops, path_trip_t, path_dwell_t, dates,
@@ -317,7 +471,7 @@ def delay_outbound(trips_df, start_time, end_time, delay_interval_length, col_ar
     return arr_delays, dep_delays
 
 
-def cv_hw_by_time(trip_record_df, start_time, end_time, stops):
+def cv_hw_by_time(trip_record_df, start_time, end_time, stops, prnt_idx=None):
     nr_replications = trip_record_df['replication'].max()
     hws = [[] for _ in range(len(stops))]
     for rep_nr in range(1, nr_replications+1):
@@ -333,7 +487,14 @@ def cv_hw_by_time(trip_record_df, start_time, end_time, stops):
                     hws[j].append(arr_sec[i] - arr_sec[i - 1])
     cv_hws = []
     for stop_idx in range(len(hws)):
-        cv_hws.append(np.std(hws[stop_idx]) / np.mean(hws[stop_idx]))
+        sd = np.std(hws[stop_idx])
+        mean = np.mean(hws[stop_idx])
+        if prnt_idx:
+            if stop_idx in prnt_idx:
+                print('----')
+                print(f'for stop idx we have sd {round(sd, 2)} and mean {round(mean, 2)}')
+                print(f'headways {[round(h,1) for h in hws[stop_idx]]}')
+        cv_hws.append(sd / mean)
     return cv_hws
 
 
