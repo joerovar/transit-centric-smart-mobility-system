@@ -42,10 +42,11 @@ def run_base_dispatching(replications, prob_cancel=0.0, save_results=False, cont
         while not done:
             done = env.prep()
             if env.obs and not done:
-                past_sched_hw = env.obs[PAST_HW_HORIZON+FUTURE_HW_HORIZON:PAST_HW_HORIZON*2+FUTURE_HW_HORIZON]
+                past_sched_hw = env.obs[PAST_HW_HORIZON + FUTURE_HW_HORIZON:PAST_HW_HORIZON * 2 + FUTURE_HW_HORIZON]
                 past_actual_hw = env.obs[:PAST_HW_HORIZON]
-                future_sched_hw = env.obs[PAST_HW_HORIZON*2+FUTURE_HW_HORIZON:PAST_HW_HORIZON*2+FUTURE_HW_HORIZON*2]
-                future_actual_hw = env.obs[PAST_HW_HORIZON:PAST_HW_HORIZON+FUTURE_HW_HORIZON]
+                future_sched_hw = env.obs[
+                                  PAST_HW_HORIZON * 2 + FUTURE_HW_HORIZON:PAST_HW_HORIZON * 2 + FUTURE_HW_HORIZON * 2]
+                future_actual_hw = env.obs[PAST_HW_HORIZON:PAST_HW_HORIZON + FUTURE_HW_HORIZON]
                 sched_dev = env.obs[-1]
                 # print(f'current time is {str(timedelta(seconds=round(env.time)))} '
                 #       f'and next event time is {str(timedelta(seconds=round(env.bus.next_event_time)))}')
@@ -64,7 +65,8 @@ def run_base_dispatching(replications, prob_cancel=0.0, save_results=False, cont
 
     if save_results:
         write_trip_records(save_folder, tstamp, out_trip_record_set, in_trip_record_set, pax_record_set)
-        key_params = {'prob_cancel': [prob_cancel], 'n_replications': [replications], 'cancelled_blocks': [cancelled_blocks]}
+        key_params = {'prob_cancel': [prob_cancel], 'n_replications': [replications],
+                      'cancelled_blocks': [cancelled_blocks]}
         pd.DataFrame(key_params).to_csv('out/' + save_folder + '/' + tstamp + '-key_params' + ext_csv, index=False)
     return
 
@@ -117,24 +119,25 @@ def rl_dispatch(n_episodes, train=False, prob_cancel=0.0, weight_hold_t=0.0, sav
                     obs = np.array(env.prev_obs, dtype=np.float32)
                     obs_ = np.array(env.obs, dtype=np.float32)
                     score += env.prev_reward
-                    prev_action = int(env.prev_hold_t/HOLD_INTERVALS)
+                    prev_action = int(env.prev_hold_t / HOLD_INTERVALS)
                     agent.store_transition(obs, prev_action, env.prev_reward, obs_, 0)
                     agent.learn()
                     n_steps += 1
                 sched_dev = env.obs[-1]
                 obs_ = np.array(env.obs, dtype=np.float32)
                 hold_t_max = max(IMPOSED_DELAY_LIMIT - sched_dev, 0)
-                max_action = int(hold_t_max/HOLD_INTERVALS)
+                max_action = int(hold_t_max / HOLD_INTERVALS)
                 if max_action == 0:
                     action = 0
-                elif max_action < NR_ACTIONS_D_RL-1:
-                    action = agent.choose_action(obs_, mask_idx=[i for i in range(max_action+1, NR_ACTIONS_D_RL)])
+                elif max_action < NR_ACTIONS_D_RL - 1:
+                    action = agent.choose_action(obs_, mask_idx=[i for i in range(max_action + 1, NR_ACTIONS_D_RL)])
                 else:
                     action = agent.choose_action(obs_)
-                past_sched_hw = env.obs[PAST_HW_HORIZON+FUTURE_HW_HORIZON:PAST_HW_HORIZON*2+FUTURE_HW_HORIZON]
+                past_sched_hw = env.obs[PAST_HW_HORIZON + FUTURE_HW_HORIZON:PAST_HW_HORIZON * 2 + FUTURE_HW_HORIZON]
                 past_actual_hw = env.obs[:PAST_HW_HORIZON]
-                future_sched_hw = env.obs[PAST_HW_HORIZON*2+FUTURE_HW_HORIZON:PAST_HW_HORIZON*2+FUTURE_HW_HORIZON*2]
-                future_actual_hw = env.obs[PAST_HW_HORIZON:PAST_HW_HORIZON+FUTURE_HW_HORIZON]
+                future_sched_hw = env.obs[
+                                  PAST_HW_HORIZON * 2 + FUTURE_HW_HORIZON:PAST_HW_HORIZON * 2 + FUTURE_HW_HORIZON * 2]
+                future_actual_hw = env.obs[PAST_HW_HORIZON:PAST_HW_HORIZON + FUTURE_HW_HORIZON]
                 sched_dev = env.obs[-1]
                 # print(f'current time is {str(timedelta(seconds=round(env.time)))} '
                 #       f'and next event time is {str(timedelta(seconds=round(env.bus.next_event_time)))}')
@@ -143,7 +146,7 @@ def rl_dispatch(n_episodes, train=False, prob_cancel=0.0, weight_hold_t=0.0, sav
                 # print(f'sched hw {[str(timedelta(seconds=round(hw))) for hw in past_sched_hw]} | {[str(timedelta(seconds=round(hw))) for hw in future_sched_hw]}')
                 # print(f'actual hw {[str(timedelta(seconds=round(hw))) for hw in past_actual_hw]} | {[str(timedelta(seconds=round(hw))) for hw in future_actual_hw]}')
                 # print(f'holding time {action*HOLD_INTERVALS}')
-                env.dispatch_decision(hold_time=action*HOLD_INTERVALS)
+                env.dispatch_decision(hold_time=action * HOLD_INTERVALS)
         if not train and save_results:
             out_trip_record_set.append(process_trip_record(env.out_trip_record, OUT_TRIP_RECORD_COLS, j))
             in_trip_record_set.append(process_trip_record(env.in_trip_record, IN_TRIP_RECORD_COLS, j))
@@ -206,9 +209,9 @@ def train_rl(n_episodes_train, simple_reward=False):
     # agent_ = getattr(Agents, ALGO)
     path_train_info = 'out/trained_nets/' + tstamp_policy + '_at_stop'
     agent = DDQNAgent(gamma=DISCOUNT_FACTOR, epsilon=EPS, lr=LEARN_RATE,
-                   input_dims=[N_STATE_PARAMS_RL], n_actions=N_ACTIONS_RL,
-                   mem_size=MAX_MEM, eps_min=EPS_MIN, batch_size=BATCH_SIZE, replace=EPOCHS_REPLACE, eps_dec=EPS_DEC,
-                   chkpt_dir=path_train_info + '/', algo=ALGO, fc_dims=FC_DIMS)
+                      input_dims=[N_STATE_PARAMS_RL], n_actions=N_ACTIONS_RL,
+                      mem_size=MAX_MEM, eps_min=EPS_MIN, batch_size=BATCH_SIZE, replace=EPOCHS_REPLACE, eps_dec=EPS_DEC,
+                      chkpt_dir=path_train_info + '/', algo=ALGO, fc_dims=FC_DIMS)
     best_score = -np.inf
     os.mkdir(path_train_info)
     figure_file = path_train_info + '/rew_curve.png'
@@ -293,9 +296,9 @@ def test_rl(n_episodes_test, tstamp_policy, save_results=False, simple_reward=Fa
     # agent_ = getattr(Agents, ALGO)
     path_train_info = 'out/trained_nets/' + tstamp_policy + '_at_stop'
     agent = DDQNAgent(gamma=DISCOUNT_FACTOR, epsilon=EPS, lr=LEARN_RATE, input_dims=[N_STATE_PARAMS_RL],
-                   n_actions=N_ACTIONS_RL, mem_size=MAX_MEM, eps_min=EPS_MIN, batch_size=BATCH_SIZE,
-                   replace=EPOCHS_REPLACE, eps_dec=EPS_DEC, chkpt_dir=path_train_info + '/',
-                   algo=ALGO, fc_dims=FC_DIMS)
+                      n_actions=N_ACTIONS_RL, mem_size=MAX_MEM, eps_min=EPS_MIN, batch_size=BATCH_SIZE,
+                      replace=EPOCHS_REPLACE, eps_dec=EPS_DEC, chkpt_dir=path_train_info + '/',
+                      algo=ALGO, fc_dims=FC_DIMS)
     agent.load_models()
     tstamp = datetime.now().strftime('%m%d-%H%M%S')
     out_trip_record_set = []

@@ -200,3 +200,22 @@ UNIFORM_INTERVAL = 1
 SINGLE_LINK_TIMES_MEAN = {key: value[UNIFORM_INTERVAL] for (key, value) in LINK_TIMES_MEAN.items()}
 SINGLE_LINK_TIMES_PARAMS = {key: value[UNIFORM_INTERVAL] for (key, value) in LINK_TIMES_PARAMS.items()}
 SINGLE_LINK_TIMES_EXTREMES = {key: value[UNIFORM_INTERVAL] for (key, value) in LINK_TIMES_EXTREMES.items()}
+
+# p = 0.25
+# nr_iters = 30
+# cancelled = []
+# for i in range(nr_iters):
+#     tmp_cancelled = 0
+#     trip_ids_cancelled = []
+#     for j in range(len(BLOCK_TRIPS_INFO)):
+#         if np.random.uniform(0, 1) < p:
+#             tmp_cancelled += len([b for b in BLOCK_TRIPS_INFO[j][1] if b[1]==0])
+#             trip_ids_cancelled += [b[0] for b in BLOCK_TRIPS_INFO[j][1] if b[1]==0]
+#     remaining_sched = [SCHED_DEP_OUT[k] for k in range(len(SCHED_DEP_OUT)) if TRIP_IDS_OUT[k] not in trip_ids_cancelled]
+#     remaining_hw = [round((remaining_sched[k+1]-remaining_sched[k])/60,2) for k in range(len(remaining_sched)-1)]
+#     true_hw = [round((SCHED_DEP_OUT[k+1]-SCHED_DEP_OUT[k])/60,2) for k in range(len(SCHED_DEP_OUT)-1)]
+#     cancelled.append(tmp_cancelled)
+# total_trips = len(TRIP_IDS_OUT)
+# print(np.mean(cancelled)/total_trips)
+# print(np.mean(cancelled))
+# print(np.std(cancelled))
