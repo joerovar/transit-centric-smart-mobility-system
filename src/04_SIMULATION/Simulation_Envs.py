@@ -170,10 +170,9 @@ class DetailedSimulationEnv(SimulationEnv):
                                      scheduled_sec, stop_idx + 1, dist_traveled])
         return
 
-    def get_travel_time(self):
-        # i = self.bus_idx
+    def get_travel_time(self, stop0, stop1):
         bus = self.bus
-        link = str(bus.last_stop_id) + '-' + str(bus.next_stop_id)
+        link = str(stop0) + '-' + str(stop1)
         stops = bus.active_trip[0].stops
         stop_idx = stops.index(bus.last_stop_id)
         interv = get_interval(self.time, TIME_INTERVAL_LENGTH_MINS)
@@ -182,7 +181,7 @@ class DetailedSimulationEnv(SimulationEnv):
         first_link = stops[0] + '-' + stops[1]
         if link in [first_link, last_link]:
             # problematic
-            return (bus.active_trip[0].schedule[stop_idx + 1] - bus.active_trip[0].schedule[stop_idx])*1.9
+            return (bus.active_trip[0].schedule[stop_idx + 1] - bus.active_trip[0].schedule[stop_idx])*1.8
         if self.time_dependent_travel_time:
             link_time_params = LINK_TIMES_PARAMS[link][interv_idx]
             link_time_extremes = LINK_TIMES_EXTREMES[link][interv_idx]
@@ -201,6 +200,16 @@ class DetailedSimulationEnv(SimulationEnv):
         if runtime > maxim:
             runtime = min(EXTREME_TT_BOUND * maxim, runtime)
         return runtime
+
+    def get_express_run_time(self, stop0, stop1):
+        bus = self.bus
+        stops = bus.active_trip[0].stops
+        idx0 = stops.index(stop0)
+        idx1 = stops.index(stop1)
+        run_t = 0
+        for i in range(idx0, idx1):
+            run_t += self.get_travel_time(stops[i], stops[i+1])
+        return run_t
 
     def reset_simulation(self):
         self.time = START_TIME_SEC
@@ -349,7 +358,7 @@ class DetailedSimulationEnv(SimulationEnv):
 
         curr_trip_idx = TRIP_IDS_OUT.index(bus.active_trip[0].trip_id)
         self.trip_log[curr_trip_idx].stop_dep_times[bus.last_stop_id] = bus.dep_t
-        runtime = self.get_travel_time()
+        runtime = self.get_travel_time(bus.last_stop_id, bus.next_stop_id)
         bus.next_event_time = bus.dep_t + runtime
 
         last_stop_trip = bus.active_trip[0].stops[-1]
@@ -422,7 +431,7 @@ class DetailedSimulationEnv(SimulationEnv):
         self.trip_log[curr_trip_idx].stop_dep_times[bus.last_stop_id] = bus.dep_t
 
         self.record_trajectories(pickups=bus.ons, denied_board=bus.denied, hold=hold)
-        runtime = self.get_travel_time()
+        runtime = self.get_travel_time(bus.last_stop_id, bus.next_stop_id)
         bus.next_event_time = bus.dep_t + runtime
         bus.next_event_type = 1
 
@@ -714,7 +723,7 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
                     break
 
         self.trip_log[trip_idx].stop_dep_times[bus.last_stop_id] = bus.dep_t
-        runtime = self.get_travel_time()
+        runtime = self.get_travel_time(bus.last_stop_id, bus.next_stop_id)
         bus.next_event_time = bus.dep_t + runtime
 
         last_stop = bus.active_trip[0].stops[-1]
@@ -1243,10 +1252,13 @@ class DetailedSimulationEnvWithDispatching(DetailedSimulationEnv):
         bus.next_event_type = 0
         return
 
-    def outbound_dispatch(self, hold=0):
+    def outbound_dispatch(self, hold=0, express_to=None):
         bus = self.bus
         stops = bus.active_trip[0].stops
         next_stops = stops[1:]
+        if express_to:
+            idx_express_to = next_stops.idx(express_to)
+            next_stops = next_stops[idx_express_to:]
         for p in self.stops[bus.last_stop_id].pax.copy():
             if p.arr_time <= self.time and p.dest_id in next_stops:
                 if len(bus.pax) + 1 <= CAPACITY:
@@ -1296,7 +1308,7 @@ class DetailedSimulationEnvWithDispatching(DetailedSimulationEnv):
             self.record_trajectories(pickups=bus.ons, denied_board=bus.denied, hold=bus.instructed_hold_time)
         else:
             self.record_trajectories(pickups=bus.ons, denied_board=bus.denied)
-        runtime = self.get_travel_time()
+        runtime = self.get_travel_time(bus.last_stop_id, bus.next_stop_id)
         bus.next_event_time = bus.dep_t + runtime
         bus.next_event_type = 1
 

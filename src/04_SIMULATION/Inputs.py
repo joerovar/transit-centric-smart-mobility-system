@@ -73,6 +73,7 @@ FUTURE_HW_HORIZON = 2
 PAST_HW_HORIZON = 2
 END_TIME_SEC2 = END_TIME_SEC - 60*30
 WEIGHT_HOLD_T = 0.0
+EXPRESS_TO =
 
 # GENERAL RL PARAMS
 LEARN_RATE = 0.0009
@@ -201,7 +202,7 @@ SINGLE_LINK_TIMES_MEAN = {key: value[UNIFORM_INTERVAL] for (key, value) in LINK_
 SINGLE_LINK_TIMES_PARAMS = {key: value[UNIFORM_INTERVAL] for (key, value) in LINK_TIMES_PARAMS.items()}
 SINGLE_LINK_TIMES_EXTREMES = {key: value[UNIFORM_INTERVAL] for (key, value) in LINK_TIMES_EXTREMES.items()}
 
-# p = 0.25
+# p = 0.15
 # nr_iters = 30
 # cancelled = []
 # for i in range(nr_iters):
