@@ -27,7 +27,7 @@ def load_plots(scenarios, scenario_tags, method_tags, stops, period, fig_dir=Non
             df = pd.read_pickle('out/' + scenarios[i][j] + '-trip_record_ob.pkl')
             for s in stops:
                 load_tmp = df[(df['stop_id'] == s) & (df['arr_sec'] <= period[1]) &
-                (df['arr_sec'] >= period[0])]['pax_load'].quantile(0.95)
+                              (df['arr_sec'] >= period[0])]['pax_load'].quantile(0.95)
                 load.append(load_tmp)
             numer_results[method_tags[i]].append(max(load))
             ax.plot(load, label=method_tags[i] + ' ' + str(scenario_tags[j]) + '%', linestyle=linestyles[j],
@@ -44,7 +44,6 @@ def load_plots(scenarios, scenario_tags, method_tags, stops, period, fig_dir=Non
 
 
 def trajectory_plots(scenarios, scenario_titles, scheduled_trajectories, period, replication, fig_dir=None):
-
     fig, axs = plt.subplots(nrows=len(scenarios), sharex='all', figsize=(12, 8))
 
     df_sched_t_rep = pd.DataFrame(scheduled_trajectories, columns=['trip_id', 'schd_sec', 'dist_traveled'])
@@ -91,7 +90,7 @@ def cv_hw_plot(scenarios, stops, period, scenario_tags, method_tags, fig_dir=Non
         numer_results[m] = []
     linestyles = ['solid', 'dashdot', 'dotted']
     colors = ['black', 'green', 'blue']
-    fig, ax = plt.subplots(figsize=(10,6))
+    fig, ax = plt.subplots(figsize=(10, 6))
     for i in range(len(method_tags)):
         for j in range(len(scenario_tags)):
             df_out = pd.read_pickle('out/' + scenarios[i][j] + '-trip_record_ob.pkl')
@@ -112,37 +111,61 @@ def cv_hw_plot(scenarios, stops, period, scenario_tags, method_tags, fig_dir=Non
 
 
 def wait_time_plot(scenarios, stops, period, method_tags, scenario_tags, fig_dir=None):
-    numer_results = {'parameter': ['wt' for _ in range(len(scenario_tags))],
-                     'prc_cancel': scenario_tags}
+    wt_numer = {'parameter': ['wt' for _ in range(len(scenario_tags))],
+                'prc_cancel': scenario_tags}
+    rbt_numer = {'parameter': ['rbt' for _ in range(len(scenario_tags))],
+                 'prc_cancel': scenario_tags}
     for m in method_tags:
-        numer_results[m] = []
-    fig, axs = plt.subplots()
+        wt_numer[m], rbt_numer[m] = [], []
+    df_plot = pd.DataFrame({'method': [], 'cancelled': [], 'wt':[]})
+    fig, axs = plt.subplots(ncols=2, figsize=(12, 8))
     for i in range(len(method_tags)):
-        wt = []
-        high_wt = []
-        low_wt = []
+        rbt = []
         for j in range(len(scenario_tags)):
             df_pax = pd.read_pickle('out/' + scenarios[i][j] + '-pax_record_ob.pkl')
             df_pax = df_pax[(df_pax['arr_time'] <= period[1]) & (df_pax['arr_time'] >= period[0])].copy()
+
             df_pax['wt'] = df_pax['board_time'] - df_pax['arr_time']
-            wt_tmp = df_pax['wt'].copy()
-            wt.append(wt_tmp.mean())
-            high_wt.append(wt_tmp.quantile(0.80))
-            low_wt.append(wt_tmp.quantile(0.20))
-            numer_results[method_tags[i]].append(wt_tmp.mean()/60)
-        axs.plot(scenario_tags, np.array(wt)/60, marker='o', label=method_tags[i])
-        axs.fill_between(scenario_tags, np.array(low_wt)/60, np.array(high_wt)/60, alpha=0.2)
-    axs.legend()
-    axs.set_ylim(0, 10.0)
-    axs.set_xlabel('% runs cancelled')
-    axs.set_ylabel('average wait time (min)')
-    axs.set_xticks(scenario_tags)
+            wt_tmp = df_pax['wt'].copy() / 60
+            wt_numer[method_tags[i]].append(wt_tmp.mean() / 60)
+            d = {'method': [method_tags[i]] * wt_tmp.shape[0],
+                 'cancelled': [int(scenario_tags[j])] * wt_tmp.shape[0],
+                 'wt': wt_tmp.tolist()}
+            df_plot = pd.concat([df_plot, pd.DataFrame(d)], ignore_index=True)
+
+            rbt_counter = 0
+            rbt_sum = 0
+            for k in range(len(stops)-1):
+                for n in range(k+1, len(stops)):
+                    tmp_df = df_pax[(df_pax['orig_idx'] == stops[k]) & (df_pax['dest_idx'] == stops[n])].copy()
+                    if tmp_df.shape[0]:
+                        tmp_df['jt'] = tmp_df['alight_time'] - tmp_df['arr_time']
+                        rbt_tmp = tmp_df['jt'].quantile(0.95) - tmp_df['jt'].median()
+                        rbt_sum += rbt_tmp * tmp_df.shape[0]
+                        rbt_counter += tmp_df.shape[0]
+            rbt_final = rbt_sum / rbt_counter / 60
+            rbt_numer[method_tags[i]].append(rbt_final)
+            rbt.append(rbt_final)
+        axs[1].plot(scenario_tags, rbt, label=method_tags[i])
+    axs[1].legend()
+    axs[1].set_ylabel('reliability buffer time (min)')
+    axs[1].set_xlabel('% cancelled')
+    sns.boxplot(x='cancelled', y='wt', hue='method', data=df_plot, showfliers=False, ax=axs[0])
+    axs[0].set_ylabel('wait time (min)')
+    axs[0].set_xlabel('% cancelled')
+    # axs.legend()
+    # axs.set_ylim(0, 10.0)
+    # axs.set_xlabel('% runs cancelled')
+    # axs.set_ylabel('average wait time (min)')
+    # axs.set_xticks(scenario_tags)
     if fig_dir:
         plt.savefig(fig_dir)
     else:
         plt.show()
     plt.close()
-    df = pd.DataFrame(numer_results)
+    wt_df = pd.DataFrame(wt_numer)
+    rbt_df = pd.DataFrame(rbt_numer)
+    df = pd.concat([wt_df, rbt_df], ignore_index=True)
     return df
 
 
@@ -160,7 +183,7 @@ def plot_learning(x, scores, filename, lines=None, epsilons=None):
     N = len(scores)
     running_avg = np.empty(N)
     for t in range(N):
-        running_avg[t] = np.mean(scores[max(0, t-20):(t+1)])
+        running_avg[t] = np.mean(scores[max(0, t - 20):(t + 1)])
 
     ax2.plot(x, running_avg, color="C1")
     ax2.axes.get_xaxis().set_visible(False)
@@ -196,7 +219,8 @@ def compute_rbt(scenarios, pax_df, stops, period, scenario_tags, method_tags):
 def validate_trip_t_outbound(avl_df, sim_df, start_time, end_time, stops, path_trip_t, path_dwell_t, dates,
                              ignore_terminals=False):
     trip_t_avl, dwell_t_avl = trip_t_outbound(avl_df, start_time, end_time, 60, stops, 'avl_arr_sec',
-                                              'avl_dep_sec', is_avl=True, dates=dates, ignore_terminals=ignore_terminals)
+                                              'avl_dep_sec', is_avl=True, dates=dates,
+                                              ignore_terminals=ignore_terminals)
     trip_t_sim, dwell_t_sim = trip_t_outbound(sim_df, start_time, end_time, 60, stops, 'arr_sec',
                                               'dep_sec', ignore_terminals=ignore_terminals)
     plot_calib_hist(trip_t_avl, trip_t_sim, 5, path_trip_t, 'total trip time (seconds)')
@@ -331,10 +355,10 @@ def validate_cv_hw_outbound(avl_df, sim_df, start_t_sec, end_t_sec, interval_min
     for i in range(ax.size):
         ax.flat[i].plot(hw_out_cv[i], label='avl')
         ax.flat[i].plot(hw_out_cv_sim[i], label='sim')
-        ax.flat[i].set_title(f'hour {start_interval+i}')
+        ax.flat[i].set_title(f'hour {start_interval + i}')
         ax.flat[i].set_xlabel('stop')
-    ax[0,0].set_ylabel('c.v. headway')
-    ax[1,0].set_ylabel('c.v. headway')
+    ax[0, 0].set_ylabel('c.v. headway')
+    ax[1, 0].set_ylabel('c.v. headway')
     plt.legend()
     plt.tight_layout()
     plt.savefig('out/compare/validate/cv_hw.png')
@@ -383,8 +407,8 @@ def delay_inbound(trips_df, start_time, end_time, delay_interval_length, col_arr
 
     for interval in range(interval0, interval1):
         # arrivals
-        temp_df = arr_long_df[arr_long_df['schd_sec'] >= interval*delay_interval_length*60].copy()
-        temp_df = temp_df[temp_df['schd_sec'] <= (interval+1)*delay_interval_length*60]
+        temp_df = arr_long_df[arr_long_df['schd_sec'] >= interval * delay_interval_length * 60].copy()
+        temp_df = temp_df[temp_df['schd_sec'] <= (interval + 1) * delay_interval_length * 60]
         temp_df['delay'] = temp_df[col_arr_t] - temp_df['schd_sec']
         if outlier_removal:
             d = remove_outliers(temp_df['delay'].to_numpy())
@@ -450,8 +474,8 @@ def delay_outbound(trips_df, start_time, end_time, delay_interval_length, col_ar
 
     for interval in range(interval0, interval1):
         # arrivals
-        temp_df = arr_long_df[arr_long_df['schd_sec']>=interval*delay_interval_length*60]
-        temp_df = temp_df[temp_df['schd_sec']<=(interval+1)*delay_interval_length*60]
+        temp_df = arr_long_df[arr_long_df['schd_sec'] >= interval * delay_interval_length * 60]
+        temp_df = temp_df[temp_df['schd_sec'] <= (interval + 1) * delay_interval_length * 60]
         temp_df['delay'] = temp_df[col_arr_t] - temp_df['schd_sec']
         if outlier_removal:
             d = remove_outliers(temp_df['delay'].to_numpy())
@@ -474,7 +498,7 @@ def delay_outbound(trips_df, start_time, end_time, delay_interval_length, col_ar
 def cv_hw_by_time(trip_record_df, start_time, end_time, stops, prnt_idx=None):
     nr_replications = trip_record_df['replication'].max()
     hws = [[] for _ in range(len(stops))]
-    for rep_nr in range(1, nr_replications+1):
+    for rep_nr in range(1, nr_replications + 1):
         date_df = trip_record_df[trip_record_df['replication'] == rep_nr].copy()
         temp_df = date_df[(date_df['arr_sec'] >= start_time) & (date_df['arr_sec'] <= end_time)].copy()
         for j in range(len(stops)):
@@ -493,7 +517,7 @@ def cv_hw_by_time(trip_record_df, start_time, end_time, stops, prnt_idx=None):
             if stop_idx in prnt_idx:
                 print('----')
                 print(f'for stop idx we have sd {round(sd, 2)} and mean {round(mean, 2)}')
-                print(f'headways {[round(h,1) for h in hws[stop_idx]]}')
+                print(f'headways {[round(h, 1) for h in hws[stop_idx]]}')
         cv_hws.append(sd / mean)
     return cv_hws
 
@@ -503,19 +527,19 @@ def cv_hw_by_intervals(trip_record_df, start_time, end_time, interval_length, st
     interval0 = get_interval(start_time, interval_length)
     interval1 = get_interval(end_time, interval_length)
     hws = [[[] for _ in range(len(stops))] for _ in range(interval0, interval1)]
-    for rep_nr in range(1, nr_replications+1):
+    for rep_nr in range(1, nr_replications + 1):
         date_df = trip_record_df[trip_record_df['replication'] == rep_nr]
         for interval in range(interval0, interval1):
             temp_df = date_df[date_df['schd_sec'] >= interval * interval_length * 60]
             temp_df = temp_df[temp_df['schd_sec'] < (interval + 1) * interval_length * 60]
             for j in range(len(stops)):
                 df = temp_df[temp_df['stop_id'] == stops[j]]
-                df = df[df['stop_sequence'] == j+1]
+                df = df[df['stop_sequence'] == j + 1]
                 df = df.sort_values(by='arr_sec')
                 arr_sec = df['arr_sec'].tolist()
                 if len(arr_sec) > 1:
                     for i in range(1, len(arr_sec)):
-                        hws[interval-interval0][j].append(arr_sec[i] - arr_sec[i-1])
+                        hws[interval - interval0][j].append(arr_sec[i] - arr_sec[i - 1])
     cv_hws = []
     for interval in range(len(hws)):
         cv_hws.append([])
@@ -524,7 +548,7 @@ def cv_hw_by_intervals(trip_record_df, start_time, end_time, interval_length, st
     return cv_hws
 
 
-def cv_hw_from_avl(avl_df, start_time, end_time, interval_length, stops,  dates):
+def cv_hw_from_avl(avl_df, start_time, end_time, interval_length, stops, dates):
     avl_df2 = avl_df.copy()
     avl_df2['stop_id'] = avl_df2['stop_id'].astype(str)
     interval0 = get_interval(start_time, interval_length)
@@ -537,12 +561,12 @@ def cv_hw_from_avl(avl_df, start_time, end_time, interval_length, stops,  dates)
             temp_df = temp_df[temp_df['schd_sec'] <= (interval + 1) * interval_length * 60]
             for j in range(len(stops)):
                 df = temp_df[temp_df['stop_id'] == stops[j]]
-                df = df[df['stop_sequence'] == j+1]
+                df = df[df['stop_sequence'] == j + 1]
                 df = df.sort_values(by='avl_arr_sec')
                 arr_sec = df['avl_arr_sec'].tolist()
                 if len(arr_sec) > 1:
                     for i in range(1, len(arr_sec)):
-                        hws[interval - interval0][j].append(arr_sec[i] - arr_sec[i-1])
+                        hws[interval - interval0][j].append(arr_sec[i] - arr_sec[i - 1])
     cv_hws = []
     for interval in range(len(hws)):
         cv_hws.append([])
@@ -582,7 +606,7 @@ def write_trajectory_set(trajectory_set, pathname, idx_arr_t, idx_dep_t, idx_hol
                     stop_lst.append(day)
                     stop_lst.append(round(stop_info[idx_arr_t]))
                     stop_lst.append(round(stop_info[idx_dep_t]))
-                    stop_lst.append(round(stop_info[idx_dep_t]-stop_info[idx_arr_t]))
+                    stop_lst.append(round(stop_info[idx_dep_t] - stop_info[idx_arr_t]))
                     wf.writerow(stop_lst)
             i += 1
     return
@@ -693,8 +717,8 @@ def plot_4_trip_t_dist(all_trip_t, tags, path_save):
     fig, axs = plt.subplots(2, 2, sharex='all', sharey='all')
     i = 0
     for temp_trip_t in all_trip_t:
-        sns.histplot([t/60 for t in temp_trip_t], kde=True, color='gray', alpha=0.5, ax=axs.flat[i])
-        axs.flat[i].axvline(np.percentile(temp_trip_t, 95)/60, color='black', linestyle='dashed', alpha=0.7)
+        sns.histplot([t / 60 for t in temp_trip_t], kde=True, color='gray', alpha=0.5, ax=axs.flat[i])
+        axs.flat[i].axvline(np.percentile(temp_trip_t, 95) / 60, color='black', linestyle='dashed', alpha=0.7)
         axs.flat[i].set_title(tags[i], fontsize=9)
         if i > 1:
             axs.flat[i].set_xlabel('total trip run time (min)', fontsize=8)
@@ -714,8 +738,8 @@ def plot_5_trip_t_dist(all_trip_t, tags, path_save):
     fig, axs = plt.subplots(nrows=5, sharex='all', sharey='all')
     i = 0
     for temp_trip_t in all_trip_t:
-        sns.histplot([t/60 for t in temp_trip_t], kde=True, color='gray', alpha=0.5, ax=axs.flat[i])
-        axs.flat[i].axvline(np.percentile(temp_trip_t, 95)/60, color='black', linestyle='dashed', alpha=0.7)
+        sns.histplot([t / 60 for t in temp_trip_t], kde=True, color='gray', alpha=0.5, ax=axs.flat[i])
+        axs.flat[i].axvline(np.percentile(temp_trip_t, 95) / 60, color='black', linestyle='dashed', alpha=0.7)
         axs.flat[i].set_title(tags[i], fontsize=9)
         if i > 1:
             axs.flat[i].set_xlabel('total trip time (seconds)', fontsize=8)
@@ -784,7 +808,6 @@ def pax_per_trip_from_trajectory_set(trajectory_set, idx_load, idx_ons, idx_offs
 
 
 def write_link_times(link_times_mean, link_times_std, stop_gps, pathname, ordered_stops):
-
     link_times_df = pd.DataFrame(link_times_mean.items(), columns=['stop_1', 'mean_sec'])
     link_times_df['std_sec'] = link_times_df['stop_1'].map(link_times_std)
     link_times_df[['stop_1', 'stop_2']] = link_times_df['stop_1'].str.split('-', expand=True)
@@ -798,7 +821,7 @@ def write_link_times(link_times_mean, link_times_std, stop_gps, pathname, ordere
     s2 = s1.rename(columns={'stop_1': 'stop_2', 'stop_1_lat': 'stop_2_lat', 'stop_1_lon': 'stop_2_lon'})
     link_times_df = pd.merge(link_times_df, s2, on='stop_2')
 
-    stop_seq = [i for i in range(len(ordered_stops)-1)]
+    stop_seq = [i for i in range(len(ordered_stops) - 1)]
     ordered_stop_data = {'stop_1': ordered_stops[:-1], 'stop_1_sequence': stop_seq}
     os_df = pd.DataFrame(ordered_stop_data)
     os_df['stop_1'] = os_df['stop_1'].astype(str)
@@ -847,9 +870,9 @@ def get_pax_times_fast(pax_set, n_stops, include_rbt=False):
     for rep in pax_set:
         df = pd.DataFrame([{f: getattr(p, f) for f in fields} for p in rep])
         wait_time_set.append(df['wait_time'].mean() / 60)
-        pax_wt_0_2 += df[df['wait_time'] < 2.5*60].shape[0]
-        pax_wt_2_4 += df[(df['wait_time'] >= 2.5*60) & (df['wait_time'] < 5*60)].shape[0]
-        pax_wt_4_inf += df[df['wait_time'] > 5*60].shape[0]
+        pax_wt_0_2 += df[df['wait_time'] < 2.5 * 60].shape[0]
+        pax_wt_2_4 += df[(df['wait_time'] >= 2.5 * 60) & (df['wait_time'] < 5 * 60)].shape[0]
+        pax_wt_4_inf += df[df['wait_time'] > 5 * 60].shape[0]
         tot_pax = df.shape[0]
         denied_df = df[df['denied'] == 1]
         denied_pax = denied_df.shape[0]
@@ -861,15 +884,16 @@ def get_pax_times_fast(pax_set, n_stops, include_rbt=False):
             rbt_od = np.zeros(shape=(n_stops, n_stops))
             rbt_od[:] = np.nan
             pax_count = 0
-            for s0 in range(n_stops-1):
+            for s0 in range(n_stops - 1):
                 o_jt = df[df['orig_idx'] == s0]
-                for s1 in range(s0+1, n_stops):
+                for s1 in range(s0 + 1, n_stops):
                     od_jt = o_jt[o_jt['dest_idx'] == s1]
                     if not od_jt.empty:
                         pax_od = od_jt.shape[0]
                         pax_count += pax_od
-                        rbt_od[s0, s1] = (od_jt['journey_time'].quantile(0.95) - od_jt['journey_time'].median()) * pax_od
-            rbt_od_set.append(np.nansum(rbt_od) / pax_count/60)
+                        rbt_od[s0, s1] = (od_jt['journey_time'].quantile(0.95) - od_jt[
+                            'journey_time'].median()) * pax_od
+            rbt_od_set.append(np.nansum(rbt_od) / pax_count / 60)
     denied_rate = np.mean(denied_rate_per_rep)
     denied_wait_time_mean = np.nanmean(denied_wait_time_set)
     tot_pax_reps = pax_wt_0_2 + pax_wt_2_4 + pax_wt_4_inf
@@ -884,7 +908,7 @@ def plot_headway(cv_hw_set, ordered_stops, lbls, colors, pathname=None, controll
     x = np.arange(len(ordered_stops))
     j = 0
     for cv in cv_hw_set:
-        ax1.plot(x, cv, color=colors[j], label=lbls[j],marker='*')
+        ax1.plot(x, cv, color=colors[j], label=lbls[j], marker='*')
         j += 1
 
     ax1.set_xlabel('stop', fontsize=8)
@@ -918,7 +942,7 @@ def plot_load_profile_grid(lp_set, lp_max_set, lp_min_set, os, tags, pathname=No
         obj1, = ax.plot(x1, lp_set[i], color='black')
         obj2, = ax.plot(x1, lp_max_set[i], color='red')
         obj3, = ax.plot(x1, lp_min_set[i], color='green')
-        obj.append([obj1,obj2,obj3])
+        obj.append([obj1, obj2, obj3])
         ax.set_title(tags[i], fontsize=9)
         ax.grid(axis='y')
         ax.axhline(y=50, color='red', alpha=0.5)
@@ -926,7 +950,8 @@ def plot_load_profile_grid(lp_set, lp_max_set, lp_min_set, os, tags, pathname=No
         ax.set_xlabel('stop', fontsize=9)
         ax.tick_params(labelsize=9)
         i += 1
-    fig.legend(obj[-1], ['median', '95-th', '10-th'], bbox_to_anchor=(0.535,0.0),loc='lower center', fontsize=9, ncol=3,
+    fig.legend(obj[-1], ['median', '95-th', '10-th'], bbox_to_anchor=(0.535, 0.0), loc='lower center', fontsize=9,
+               ncol=3,
                columnspacing=0.8)
     plt.tight_layout()
     if pathname:
@@ -937,7 +962,8 @@ def plot_load_profile_grid(lp_set, lp_max_set, lp_min_set, os, tags, pathname=No
     return
 
 
-def plot_load_profile_benchmark(load_set, os, lbls, colors, load_sd_set=None, pathname=None, x_y_lbls=None, controlled_stops=None):
+def plot_load_profile_benchmark(load_set, os, lbls, colors, load_sd_set=None, pathname=None, x_y_lbls=None,
+                                controlled_stops=None):
     x1 = np.arange(len(os))
     fig, ax1 = plt.subplots()
     for j in range(len(load_set)):
@@ -969,14 +995,14 @@ def plot_sensitivity_whisker(dset1, dset2, method_labels, scenario_labels, y_lab
     fig, axes = plt.subplots(ncols=nr_scenarios, nrows=2, sharey='row', sharex='all')
     fig.subplots_adjust(wspace=0.02)
     for i in range(nr_scenarios):
-        axes[0, i].boxplot(dset1[nr_methods*i:nr_methods*(i+1)], sym='')
-        axes[0, i].set_xticks(np.arange(1, nr_methods+1))
+        axes[0, i].boxplot(dset1[nr_methods * i:nr_methods * (i + 1)], sym='')
+        axes[0, i].set_xticks(np.arange(1, nr_methods + 1))
         axes[0, i].set_xticklabels(method_labels, fontsize=8)
         axes[0, i].set(xlabel=scenario_labels[i])
     axes[0, 0].set(ylabel=y_label1)
     for i in range(nr_scenarios):
-        axes[1, i].boxplot(dset2[nr_methods*i:nr_methods*(i+1)], sym='')
-        axes[1, i].set_xticks(np.arange(1, nr_methods+1))
+        axes[1, i].boxplot(dset2[nr_methods * i:nr_methods * (i + 1)], sym='')
+        axes[1, i].set_xticks(np.arange(1, nr_methods + 1))
         axes[1, i].set_xticklabels(method_labels, fontsize=8)
         axes[1, i].set(xlabel=scenario_labels[i])
     axes[1, 0].set(ylabel=y_label2)
@@ -996,7 +1022,7 @@ def plot_sensitivity_whisker_run_t(dset1, dset2, method_labels, scenario_labels,
     ranges = [(0, 5), (5, 8), (8, 13)]
     for i in range(nr_scenarios):
         axes[0, i].boxplot(dset1[ranges[i][0]:ranges[i][1]], sym='')
-        axes[0, i].set_xticks(np.arange(1, ranges[i][1]-ranges[i][0]+1))
+        axes[0, i].set_xticks(np.arange(1, ranges[i][1] - ranges[i][0] + 1))
         # axes[0, i].set_xticklabels(method_labels, fontsize=8)
         if i == 1:
             axes[0, i].set_xticklabels(base_method_labels, fontsize=8, rotation=90)
@@ -1006,7 +1032,7 @@ def plot_sensitivity_whisker_run_t(dset1, dset2, method_labels, scenario_labels,
     axes[0, 0].set_ylabel(y_label1, fontsize=8)
     for i in range(nr_scenarios):
         axes[1, i].boxplot(dset2[ranges[i][0]:ranges[i][1]], sym='')
-        axes[1, i].set_xticks(np.arange(1, ranges[i][1]-ranges[i][0]+1))
+        axes[1, i].set_xticks(np.arange(1, ranges[i][1] - ranges[i][0] + 1))
         if i == 1:
             axes[1, i].set_xticklabels(base_method_labels, fontsize=8, rotation=90)
         else:
@@ -1020,14 +1046,15 @@ def plot_sensitivity_whisker_run_t(dset1, dset2, method_labels, scenario_labels,
     return
 
 
-def plot_sensitivity_whisker_compliance(dset1, dset2, method_labels, scenario_labels, base_method_labels,y_label1, y_label2, path_save):
+def plot_sensitivity_whisker_compliance(dset1, dset2, method_labels, scenario_labels, base_method_labels, y_label1,
+                                        y_label2, path_save):
     nr_scenarios = len(scenario_labels)
     fig, axes = plt.subplots(ncols=nr_scenarios, nrows=2, sharey='row', sharex='col')
     fig.subplots_adjust(wspace=0.02)
     ranges = [(0, 3), (3, 8), (8, 13)]
     for i in range(nr_scenarios):
         axes[0, i].boxplot(dset1[ranges[i][0]:ranges[i][1]], sym='')
-        axes[0, i].set_xticks(np.arange(1, ranges[i][1]-ranges[i][0]+1))
+        axes[0, i].set_xticks(np.arange(1, ranges[i][1] - ranges[i][0] + 1))
         if i == 0:
             axes[0, i].set_xticklabels(base_method_labels, fontsize=8)
         else:
@@ -1036,7 +1063,7 @@ def plot_sensitivity_whisker_compliance(dset1, dset2, method_labels, scenario_la
     axes[0, 0].set_ylabel(y_label1, fontsize=8)
     for i in range(nr_scenarios):
         axes[1, i].boxplot(dset2[ranges[i][0]:ranges[i][1]], sym='')
-        axes[1, i].set_xticks(np.arange(1, ranges[i][1]-ranges[i][0]+1))
+        axes[1, i].set_xticks(np.arange(1, ranges[i][1] - ranges[i][0] + 1))
         if i == 0:
             axes[1, i].set_xticklabels(base_method_labels, fontsize=8, rotation=90)
         else:
@@ -1052,7 +1079,7 @@ def plot_sensitivity_whisker_compliance(dset1, dset2, method_labels, scenario_la
 def plot_2_var_whisker(var1, var2, tags, path_save, var1_label, var2_label, x_label=None):
     fig, axs = plt.subplots(ncols=2)
     axs[0].boxplot(var1, labels=tags, sym='', widths=0.2)
-    axs[0].set_xticks(np.arange(1, len(tags)+1))
+    axs[0].set_xticks(np.arange(1, len(tags) + 1))
     axs[0].set_xticklabels(tags, fontsize=8)
     axs[0].tick_params(axis='y', labelsize=8)
     if x_label:
@@ -1060,7 +1087,7 @@ def plot_2_var_whisker(var1, var2, tags, path_save, var1_label, var2_label, x_la
     axs[0].set_ylabel(var1_label, fontsize=8)
 
     axs[1].boxplot(var2, labels=tags, sym='', widths=0.2)
-    axs[1].set_xticks(np.arange(1, len(tags)+1))
+    axs[1].set_xticks(np.arange(1, len(tags) + 1))
     axs[1].set_xticklabels(tags, fontsize=8)
     axs[1].tick_params(axis='y', labelsize=8)
     if x_label:
@@ -1076,7 +1103,7 @@ def plot_2_var_whisker(var1, var2, tags, path_save, var1_label, var2_label, x_la
 def plot_3_var_whisker(var1, var2, var3, tags, path_save, var1_label, var2_label, var3_label, x_label=None):
     fig, axs = plt.subplots(ncols=3)
     axs[0].boxplot(var1, labels=tags, sym='', widths=0.2)
-    axs[0].set_xticks(np.arange(1, len(tags)+1))
+    axs[0].set_xticks(np.arange(1, len(tags) + 1))
     axs[0].set_xticklabels(tags, fontsize=8)
     axs[0].tick_params(axis='y', labelsize=8)
     if x_label:
@@ -1084,16 +1111,16 @@ def plot_3_var_whisker(var1, var2, var3, tags, path_save, var1_label, var2_label
     axs[0].set_ylabel(var1_label, fontsize=8)
 
     axs[1].boxplot(var2, labels=tags, sym='', widths=0.2)
-    axs[1].set_xticks(np.arange(1, len(tags)+1))
+    axs[1].set_xticks(np.arange(1, len(tags) + 1))
     axs[1].set_xticklabels(tags, fontsize=8)
     axs[1].tick_params(axis='y', labelsize=8)
     if x_label:
         axs[1].set_xlabel(x_label)
     axs[1].set_ylabel(var2_label, fontsize=8)
 
-    var3 = [[t/60 for t in v] for v in var3]
+    var3 = [[t / 60 for t in v] for v in var3]
     axs[2].boxplot(var3, labels=tags, sym='', widths=0.2)
-    axs[2].set_xticks(np.arange(1, len(tags)+1))
+    axs[2].set_xticks(np.arange(1, len(tags) + 1))
     axs[2].set_xticklabels(tags, fontsize=8)
     axs[2].tick_params(axis='y', labelsize=8)
     if x_label:
