@@ -53,9 +53,10 @@ def trajectory_plots(scenarios, scenario_titles, scheduled_trajectories, period,
     df_sched_t_rep = df_sched_t_rep.set_index('schd_sec')
     for i in range(len(scenarios)):
         df_out = pd.read_pickle('out/' + scenarios[i] + '-trip_record_ob.pkl')
-        df_arr_t = df_out[['trip_id', 'replication', 'dist_traveled', 'arr_sec']].copy()
+
+        df_arr_t = df_out[['trip_id', 'replication', 'dist_traveled', 'arr_sec', 'expressed']].copy()
         df_arr_t = df_arr_t.rename(columns={'arr_sec': 'seconds'})
-        df_dep_t = df_out[['trip_id', 'replication', 'dist_traveled', 'dep_sec']].copy()
+        df_dep_t = df_out[['trip_id', 'replication', 'dist_traveled', 'dep_sec', 'expressed']].copy()
         df_dep_t = df_dep_t.rename(columns={'dep_sec': 'seconds'})
 
         df_times = pd.concat([df_arr_t, df_dep_t], axis=0, ignore_index=True)
@@ -70,6 +71,14 @@ def trajectory_plots(scenarios, scenario_titles, scheduled_trajectories, period,
 
         df_sched_t_rep.groupby('trip_id')['dist_traveled'].plot(color='silver', ax=axs[i])
         df_times_rep.groupby('trip_id')['dist_traveled'].plot(color='red', ax=axs[i])
+
+        expressed_trips_df = df_times_rep[df_times_rep['expressed'] == 1].copy()
+        expressed_trips_df.groupby('trip_id')['dist_traveled'].plot(color='blue', ax=axs[i])
+
+        non_cancelled_trips = df_times_rep['trip_id'].tolist()
+        cancelled_sched_df = df_sched_t_rep[~df_sched_t_rep['trip_id'].isin(non_cancelled_trips)].copy()
+        cancelled_sched_df.groupby('trip_id')['dist_traveled'].plot(color='black', ax=axs[i])
+
         axs[i].set_title(scenario_titles[i])
         axs[i].set_ylabel('km')
     x_ticks = [x for x in range(period[0], period[1] + 30 * 60, 30 * 60)]
@@ -110,7 +119,8 @@ def cv_hw_plot(scenarios, stops, period, scenario_tags, method_tags, fig_dir=Non
     return df
 
 
-def wait_time_plot(scenarios, stops, period, method_tags, scenario_tags, fig_dir=None):
+def pax_times_plot(scenarios, boarding_stops, alighting_stops,
+                   period, method_tags, scenario_tags, fig_dir=None):
     wt_numer = {'parameter': ['wt' for _ in range(len(scenario_tags))],
                 'prc_cancel': scenario_tags}
     rbt_numer = {'parameter': ['rbt' for _ in range(len(scenario_tags))],
@@ -123,10 +133,11 @@ def wait_time_plot(scenarios, stops, period, method_tags, scenario_tags, fig_dir
         rbt = []
         for j in range(len(scenario_tags)):
             df_pax = pd.read_pickle('out/' + scenarios[i][j] + '-pax_record_ob.pkl')
-            df_pax = df_pax[(df_pax['arr_time'] <= period[1]) & (df_pax['arr_time'] >= period[0])].copy()
-
-            df_pax['wt'] = df_pax['board_time'] - df_pax['arr_time']
-            wt_tmp = df_pax['wt'].copy() / 60
+            df_p = df_pax[(df_pax['arr_time'] <= period[1]) & (df_pax['arr_time'] >= period[0])].copy()
+            df_p = df_p[df_p['orig_idx'].isin(boarding_stops)].copy()
+            df_p = df_p[df_p['dest_idx'].isin(alighting_stops)].copy()
+            df_p['wt'] = df_p['board_time'] - df_p['arr_time']
+            wt_tmp = df_p['wt'].copy() / 60
             wt_numer[method_tags[i]].append(wt_tmp.mean() / 60)
             d = {'method': [method_tags[i]] * wt_tmp.shape[0],
                  'cancelled': [int(scenario_tags[j])] * wt_tmp.shape[0],
@@ -135,9 +146,10 @@ def wait_time_plot(scenarios, stops, period, method_tags, scenario_tags, fig_dir
 
             rbt_counter = 0
             rbt_sum = 0
-            for k in range(len(stops)-1):
-                for n in range(k+1, len(stops)):
-                    tmp_df = df_pax[(df_pax['orig_idx'] == stops[k]) & (df_pax['dest_idx'] == stops[n])].copy()
+            for k in range(len(boarding_stops)):
+                for n in range(k, len(alighting_stops)):
+                    tmp_df = df_pax[(df_pax['orig_idx'] == boarding_stops[k]) &
+                                    (df_pax['dest_idx'] == alighting_stops[n])].copy()
                     if tmp_df.shape[0]:
                         tmp_df['jt'] = tmp_df['alight_time'] - tmp_df['arr_time']
                         rbt_tmp = tmp_df['jt'].quantile(0.95) - tmp_df['jt'].median()

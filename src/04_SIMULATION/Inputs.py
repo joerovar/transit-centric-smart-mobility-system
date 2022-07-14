@@ -61,7 +61,7 @@ NO_OVERTAKE_BUFFER = 5
 
 # FOR RECORDS
 OUT_TRIP_RECORD_COLS = ['bus_id', 'trip_id', 'stop_id', 'arr_sec', 'dep_sec', 'pax_load', 'ons', 'offs', 'denied',
-                        'hold_time', 'skipped', 'schd_sec', 'stop_sequence', 'dist_traveled'] # and replication goes at the end
+                        'hold_time', 'skipped', 'schd_sec', 'stop_sequence', 'dist_traveled', 'expressed'] # and replication goes at the end
 IN_TRIP_RECORD_COLS = ['trip_id', 'stop_id', 'arr_sec', 'schd_sec', 'stop_sequence']
 PAX_RECORD_COLS = ['orig_idx', 'dest_idx', 'arr_time', 'board_time', 'alight_time', 'trip_id', 'denied']
 
@@ -73,8 +73,10 @@ FUTURE_HW_HORIZON = 2
 PAST_HW_HORIZON = 2
 END_TIME_SEC2 = END_TIME_SEC - 60*30
 WEIGHT_HOLD_T = 0.0
-EXPRESS_DIST = 10
-BW_H_LIMIT_EXPRESS = 0.5 # this is the limit to decide to express
+EXPRESS_DIST = 15
+BW_H_LIMIT_EXPRESS = 0.5 # this is the limit over the scheduled backward headway to decide to express
+FW_H_LIMIT_EXPRESS = 1.8 # this is the limit over the scheduled forward headway to decide to express
+BF_H_LIMIT_EXPRESS = 1.4
 
 # GENERAL RL PARAMS
 LEARN_RATE = 0.0009
@@ -150,6 +152,7 @@ scheduled_trajectories_out = []
 for i in range(len(trip_ids)):
     for j in range(len(trip_schedules[i])):
         scheduled_trajectories_out.append([trip_ids[i], trip_schedules[i][j], trip_dist_traveled[i][j]])
+
 df_sched_t_rep = pd.DataFrame(scheduled_trajectories_out, columns=['trip_id', 'schd_sec', 'dist_traveled'])
 
 trips_df['block_id'] = trips_df['block_id'].astype(str).str[6:].astype(int)

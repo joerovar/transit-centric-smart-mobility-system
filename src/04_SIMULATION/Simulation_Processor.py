@@ -48,12 +48,12 @@ def run_base_dispatching(replications, prob_cancel=0.0, save_results=False, cont
                                   PAST_HW_HORIZON * 2 + FUTURE_HW_HORIZON:PAST_HW_HORIZON * 2 + FUTURE_HW_HORIZON * 2]
                 future_actual_hw = env.obs[PAST_HW_HORIZON:PAST_HW_HORIZON + FUTURE_HW_HORIZON]
                 sched_dev = env.obs[-1]
-                print(f'current time is {str(timedelta(seconds=round(env.time)))} '
-                      f'and next event time is {str(timedelta(seconds=round(env.bus.next_event_time)))}')
-                print(f'trip {env.bus.pending_trips[0].trip_id}')
-                print(f'schedule deviation {round(env.obs[-1])}')
-                print(f'sched hw {[str(timedelta(seconds=round(hw))) for hw in past_sched_hw]} | {[str(timedelta(seconds=round(hw))) for hw in future_sched_hw]}')
-                print(f'actual hw {[str(timedelta(seconds=round(hw))) for hw in past_actual_hw]} | {[str(timedelta(seconds=round(hw))) for hw in future_actual_hw]}')
+                # print(f'current time is {str(timedelta(seconds=round(env.time)))} '
+                #       f'and next event time is {str(timedelta(seconds=round(env.bus.next_event_time)))}')
+                # print(f'trip {env.bus.pending_trips[0].trip_id}')
+                # print(f'schedule deviation {round(env.obs[-1])}')
+                # print(f'sched hw {[str(timedelta(seconds=round(hw))) for hw in past_sched_hw]} | {[str(timedelta(seconds=round(hw))) for hw in future_sched_hw]}')
+                # print(f'actual hw {[str(timedelta(seconds=round(hw))) for hw in past_actual_hw]} | {[str(timedelta(seconds=round(hw))) for hw in future_actual_hw]}')
                 env.dispatch_decision()
         if save_results:
             out_trip_record_set.append(process_trip_record(env.out_trip_record, OUT_TRIP_RECORD_COLS, i))

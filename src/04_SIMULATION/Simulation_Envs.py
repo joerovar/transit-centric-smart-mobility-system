@@ -167,7 +167,7 @@ class DetailedSimulationEnv(SimulationEnv):
             raise
         self.out_trip_record.append([bus.bus_id, trip_id, bus.last_stop_id, bus.arr_t, bus.dep_t,
                                      len(bus.pax), pickups, offs, denied_board, hold, int(skip),
-                                     scheduled_sec, stop_idx + 1, dist_traveled])
+                                     scheduled_sec, stop_idx + 1, dist_traveled, int(bus.expressed)])
         return
 
     def get_travel_time(self, stop0, stop1):
@@ -479,6 +479,7 @@ class DetailedSimulationEnv(SimulationEnv):
             next_dep_time = max(bus.dep_t + layover, trip.schedule[0])
             bus.next_event_time = next_dep_time
             bus.next_event_type = 3
+            bus.expressed = False
         else:
             bus.deactivate()
         return
@@ -1234,17 +1235,21 @@ class DetailedSimulationEnvWithDispatching(DetailedSimulationEnv):
                 # print(f'Hold time of {round(hold_time)} <= {round(hold_time_max)}')
                 bus.next_event_time = self.time + hold_time
             if self.control_strategy == 'EHX':
+                sched_fw_h = obs[PAST_HW_HORIZON + FUTURE_HW_HORIZON + PAST_HW_HORIZON - 1]
                 bw_h = obs[PAST_HW_HORIZON]
                 sched_bw_h = obs[PAST_HW_HORIZON*2 + FUTURE_HW_HORIZON]
-                if bw_h <= sched_bw_h * BW_H_LIMIT_EXPRESS:
+                statement1 = (bw_h <= sched_bw_h * BW_H_LIMIT_EXPRESS) or (fw_h >= sched_fw_h * FW_H_LIMIT_EXPRESS)
+                statement2 = (fw_h >= bw_h * BF_H_LIMIT_EXPRESS)
+                if statement1 and statement2:
                     hold_time = even_hw_decision(bw_h, fw_h, hold_time_max)
                     assert hold_time == 0
-                    print('EXPRESSING DECISION')
-                    bus.express_to = bus.active_trip[0].stops[EXPRESS_DIST]
+                    # print('EXPRESSING DECISION')
+                    bus.express_to = bus.pending_trips[0].stops[EXPRESS_DIST]
+                    bus.expressed = True
                 else:
                     hold_time = even_hw_decision(bw_h, fw_h, hold_time_max)
-                    print('HOLDING DECISION')
-                    print(f'Hold time of {round(hold_time)} <= {round(hold_time_max)}')
+                    # print('HOLDING DECISION')
+                    # print(f'Hold time of {round(hold_time)} <= {round(hold_time_max)}')
                     bus.next_event_time = self.time + hold_time
                 # sched_fw_h = obs[PAST_HW_HORIZON+FUTURE_HW_HORIZON+PAST_HW_HORIZON]
                 # hold_time = single_hw_decision(fw_h, sched_fw_h, hold_time_max)
@@ -1267,7 +1272,7 @@ class DetailedSimulationEnvWithDispatching(DetailedSimulationEnv):
         stops = bus.active_trip[0].stops
         next_stops = stops[1:]
         if bus.express_to:
-            idx_express_to = next_stops.idx(bus.express_to)
+            idx_express_to = next_stops.index(bus.express_to)
             next_stops = next_stops[idx_express_to:]
             bus.express_to = None
         for p in self.stops[bus.last_stop_id].pax.copy():

@@ -6,3 +6,4 @@ import os
 
 lst = [12, 3]
 print(lst*3)
+print(int(True))

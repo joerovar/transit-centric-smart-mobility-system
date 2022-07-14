@@ -53,6 +53,7 @@ class Bus:
         self.cancelled_trips = []
         self.instructed_hold_time = None # at terminal
         self.express_to = None
+        self.expressed = False
 
     def deactivate(self):
         # assert not self.pax
@@ -65,6 +66,11 @@ class Bus:
         self.ons = float('nan')
         self.offs = float('nan')
         self.denied = float('nan')
+        self.cancelled = False
+        self.cancelled_trips = []
+        self.instructed_hold_time = None # at terminal
+        self.express_to = None
+        self.expressed = False
 
 
 class TripLog:
