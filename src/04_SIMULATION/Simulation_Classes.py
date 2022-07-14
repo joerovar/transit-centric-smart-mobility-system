@@ -52,7 +52,6 @@ class Bus:
         self.cancelled = False
         self.cancelled_trips = []
         self.instructed_hold_time = None # at terminal
-        self.instruction_time = None
         self.express_to = None
 
     def deactivate(self):

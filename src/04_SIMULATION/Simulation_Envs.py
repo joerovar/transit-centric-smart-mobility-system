@@ -995,12 +995,12 @@ class DetailedSimulationEnvWithDeepRL(DetailedSimulationEnv):
 
 
 class DetailedSimulationEnvWithDispatching(DetailedSimulationEnv):
-    def __init__(self, prob_cancelled_block=0.0, weight_hold_t=0.0, control_type=None, cancelled_blocks=None,
+    def __init__(self, prob_cancelled_block=0.0, weight_hold_t=0.0, control_strategy=None, cancelled_blocks=None,
                  *args, **kwargs):
         super(DetailedSimulationEnvWithDispatching, self).__init__(*args, **kwargs)
         self.prob_cancelled_block = prob_cancelled_block
         self.weight_hold_t = weight_hold_t
-        self.control_type = control_type
+        self.control_strategy = control_strategy
         self.cancelled_blocks = cancelled_blocks
         self.obs = []
         self.prev_obs = []
@@ -1209,12 +1209,11 @@ class DetailedSimulationEnvWithDispatching(DetailedSimulationEnv):
                 # print(f'reward {round(rew_rl, 3)}')
                 # print(f'FINAL REWARD {self.prev_reward}')
 
-        elif len(past_actual_hw) > 0 and self.control_type and len(future_actual_hw) > 0:
+        elif len(past_actual_hw) > 0 and self.control_strategy and len(future_actual_hw) > 0:
             hold_t = even_hw_decision(future_actual_hw[0], past_actual_hw[-1], max(IMPOSED_DELAY_LIMIT - sched_dev, 0))
             bus.next_event_time = self.time + hold_t
             bus.next_event_type = 0
             bus.instructed_hold_time = hold_t
-            bus.instruction_time = deepcopy(self.time)
         else:
             bus.next_event_time = max(self.time, sched_dep)
             bus.next_event_type = 0
@@ -1222,27 +1221,38 @@ class DetailedSimulationEnvWithDispatching(DetailedSimulationEnv):
     def dispatch_decision(self, hold_time=None):
         bus = self.bus
         sched_dep = bus.pending_trips[0].schedule[0]
-        if self.control_type:
+        if self.control_strategy:
             obs = self.obs
             sched_dev = obs[-1]
             hold_time_max = max(IMPOSED_DELAY_LIMIT - sched_dev, 0)
             fw_h = obs[PAST_HW_HORIZON-1]
-            assert self.control_type in ['EH', 'SH', 'RL']
-            if self.control_type == 'EH':
+            assert self.control_strategy in ['EH', 'EHX', 'RL']
+            if self.control_strategy == 'EH':
                 bw_h = obs[PAST_HW_HORIZON]
                 hold_time = even_hw_decision(bw_h, fw_h, hold_time_max)
                 # print('HOLDING DECISION')
                 # print(f'Hold time of {round(hold_time)} <= {round(hold_time_max)}')
                 bus.next_event_time = self.time + hold_time
-            if self.control_type == 'SH':
-                sched_fw_h = obs[PAST_HW_HORIZON+FUTURE_HW_HORIZON+PAST_HW_HORIZON]
-                hold_time = single_hw_decision(fw_h, sched_fw_h, hold_time_max)
+            if self.control_strategy == 'EHX':
+                bw_h = obs[PAST_HW_HORIZON]
+                sched_bw_h = obs[PAST_HW_HORIZON*2 + FUTURE_HW_HORIZON]
+                if bw_h <= sched_bw_h * BW_H_LIMIT_EXPRESS:
+                    hold_time = even_hw_decision(bw_h, fw_h, hold_time_max)
+                    assert hold_time == 0
+                    print('EXPRESSING DECISION')
+                    bus.express_to = bus.active_trip[0].stops[EXPRESS_DIST]
+                else:
+                    hold_time = even_hw_decision(bw_h, fw_h, hold_time_max)
+                    print('HOLDING DECISION')
+                    print(f'Hold time of {round(hold_time)} <= {round(hold_time_max)}')
+                    bus.next_event_time = self.time + hold_time
+                # sched_fw_h = obs[PAST_HW_HORIZON+FUTURE_HW_HORIZON+PAST_HW_HORIZON]
+                # hold_time = single_hw_decision(fw_h, sched_fw_h, hold_time_max)
                 bus.next_event_time = self.time + hold_time
-            if self.control_type == 'RL':
+            if self.control_strategy == 'RL':
                 bus.next_event_time = self.time + hold_time
 
             bus.instructed_hold_time = hold_time
-            bus.instruction_time = deepcopy(self.time)
             self.prev_obs = deepcopy(self.obs)
             self.prev_decision_t = deepcopy(self.time)
             self.prev_hold_t = deepcopy(hold_time)
@@ -1252,13 +1262,14 @@ class DetailedSimulationEnvWithDispatching(DetailedSimulationEnv):
         bus.next_event_type = 0
         return
 
-    def outbound_dispatch(self, hold=0, express_to=None):
+    def outbound_dispatch(self, hold=0):
         bus = self.bus
         stops = bus.active_trip[0].stops
         next_stops = stops[1:]
-        if express_to:
-            idx_express_to = next_stops.idx(express_to)
+        if bus.express_to:
+            idx_express_to = next_stops.idx(bus.express_to)
             next_stops = next_stops[idx_express_to:]
+            bus.express_to = None
         for p in self.stops[bus.last_stop_id].pax.copy():
             if p.arr_time <= self.time and p.dest_id in next_stops:
                 if len(bus.pax) + 1 <= CAPACITY:
@@ -1281,7 +1292,6 @@ class DetailedSimulationEnvWithDispatching(DetailedSimulationEnv):
         if bus.instructed_hold_time:
             bus.dep_t = self.time + max(dwell_time - bus.instructed_hold_time, 0)
             bus.instructed_hold_time = None
-            bus.instruction_time = None
         else:
             bus.dep_t = self.time + dwell_time
 

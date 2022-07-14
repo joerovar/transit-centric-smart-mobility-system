@@ -13,7 +13,7 @@ from Simulation_Processor import run_base, train_rl, test_rl, run_base_dispatchi
 # rl_dispatch(1000, train=True, prob_cancel=0.25)
 
 
-def test_scenarios(nc=False, eh=False, rl=False, prob_cancel=None, rl_policy=None, replications=None,
+def test_scenarios(nc=False, eh=False, ehx=False, rl=False, prob_cancel=None, rl_policy=None, replications=None,
                    save_results=False):
     for p in prob_cancel:
         cancelled_blocks = [[] for _ in range(replications)]
@@ -26,11 +26,13 @@ def test_scenarios(nc=False, eh=False, rl=False, prob_cancel=None, rl_policy=Non
                                  prob_cancel=p, cancelled_blocks=cancelled_blocks)
         if eh:
             run_base_dispatching(replications=replications, save_results=save_results, save_folder='EH_dispatch',
-                                 prob_cancel=p, cancelled_blocks=cancelled_blocks, control_type='EH')
+                                 prob_cancel=p, cancelled_blocks=cancelled_blocks, control_strategy='EH')
         if rl:
             rl_dispatch(replications, save_results=save_results, save_folder='RL_dispatch', prob_cancel=p,
                         cancelled_blocks=cancelled_blocks, tstamp_policy=rl_policy)
-
+        if ehx:
+            run_base_dispatching(replications=replications, save_results=save_results, save_folder='EHX_dispatch',
+                                 prob_cancel=p, cancelled_blocks=cancelled_blocks, control_strategy='EHX')
     return
 
 
@@ -71,6 +73,7 @@ def plot_results():
     return
 
 
+test_scenarios(ehx=True, prob_cancel=[0.15], replications=1)
 # test_scenarios(rl=True, prob_cancel=[0.25], replications=2, rl_policy='0710-2347')
 # test_scenarios(nc=True, eh=True, prob_cancel=[0.0, 0.1, 0.25], save_results=True, replications=15)
-plot_results()
+# plot_results()

@@ -27,7 +27,7 @@ def write_trip_records(scenario, t, out_record_set, in_record_set, pax_record_se
     return
 
 
-def run_base_dispatching(replications, prob_cancel=0.0, save_results=False, control_type=None, save_folder=None,
+def run_base_dispatching(replications, prob_cancel=0.0, save_results=False, control_strategy=None, save_folder=None,
                          cancelled_blocks=None):
     tstamp = datetime.now().strftime('%m%d-%H%M%S')
     out_trip_record_set = []
@@ -36,7 +36,7 @@ def run_base_dispatching(replications, prob_cancel=0.0, save_results=False, cont
     for i in range(replications):
         cancelled = cancelled_blocks[i] if cancelled_blocks else None
         env = Simulation_Envs.DetailedSimulationEnvWithDispatching(prob_cancelled_block=prob_cancel,
-                                                                   control_type=control_type,
+                                                                   control_strategy=control_strategy,
                                                                    cancelled_blocks=cancelled)
         done = env.reset_simulation()
         while not done:
@@ -48,15 +48,12 @@ def run_base_dispatching(replications, prob_cancel=0.0, save_results=False, cont
                                   PAST_HW_HORIZON * 2 + FUTURE_HW_HORIZON:PAST_HW_HORIZON * 2 + FUTURE_HW_HORIZON * 2]
                 future_actual_hw = env.obs[PAST_HW_HORIZON:PAST_HW_HORIZON + FUTURE_HW_HORIZON]
                 sched_dev = env.obs[-1]
-                # print(f'current time is {str(timedelta(seconds=round(env.time)))} '
-                #       f'and next event time is {str(timedelta(seconds=round(env.bus.next_event_time)))}')
-                # print(f'trip {env.bus.pending_trips[0].trip_id}')
-                # print(f'schedule deviation {round(env.obs[-1])}')
-                # print(f'past sched hw {[str(timedelta(seconds=round(hw))) for hw in past_sched_hw]}')
-                # print(f'past actual hw {[str(timedelta(seconds=round(hw))) for hw in past_actual_hw]}')
-                # print(f'future sched hw {[str(timedelta(seconds=round(hw))) for hw in future_sched_hw]}')
-                # print(f'future actual hw {[str(timedelta(seconds=round(hw))) for hw in future_actual_hw]}')
-                hold_t_max = IMPOSED_DELAY_LIMIT - sched_dev
+                print(f'current time is {str(timedelta(seconds=round(env.time)))} '
+                      f'and next event time is {str(timedelta(seconds=round(env.bus.next_event_time)))}')
+                print(f'trip {env.bus.pending_trips[0].trip_id}')
+                print(f'schedule deviation {round(env.obs[-1])}')
+                print(f'sched hw {[str(timedelta(seconds=round(hw))) for hw in past_sched_hw]} | {[str(timedelta(seconds=round(hw))) for hw in future_sched_hw]}')
+                print(f'actual hw {[str(timedelta(seconds=round(hw))) for hw in past_actual_hw]} | {[str(timedelta(seconds=round(hw))) for hw in future_actual_hw]}')
                 env.dispatch_decision()
         if save_results:
             out_trip_record_set.append(process_trip_record(env.out_trip_record, OUT_TRIP_RECORD_COLS, i))
@@ -109,7 +106,7 @@ def rl_dispatch(n_episodes, train=False, prob_cancel=0.0, weight_hold_t=0.0, sav
         score = 0
         cancelled = cancelled_blocks[j] if cancelled_blocks else None
         env = Simulation_Envs.DetailedSimulationEnvWithDispatching(prob_cancelled_block=prob_cancel,
-                                                                   control_type='RL', weight_hold_t=weight_hold_t,
+                                                                   control_strategy='RL', weight_hold_t=weight_hold_t,
                                                                    cancelled_blocks=cancelled)
         done = env.reset_simulation()
         while not done:
