@@ -372,7 +372,10 @@ class DetailedSimulationEnv(SimulationEnv):
         bus.active_trip.append(bus.pending_trips[0])
         bus.pending_trips.pop(0)
         bus.last_stop_id = bus.active_trip[0].stops[0]
-        bus.next_stop_id = bus.active_trip[0].stops[1]
+        if bus.expressed:
+            bus.next_stop_id = bus.active_trip[0].stops[EXPRESS_DIST]
+        else:
+            bus.next_stop_id = bus.active_trip[0].stops[1]
         bus.ons = 0
         bus.offs = 0
         bus.denied = 0
@@ -1240,11 +1243,11 @@ class DetailedSimulationEnvWithDispatching(DetailedSimulationEnv):
                 sched_bw_h = obs[PAST_HW_HORIZON*2 + FUTURE_HW_HORIZON]
                 statement1 = (bw_h <= sched_bw_h * BW_H_LIMIT_EXPRESS) or (fw_h >= sched_fw_h * FW_H_LIMIT_EXPRESS)
                 statement2 = (fw_h >= bw_h * BF_H_LIMIT_EXPRESS)
+                assert bus.expressed is False
                 if statement1 and statement2:
                     hold_time = even_hw_decision(bw_h, fw_h, hold_time_max)
                     assert hold_time == 0
                     # print('EXPRESSING DECISION')
-                    bus.express_to = bus.pending_trips[0].stops[EXPRESS_DIST]
                     bus.expressed = True
                 else:
                     hold_time = even_hw_decision(bw_h, fw_h, hold_time_max)
@@ -1271,10 +1274,8 @@ class DetailedSimulationEnvWithDispatching(DetailedSimulationEnv):
         bus = self.bus
         stops = bus.active_trip[0].stops
         next_stops = stops[1:]
-        if bus.express_to:
-            idx_express_to = next_stops.index(bus.express_to)
-            next_stops = next_stops[idx_express_to:]
-            bus.express_to = None
+        if bus.expressed:
+            next_stops = next_stops[EXPRESS_DIST:]
         for p in self.stops[bus.last_stop_id].pax.copy():
             if p.arr_time <= self.time and p.dest_id in next_stops:
                 if len(bus.pax) + 1 <= CAPACITY:
@@ -1323,7 +1324,10 @@ class DetailedSimulationEnvWithDispatching(DetailedSimulationEnv):
             self.record_trajectories(pickups=bus.ons, denied_board=bus.denied, hold=bus.instructed_hold_time)
         else:
             self.record_trajectories(pickups=bus.ons, denied_board=bus.denied)
-        runtime = self.get_travel_time(bus.last_stop_id, bus.next_stop_id)
+        if bus.expressed:
+            runtime = self.get_express_run_time(bus.last_stop_id, bus.next_stop_id)
+        else:
+            runtime = self.get_travel_time(bus.last_stop_id, bus.next_stop_id)
         bus.next_event_time = bus.dep_t + runtime
         bus.next_event_type = 1
 

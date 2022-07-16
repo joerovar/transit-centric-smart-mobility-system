@@ -56,9 +56,9 @@ def plot_results():
     #              ['EH_dispatch/0711-131442', 'EH_dispatch/0711-131459', 'EH_dispatch/0711-131514']]
     # method_tags = ['NC', 'EH']
     scenario_titles = ['No Control', 'Even Headway', 'Even Headway + Express']
-    scenarios = [['NC_dispatch/0714-120626', 'NC_dispatch/0714-120646', 'NC_dispatch/0714-120704'],
-                 ['EH_dispatch/0714-120633', 'EH_dispatch/0714-120652', 'EH_dispatch/0714-120709'],
-                 ['EHX_dispatch/0714-120640', 'EHX_dispatch/0714-120658', 'EHX_dispatch/0714-120715']]
+    scenarios = [['NC_dispatch/0715-182314', 'NC_dispatch/0715-182332', 'NC_dispatch/0715-182350'],
+                 ['EH_dispatch/0715-182320', 'EH_dispatch/0715-182338', 'EH_dispatch/0715-182355'],
+                 ['EHX_dispatch/0715-182326', 'EHX_dispatch/0715-182344', 'EHX_dispatch/0715-182401']]
     method_tags = ['NC', 'EH', 'EHX']
     scenario_tags = [0, 15, 30]
     replication = 4
@@ -68,19 +68,19 @@ def plot_results():
                      scheduled_trajectories_out, time_period, replication, fig_dir=fig_dir)
 
     fig_dir = 'out/compare/benchmark/cv_hw.png'
-    df_h = cv_hw_plot(scenarios, STOPS_OUT_FULL_PATT[:40],
+    df_h = cv_hw_plot(scenarios, STOPS_OUT_FULL_PATT,
                       time_period, scenario_tags, method_tags, fig_dir=fig_dir)
     fig_dir = 'out/compare/benchmark/wt.png'
-    df_pt = pax_times_plot(scenarios, STOPS_OUT_FULL_PATT[:40], STOPS_OUT_FULL_PATT,
+    df_pt = pax_times_plot(scenarios, STOPS_OUT_FULL_PATT, STOPS_OUT_FULL_PATT,
                            time_period, method_tags, scenario_tags, fig_dir=fig_dir)
     fig_dir = 'out/compare/benchmark/loads.png'
-    df_l = load_plots(scenarios, scenario_tags, method_tags, STOPS_OUT_FULL_PATT[:40], time_period, fig_dir=fig_dir)
+    df_l = load_plots(scenarios, scenario_tags, method_tags, STOPS_OUT_FULL_PATT, time_period, fig_dir=fig_dir)
     df_results = pd.concat([df_h, df_pt, df_l], ignore_index=True)
     df_results.to_csv('out/compare/benchmark/numer_results.csv', index=False)
     return
 
 
-# test_scenarios(ehx=True, prob_cancel=[0.15], replications=1)
+# test_scenarios(ehx=True, prob_cancel=[0.2], replications=1)
 # test_scenarios(rl=True, prob_cancel=[0.25], replications=2, rl_policy='0710-2347')
 # test_scenarios(nc=True, eh=True, ehx=True, prob_cancel=[0.0, 0.15, 0.3], save_results=True, replications=15)
-# plot_results()
+plot_results()

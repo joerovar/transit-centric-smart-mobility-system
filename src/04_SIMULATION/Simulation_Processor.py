@@ -62,8 +62,19 @@ def run_base_dispatching(replications, prob_cancel=0.0, save_results=False, cont
 
     if save_results:
         write_trip_records(save_folder, tstamp, out_trip_record_set, in_trip_record_set, pax_record_set)
-        key_params = {'prob_cancel': [prob_cancel], 'n_replications': [replications],
-                      'cancelled_blocks': [cancelled_blocks]}
+        if control_strategy == 'EH':
+            key_params = {'prob_cancel': [prob_cancel], 'n_replications': [replications],
+                          'early_limit': [EARLY_DEP_LIMIT_SEC], 'late_limit': [IMPOSED_DELAY_LIMIT],
+                          'cancelled_blocks': [cancelled_blocks]}
+        elif control_strategy == 'EHX':
+            key_params = {'prob_cancel': [prob_cancel], 'n_replications': [replications],
+                          'early_limit': [EARLY_DEP_LIMIT_SEC], 'late_limit': [IMPOSED_DELAY_LIMIT],
+                          'expres_dist': [EXPRESS_DIST], 'express_fh_limit': [FW_H_LIMIT_EXPRESS],
+                          'express_bh_limit': [BW_H_LIMIT_EXPRESS], 'express_fbh_limit': [BF_H_LIMIT_EXPRESS],
+                          'cancelled_blocks': [cancelled_blocks]}
+        else:
+            key_params = {'prob_cancel': [prob_cancel], 'n_replications': [replications],
+                          'cancelled_blocks': [cancelled_blocks]}
         pd.DataFrame(key_params).to_csv('out/' + save_folder + '/' + tstamp + '-key_params' + ext_csv, index=False)
     return
 
