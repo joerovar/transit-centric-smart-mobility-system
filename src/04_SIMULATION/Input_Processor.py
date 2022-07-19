@@ -16,7 +16,11 @@ def extract_demand(odt_interval_len_min, dates):
     # comes from project with dingyi data
 
     nr_intervals = 24 / (odt_interval_len_min / 60)
-    apc_on_rates, apc_off_rates = extract_apc_counts(int(nr_intervals), odt_stops, odt_interval_len_min,
+    # apc_df = pd.read_csv(path_apc_counts)
+    # apc_on_rates, apc_off_rates = extract_apc_counts(apc_df, int(nr_intervals), odt_stops, odt_interval_len_min,
+    #                                                  dates)
+    apc_df2 = pd.read_csv('in/raw/rt20_more_apc.csv')
+    apc_on_rates, apc_off_rates = extract_apc_counts(apc_df2, int(nr_intervals), odt_stops, odt_interval_len_min,
                                                      dates)
     stops_lst = list(odt_stops)
 
@@ -160,15 +164,15 @@ def extract_outbound_params(start_time_sec, end_time_sec, nr_intervals, start_in
             temp = temp.dropna(subset=['seq_diff'])
             temp = temp[temp['seq_diff'] == 1.0]
             temp['link'] = temp['stop_id'].astype(str) + '-' + temp['next_stop_id']
-            temp['link_t'] = temp['next_arr_sec']%86400 - temp['avl_dep_sec']%86400
+            temp['link_t'] = temp['next_arr_sec'] % 86400 - temp['avl_dep_sec'] % 86400
             temp = temp[temp['link_t'] > 0.0]
             temp_links = temp['link'].tolist()
             temp_link_t = temp['link_t'].tolist()
             temp_start_sec = temp['avl_dep_sec'].tolist()
-            stop_2 = temp[temp['stop_sequence']==2]
+            stop_2 = temp[temp['stop_sequence'] == 2]
             if not stop_2.empty:
                 stop_2_schd_sec = stop_2['schd_sec'].iloc[0]
-                stop_2_avl_sec = stop_2['avl_dep_sec'].iloc[0]%86400
+                stop_2_avl_sec = stop_2['avl_dep_sec'].iloc[0] % 86400
                 delay_interv_idx = get_interval(stop_2_schd_sec, delay_interval_length) - delay_start_interval
                 dep_delay_ahead_dist[delay_interv_idx].append(stop_2_avl_sec - stop_2_schd_sec)
             for i in range(len(temp_links)):
@@ -182,7 +186,7 @@ def extract_outbound_params(start_time_sec, end_time_sec, nr_intervals, start_in
     for i in range(delay_nr_intervals):
         dep_delay_ahead_dist[i] = list(remove_outliers(np.array(dep_delay_ahead_dist[i])))
         arr = np.array(dep_delay_ahead_dist[i])
-        dep_delay_ahead_dist[i] = list(arr[arr<=delay_max])
+        dep_delay_ahead_dist[i] = list(arr[arr <= delay_max])
 
     mean_link_times = {link: [] for link in link_times}
     extreme_link_times = {link: [] for link in link_times}
@@ -329,7 +333,7 @@ def extract_inbound_params(start_time, end_time, dates, nr_intervals,
             if not s1.empty and not s2.empty:
                 t1 = s1['avl_dep_sec'].iloc[0] % 86400
                 t2 = s2['avl_arr_sec'].iloc[0] % 86400
-                diff_tt[trip_link].append(((t2-t1) - sched_run_t)/sched_run_t)
+                diff_tt[trip_link].append(((t2 - t1) - sched_run_t) / sched_run_t)
 
             if not sm.empty and not sm2.empty:
                 sm1_id = sm['stop_id'].iloc[0].astype(str)
@@ -339,10 +343,10 @@ def extract_inbound_params(start_time, end_time, dates, nr_intervals,
                 tm2 = sm2['avl_dep_sec'].iloc[0] % 86400
                 dep_del = tm - schd_sec[1]
                 dep_delay_new[stop_ids[0]][delay_idx].append(dep_del)
-                run_t = (tm2 - tm) + (schd_sec[1]-schd_sec[0]) + (schd_sec[-1]-schd_sec[-2])
+                run_t = (tm2 - tm) + (schd_sec[1] - schd_sec[0]) + (schd_sec[-1] - schd_sec[-2])
                 if trip_link == '15136-386':
-                    run_t += (schd_sec[-1]-schd_sec[-2])
-                diff_mm[trip_link].append((run_t - sched_run_t)/sched_run_t)
+                    run_t += (schd_sec[-1] - schd_sec[-2])
+                diff_mm[trip_link].append((run_t - sched_run_t) / sched_run_t)
                 run_times[trip_link][run_t_idx].append(run_t)
     # for link in diff_mm:
     #     print(link)
@@ -403,22 +407,22 @@ def get_load_profile(stop_times_path, focus_trips, stops):
     return lp, ons_set, offs_set
 
 
-def extract_apc_counts(nr_intervals, odt_ordered_stops, interval_len_min, dates):
+def extract_apc_counts(apc_df, nr_intervals, odt_ordered_stops, interval_len_min, dates):
     arr_rates = np.zeros(shape=(nr_intervals, len(odt_ordered_stops)))
     drop_rates = np.zeros(shape=(nr_intervals, len(odt_ordered_stops)))
-    apc_df = pd.read_csv(path_apc_counts)
+    # apc_df = pd.read_csv(path_apc_counts)
     for stop_idx in range(len(odt_ordered_stops)):
         print(f'stop {stop_idx + 1}')
         temp_df = apc_df[apc_df['stop_id'] == int(odt_ordered_stops[stop_idx])].copy()
         for interval_idx in range(48):
             t_edge0 = interval_idx * interval_len_min * 60
             t_edge1 = (interval_idx + 1) * interval_len_min * 60
-            pax_df = temp_df[temp_df['avl_dep_sec'] % 86400 <= t_edge1]
-            pax_df = pax_df[pax_df['avl_dep_sec'] % 86400 >= t_edge0]
+            pax_df = temp_df[temp_df['avl_sec'] % 86400 <= t_edge1].copy()
+            pax_df = pax_df[pax_df['avl_sec'] % 86400 >= t_edge0]
             ons_rate_by_date = np.zeros(len(dates))
             ons_rate_by_date[:] = np.nan
             for k in range(len(dates)):
-                day_df = pax_df[pax_df['avl_arr_time'].astype(str).str[:10] == dates[k]]
+                day_df = pax_df[pax_df['event_time'].astype(str).str[:10] == dates[k]].copy()
                 if not day_df.empty:
                     ons_rate_by_date[k] = (day_df['ron'].sum() + day_df['fon'].sum()) * 60 / interval_len_min
             all_nan = True not in np.isfinite(ons_rate_by_date)
@@ -427,7 +431,7 @@ def extract_apc_counts(nr_intervals, odt_ordered_stops, interval_len_min, dates)
             offs_rate_by_date = np.zeros(len(dates))
             offs_rate_by_date[:] = np.nan
             for k in range(len(dates)):
-                day_df = pax_df[pax_df['avl_arr_time'].astype(str).str[:10] == dates[k]]
+                day_df = pax_df[pax_df['event_time'].astype(str).str[:10] == dates[k]]
                 if not day_df.empty:
                     offs_rate_by_date[k] = (day_df['roff'].sum() + day_df['foff'].sum()) * 60 / interval_len_min
             all_nan = True not in np.isfinite(offs_rate_by_date)

@@ -13,8 +13,8 @@ from Simulation_Processor import run_base, train_rl, test_rl, run_base_dispatchi
 # rl_dispatch(1000, train=True, prob_cancel=0.25)
 
 
-def test_scenarios(nc=False, eh=False, ehx=False, rl=False, prob_cancel=None, rl_policy=None, replications=None,
-                   save_results=False):
+def test_scenarios(nc=False, dc=False, dcmrh=False, dcx=False, dcxmrh=False, rl=False,
+                   prob_cancel=None, rl_policy=None, replications=None, save_results=False):
     for p in prob_cancel:
         cancelled_blocks = [[] for _ in range(replications)]
         for i in range(replications):
@@ -22,17 +22,24 @@ def test_scenarios(nc=False, eh=False, ehx=False, rl=False, prob_cancel=None, rl
                 if np.random.uniform(0, 1) < p:
                     cancelled_blocks[i].append(BLOCK_TRIPS_INFO[j][0])
         if nc:
-            run_base_dispatching(replications=replications, save_results=save_results, save_folder='NC_dispatch',
+            run_base_dispatching(replications=replications, save_results=save_results, save_folder='NC',
                                  prob_cancel=p, cancelled_blocks=cancelled_blocks)
-        if eh:
-            run_base_dispatching(replications=replications, save_results=save_results, save_folder='EH_dispatch',
-                                 prob_cancel=p, cancelled_blocks=cancelled_blocks, control_strategy='EH')
+        if dc:
+            run_base_dispatching(replications=replications, save_results=save_results, save_folder='DC',
+                                 prob_cancel=p, cancelled_blocks=cancelled_blocks, control_strategy='DC')
+        if dcmrh:
+            run_base_dispatching(replications=replications, save_results=save_results, save_folder='DC+MRH',
+                                 prob_cancel=p, cancelled_blocks=cancelled_blocks, control_strategy='DC+MRH')
+        if dcx:
+            run_base_dispatching(replications=replications, save_results=save_results, save_folder='DCX',
+                                 prob_cancel=p, cancelled_blocks=cancelled_blocks, control_strategy='DCX')
+        if dcxmrh:
+            run_base_dispatching(replications=replications, save_results=save_results, save_folder='DCX+MRH',
+                                 prob_cancel=p, cancelled_blocks=cancelled_blocks, control_strategy='DCX+MRH')
         if rl:
-            rl_dispatch(replications, save_results=save_results, save_folder='RL_dispatch', prob_cancel=p,
+            rl_dispatch(replications, save_results=save_results, save_folder='RL', prob_cancel=p,
                         cancelled_blocks=cancelled_blocks, tstamp_policy=rl_policy)
-        if ehx:
-            run_base_dispatching(replications=replications, save_results=save_results, save_folder='EHX_dispatch',
-                                 prob_cancel=p, cancelled_blocks=cancelled_blocks, control_strategy='EHX')
+
     return
 
 
@@ -51,20 +58,19 @@ def validate(sim_out_path=None, sim_in_path=None, avl_path=None):
 
 
 def plot_results():
-    # scenario_titles = ['No Control', 'Even Headway']
-    # scenarios = [['NC_dispatch/0711-131434', 'NC_dispatch/0711-131451', 'NC_dispatch/0711-131507'],
-    #              ['EH_dispatch/0711-131442', 'EH_dispatch/0711-131459', 'EH_dispatch/0711-131514']]
-    # method_tags = ['NC', 'EH']
-    scenario_titles = ['No Control', 'Even Headway', 'Even Headway + Express']
-    scenarios = [['NC_dispatch/0715-182314', 'NC_dispatch/0715-182332', 'NC_dispatch/0715-182350'],
-                 ['EH_dispatch/0715-182320', 'EH_dispatch/0715-182338', 'EH_dispatch/0715-182355'],
-                 ['EHX_dispatch/0715-182326', 'EHX_dispatch/0715-182344', 'EHX_dispatch/0715-182401']]
-    method_tags = ['NC', 'EH', 'EHX']
+    # scenario_titles = ['NC', 'DC', 'DC+MHR',
+    #                   'Dispatching Control with Expressing']
+    scenarios = [['NC/0719-145052', 'NC/0719-145130', 'NC/0719-145208'],
+                 ['DC/0719-145059', 'DC/0719-145137', 'DC/0719-145217'],
+                 ['DC+MRH/0719-145107', 'DC+MRH/0719-145146', 'DC+MRH/0719-145239'],
+                 ['DCX/0719-145115', 'DCX/0719-145153', 'DCX/0719-145247'],
+                 ['DCX+MRH/0719-145122', 'DCX+MRH/0719-145201', 'DCX+MRH/0719-145255']]
+    method_tags = ['NC', 'DC', 'DC+MRH', 'DCX', 'DCX+MRH']
     scenario_tags = [0, 15, 30]
-    replication = 4
-    time_period = (int(6.5 * 60 * 60), int(8.5 * 60 * 60))
+    replication = 3
+    time_period = (int(6.0 * 60 * 60), int(8.5 * 60 * 60))
     fig_dir = 'out/compare/benchmark/trajectories.png'
-    trajectory_plots([scenarios[0][-1], scenarios[1][-1], scenarios[2][-1]], scenario_titles,
+    trajectory_plots([sc[-1] for sc in scenarios], method_tags,
                      scheduled_trajectories_out, time_period, replication, fig_dir=fig_dir)
 
     fig_dir = 'out/compare/benchmark/cv_hw.png'
@@ -80,7 +86,11 @@ def plot_results():
     return
 
 
-# test_scenarios(ehx=True, prob_cancel=[0.2], replications=1)
+# validate(sim_out_path='out/NC/0718-170001-trip_record_ob.pkl', sim_in_path='out/NC/0718-170001-trip_record_ib.pkl',
+#          avl_path='in/raw/rt20_avl_2019-09.csv')
+# test_scenarios(nc=True, prob_cancel=[0.0], replications=10, save_results=True)
+# test_scenarios(dcmrh=True, prob_cancel=[0.2], replications=1)
 # test_scenarios(rl=True, prob_cancel=[0.25], replications=2, rl_policy='0710-2347')
-# test_scenarios(nc=True, eh=True, ehx=True, prob_cancel=[0.0, 0.15, 0.3], save_results=True, replications=15)
+# test_scenarios(nc=True, dc=True, dcmrh=True, dcx=True, dcxmrh=True,
+#                prob_cancel=[0.0, 0.15, 0.3], save_results=True, replications=15)
 plot_results()

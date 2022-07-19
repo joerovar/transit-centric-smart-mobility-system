@@ -35,9 +35,9 @@ def run_base_dispatching(replications, prob_cancel=0.0, save_results=False, cont
     pax_record_set = []
     for i in range(replications):
         cancelled = cancelled_blocks[i] if cancelled_blocks else None
-        env = Simulation_Envs.DetailedSimulationEnvWithDispatching(prob_cancelled_block=prob_cancel,
-                                                                   control_strategy=control_strategy,
-                                                                   cancelled_blocks=cancelled)
+        env = Simulation_Envs.SimulationEnvWithCancellations(prob_cancelled_block=prob_cancel,
+                                                             control_strategy=control_strategy,
+                                                             cancelled_blocks=cancelled)
         done = env.reset_simulation()
         while not done:
             done = env.prep()
@@ -116,9 +116,9 @@ def rl_dispatch(n_episodes, train=False, prob_cancel=0.0, weight_hold_t=0.0, sav
     for j in range(n_episodes):
         score = 0
         cancelled = cancelled_blocks[j] if cancelled_blocks else None
-        env = Simulation_Envs.DetailedSimulationEnvWithDispatching(prob_cancelled_block=prob_cancel,
-                                                                   control_strategy='RL', weight_hold_t=weight_hold_t,
-                                                                   cancelled_blocks=cancelled)
+        env = Simulation_Envs.SimulationEnvWithCancellations(prob_cancelled_block=prob_cancel,
+                                                             control_strategy='RL', weight_hold_t=weight_hold_t,
+                                                             cancelled_blocks=cancelled)
         done = env.reset_simulation()
         while not done:
             done = env.prep()
@@ -190,10 +190,10 @@ def run_base(replications=4, save_results=False, control_eh=False, hold_adj_fact
     pax_record_set = []
     for i in range(replications):
         if control_eh:
-            env = Simulation_Envs.DetailedSimulationEnvWithControl(hold_adj_factor=hold_adj_factor, tt_factor=tt_factor,
-                                                                   control_strength=control_strength)
+            env = Simulation_Envs.SimulationEnvWithHolding(hold_adj_factor=hold_adj_factor, tt_factor=tt_factor,
+                                                           control_strength=control_strength)
         else:
-            env = Simulation_Envs.DetailedSimulationEnv(tt_factor=tt_factor)
+            env = Simulation_Envs.SimulationEnv(tt_factor=tt_factor)
         done = env.reset_simulation()
         while not done:
             done = env.prep()
@@ -239,8 +239,8 @@ def train_rl(n_episodes_train, simple_reward=False):
     n_steps = 0
     for j in range(n_episodes_train):
         score = 0
-        env = Simulation_Envs.DetailedSimulationEnvWithDeepRL(hold_adj_factor=HOLD_ADJ_FACTOR,
-                                                              weight_ride_t=WEIGHT_RIDE_T)
+        env = Simulation_Envs.SimulationEnvWithRL(hold_adj_factor=HOLD_ADJ_FACTOR,
+                                                  weight_ride_t=WEIGHT_RIDE_T)
         done = env.reset_simulation()
         done = env.prep()
         nr_sars_stored = 0
@@ -313,8 +313,8 @@ def test_rl(n_episodes_test, tstamp_policy, save_results=False, simple_reward=Fa
     in_trip_record_set = []
     pax_record_set = []
     for j in range(n_episodes_test):
-        env = Simulation_Envs.DetailedSimulationEnvWithDeepRL(tt_factor=TT_FACTOR, hold_adj_factor=HOLD_ADJ_FACTOR,
-                                                              estimate_pax=ESTIMATED_PAX)
+        env = Simulation_Envs.SimulationEnvWithRL(tt_factor=TT_FACTOR, hold_adj_factor=HOLD_ADJ_FACTOR,
+                                                  estimate_pax=ESTIMATED_PAX)
         done = env.reset_simulation()
         done = env.prep()
         while not done:
@@ -359,7 +359,7 @@ def test_rl(n_episodes_test, tstamp_policy, save_results=False, simple_reward=Fa
 
 def run_sample_rl(episodes=1, simple_reward=False, weight_ride_t=0.0):
     for _ in range(episodes):
-        env = Simulation_Envs.DetailedSimulationEnvWithDeepRL(estimate_pax=True, weight_ride_t=weight_ride_t)
+        env = Simulation_Envs.SimulationEnvWithRL(estimate_pax=True, weight_ride_t=weight_ride_t)
         done = env.reset_simulation()
         done = env.prep()
         while not done:

@@ -4,6 +4,5 @@ import pandas as pd
 import numpy as np
 import os
 
-lst = [12, 3]
-print(lst*3)
-print(int(True))
+a = [[1, 2, 3], [3, 4, 5]]
+print(np.nanmean(a, axis=0))

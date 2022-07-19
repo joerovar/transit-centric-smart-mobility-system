@@ -14,13 +14,10 @@ def load_plots(scenarios, scenario_tags, method_tags, stops, period, fig_dir=Non
                      'prc_cancel': scenario_tags}
     for m in method_tags:
         numer_results[m] = []
-    # scenario_tags = [0, 10, 25]
-    # method_tags = ['NC', 'EH']
-    # plt.close()
-    # numer_results = {}
-    fig, ax = plt.subplots(figsize=(10, 6))
-    linestyles = ['solid', 'dashdot', 'dotted']
-    colors = ['black', 'green', 'blue']
+    fig, axs = plt.subplots(ncols=len(scenario_tags), figsize=(15, 6), sharey='all')
+    colors = ['black', 'green', 'blue', 'red', 'brown']
+    # linestyles = ['solid', 'dashdot', 'dotted']
+    # colors = ['black', 'green', 'blue']
     for i in range(len(method_tags)):
         for j in range(len(scenario_tags)):
             load = []
@@ -30,11 +27,12 @@ def load_plots(scenarios, scenario_tags, method_tags, stops, period, fig_dir=Non
                               (df['arr_sec'] >= period[0])]['pax_load'].quantile(0.95)
                 load.append(load_tmp)
             numer_results[method_tags[i]].append(max(load))
-            ax.plot(load, label=method_tags[i] + ' ' + str(scenario_tags[j]) + '%', linestyle=linestyles[j],
-                    color=colors[i])
-    ax.set_ylabel('90th percentile load')
-    ax.set_xlabel('stops')
-    ax.legend()
+            axs[j].plot(load, label=method_tags[i], color=colors[i])
+    for j in range(len(scenario_tags)):
+        axs[j].set_ylabel('95th percentile load')
+        axs[j].set_xlabel('stops')
+        axs[j].set_title(f'{scenario_tags[j]} % cancelled')
+    axs[0].legend()
     if fig_dir:
         plt.savefig(fig_dir)
     else:
@@ -44,7 +42,7 @@ def load_plots(scenarios, scenario_tags, method_tags, stops, period, fig_dir=Non
 
 
 def trajectory_plots(scenarios, scenario_titles, scheduled_trajectories, period, replication, fig_dir=None):
-    fig, axs = plt.subplots(nrows=len(scenarios), sharex='all', figsize=(12, 8))
+    fig, axs = plt.subplots(nrows=len(scenarios), sharex='all', figsize=(14, 10))
 
     df_sched_t_rep = pd.DataFrame(scheduled_trajectories, columns=['trip_id', 'schd_sec', 'dist_traveled'])
     df_sched_t_rep['dist_traveled'] = df_sched_t_rep['dist_traveled'] / 3281
@@ -97,19 +95,21 @@ def cv_hw_plot(scenarios, stops, period, scenario_tags, method_tags, fig_dir=Non
                      'prc_cancel': scenario_tags}
     for m in method_tags:
         numer_results[m] = []
-    linestyles = ['solid', 'dashdot', 'dotted']
-    colors = ['black', 'green', 'blue']
-    fig, ax = plt.subplots(figsize=(10, 6))
+    # linestyles = ['solid', 'dashdot', 'dotted']
+    colors = ['black', 'green', 'blue', 'red', 'brown']
+    fig, axs = plt.subplots(ncols=len(scenario_tags), figsize=(15, 6), sharey='all')
     for i in range(len(method_tags)):
         for j in range(len(scenario_tags)):
             df_out = pd.read_pickle('out/' + scenarios[i][j] + '-trip_record_ob.pkl')
-            lbl = method_tags[i] + ' ' + str(scenario_tags[j]) + '%'
+            lbl = method_tags[i]
             cv = cv_hw_by_time(df_out, period[0], period[1], stops)
-            ax.plot(np.arange(len(stops)), cv, label=lbl, linestyle=linestyles[j], color=colors[i])
+            axs[j].plot(np.arange(len(stops)), cv, label=lbl, color=colors[i])
             numer_results[method_tags[i]].append(np.mean(cv))
-    plt.ylabel('c.v. headway')
-    plt.xlabel('stops')
-    plt.legend()
+    for j in range(len(scenario_tags)):
+        axs[j].set_ylabel('c.v. headway')
+        axs[j].set_xlabel('stops')
+        axs[j].set_title(f'{scenario_tags[j]} % cancelled')
+    axs[0].legend()
     if fig_dir:
         plt.savefig(fig_dir)
     else:
@@ -128,7 +128,7 @@ def pax_times_plot(scenarios, boarding_stops, alighting_stops,
     for m in method_tags:
         wt_numer[m], rbt_numer[m] = [], []
     df_plot = pd.DataFrame({'method': [], 'cancelled': [], 'wt':[]})
-    fig, axs = plt.subplots(ncols=2, figsize=(12, 8))
+    fig, axs = plt.subplots(nrows=2, figsize=(12, 8))
     for i in range(len(method_tags)):
         rbt = []
         for j in range(len(scenario_tags)):
@@ -138,7 +138,7 @@ def pax_times_plot(scenarios, boarding_stops, alighting_stops,
             df_p = df_p[df_p['dest_idx'].isin(alighting_stops)].copy()
             df_p['wt'] = df_p['board_time'] - df_p['arr_time']
             wt_tmp = df_p['wt'].copy() / 60
-            wt_numer[method_tags[i]].append(wt_tmp.mean() / 60)
+            wt_numer[method_tags[i]].append(wt_tmp.mean())
             d = {'method': [method_tags[i]] * wt_tmp.shape[0],
                  'cancelled': [int(scenario_tags[j])] * wt_tmp.shape[0],
                  'wt': wt_tmp.tolist()}
@@ -162,14 +162,10 @@ def pax_times_plot(scenarios, boarding_stops, alighting_stops,
     axs[1].legend()
     axs[1].set_ylabel('reliability buffer time (min)')
     axs[1].set_xlabel('% cancelled')
+    axs[1].set_xticks(scenario_tags)
     sns.boxplot(x='cancelled', y='wt', hue='method', data=df_plot, showfliers=False, ax=axs[0])
     axs[0].set_ylabel('wait time (min)')
     axs[0].set_xlabel('% cancelled')
-    # axs.legend()
-    # axs.set_ylim(0, 10.0)
-    # axs.set_xlabel('% runs cancelled')
-    # axs.set_ylabel('average wait time (min)')
-    # axs.set_xticks(scenario_tags)
     if fig_dir:
         plt.savefig(fig_dir)
     else:
@@ -209,22 +205,6 @@ def plot_learning(x, scores, filename, lines=None, epsilons=None):
             plt.axvline(x=line)
 
     plt.savefig(filename)
-    return
-
-
-def compute_rbt(scenarios, pax_df, stops, period, scenario_tags, method_tags):
-    numer_results = {'parameter': ['wt' for _ in range(len(scenario_tags))],
-                     'prc_cancel': scenario_tags}
-    for m in method_tags:
-        numer_results[m] = []
-    for k in range(len(method_tags)):
-        for h in range(len(scenario_tags)):
-            rbt_counter = 0
-            pax_df_ = pax_df[(pax_df['arr_time'] <= period[1]) & (pax_df['arr_time'] >= period[0])].copy()
-            for i in range(len(stops)):
-                for j in range(i, len(stops)):
-                    tmp_df = pax_df_[(pax_df_['orig_idx'] == stops[i]) & (pax_df_['dest_idx'] == stops[j])].copy()
-            numer_results[method_tags[k]].append()
     return
 
 
