@@ -5,9 +5,17 @@ from Inputs import DATES, START_TIME_SEC, END_TIME_SEC, LINK_TIMES_MEAN, STOPS_O
 from Inputs import scheduled_trajectories_out
 from Output_Processor import validate_delay_outbound, validate_delay_inbound, validate_cv_hw_outbound
 from Output_Processor import validate_trip_t_outbound, trajectory_plots, cv_hw_plot, pax_times_plot, load_plots
+from Output_Processor import plot_run_times
 from Simulation_Processor import run_base, train_rl, test_rl, run_base_dispatching, rl_dispatch
+from Output_Processor import dwell_t_outbound
 
-# nr_reps = 1
+# avl_df = pd.read_csv('in/raw/rt20_avl_2019-09.csv')
+# sim_df = pd.read_pickle('out/NC/0719-145052-trip_record_ob.pkl')
+# dwell1 = dwell_t_outbound(avl_df, 2, 9, STOPS_OUT_FULL_PATT, 'avl_arr_sec', 'avl_dep_sec', 60, START_TIME_SEC,
+#                           END_TIME_SEC, is_avl=True, dates=DATES)
+# dwell2 = dwell_t_outbound(sim_df, 2, 9, STOPS_OUT_FULL_PATT, 'arr_sec', 'dep_sec', 60, START_TIME_SEC, END_TIME_SEC)
+# print([np.round(np.mean(d)) for d in dwell1])
+# print([np.round(np.mean(d)) for d in dwell2])
 
 # train RL
 # rl_dispatch(1000, train=True, prob_cancel=0.25)
@@ -68,7 +76,7 @@ def plot_results():
     method_tags = ['NC', 'DC', 'DC+MRH', 'DCX', 'DCX+MRH']
     scenario_tags = [0, 15, 30]
     replication = 3
-    time_period = (int(6.0 * 60 * 60), int(8.5 * 60 * 60))
+    time_period = (int(6.5 * 60 * 60), int(8.5 * 60 * 60))
     fig_dir = 'out/compare/benchmark/trajectories.png'
     trajectory_plots([sc[-1] for sc in scenarios], method_tags,
                      scheduled_trajectories_out, time_period, replication, fig_dir=fig_dir)
@@ -81,16 +89,19 @@ def plot_results():
                            time_period, method_tags, scenario_tags, fig_dir=fig_dir)
     fig_dir = 'out/compare/benchmark/loads.png'
     df_l = load_plots(scenarios, scenario_tags, method_tags, STOPS_OUT_FULL_PATT, time_period, fig_dir=fig_dir)
+
+    fig_dir = 'out/compare/benchmark/run_times.png'
+    plot_run_times(scenarios, scenario_tags, method_tags, STOPS_OUT_FULL_PATT, fig_dir=fig_dir)
+
     df_results = pd.concat([df_h, df_pt, df_l], ignore_index=True)
     df_results.to_csv('out/compare/benchmark/numer_results.csv', index=False)
     return
 
-
-# validate(sim_out_path='out/NC/0718-170001-trip_record_ob.pkl', sim_in_path='out/NC/0718-170001-trip_record_ib.pkl',
-#          avl_path='in/raw/rt20_avl_2019-09.csv')
+# validate(sim_out_path='out/NC/0719-145052-trip_record_ob.pkl', sim_in_path='out/NC/0719-145052-trip_record_ib.pkl',
+#         avl_path='in/raw/rt20_avl_2019-09.csv')
 # test_scenarios(nc=True, prob_cancel=[0.0], replications=10, save_results=True)
 # test_scenarios(dcmrh=True, prob_cancel=[0.2], replications=1)
 # test_scenarios(rl=True, prob_cancel=[0.25], replications=2, rl_policy='0710-2347')
 # test_scenarios(nc=True, dc=True, dcmrh=True, dcx=True, dcxmrh=True,
 #                prob_cancel=[0.0, 0.15, 0.3], save_results=True, replications=15)
-plot_results()
+# plot_results()

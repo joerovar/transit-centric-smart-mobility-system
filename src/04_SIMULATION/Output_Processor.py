@@ -9,6 +9,31 @@ from datetime import timedelta
 from Input_Processor import get_interval, remove_outliers
 
 
+def plot_run_times(scenarios, scenario_tags, method_tags, stops, fig_dir=None):
+    intervals = [6, 7, 8]
+    fig, axs = plt.subplots(nrows=len(scenario_tags), sharey='all', figsize=(12, 10))
+    for i in range(len(scenario_tags)):
+        data = pd.DataFrame(columns=['method', 'run_time', 'dep_t'])
+        for j in range(len(method_tags)):
+            d = pd.DataFrame(columns=['method', 'run_time', 'dep_t'])
+            df = pd.read_pickle('out/' + scenarios[j][i] + '-trip_record_ob.pkl')
+            run_ts = trip_t_outbound(df, 6*60*60, 9*60*60, 60, stops, 'arr_sec', 'dep_sec')
+            for k in range(len(intervals)):
+                method_rows = [method_tags[j]] * len(run_ts[k])
+                dep_t_rows = [intervals[k]] * len(run_ts[k])
+                tmp_d = pd.DataFrame(list(zip(method_rows, run_ts[k], dep_t_rows)), columns=['method', 'run_time', 'dep_t'])
+                d = pd.concat([d, tmp_d], ignore_index=True)
+            data = pd.concat([data, d], ignore_index=True)
+        sns.boxplot(x='dep_t', y='run_time', hue='method', data=data, ax=axs[i], showfliers=False)
+        axs[i].set_title(str(scenario_tags[i]) + '% cancelled')
+    plt.tight_layout()
+    if fig_dir:
+        plt.savefig(fig_dir)
+    else:
+        plt.show()
+    return
+
+
 def load_plots(scenarios, scenario_tags, method_tags, stops, period, fig_dir=None):
     numer_results = {'parameter': ['lp' for _ in range(len(scenario_tags))],
                      'prc_cancel': scenario_tags}
@@ -37,6 +62,7 @@ def load_plots(scenarios, scenario_tags, method_tags, stops, period, fig_dir=Non
         plt.savefig(fig_dir)
     else:
         plt.show()
+    plt.close()
     df = pd.DataFrame(numer_results)
     return df
 
@@ -127,7 +153,7 @@ def pax_times_plot(scenarios, boarding_stops, alighting_stops,
                  'prc_cancel': scenario_tags}
     for m in method_tags:
         wt_numer[m], rbt_numer[m] = [], []
-    df_plot = pd.DataFrame({'method': [], 'cancelled': [], 'wt':[]})
+    df_plot = pd.DataFrame({'method': [], 'cancelled': [], 'wt': []})
     fig, axs = plt.subplots(nrows=2, figsize=(12, 8))
     for i in range(len(method_tags)):
         rbt = []
@@ -210,11 +236,14 @@ def plot_learning(x, scores, filename, lines=None, epsilons=None):
 
 def validate_trip_t_outbound(avl_df, sim_df, start_time, end_time, stops, path_trip_t, path_dwell_t, dates,
                              ignore_terminals=False):
-    trip_t_avl, dwell_t_avl = trip_t_outbound(avl_df, start_time, end_time, 60, stops, 'avl_arr_sec',
-                                              'avl_dep_sec', is_avl=True, dates=dates,
-                                              ignore_terminals=ignore_terminals)
-    trip_t_sim, dwell_t_sim = trip_t_outbound(sim_df, start_time, end_time, 60, stops, 'arr_sec',
-                                              'dep_sec', ignore_terminals=ignore_terminals)
+    trip_t_avl = trip_t_outbound(avl_df, start_time, end_time, 60, stops, 'avl_arr_sec',
+                                 'avl_dep_sec', is_avl=True, dates=dates,
+                                 ignore_terminals=ignore_terminals)
+    dwell_t_avl = dwell_t_outbound(avl_df, 2, 66, stops, 'avl_arr_sec', 'avl_dep_sec', 60, start_time, end_time,
+                                   is_avl=True, dates=dates)
+    trip_t_sim = trip_t_outbound(sim_df, start_time, end_time, 60, stops, 'arr_sec',
+                                 'dep_sec', ignore_terminals=ignore_terminals)
+    dwell_t_sim = dwell_t_outbound(sim_df, 2, 66, stops, 'arr_sec', 'dep_sec', 60, start_time, end_time)
     plot_calib_hist(trip_t_avl, trip_t_sim, 5, path_trip_t, 'total trip time (seconds)')
     plot_calib_hist(dwell_t_avl, dwell_t_sim, 5, path_dwell_t, 'dwell time (seconds)')
     return
@@ -235,7 +264,6 @@ def trip_t_outbound(df_out, start_time, end_time, interval_length, stops_out, co
     interval0 = get_interval(start_time, interval_length)
     interval1 = get_interval(end_time, interval_length)
     trip_t = [[] for _ in range(interval0, interval1)]
-    dwell_t = [[] for _ in range(interval0, interval1)]
     if is_avl:
         nr_days = len(dates)
     else:
@@ -259,21 +287,50 @@ def trip_t_outbound(df_out, start_time, end_time, interval_length, stops_out, co
                 interval = get_interval(t0['schd_sec'], interval_length)
                 dep_t = t0[col_dep_t].astype(int)
                 arr_t = t1[col_arr_t].astype(int)
-                trip_t[interval - interval0].append(arr_t - dep_t)
-
-                mid_route_df = trip_df[(trip_df['stop_sequence'] != 1) & (trip_df['stop_sequence'] != 67)].copy()
-                if is_avl:
-                    mid_route_df = mid_route_df.drop_duplicates(subset='stop_sequence', keep='first')
-                if mid_route_df.shape[0] == 67 - 2:
-                    mid_route_df.loc[:, 'dwell_t'] = mid_route_df[col_dep_t] - mid_route_df[col_arr_t]
-                    dwell_t[interval - interval0].append(mid_route_df['dwell_t'].sum())
+                trip_t[interval - interval0].append((arr_t - dep_t)/60)
     if is_avl:
         for i in range(interval1 - interval0):
             if trip_t[i]:
                 trip_t[i] = remove_outliers(np.array(trip_t[i])).tolist()
-            if dwell_t[i]:
-                dwell_t[i] = remove_outliers(np.array(dwell_t[i])).tolist()
-    return trip_t, dwell_t
+    return trip_t
+
+
+def dwell_t_outbound(df_out, start_stop, end_stop, stops, col_arr_t, col_dep_t, interval_length,
+                     start_time, end_time, is_avl=False, dates=None):
+    focus_df_out = df_out[df_out['stop_sequence'] == 1].copy()
+    focus_df_out = focus_df_out[focus_df_out['schd_sec'] < end_time]
+    focus_df_out = focus_df_out[focus_df_out['schd_sec'] >= start_time]
+    if is_avl:
+        focus_df_out = focus_df_out[focus_df_out['stop_id'] == int(stops[0])]
+    else:
+        focus_df_out = focus_df_out[focus_df_out['stop_id'] == stops[0]]
+    focus_df_out = focus_df_out.sort_values(by='schd_sec')
+    focus_trips = focus_df_out['trip_id'].unique().tolist()
+    interval0 = get_interval(start_time, interval_length)
+    interval1 = get_interval(end_time, interval_length)
+    dwell_t = [[] for _ in range(interval0, interval1)]
+    if is_avl:
+        nr_days = len(dates)
+    else:
+        nr_days = df_out['replication'].max()
+    for i in range(nr_days):
+        if is_avl:
+            day_df = df_out[df_out['avl_arr_time'].astype(str).str[:10] == dates[i]].copy()
+        else:
+            day_df = df_out[df_out['replication'] == i + 1].copy()
+        for trip in focus_trips:
+            trip_df = day_df[day_df['trip_id'] == trip].copy()
+            t0 = trip_df[trip_df['stop_sequence'] == start_stop]
+            if not t0.empty:
+                interval = get_interval(t0['schd_sec'].iloc[0], interval_length)
+                mid_route_df = trip_df[
+                    (trip_df['stop_sequence'] >= start_stop) & (trip_df['stop_sequence'] <= end_stop)].copy()
+                if is_avl:
+                    mid_route_df = mid_route_df.drop_duplicates(subset='stop_sequence', keep='first')
+                if mid_route_df.shape[0] == end_stop - start_stop + 1:
+                    mid_route_df.loc[:, 'dwell_t'] = mid_route_df[col_dep_t] - mid_route_df[col_arr_t]
+                    dwell_t[interval - interval0].append(mid_route_df['dwell_t'].sum())
+    return dwell_t
 
 
 def validate_delay_inbound(avl_df, sim_df, start_t_sec, end_t_sec, start_interval, interval_mins=60):

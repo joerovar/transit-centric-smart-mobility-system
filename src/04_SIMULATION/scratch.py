@@ -4,5 +4,7 @@ import pandas as pd
 import numpy as np
 import os
 
-a = [[1, 2, 3], [3, 4, 5]]
-print(np.nanmean(a, axis=0))
+b = [1, 2, 3, 4, 5]
+a = ['NC'] * len(b)
+c = [5] * len(b)
+print(list(zip(a, b, c)))
