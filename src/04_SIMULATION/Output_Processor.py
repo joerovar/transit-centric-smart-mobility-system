@@ -9,9 +9,97 @@ from datetime import timedelta
 from Input_Processor import get_interval, remove_outliers
 
 
+def plot_pax_profile(df, stops, apc=False, path_savefig=None, path_savefig_max=None):
+    t0 = 6 * 60 * 60
+    t1 = 10 * 60 * 60
+    interv_len = 60 * 60
+    n_intervals = int((t1 - t0) / interv_len)
+    fig, axs = plt.subplots(nrows=2, ncols=2, figsize=(13, 8), sharey='all')
+    stops_x = np.arange(len(stops))
+    w_bar = 0.6
+    max_loads = []
+    max_ons = []
+    max_offs = []
+    for n in range(n_intervals):
+        tmp_t0 = t0 + n * interv_len
+        tmp_t1 = t0 + (n + 1) * interv_len
+        if apc:
+            tmp_df = df[(df['avl_sec'] >= tmp_t0) & (df['avl_sec'] < tmp_t1)].copy()
+        else:
+            tmp_df = df[(df['arr_sec'] >= tmp_t0) & (df['arr_sec'] < tmp_t1)].copy()
+        avg_loads = []
+        avg_ons = []
+        avg_offs = []
+        for s in stops:
+            if apc:
+                stop_df = tmp_df[tmp_df['stop_id'] == int(s)].copy()
+            else:
+                stop_df = tmp_df[tmp_df['stop_id'] == str(s)].copy()
+            if not stop_df.empty:
+                if apc:
+                    avg_loads.append(stop_df['passenger_load'].mean())
+                    stop_df['on'] = stop_df['ron'] + stop_df['fon']
+                    stop_df['off'] = stop_df['roff'] + stop_df['foff']
+                    avg_ons.append(stop_df['on'].mean())
+                    avg_offs.append(stop_df['off'].mean())
+                else:
+                    avg_loads.append(stop_df['pax_load'].mean())
+                    avg_ons.append(stop_df['ons'].mean())
+                    avg_offs.append(stop_df['offs'].mean())
+            else:
+                avg_loads.append(np.nan)
+                avg_ons.append(np.nan)
+                avg_offs.append(np.nan)
+        avg_loads[-1] = 0
+        avg_ons[-1] = 0
+        avg_offs[0] = 0
+        if n == 2:
+            max_loads = deepcopy(avg_loads)
+            max_ons = deepcopy(avg_ons)
+            max_offs = deepcopy(avg_offs)
+        axs2 = axs.flat[n].twinx()
+        axs2.bar(stops_x - w_bar / 2, avg_ons, w_bar)
+        axs2.bar(stops_x + w_bar / 2, avg_offs, w_bar)
+        axs2.set_ylim(0, 5)
+        axs.flat[n].plot(avg_loads, color='black')
+        axs.flat[n].set_ylim(0, 35)
+        axs.flat[n].set_title(f'{int(tmp_t0 / 60 / 60)} AM')
+        axs2.set_ylabel('ons/offs per trip')
+        axs.flat[n].set_ylabel('average pax load')
+    if path_savefig:
+        plt.savefig(path_savefig)
+    else:
+        plt.show()
+    plt.close()
+    fig, ax = plt.subplots(figsize=(8, 6))
+    ax2 = ax.twinx()
+    ax2.bar(stops_x - w_bar / 2, max_ons, w_bar, color='grey', label='ons')
+    ax2.bar(stops_x + w_bar / 2, max_offs, w_bar, color='black', label='offs')
+    ax2.set_ylabel('average ons/offs per trip')
+    ax.set_ylabel('average pax load')
+    ax.plot(max_loads, color='black', label='load')
+    ax.set_xlabel('stops')
+    ax.set_xticks(np.arange(0, len(stops), 10), labels=np.arange(1, len(stops)+1, 10))
+    ax.axvline(10, linestyle='dashed', label='express segment', color='black')
+    ax.axvline(0, linestyle='dashed', color='black')
+    ax.axvline(28, linestyle='dotted', label='mid holding stops', color='black')
+    ax.axvline(44, linestyle='dotted', color='black')
+    fig.legend(loc='upper center')
+    plt.tight_layout()
+    if path_savefig_max:
+        plt.savefig(path_savefig_max)
+    else:
+        plt.show()
+    plt.close()
+    return
+
+
 def plot_run_times(scenarios, scenario_tags, method_tags, stops, fig_dir=None):
     intervals = [6, 7, 8]
-    fig, axs = plt.subplots(nrows=len(scenario_tags), sharey='all', figsize=(12, 10))
+    fig, axs = plt.subplots(nrows=len(scenario_tags), sharey='all', figsize=(10, 10))
+    for ax in axs.flat:
+        ax.grid(axis='y')
+        ax.set_axisbelow(True)
     for i in range(len(scenario_tags)):
         data = pd.DataFrame(columns=['method', 'run_time', 'dep_t'])
         for j in range(len(method_tags)):
@@ -26,6 +114,8 @@ def plot_run_times(scenarios, scenario_tags, method_tags, stops, fig_dir=None):
             data = pd.concat([data, d], ignore_index=True)
         sns.boxplot(x='dep_t', y='run_time', hue='method', data=data, ax=axs[i], showfliers=False)
         axs[i].set_title(str(scenario_tags[i]) + '% cancelled')
+        axs[i].set_xlabel('departure time (h)')
+        axs[i].set_ylabel('run time distribution (min)')
     plt.tight_layout()
     if fig_dir:
         plt.savefig(fig_dir)
@@ -34,30 +124,33 @@ def plot_run_times(scenarios, scenario_tags, method_tags, stops, fig_dir=None):
     return
 
 
-def load_plots(scenarios, scenario_tags, method_tags, stops, period, fig_dir=None):
-    numer_results = {'parameter': ['lp' for _ in range(len(scenario_tags))],
+def load_plots(scenarios, scenario_tags, method_tags, stops, period, fig_dir=None, quantile=0.5):
+    par_lbl = str(round(quantile*100)) + 'load'
+    y_lbl = str(round(quantile*100)) + 'th percentile load'
+    numer_results = {'parameter': [par_lbl for _ in range(len(scenario_tags))],
                      'prc_cancel': scenario_tags}
     for m in method_tags:
         numer_results[m] = []
-    fig, axs = plt.subplots(ncols=len(scenario_tags), figsize=(15, 6), sharey='all')
-    colors = ['black', 'green', 'blue', 'red', 'brown']
-    # linestyles = ['solid', 'dashdot', 'dotted']
-    # colors = ['black', 'green', 'blue']
+    fig, axs = plt.subplots(ncols=len(scenario_tags), figsize=(13, 8), sharey='all')
+    colors = ['black', 'green', 'blue', 'red', 'brown', 'turquoise']
     for i in range(len(method_tags)):
         for j in range(len(scenario_tags)):
             load = []
             df = pd.read_pickle('out/' + scenarios[i][j] + '-trip_record_ob.pkl')
             for s in stops:
                 load_tmp = df[(df['stop_id'] == s) & (df['arr_sec'] <= period[1]) &
-                              (df['arr_sec'] >= period[0])]['pax_load'].quantile(0.95)
+                              (df['arr_sec'] >= period[0])]['pax_load'].quantile(quantile)
                 load.append(load_tmp)
             numer_results[method_tags[i]].append(max(load))
             axs[j].plot(load, label=method_tags[i], color=colors[i])
+
     for j in range(len(scenario_tags)):
-        axs[j].set_ylabel('95th percentile load')
+        axs[j].set_ylabel(y_lbl)
         axs[j].set_xlabel('stops')
         axs[j].set_title(f'{scenario_tags[j]} % cancelled')
+        axs[j].set_xticks(np.arange(0, len(stops), 10), labels=np.arange(1, len(stops) + 1, 10))
     axs[0].legend()
+    plt.tight_layout()
     if fig_dir:
         plt.savefig(fig_dir)
     else:
@@ -122,8 +215,8 @@ def cv_hw_plot(scenarios, stops, period, scenario_tags, method_tags, fig_dir=Non
     for m in method_tags:
         numer_results[m] = []
     # linestyles = ['solid', 'dashdot', 'dotted']
-    colors = ['black', 'green', 'blue', 'red', 'brown']
-    fig, axs = plt.subplots(ncols=len(scenario_tags), figsize=(15, 6), sharey='all')
+    colors = ['black', 'green', 'blue', 'red', 'brown', 'turquoise']
+    fig, axs = plt.subplots(ncols=len(scenario_tags), figsize=(13, 8), sharey='all')
     for i in range(len(method_tags)):
         for j in range(len(scenario_tags)):
             df_out = pd.read_pickle('out/' + scenarios[i][j] + '-trip_record_ob.pkl')
@@ -135,7 +228,10 @@ def cv_hw_plot(scenarios, stops, period, scenario_tags, method_tags, fig_dir=Non
         axs[j].set_ylabel('c.v. headway')
         axs[j].set_xlabel('stops')
         axs[j].set_title(f'{scenario_tags[j]} % cancelled')
+        axs[j].set_xticks(np.arange(0, len(stops), 10), labels=np.arange(1, len(stops) + 1, 10))
     axs[0].legend()
+
+    plt.tight_layout()
     if fig_dir:
         plt.savefig(fig_dir)
     else:
@@ -154,7 +250,9 @@ def pax_times_plot(scenarios, boarding_stops, alighting_stops,
     for m in method_tags:
         wt_numer[m], rbt_numer[m] = [], []
     df_plot = pd.DataFrame({'method': [], 'cancelled': [], 'wt': []})
-    fig, axs = plt.subplots(nrows=2, figsize=(12, 8))
+    fig, axs = plt.subplots(ncols=2, figsize=(12, 10))
+    axs[0].grid(axis='y')
+    axs[0].set_axisbelow(True)
     for i in range(len(method_tags)):
         rbt = []
         for j in range(len(scenario_tags)):
@@ -184,7 +282,7 @@ def pax_times_plot(scenarios, boarding_stops, alighting_stops,
             rbt_final = rbt_sum / rbt_counter / 60
             rbt_numer[method_tags[i]].append(rbt_final)
             rbt.append(rbt_final)
-        axs[1].plot(scenario_tags, rbt, label=method_tags[i])
+        axs[1].plot(scenario_tags, rbt, label=method_tags[i], marker='*')
     axs[1].legend()
     axs[1].set_ylabel('reliability buffer time (min)')
     axs[1].set_xlabel('% cancelled')
@@ -192,6 +290,7 @@ def pax_times_plot(scenarios, boarding_stops, alighting_stops,
     sns.boxplot(x='cancelled', y='wt', hue='method', data=df_plot, showfliers=False, ax=axs[0])
     axs[0].set_ylabel('wait time (min)')
     axs[0].set_xlabel('% cancelled')
+
     if fig_dir:
         plt.savefig(fig_dir)
     else:
@@ -695,42 +794,6 @@ def write_sars(trip_data, pathname, header=None):
                 stop_lst.insert(0, trip)
                 wf.writerow(stop_lst)
             i += 1
-    return
-
-
-def plot_pax_profile(bd, al, lp, os, through, pathname=None, x_y_lbls=None, controlled_stops=None):
-    w = 0.5
-    x1 = np.arange(len(os))
-    x2 = [i + w for i in x1]
-    fig, ax1 = plt.subplots()
-    ax2 = ax1.twinx()
-    ax1.bar(x1, bd, w, label='ons', color='darkgreen')
-    ax1.bar(x2, al, w, label='offs', color='palegreen')
-    ax2.plot(x1, lp, label='load', color='dodgerblue')
-    ax2.plot(x1, through, label='through', color='darkturquoise', linestyle='dashed')
-    if controlled_stops:
-        for cs in controlled_stops:
-            idx = os.index(cs)
-            if idx == 0:
-                plt.axvline(x=idx, color='black', alpha=0.7, linestyle='dashed', label='control stops')
-            else:
-                plt.axvline(x=idx, color='black', alpha=0.7, linestyle='dashed')
-    x_ticks = np.arange(0, len(os), 5)
-    x_tick_labels = x_ticks + 1
-    ax1.set_xticks(x_ticks)
-    ax1.set_xticklabels(x_tick_labels)
-    # right, left, top, bottom
-    if x_y_lbls:
-        ax1.set_xlabel(x_y_lbls[0])
-        ax1.set_ylabel(x_y_lbls[1], color='black')
-        ax2.set_ylabel(x_y_lbls[2], color='black')
-    plt.tight_layout()
-    fig.legend(loc='upper center')
-    if pathname:
-        plt.savefig(pathname)
-    else:
-        plt.show()
-    plt.close()
     return
 
 

@@ -46,9 +46,9 @@ class Bus:
         self.next_stop_id = None
         self.arr_t = float('nan')
         self.dep_t = float('nan')
-        self.ons = float('nan')
-        self.offs = float('nan')
-        self.denied = float('nan')
+        self.ons = 0
+        self.offs = 0
+        self.denied = 0
         self.cancelled = False
         self.cancelled_trips = []
         self.instructed_hold_time = None # at terminal

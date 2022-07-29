@@ -27,7 +27,7 @@ def write_trip_records(scenario, t, out_record_set, in_record_set, pax_record_se
     return
 
 
-def run_base_dispatching(replications, prob_cancel=0.0, save_results=False, control_strategy=None, save_folder=None,
+def run_base_dispatching(replications, capacity, prob_cancel=0.0, save_results=False, control_strategy=None, save_folder=None,
                          cancelled_blocks=None):
     tstamp = datetime.now().strftime('%m%d-%H%M%S')
     out_trip_record_set = []
@@ -37,7 +37,7 @@ def run_base_dispatching(replications, prob_cancel=0.0, save_results=False, cont
         cancelled = cancelled_blocks[i] if cancelled_blocks else None
         env = Simulation_Envs.SimulationEnvWithCancellations(prob_cancelled_block=prob_cancel,
                                                              control_strategy=control_strategy,
-                                                             cancelled_blocks=cancelled)
+                                                             cancelled_blocks=cancelled, bus_capacity=capacity)
         done = env.reset_simulation()
         while not done:
             done = env.prep()
@@ -62,18 +62,18 @@ def run_base_dispatching(replications, prob_cancel=0.0, save_results=False, cont
 
     if save_results:
         write_trip_records(save_folder, tstamp, out_trip_record_set, in_trip_record_set, pax_record_set)
-        if control_strategy == 'EH':
+        if control_strategy in ['DS', 'DS-MRH']:
             key_params = {'prob_cancel': [prob_cancel], 'n_replications': [replications],
                           'early_limit': [EARLY_DEP_LIMIT_SEC], 'late_limit': [IMPOSED_DELAY_LIMIT],
-                          'cancelled_blocks': [cancelled_blocks]}
-        elif control_strategy == 'EHX':
+                          'capacity': [capacity], 'cancelled_blocks': [cancelled_blocks]}
+        elif control_strategy in ['DSX', 'DSX-MRH']:
             key_params = {'prob_cancel': [prob_cancel], 'n_replications': [replications],
                           'early_limit': [EARLY_DEP_LIMIT_SEC], 'late_limit': [IMPOSED_DELAY_LIMIT],
                           'expres_dist': [EXPRESS_DIST], 'express_fh_limit': [FW_H_LIMIT_EXPRESS],
                           'express_bh_limit': [BW_H_LIMIT_EXPRESS], 'express_fbh_limit': [BF_H_LIMIT_EXPRESS],
-                          'cancelled_blocks': [cancelled_blocks]}
+                          'capacity': [capacity], 'cancelled_blocks': [cancelled_blocks]}
         else:
-            key_params = {'prob_cancel': [prob_cancel], 'n_replications': [replications],
+            key_params = {'prob_cancel': [prob_cancel], 'n_replications': [replications], 'capacity': [capacity],
                           'cancelled_blocks': [cancelled_blocks]}
         pd.DataFrame(key_params).to_csv('out/' + save_folder + '/' + tstamp + '-key_params' + ext_csv, index=False)
     return

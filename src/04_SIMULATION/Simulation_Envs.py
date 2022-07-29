@@ -37,9 +37,54 @@ def get_reward(fw_hs, bw_hs, hold_t, weight_hold_t):
     return reward
 
 
+def load_pax(stop, t, bus, bus_cap, next_stops, trip_id, on_dwell=False):
+    pax = sorted(stop.pax, key=lambda x: x.arr_time)
+    if len(pax) > 1:
+        sorted_times = [p.arr_time for p in pax]
+        if sorted_times[-1] > t:
+            idx = next(x[0] for x in enumerate(sorted_times) if x[1] > t)
+            curr_pax = pax[:idx]
+            later_pax = pax[idx:]
+        else:
+            curr_pax = pax
+            later_pax = []
+    elif len(pax) == 1:
+        if pax[0].arr_time <= t:
+            curr_pax = pax
+            later_pax = []
+        else:
+            curr_pax = []
+            later_pax = pax
+    else:
+        return
+    valid_pax = [p for p in curr_pax if str(p.dest_id) in next_stops]
+    non_valid_pax = [p for p in curr_pax if str(p.dest_id) not in next_stops]
+    later_pax = non_valid_pax + later_pax
+    max_pax = bus_cap - len(bus.pax)
+    if len(valid_pax) <= max_pax:
+        board_pax = valid_pax
+        denied_pax = []
+    else:
+        board_pax = valid_pax[:max_pax]
+        denied_pax = valid_pax[max_pax:]
+    for p in board_pax:
+        p.board_time = float(t)
+        p.trip_id = trip_id
+    for p in denied_pax:
+        p.denied = 1
+    stop.pax = denied_pax + later_pax
+    bus.pax += board_pax
+    if on_dwell:
+        bus.ons += len(board_pax)
+    else:
+        bus.ons = len(board_pax)
+    bus.denied = len(denied_pax)
+    return
+
+
 class SimulationEnv:
     def __init__(self, time_dependent_travel_time=True, time_dependent_demand=True,
-                 tt_factor=1.0, hold_adj_factor=0.0):
+                 tt_factor=1.0, hold_adj_factor=0.0, bus_capacity=HIGH_CAPACITY):
         self.stops = {}
         self.completed_pax = []
         self.buses = []
@@ -54,6 +99,7 @@ class SimulationEnv:
         self.time = 0.0
         self.tt_factor = tt_factor
         self.hold_adj_factor = hold_adj_factor
+        self.bus_capacity = bus_capacity
 
     def estimate_arrival_time(self, start_time, start_stop, end_stop, time_dependent_tt, current_time):
         stops = self.bus.active_trip[0].stops
@@ -174,7 +220,7 @@ class SimulationEnv:
         first_link = stops[0] + '-' + stops[1]
         if link in [first_link, last_link]:
             # problematic
-            return (bus.active_trip[0].schedule[stop_idx + 1] - bus.active_trip[0].schedule[stop_idx])*1.8
+            return (bus.active_trip[0].schedule[stop_idx + 1] - bus.active_trip[0].schedule[stop_idx]) * 1.8
         if self.time_dependent_travel_time:
             link_time_params = LINK_TIMES_PARAMS[link][interv_idx]
             link_time_extremes = LINK_TIMES_EXTREMES[link][interv_idx]
@@ -296,20 +342,8 @@ class SimulationEnv:
         bus.denied = 0
         bus.ons = 0
         next_stops = stops[curr_stop_idx + 1:]
-        for p in self.stops[bus.last_stop_id].pax.copy():
-            if p.arr_time <= self.time and p.dest_id in next_stops:
-                if len(bus.pax) + 1 <= CAPACITY:
-                    p.trip_id = bus.active_trip[0].trip_id
-                    p.board_time = float(self.time)
-                    p.wait_time = float(p.board_time - p.arr_time)
-                    bus.pax.append(p)
-                    self.stops[bus.last_stop_id].pax.remove(p)
-                    bus.ons += 1
-                else:
-                    p.denied = 1
-                    bus.denied += 1
-            else:
-                break
+        load_pax(self.stops[bus.last_stop_id], self.time, bus, self.bus_capacity, next_stops,
+                 bus.active_trip[0].trip_id)
         return
 
     def fixed_stop_depart(self, hold=0):
@@ -324,21 +358,9 @@ class SimulationEnv:
             dwell_time = max(hold, dwell_time_pax)
         bus.dep_t = self.time + dwell_time
         next_stops = stops[curr_stop_idx + 1:]
-        for p in self.stops[bus.last_stop_id].pax.copy():
-            if p.arr_time <= bus.dep_t and p.dest_id in next_stops:
-                if len(bus.pax) + 1 <= CAPACITY:
-                    p.trip_id = bus.active_trip[0].trip_id
-                    p.board_time = float(p.arr_time)
-                    p.wait_time = float(p.board_time - p.arr_time)
-                    bus.pax.append(p)
-                    self.stops[bus.last_stop_id].pax.remove(p)
-                    bus.ons += 1
-                else:
-                    p.denied = 1
-                    bus.denied += 1
-            else:
-                break
-
+        if len(bus.pax) < self.bus_capacity:
+            load_pax(self.stops[bus.last_stop_id], bus.dep_t, bus, self.bus_capacity, next_stops,
+                     bus.active_trip[0].trip_id, on_dwell=True)
         curr_trip_idx = TRIP_IDS_OUT.index(bus.active_trip[0].trip_id)
         self.trip_log[curr_trip_idx].stop_dep_times[bus.last_stop_id] = bus.dep_t
         self.stops[bus.last_stop_id].last_dep_t.append(bus.dep_t)
@@ -357,7 +379,7 @@ class SimulationEnv:
         bus.pending_trips.pop(0)
         bus.last_stop_id = bus.active_trip[0].stops[0]
         if bus.expressed:
-            bus.next_stop_id = bus.active_trip[0].stops[EXPRESS_DIST]
+            bus.next_stop_id = bus.active_trip[0].stops[EXPRESS_DIST + 1]
         else:
             bus.next_stop_id = bus.active_trip[0].stops[1]
         bus.ons = 0
@@ -372,21 +394,11 @@ class SimulationEnv:
     def outbound_dispatch(self, hold=0):
         bus = self.bus
         stops = bus.active_trip[0].stops
-        next_stops = stops[1:]
-        for p in self.stops[bus.last_stop_id].pax.copy():
-            if p.arr_time <= self.time and p.dest_id in next_stops:
-                if len(bus.pax) + 1 <= CAPACITY:
-                    p.trip_id = bus.active_trip[0].trip_id
-                    p.board_time = float(self.time)
-                    p.wait_time = float(p.board_time - p.arr_time)
-                    bus.pax.append(p)
-                    self.stops[bus.last_stop_id].pax.remove(p)
-                    bus.ons += 1
-                else:
-                    p.denied = 1
-                    bus.denied += 1
-            else:
-                break
+        idx_next_stop = stops.index(bus.next_stop_id)  # in case there is expressing
+        next_stops = stops[idx_next_stop:]
+
+        load_pax(self.stops[bus.last_stop_id], self.time, bus, self.bus_capacity, next_stops,
+                 bus.active_trip[0].trip_id)
 
         dwell_time_error = max(random.uniform(-DWELL_TIME_ERROR, DWELL_TIME_ERROR), 0)
         dwell_time = bus.ons * BOARDING_TIME + dwell_time_error
@@ -397,23 +409,10 @@ class SimulationEnv:
 
         bus.dep_t = self.time + dwell_time
 
-        # FOR THOSE PAX WHO ARRIVE DURING THE DWELL TIME
-        if bus.dep_t > self.time:
-            for p in self.stops[bus.last_stop_id].pax.copy():
-                if p.arr_time <= bus.dep_t and p.dest_id in next_stops:
-                    if len(bus.pax) + 1 <= CAPACITY:
-                        p.trip_id = bus.active_trip[0].trip_id
-                        p.board_time = float(p.arr_time)
-                        p.wait_time = float(p.board_time - p.arr_time)
-                        bus.pax.append(p)
-                        self.stops[bus.last_stop_id].pax.remove(p)
-                        bus.ons += 1
-                    else:
-                        p.denied = 1
-                        bus.denied += 1
-                else:
-                    break
-
+        if len(bus.pax) < self.bus_capacity:
+            load_pax(self.stops[bus.last_stop_id], bus.dep_t, bus, self.bus_capacity, next_stops,
+                     bus.active_trip[0].trip_id,
+                     on_dwell=True)
         curr_trip_idx = TRIP_IDS_OUT.index(bus.active_trip[0].trip_id)
         self.trip_log[curr_trip_idx].stop_dep_times[bus.last_stop_id] = bus.dep_t
 
@@ -638,6 +637,7 @@ class SimulationEnvWithRL(SimulationEnv):
         return False
 
     def fixed_stop_load(self, skip=False):
+        # REQUIRES RE-WRITING TO ADAPT TO FUNCTION LOAD_PAX
         bus = self.bus
         stops = bus.active_trip[0].stops
         curr_stop_idx = stops.index(bus.last_stop_id)
@@ -646,10 +646,9 @@ class SimulationEnvWithRL(SimulationEnv):
         next_stops = stops[curr_stop_idx + 1:]
         for p in self.stops[bus.last_stop_id].pax.copy():
             if p.arr_time <= self.time and p.dest_id in next_stops:
-                if len(bus.pax) + 1 <= CAPACITY and not skip:
+                if len(bus.pax) + 1 <= self.bus_capacity and not skip:
                     p.trip_id = bus.active_trip[0].trip_id
                     p.board_time = float(self.time)
-                    p.wait_time = float(p.board_time - p.arr_time)
                     bus.pax.append(p)
                     self.stops[bus.last_stop_id].pax.remove(p)
                     bus.ons += 1
@@ -684,10 +683,9 @@ class SimulationEnvWithRL(SimulationEnv):
         if not skip:
             for p in self.stops[bus.last_stop_id].pax.copy():
                 if p.arr_time <= bus.dep_t and p.dest_id in next_stops:
-                    if len(bus.pax) + 1 <= CAPACITY:
+                    if len(bus.pax) + 1 <= self.bus_capacity:
                         p.trip_id = bus.active_trip[0].trip_id
                         p.board_time = float(p.arr_time)
-                        p.wait_time = 0.0
                         bus.pax.append(p)
                         self.stops[bus.last_stop_id].pax.remove(p)
                         bus.ons += 1
@@ -1048,7 +1046,7 @@ class SimulationEnvWithCancellations(SimulationEnv):
         idx1 = stops.index(stop1)
         run_t = 0
         for i in range(idx0, idx1):
-            run_t += self.get_travel_time(stops[i], stops[i+1])
+            run_t += self.get_travel_time(stops[i], stops[i + 1])
         return run_t
 
     def inbound_arrival(self):
@@ -1121,7 +1119,7 @@ class SimulationEnvWithCancellations(SimulationEnv):
         past_actual_hw = [past_actual_dep[i] - past_actual_dep[i - 1] for i in range(1, len(past_actual_dep))]
         # print([str(timedelta(seconds=round(past_actual_dep[i]))) for i in range(len(past_actual_dep))])
 
-        future_sched_dep = np.sort(sched_deps_arr[sched_deps_arr >= sched_dep])[:FUTURE_HW_HORIZON+1].tolist()
+        future_sched_dep = np.sort(sched_deps_arr[sched_deps_arr >= sched_dep])[:FUTURE_HW_HORIZON + 1].tolist()
         future_sched_hw = [future_sched_dep[i] - future_sched_dep[i - 1] for i in range(1, len(future_sched_dep))]
 
         future_actual_hw = self.actual_future_headways()
@@ -1129,7 +1127,7 @@ class SimulationEnvWithCancellations(SimulationEnv):
 
         if len(past_actual_hw) >= PAST_HW_HORIZON and len(future_actual_hw) >= FUTURE_HW_HORIZON:
             self.obs = past_actual_hw[-PAST_HW_HORIZON:] + future_actual_hw[:FUTURE_HW_HORIZON] + past_sched_hw[
-                                                                             -PAST_HW_HORIZON:] + future_sched_hw + [
+                                                                                                  -PAST_HW_HORIZON:] + future_sched_hw + [
                            sched_dev]
             assert len(self.obs) == PAST_HW_HORIZON * 2 + FUTURE_HW_HORIZON * 2 + 1
             if self.prev_obs:
@@ -1149,7 +1147,7 @@ class SimulationEnvWithCancellations(SimulationEnv):
                 # rew_baseline = get_reward((predicted_bw_h, sched_bw_h), (predicted_fw_h, sched_fw_h),
                 #                           hold_t, self.weight_hold_t)
 
-                rew_baseline = -np.power((predicted_fw_h-predicted_bw_h)/1000, 2)
+                rew_baseline = -np.power((predicted_fw_h - predicted_bw_h) / 1000, 2)
 
                 # RL REWARD
                 sched_dev = deepcopy(self.obs[-1])
@@ -1159,13 +1157,13 @@ class SimulationEnvWithCancellations(SimulationEnv):
                                                                      0)  # to add the component of early departure
                 # rew_rl = get_reward((resulting_bw_h, sched_bw_h), (resulting_fw_h, sched_fw_h), hold_time,
                 #                     self.weight_hold_t)
-                rew_rl = -np.power((resulting_fw_h-resulting_bw_h)/1000, 2)
+                rew_rl = -np.power((resulting_fw_h - resulting_bw_h) / 1000, 2)
                 # if eh_hold_time != hold_time:
                 #     self.prev_reward = rew_rl - rew_baseline
                 # else:
                 #     self.prev_reward = 0.0
 
-                if abs(hold_time-hold_t)>(HOLD_INTERVALS/2):
+                if abs(hold_time - hold_t) > (HOLD_INTERVALS / 2):
                     self.prev_reward = rew_rl - rew_baseline
                 else:
                     self.prev_reward = 0.0
@@ -1202,18 +1200,18 @@ class SimulationEnvWithCancellations(SimulationEnv):
             obs = self.obs
             sched_dev = obs[-1]
             hold_time_max = max(IMPOSED_DELAY_LIMIT - sched_dev, 0)
-            fw_h = obs[PAST_HW_HORIZON-1]
-            assert self.control_strategy in ['DC', 'DC+MRH', 'DCX', 'DCX+MRH', 'RL']
-            if self.control_strategy in ['DC', 'DC+MRH']:
+            fw_h = obs[PAST_HW_HORIZON - 1]
+            assert self.control_strategy in ['DS', 'DS+MRH', 'DSX', 'DSX+MRH', 'RL']
+            if self.control_strategy in ['DS', 'DS+MRH']:
                 bw_h = obs[PAST_HW_HORIZON]
                 hold_time = even_hw_decision(bw_h, fw_h, hold_time_max)
                 # print('HOLDING DECISION')
                 # print(f'Hold time of {round(hold_time)} <= {round(hold_time_max)}')
                 bus.next_event_time = self.time + hold_time
-            if self.control_strategy in ['DCX', 'DCX+MRH']:
+            if self.control_strategy in ['DSX', 'DSX+MRH']:
                 sched_fw_h = obs[PAST_HW_HORIZON + FUTURE_HW_HORIZON + PAST_HW_HORIZON - 1]
                 bw_h = obs[PAST_HW_HORIZON]
-                sched_bw_h = obs[PAST_HW_HORIZON*2 + FUTURE_HW_HORIZON]
+                sched_bw_h = obs[PAST_HW_HORIZON * 2 + FUTURE_HW_HORIZON]
                 statement1 = (bw_h <= sched_bw_h * BW_H_LIMIT_EXPRESS) or (fw_h >= sched_fw_h * FW_H_LIMIT_EXPRESS)
                 statement2 = (fw_h >= bw_h * BF_H_LIMIT_EXPRESS)
                 assert bus.expressed is False
@@ -1264,23 +1262,11 @@ class SimulationEnvWithCancellations(SimulationEnv):
     def outbound_dispatch(self, hold=0):
         bus = self.bus
         stops = bus.active_trip[0].stops
-        next_stops = stops[1:]
-        if bus.expressed:
-            next_stops = next_stops[EXPRESS_DIST:]
-        for p in self.stops[bus.last_stop_id].pax.copy():
-            if p.arr_time <= self.time and p.dest_id in next_stops:
-                if len(bus.pax) + 1 <= CAPACITY:
-                    p.trip_id = bus.active_trip[0].trip_id
-                    p.board_time = float(self.time)
-                    p.wait_time = float(p.board_time - p.arr_time)
-                    bus.pax.append(p)
-                    self.stops[bus.last_stop_id].pax.remove(p)
-                    bus.ons += 1
-                else:
-                    p.denied = 1
-                    bus.denied += 1
-            else:
-                break
+        idx_next_stop = stops.index(bus.next_stop_id)
+        next_stops = stops[idx_next_stop:]
+
+        load_pax(self.stops[bus.last_stop_id], self.time, bus, self.bus_capacity, next_stops,
+                 bus.active_trip[0].trip_id)
 
         dwell_time_error = max(random.uniform(-DWELL_TIME_ERROR, DWELL_TIME_ERROR), 0)
         dwell_time = bus.ons * BOARDING_TIME + dwell_time_error
@@ -1291,23 +1277,10 @@ class SimulationEnvWithCancellations(SimulationEnv):
             bus.instructed_hold_time = None
         else:
             bus.dep_t = self.time + dwell_time
-
-        # FOR THOSE PAX WHO ARRIVE DURING THE DWELL TIME
-        if bus.dep_t > self.time:
-            for p in self.stops[bus.last_stop_id].pax.copy():
-                if p.arr_time <= bus.dep_t and p.dest_id in next_stops:
-                    if len(bus.pax) + 1 <= CAPACITY:
-                        p.trip_id = bus.active_trip[0].trip_id
-                        p.board_time = float(p.arr_time)
-                        p.wait_time = float(p.board_time - p.arr_time)
-                        bus.pax.append(p)
-                        self.stops[bus.last_stop_id].pax.remove(p)
-                        bus.ons += 1
-                    else:
-                        p.denied = 1
-                        bus.denied += 1
-                else:
-                    break
+        if len(bus.pax) < self.bus_capacity:
+            load_pax(self.stops[bus.last_stop_id], bus.dep_t, bus, self.bus_capacity, next_stops,
+                     bus.active_trip[0].trip_id,
+                     on_dwell=True)
 
         curr_trip_idx = TRIP_IDS_OUT.index(bus.active_trip[0].trip_id)
         self.trip_log[curr_trip_idx].stop_dep_times[bus.last_stop_id] = bus.dep_t
@@ -1328,7 +1301,7 @@ class SimulationEnvWithCancellations(SimulationEnv):
 
     def prep(self):
         done = self.next_event()
-        if done or self.time >= END_TIME_SEC - 60 * 30:
+        if done or self.time >= END_TIME_SEC - 60 * 20:
             return True
 
         if self.bus.next_event_type == 0:

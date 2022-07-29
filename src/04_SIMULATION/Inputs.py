@@ -44,7 +44,8 @@ ALIGHTING_TIME = 1.2
 DWELL_TIME_ERROR = 3.0
 EXTREME_TT_BOUND = 1.0
 BOOST_SCHED_RUN_T = 1.3 # FOR THOSE PROBLEMATIC LINKS (FIRST AND LAST) INCREASE SCHED RUN TIME BY 30 PCT
-CAPACITY = 80
+HIGH_CAPACITY = 80
+LOW_CAPACITY = 53
 DDD = 'UNIFORM'
 DEP_DELAY_FROM = -60
 DEP_DELAY_TO = 110
@@ -75,9 +76,9 @@ END_TIME_SEC2 = END_TIME_SEC - 60*30
 WEIGHT_HOLD_T = 0.0
 EXPRESS_DIST = 9
 BW_H_LIMIT_EXPRESS = 0.5 # this is the limit over the scheduled backward headway to decide to express
-FW_H_LIMIT_EXPRESS = 1.8 # this is the limit over the scheduled forward headway to decide to express
-BF_H_LIMIT_EXPRESS = 1.5
-MRH_HOLD_LIMIT = 80
+FW_H_LIMIT_EXPRESS = 1.7 # this is the limit over the scheduled forward headway to decide to express
+BF_H_LIMIT_EXPRESS = 1.6
+MRH_HOLD_LIMIT = 90
 
 # GENERAL RL PARAMS
 LEARN_RATE = 0.0009

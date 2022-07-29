@@ -5,6 +5,6 @@ import numpy as np
 import os
 
 b = [1, 2, 3, 4, 5]
-a = ['NC'] * len(b)
-c = [5] * len(b)
-print(list(zip(a, b, c)))
+c = len(b)
+b += [1, 4]
+print(c)
