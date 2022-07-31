@@ -5,7 +5,7 @@ from Inputs import DATES, START_TIME_SEC, END_TIME_SEC, LINK_TIMES_MEAN, STOPS_O
 from Inputs import scheduled_trajectories_out, HIGH_CAPACITY, LOW_CAPACITY
 from Output_Processor import validate_delay_outbound, validate_delay_inbound, validate_cv_hw_outbound
 from Output_Processor import validate_trip_t_outbound, trajectory_plots, cv_hw_plot, pax_times_plot, load_plots
-from Output_Processor import plot_run_times, plot_pax_profile
+from Output_Processor import plot_run_times, plot_pax_profile, denied_count
 from Simulation_Processor import run_base, train_rl, test_rl, run_base_dispatching, rl_dispatch
 from Output_Processor import dwell_t_outbound
 
@@ -98,81 +98,12 @@ def validate(sim_out_path=None, sim_in_path=None, avl_path=None, apc_path=None):
     return
 
 
-# def plot_results():
-#     scenarios = [['NC/0729-011225', 'NC/0729-011407', 'NC/0729-011546'],
-#                  ['DS/0729-011235', 'DS/0729-011417', 'DS/0729-011555'],
-#                  ['DS+MRH/0729-011245', 'DS+MRH/0729-011427', 'DS+MRH/0729-011604'],
-#                  ['DSX/0729-011256', 'DSX/0729-011437', 'DSX/0729-011614'],
-#                  ['DSX+MRH/0729-011306', 'DSX+MRH/0729-011447', 'DSX+MRH/0729-011623']]
-#     method_tags = ['NC', 'DS', 'DS+MRH', 'DSX', 'DSX+MRH']
-#     scenario_tags = [0, 12, 25]
-#     replication = 3
-#     time_period = (int(6.5 * 60 * 60), int(8.5 * 60 * 60))
-#     fig_dir = 'out/compare/benchmark/trajectories.png'
-#     trajectory_plots([sc[-1] for sc in scenarios], method_tags,
-#                      scheduled_trajectories_out, time_period, replication, fig_dir=fig_dir)
-#
-#     fig_dir = 'out/compare/benchmark/cv_hw.png'
-#     df_h = cv_hw_plot(scenarios, STOPS_OUT_FULL_PATT,
-#                       time_period, scenario_tags, method_tags, fig_dir=fig_dir)
-#     fig_dir = 'out/compare/benchmark/pax_times.png'
-#     df_pt = pax_times_plot(scenarios, STOPS_OUT_FULL_PATT, STOPS_OUT_FULL_PATT,
-#                            time_period, method_tags, scenario_tags, fig_dir=fig_dir)
-#     fig_dir = 'out/compare/benchmark/95th_loads.png'
-#     df_95l = load_plots(scenarios, scenario_tags, method_tags, STOPS_OUT_FULL_PATT, time_period, fig_dir=fig_dir, quantile=0.95)
-#
-#     fig_dir = 'out/compare/benchmark/50th_loads.png'
-#     df_50l = load_plots(scenarios, scenario_tags, method_tags, STOPS_OUT_FULL_PATT, time_period, fig_dir=fig_dir, quantile=0.5)
-#
-#     fig_dir = 'out/compare/benchmark/run_times.png'
-#     plot_run_times(scenarios, scenario_tags, method_tags, STOPS_OUT_FULL_PATT, fig_dir=fig_dir)
-#
-#     df_results = pd.concat([df_h, df_pt, df_95l, df_50l], ignore_index=True)
-#     df_results.to_csv('out/compare/benchmark/numer_results.csv', index=False)
-#     return
-#
-#
-# def plot_results2():
-#     scenarios = [['NC/0729-011407', 'NC/0729-011546'],
-#                  ['NC/0729-011316', 'NC/0729-011457'],
-#                  ['DS+MRH/0729-011427', 'DS+MRH/0729-011604'],
-#                  ['DS+MRH/0729-011337', 'DS+MRH/0729-011517'],
-#                  ['DSX+MRH/0729-011447', 'DSX+MRH/0729-011623'],
-#                  ['DSX+MRH/0729-011357', 'DSX+MRH/0729-011536']]
-#     method_tags = ['NC53', 'NC80', 'DS+MRH53', 'DS+MRH80', 'DSX+MRH53', 'DSX+MRH80']
-#     scenario_tags = [12, 25]
-#     replication = 3
-#     time_period = (int(6.5 * 60 * 60), int(8.5 * 60 * 60))
-#     fig_dir = 'out/compare/infinite capacity/trajectories.png'
-#     trajectory_plots([sc[-1] for sc in scenarios], method_tags,
-#                      scheduled_trajectories_out, time_period, replication, fig_dir=fig_dir)
-#
-#     fig_dir = 'out/compare/infinite capacity/cv_hw.png'
-#     df_h = cv_hw_plot(scenarios, STOPS_OUT_FULL_PATT,
-#                       time_period, scenario_tags, method_tags, fig_dir=fig_dir)
-#     fig_dir = 'out/compare/infinite capacity/pax_times.png'
-#     df_pt = pax_times_plot(scenarios, STOPS_OUT_FULL_PATT, STOPS_OUT_FULL_PATT,
-#                            time_period, method_tags, scenario_tags, fig_dir=fig_dir)
-#     fig_dir = 'out/compare/infinite capacity/95th_loads.png'
-#     df_95l = load_plots(scenarios, scenario_tags, method_tags, STOPS_OUT_FULL_PATT, time_period, fig_dir=fig_dir, quantile=0.95)
-#
-#     fig_dir = 'out/compare/infinite capacity/50th_loads.png'
-#     df_50l = load_plots(scenarios, scenario_tags, method_tags, STOPS_OUT_FULL_PATT, time_period, fig_dir=fig_dir, quantile=0.5)
-#
-#     fig_dir = 'out/compare/infinite capacity/run_times.png'
-#     plot_run_times(scenarios, scenario_tags, method_tags, STOPS_OUT_FULL_PATT, fig_dir=fig_dir)
-#
-#     df_results = pd.concat([df_h, df_pt, df_95l, df_50l], ignore_index=True)
-#     df_results.to_csv('out/compare/infinite capacity/numer_results.csv', index=False)
-#     return
-
-
 def plot_results():
-    scenarios = [['NC/0729-034444', 'NC/0729-034630', 'NC/0729-034809'],
-                 ['DS/0729-034455', 'DS/0729-034640', 'DS/0729-034818'],
-                 ['DS+MRH/0729-034505', 'DS+MRH/0729-034650', 'DS+MRH/0729-034827'],
-                 ['DSX/0729-034517', 'DSX/0729-034700', 'DSX/0729-034837'],
-                 ['DSX+MRH/0729-034527', 'DSX+MRH/0729-034710', 'DSX+MRH/0729-034847']]
+    scenarios = [['NC/0729-011225', 'NC/0729-011407', 'NC/0729-011546'],
+                 ['DS/0729-011235', 'DS/0729-011417', 'DS/0729-011555'],
+                 ['DS+MRH/0729-011245', 'DS+MRH/0729-011427', 'DS+MRH/0729-011604'],
+                 ['DSX/0729-011256', 'DSX/0729-011437', 'DSX/0729-011614'],
+                 ['DSX+MRH/0729-011306', 'DSX+MRH/0729-011447', 'DSX+MRH/0729-011623']]
     method_tags = ['NC', 'DS', 'DS+MRH', 'DSX', 'DSX+MRH']
     scenario_tags = [0, 12, 25]
     replication = 3
@@ -180,6 +111,11 @@ def plot_results():
     fig_dir = 'out/compare/benchmark/trajectories.png'
     trajectory_plots([sc[-1] for sc in scenarios], method_tags,
                      scheduled_trajectories_out, time_period, replication, fig_dir=fig_dir)
+
+    fig_dir = 'out/compare/benchmark/run_times.png'
+    df_95rt = plot_run_times(scenarios, scenario_tags, method_tags, STOPS_OUT_FULL_PATT, fig_dir=fig_dir)
+
+    df_db = denied_count(scenarios, time_period, scenario_tags, method_tags)
 
     fig_dir = 'out/compare/benchmark/cv_hw.png'
     df_h = cv_hw_plot(scenarios, STOPS_OUT_FULL_PATT,
@@ -193,21 +129,18 @@ def plot_results():
     fig_dir = 'out/compare/benchmark/50th_loads.png'
     df_50l = load_plots(scenarios, scenario_tags, method_tags, STOPS_OUT_FULL_PATT, time_period, fig_dir=fig_dir, quantile=0.5)
 
-    fig_dir = 'out/compare/benchmark/run_times.png'
-    plot_run_times(scenarios, scenario_tags, method_tags, STOPS_OUT_FULL_PATT, fig_dir=fig_dir)
-
-    df_results = pd.concat([df_h, df_pt, df_95l, df_50l], ignore_index=True)
+    df_results = pd.concat([df_h, df_pt, df_95l, df_50l, df_95rt, df_db], ignore_index=True)
     df_results.to_csv('out/compare/benchmark/numer_results.csv', index=False)
     return
 
 
 def plot_results2():
-    scenarios = [['NC/0729-034630', 'NC/0729-034809'],
-                 ['NC/0729-034540', 'NC/0729-034720'],
-                 ['DS+MRH/0729-034650', 'DS+MRH/0729-034827'],
-                 ['DS+MRH/0729-034600', 'DS+MRH/0729-034739'],
-                 ['DSX+MRH/0729-034710', 'DSX+MRH/0729-034847'],
-                 ['DSX+MRH/0729-034620', 'DSX+MRH/0729-034759']]
+    scenarios = [['NC/0729-011407', 'NC/0729-011546'],
+                 ['NC/0729-011316', 'NC/0729-011457'],
+                 ['DS+MRH/0729-011427', 'DS+MRH/0729-011604'],
+                 ['DS+MRH/0729-011337', 'DS+MRH/0729-011517'],
+                 ['DSX+MRH/0729-011447', 'DSX+MRH/0729-011623'],
+                 ['DSX+MRH/0729-011357', 'DSX+MRH/0729-011536']]
     method_tags = ['NC53', 'NC80', 'DS+MRH53', 'DS+MRH80', 'DSX+MRH53', 'DSX+MRH80']
     scenario_tags = [12, 25]
     replication = 3
@@ -215,6 +148,11 @@ def plot_results2():
     fig_dir = 'out/compare/infinite capacity/trajectories.png'
     trajectory_plots([sc[-1] for sc in scenarios], method_tags,
                      scheduled_trajectories_out, time_period, replication, fig_dir=fig_dir)
+
+    fig_dir = 'out/compare/infinite capacity/run_times.png'
+    df_95rt = plot_run_times(scenarios, scenario_tags, method_tags, STOPS_OUT_FULL_PATT, fig_dir=fig_dir)
+
+    df_db = denied_count(scenarios, time_period, scenario_tags, method_tags)
 
     fig_dir = 'out/compare/infinite capacity/cv_hw.png'
     df_h = cv_hw_plot(scenarios, STOPS_OUT_FULL_PATT,
@@ -228,17 +166,15 @@ def plot_results2():
     fig_dir = 'out/compare/infinite capacity/50th_loads.png'
     df_50l = load_plots(scenarios, scenario_tags, method_tags, STOPS_OUT_FULL_PATT, time_period, fig_dir=fig_dir, quantile=0.5)
 
-    fig_dir = 'out/compare/infinite capacity/run_times.png'
-    plot_run_times(scenarios, scenario_tags, method_tags, STOPS_OUT_FULL_PATT, fig_dir=fig_dir)
-
-    df_results = pd.concat([df_h, df_pt, df_95l, df_50l], ignore_index=True)
+    df_results = pd.concat([df_h, df_pt, df_95l, df_50l, df_95rt, df_db], ignore_index=True)
     df_results.to_csv('out/compare/infinite capacity/numer_results.csv', index=False)
     return
+
 
 # validate(sim_out_path='out/NC/0729-034444-trip_record_ob.pkl', sim_in_path='out/NC/0729-034444-trip_record_ib.pkl',
 #          avl_path='in/raw/rt20_avl_2019-09.csv', apc_path='in/raw/rt20_more_apc.csv')
 # test_scenarios(nc=True, prob_cancel=[0.0], replications=15, save_results=True)
 # test_scenarios(nc=True, ds=True, dsmrh=True, dsx=True, dsxmrh=True, prob_cancel=[0.0, 0.125, 0.25], replications=20,
 #                limited_capacity=True, full_capacity=True, save_results=True)
-# plot_results()
-# plot_results2()
+plot_results()
+plot_results2()

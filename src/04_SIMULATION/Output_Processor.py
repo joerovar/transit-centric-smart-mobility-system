@@ -9,6 +9,22 @@ from datetime import timedelta
 from Input_Processor import get_interval, remove_outliers
 
 
+def denied_count(scenarios, period, scenario_tags, method_tags):
+    numer_results = {'parameter': ['denied' for _ in range(len(scenario_tags))],
+                     'prc_cancel': scenario_tags}
+    for m in method_tags:
+        numer_results[m] = []
+    for i in range(len(scenario_tags)):
+        for j in range(len(method_tags)):
+            df = pd.read_pickle('out/' + scenarios[j][i] + '-pax_record_ob.pkl')
+            tmp_df = df[(df['arr_time'] <= period[1]) & (df['arr_time'] >= period[0])].copy()
+            n_denied = tmp_df[tmp_df['denied'] == 1].shape[0]
+            tot = tmp_df.shape[0]
+            numer_results[method_tags[j]].append(n_denied/tot * 1000)
+    df = pd.DataFrame(numer_results)
+    return df
+
+
 def plot_pax_profile(df, stops, apc=False, path_savefig=None, path_savefig_max=None):
     t0 = 6 * 60 * 60
     t1 = 10 * 60 * 60
@@ -95,6 +111,10 @@ def plot_pax_profile(df, stops, apc=False, path_savefig=None, path_savefig_max=N
 
 
 def plot_run_times(scenarios, scenario_tags, method_tags, stops, fig_dir=None):
+    numer_results = {'parameter': ['95runt7' for _ in range(len(scenario_tags))],
+                     'prc_cancel': scenario_tags}
+    for m in method_tags:
+        numer_results[m] = []
     intervals = [6, 7, 8]
     fig, axs = plt.subplots(nrows=len(scenario_tags), sharey='all', figsize=(10, 10))
     for ax in axs.flat:
@@ -106,6 +126,7 @@ def plot_run_times(scenarios, scenario_tags, method_tags, stops, fig_dir=None):
             d = pd.DataFrame(columns=['method', 'run_time', 'dep_t'])
             df = pd.read_pickle('out/' + scenarios[j][i] + '-trip_record_ob.pkl')
             run_ts = trip_t_outbound(df, 6*60*60, 9*60*60, 60, stops, 'arr_sec', 'dep_sec')
+            numer_results[method_tags[j]].append(np.percentile(run_ts[1], 95))
             for k in range(len(intervals)):
                 method_rows = [method_tags[j]] * len(run_ts[k])
                 dep_t_rows = [intervals[k]] * len(run_ts[k])
@@ -121,7 +142,9 @@ def plot_run_times(scenarios, scenario_tags, method_tags, stops, fig_dir=None):
         plt.savefig(fig_dir)
     else:
         plt.show()
-    return
+    plt.close()
+    df = pd.DataFrame(numer_results)
+    return df
 
 
 def load_plots(scenarios, scenario_tags, method_tags, stops, period, fig_dir=None, quantile=0.5):
@@ -270,18 +293,27 @@ def pax_times_plot(scenarios, boarding_stops, alighting_stops,
 
             rbt_counter = 0
             rbt_sum = 0
+            wt_counter = 0
+            wt_sum = 0
             for k in range(len(boarding_stops)):
                 for n in range(k, len(alighting_stops)):
                     tmp_df = df_pax[(df_pax['orig_idx'] == boarding_stops[k]) &
                                     (df_pax['dest_idx'] == alighting_stops[n])].copy()
                     if tmp_df.shape[0]:
                         tmp_df['jt'] = tmp_df['alight_time'] - tmp_df['arr_time']
+                        tmp_df['wt'] = tmp_df['board_time'] - tmp_df['arr_time']
                         rbt_tmp = tmp_df['jt'].quantile(0.95) - tmp_df['jt'].median()
+
                         rbt_sum += rbt_tmp * tmp_df.shape[0]
                         rbt_counter += tmp_df.shape[0]
+
+                        wt_sum += tmp_df['wt'].mean() * tmp_df.shape[0]
+                        wt_counter += tmp_df.shape[0]
             rbt_final = rbt_sum / rbt_counter / 60
             rbt_numer[method_tags[i]].append(rbt_final)
             rbt.append(rbt_final)
+            wt_final = wt_sum / wt_counter / 60
+            # wt_numer[method_tags[i]].append(wt_final)
         axs[1].plot(scenario_tags, rbt, label=method_tags[i], marker='*')
     axs[1].legend()
     axs[1].set_ylabel('reliability buffer time (min)')
