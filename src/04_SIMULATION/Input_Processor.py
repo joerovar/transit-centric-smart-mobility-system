@@ -5,24 +5,20 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.stats import lognorm
 import pickle
-from File_Paths import path_stops_out_full_pattern, path_apc_counts, path_avl, path_trips_gtfs, path_stop_times
-from File_Paths import path_calendar, path_stops_out_all
+from File_Paths import dir_route
+# from File_Paths import path_stops_out_full_pattern, path_apc_counts, path_avl, path_trips_gtfs, path_stop_times
+# from File_Paths import path_calendar, path_stops_out_all
 
 
 def extract_demand(odt_interval_len_min, dates):
-    odt_stops = np.load('in/xtr/rt_20_odt_stops.npy')
-    # comes from project with dingyi data
-    odt_pred = np.load('in/xtr/rt_20_odt_rates_30.npy')
-    # comes from project with dingyi data
+    odt_stops = np.load(dir_route + 'odt_stops.npy')
+    odt_pred = np.load(dir_route + 'odt_rates_30.npy')
 
     nr_intervals = 24 / (odt_interval_len_min / 60)
-    # apc_df = pd.read_csv(path_apc_counts)
-    # apc_on_rates, apc_off_rates = extract_apc_counts(apc_df, int(nr_intervals), odt_stops, odt_interval_len_min,
-    #                                                  dates)
-    apc_df2 = pd.read_csv('in/raw/rt20_more_apc.csv')
-    apc_on_rates, apc_off_rates = extract_apc_counts(apc_df2, int(nr_intervals), odt_stops, odt_interval_len_min,
+    apc_df = pd.read_csv(dir_route + 'apc_counts.csv')
+    apc_on_rates, apc_off_rates = extract_apc_counts(apc_df, int(nr_intervals), odt_stops, odt_interval_len_min,
                                                      dates)
-    stops_lst = list(odt_stops)
+
 
     # DISCOVERED IN DINGYI'S OD MATRIX TIME SHIFT
     shifted_odt = np.concatenate((odt_pred[-6:], odt_pred[:-6]), axis=0)
@@ -32,33 +28,33 @@ def extract_demand(odt_interval_len_min, dates):
         print(f'interval {i}')
         scaled_odt[i] = bi_proportional_fitting(shifted_odt[i], apc_on_rates[i], apc_off_rates[i])
 
-    np.save('in/xtr/rt_20_odt_rates_30_scaled.npy', scaled_odt)
-
+    np.save(dir_route + 'odt_rates_30_scaled.npy', scaled_odt)
+    # stops_lst = list(odt_stops)
     # if wanted for comparison
-    full_pattern_stops = load(path_stops_out_full_pattern)
-    idx_stops_out = [stops_lst.index(int(s)) for s in full_pattern_stops]
-    out_on_counts = apc_on_rates[:, idx_stops_out]
-    out_on_tot_count = np.nansum(out_on_counts, axis=-1)
-
-    arr_rates_shifted = np.nansum(shifted_odt, axis=-1)
-    out_arr_rates_shifted = arr_rates_shifted[:, idx_stops_out]
-    out_arr_tot_shifted = np.sum(out_arr_rates_shifted, axis=-1)
-
-    scaled_arr_rates = np.sum(scaled_odt, axis=-1)
-    scaled_out_arr_rates = scaled_arr_rates[:, idx_stops_out]
-    scaled_out_tot = np.sum(scaled_out_arr_rates, axis=-1)
-
-    x = np.arange(out_on_tot_count.shape[0])
-    plt.plot(x, scaled_out_tot, label='odt scaled')
-    plt.plot(x, out_arr_tot_shifted, label='odt')
-    plt.plot(x, out_on_tot_count, label='apc')
-    plt.xticks(np.arange(0, out_on_tot_count.shape[0], 2), np.arange(int(out_on_tot_count.shape[0] / 2)))
-    plt.xlabel('hour of day')
-    plt.ylabel('arrival rate (1/h)')
-    plt.yticks(np.arange(0, 1200, 200))
-    plt.legend()
-    # plt.show()
-    plt.close()
+    # full_pattern_stops = load(path_stops_out_full_pattern)
+    # idx_stops_out = [stops_lst.index(int(s)) for s in full_pattern_stops]
+    # out_on_counts = apc_on_rates[:, idx_stops_out]
+    # out_on_tot_count = np.nansum(out_on_counts, axis=-1)
+    #
+    # arr_rates_shifted = np.nansum(shifted_odt, axis=-1)
+    # out_arr_rates_shifted = arr_rates_shifted[:, idx_stops_out]
+    # out_arr_tot_shifted = np.sum(out_arr_rates_shifted, axis=-1)
+    #
+    # scaled_arr_rates = np.sum(scaled_odt, axis=-1)
+    # scaled_out_arr_rates = scaled_arr_rates[:, idx_stops_out]
+    # scaled_out_tot = np.sum(scaled_out_arr_rates, axis=-1)
+    #
+    # x = np.arange(out_on_tot_count.shape[0])
+    # plt.plot(x, scaled_out_tot, label='odt scaled')
+    # plt.plot(x, out_arr_tot_shifted, label='odt')
+    # plt.plot(x, out_on_tot_count, label='apc')
+    # plt.xticks(np.arange(0, out_on_tot_count.shape[0], 2), np.arange(int(out_on_tot_count.shape[0] / 2)))
+    # plt.xlabel('hour of day')
+    # plt.ylabel('arrival rate (1/h)')
+    # plt.yticks(np.arange(0, 1200, 200))
+    # plt.legend()
+    # # plt.show()
+    # plt.close()
     return
 
 
@@ -93,11 +89,11 @@ def remove_outliers(data, factor=1.4):
 
 
 def extract_outbound_params(start_time_sec, end_time_sec, nr_intervals, start_interval,
-                            interval_length, dates, delay_interval_length, delay_start_interval,
-                            full_pattern_sign='Illinois Center', rt_nr=20, rt_direction='East'):
-    stop_times_df = pd.read_csv(path_stop_times)
-    trips_df = pd.read_csv(path_trips_gtfs)
-    calendar_df = pd.read_csv(path_calendar)
+                            interval_length, dates, delay_interval_length, delay_start_interval, full_pattern_sign,
+                            rt_nr, rt_direction):
+    stop_times_df = pd.read_csv(dir_route + 'gtfs_stop_times.txt')
+    trips_df = pd.read_csv(dir_route + 'gtfs_trips.txt')
+    calendar_df = pd.read_csv(dir_route + 'gtfs_calendar.txt')
     rt_trips_df = trips_df[
         (trips_df['route_id'].astype(str) == str(rt_nr)) & (trips_df['direction'] == rt_direction)].copy()
     schd_trip_id_df = rt_trips_df[['trip_id', 'schd_trip_id', 'block_id']].copy()
@@ -133,9 +129,9 @@ def extract_outbound_params(start_time_sec, end_time_sec, nr_intervals, start_in
     stop_info = {}
     for s in all_stops:
         stop_info[s] = focus_st_df[focus_st_df['stop_id'].astype(str) == s]['schd_sec'].tolist()
-    focus_st_df.to_csv('in/vis/stop_times_shrink.txt', index=False)
+    # focus_st_df.to_csv('in/vis/stop_times_shrink.txt', index=False)
 
-    avl_df = pd.read_csv(path_avl)
+    avl_df = pd.read_csv(dir_route + 'avl.csv')
     schedules_by_trip = []
     stops_by_trip = []
     dist_by_trip = []
@@ -145,7 +141,6 @@ def extract_outbound_params(start_time_sec, end_time_sec, nr_intervals, start_in
     delay_nr_intervals = int(nr_intervals * interval_length / delay_interval_length)
     dep_delay_ahead_dist = [[] for _ in range(delay_nr_intervals)]
 
-    write_outbound_trajectories(path_avl, trip_ids)
     for t in trip_ids:
         temp2 = focus_st_df[focus_st_df['schd_trip_id'] == t].copy()
         temp2 = temp2.sort_values(by='stop_sequence')
@@ -222,17 +217,17 @@ def extract_outbound_params(start_time_sec, end_time_sec, nr_intervals, start_in
     trips_info = [(v, w, x, y, z, u) for v, w, x, y, z, u in
                   zip(trip_ids, sched_dep, block_ids, schedules_by_trip, stops_by_trip, dist_by_trip)]
 
-    stop_df = pd.read_csv('in/raw/gtfs/stops.txt')
+    stop_df = pd.read_csv(dir_route + 'gtfs_stops.txt')
     stop_df = stop_df[stop_df['stop_id'].isin([int(s) for s in all_stops])]
     stop_df = stop_df[['stop_id', 'stop_name', 'stop_lat', 'stop_lon']]
-    stop_df.to_csv('in/raw/rt20_in_stops.txt', index=False)
+    stop_df.to_csv(dir_route + 'gtfs_stops_route.txt', index=False)
 
-    save(path_stops_out_full_pattern, full_pattern_stops)
-    save(path_stops_out_all, all_stops)
-    save('in/xtr/link_times_test.pkl', link_times_info)
-    save('in/xtr/trips_outbound_info.pkl', trips_info)
-    save('in/xtr/dep_delay_dist_out.pkl', dep_delay_ahead_dist)
-    save('in/xtr/stops_out_info.pkl', stop_info)
+    save(dir_route + 'stops_out_full_patt.pkl', full_pattern_stops)
+    save(dir_route + 'stops_out_all.pkl', all_stops)
+    save(dir_route + 'link_times_info.pkl', link_times_info)
+    save(dir_route + 'trips_out_info.pkl', trips_info)
+    save(dir_route + 'dep_delay_dist_out.pkl', dep_delay_ahead_dist)
+    save(dir_route + 'stops_out_info.pkl', stop_info)
     return
 
 
@@ -260,10 +255,12 @@ def bi_proportional_fitting(od, target_ons, target_offs):
 
 def extract_inbound_params(start_time, end_time, dates, nr_intervals,
                            start_interval, interval_length, delay_interval_length,
-                           delay_start_interval, rt_nr=20, rt_direction='West'):
-    stop_times_df = pd.read_csv(path_stop_times)
-    trips_df = pd.read_csv(path_trips_gtfs)
-    calendar_df = pd.read_csv(path_calendar)
+                           delay_start_interval, rt_nr, rt_direction):
+    stop_times_df = pd.read_csv(dir_route + 'gtfs_stop_times.txt')
+    trips_df = pd.read_csv(dir_route + 'gtfs_trips.txt')
+    calendar_df = pd.read_csv(dir_route + 'gtfs_calendar.txt')
+    avl_df = pd.read_csv(dir_route + 'avl.csv')
+
     rt_trips_df = trips_df[
         (trips_df['route_id'].astype(str) == str(rt_nr)) & (trips_df['direction'] == rt_direction)].copy()
     schd_trip_id_df = rt_trips_df[['trip_id', 'schd_trip_id', 'block_id']].copy()
@@ -291,8 +288,6 @@ def extract_inbound_params(start_time, end_time, dates, nr_intervals,
     sched_by_trip = []
     stops_by_trip = []
     dist_by_trip = []
-
-    avl_df = pd.read_csv(path_avl)
 
     delay_nr_intervals = int(nr_intervals * interval_length / delay_interval_length)
 
@@ -348,10 +343,6 @@ def extract_inbound_params(start_time, end_time, dates, nr_intervals,
                     run_t += (schd_sec[-1] - schd_sec[-2])
                 diff_mm[trip_link].append((run_t - sched_run_t) / sched_run_t)
                 run_times[trip_link][run_t_idx].append(run_t)
-    # for link in diff_mm:
-    #     print(link)
-    #     print(np.round(np.mean(diff_mm[link])*100, decimals=3))
-    #     print(np.round(np.mean(diff_tt[link])*100, decimals=3))
     for link in run_times:
         fig, axs = plt.subplots(nrows=nr_intervals, sharex='all', sharey='all')
         plt.suptitle(link)
@@ -374,17 +365,9 @@ def extract_inbound_params(start_time, end_time, dates, nr_intervals,
     trips_info = [(x, y, z, w, v, u) for x, y, z, w, v, u in
                   zip(trip_ids, sched_dep, block_ids, sched_by_trip, stops_by_trip, dist_by_trip)]
 
-    save('in/xtr/trips_inbound_info.pkl', trips_info)
-    save('in/xtr/run_times_in.pkl', run_times)
-    save('in/xtr/delay_in.pkl', dep_delay_new)
-    return
-
-
-def write_outbound_trajectories(stop_times_path, ordered_trips):
-    stop_times_df = pd.read_csv(stop_times_path)
-    stop_times_df2 = stop_times_df[stop_times_df['trip_id'].isin(ordered_trips)].copy()
-    stop_times_df2 = stop_times_df2.sort_values(by=['stop_sequence', 'schd_sec'])
-    stop_times_df2.to_csv('in/vis/trajectories_outbound.csv', index=False)
+    save(dir_route + 'trips_in_info.pkl', trips_info)
+    save(dir_route + 'run_times_in.pkl', run_times)
+    save(dir_route + 'delay_in.pkl', dep_delay_new)
     return
 
 

@@ -4,6 +4,7 @@ from Inputs import *
 import os
 import Simulation_Envs
 import random
+import time
 
 
 def process_trip_record(record, record_col_names, rep_nr):
@@ -13,9 +14,9 @@ def process_trip_record(record, record_col_names, rep_nr):
 
 
 def write_trip_records(scenario, t, out_record_set, in_record_set, pax_record_set):
-    path_out_trip_record = 'out/' + scenario + '/' + t + '-trip_record_ob' + ext_var
-    path_in_trip_record = 'out/' + scenario + '/' + t + '-trip_record_ib' + ext_var
-    path_pax_record = 'out/' + scenario + '/' + t + '-pax_record_ob' + ext_var
+    path_out_trip_record = 'out/' + scenario + '/' + t + '-trip_record_ob.pkl'
+    path_in_trip_record = 'out/' + scenario + '/' + t + '-trip_record_ib.pkl'
+    path_pax_record = 'out/' + scenario + '/' + t + '-pax_record_ob.pkl'
 
     out_trip_record = pd.concat(out_record_set, ignore_index=True)
     in_trip_record = pd.concat(in_record_set, ignore_index=True)
@@ -75,7 +76,7 @@ def run_base_dispatching(replications, capacity, prob_cancel=0.0, save_results=F
         else:
             key_params = {'prob_cancel': [prob_cancel], 'n_replications': [replications], 'capacity': [capacity],
                           'cancelled_blocks': [cancelled_blocks]}
-        pd.DataFrame(key_params).to_csv('out/' + save_folder + '/' + tstamp + '-key_params' + ext_csv, index=False)
+        pd.DataFrame(key_params).to_csv('out/' + save_folder + '/' + tstamp + '-key_params.csv', index=False)
     return
 
 
@@ -178,7 +179,7 @@ def rl_dispatch(n_episodes, train=False, prob_cancel=0.0, weight_hold_t=0.0, sav
         write_trip_records(save_folder, tstamp, out_trip_record_set, in_trip_record_set, pax_record_set)
         key_params = {'prob_cancel': [prob_cancel], 'n_replications': [n_episodes],
                       'cancelled_blocks': [cancelled_blocks]}
-        pd.DataFrame(key_params).to_csv('out/' + save_folder + '/' + tstamp + '-key_params' + ext_csv, index=False)
+        pd.DataFrame(key_params).to_csv('out/' + save_folder + '/' + tstamp + '-key_params.csv', index=False)
     return
 
 
@@ -208,7 +209,7 @@ def run_base(replications=4, save_results=False, control_eh=False, hold_adj_fact
         if control_eh:
             params = {'param': ['control_strength'], 'value': [control_strength]}
             df_params = pd.DataFrame(params)
-            df_params.to_csv('out/EH/' + tstamp + '-params_used' + ext_var, index=False)
+            df_params.to_csv('out/EH/' + tstamp + '-params_used.pkl', index=False)
     return
 
 

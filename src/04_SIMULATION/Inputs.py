@@ -1,7 +1,8 @@
 import numpy as np
 import pandas as pd
 from Input_Processor import extract_outbound_params, extract_inbound_params, extract_demand
-from File_Paths import *
+# from File_Paths import *
+from File_Paths import dir_route
 from datetime import datetime
 import math
 from Output_Processor import load
@@ -11,17 +12,16 @@ from datetime import timedelta
 
 START_TIME = datetime.strptime('05:00:00', "%H:%M:%S")
 END_TIME = datetime.strptime('10:00:00', "%H:%M:%S")
+FOCUS_START_TIME = datetime.strptime('07:28:00', "%H:%M:%S")
+FOCUS_END_TIME = datetime.strptime('08:15:00', "%H:%M:%S")
+
 START_TIME_SEC = (START_TIME - datetime(1900, 1, 1)).total_seconds()
 END_TIME_SEC = (END_TIME - datetime(1900, 1, 1)).total_seconds()
 TOTAL_MIN = (END_TIME - START_TIME).total_seconds() / 60
-FOCUS_START_TIME = datetime.strptime('07:28:00', "%H:%M:%S")
-FOCUS_END_TIME = datetime.strptime('08:15:00', "%H:%M:%S")
 FOCUS_START_TIME_SEC = (FOCUS_START_TIME - datetime(1900, 1, 1)).total_seconds()
 FOCUS_END_TIME_SEC = (FOCUS_END_TIME - datetime(1900, 1, 1)).total_seconds()
-# ROUTE NETWORK: NUMBER OF ROUTES, NUMBER OF STOPS, ROUTE STOPS
 DELAY_INTERVAL_LENGTH_MINS = 60
 DELAY_START_INTERVAL = int(START_TIME_SEC / (60 * DELAY_INTERVAL_LENGTH_MINS))
-# ROUTE 20 EAST
 TIME_INTERVAL_LENGTH_MINS = 30
 TIME_START_INTERVAL = int(START_TIME_SEC / (60 * TIME_INTERVAL_LENGTH_MINS))
 TIME_NR_INTERVALS = int(math.ceil(TOTAL_MIN / TIME_INTERVAL_LENGTH_MINS))
@@ -37,7 +37,6 @@ TRIP_TIME_INTERVAL_LENGTH_MINS = 60
 TRIP_TIME_START_INTERVAL = int(START_TIME_SEC / (60 * TRIP_TIME_INTERVAL_LENGTH_MINS))
 TRIP_TIME_NR_INTERVALS = int(math.ceil(TOTAL_MIN / TRIP_TIME_INTERVAL_LENGTH_MINS))
 # TRAVEL, DWELL TIME AND DEPARTURE DELAY DISTRIBUTION
-# NOT TUNED
 ACC_DEC_TIME = 4.5
 BOARDING_TIME = 2.3
 ALIGHTING_TIME = 1.2
@@ -110,29 +109,35 @@ ESTIMATED_PAX = False
 WEIGHT_RIDE_T = 0.0
 TT_FACTOR = 1.0
 HOLD_ADJ_FACTOR = 0.0
+FULL_PATTERN_HEADSIGN = 'Illinois Center'
+RT_NR = 20
+OB_DIRECTION = 'East'
+IB_DIRECTION = 'West'
 
 # EXTRACT FUNCTIONS
 # extract_demand(ODT_INTERVAL_LEN_MIN, DATES)
 # extract_outbound_params(START_TIME_SEC, END_TIME_SEC, TIME_NR_INTERVALS, TIME_START_INTERVAL, TIME_INTERVAL_LENGTH_MINS,
-#                         DATES, DELAY_INTERVAL_LENGTH_MINS, DELAY_START_INTERVAL)
+#                         DATES, DELAY_INTERVAL_LENGTH_MINS, DELAY_START_INTERVAL, FULL_PATTERN_HEADSIGN, RT_NR,
+#                         OB_DIRECTION)
 # extract_inbound_params(START_TIME_SEC, END_TIME_SEC, DATES, TRIP_TIME_NR_INTERVALS, TRIP_TIME_START_INTERVAL,
-#                        TRIP_TIME_INTERVAL_LENGTH_MINS, DELAY_INTERVAL_LENGTH_MINS, DELAY_START_INTERVAL)
+#                        TRIP_TIME_INTERVAL_LENGTH_MINS, DELAY_INTERVAL_LENGTH_MINS, DELAY_START_INTERVAL, RT_NR,
+#                        IB_DIRECTION)
 
 # OUTBOUND
-LINK_TIMES_INFO = load(path_link_times_mean)
-TRIPS_OUT_INFO = load('in/xtr/trips_outbound_info.pkl')
-ODT_RATES_SCALED = np.load('in/xtr/rt_20_odt_rates_30_scaled.npy')
-ODT_STOP_IDS = list(np.load('in/xtr/rt_20_odt_stops.npy'))
+LINK_TIMES_INFO = load(dir_route + 'link_times_info.pkl')
+TRIPS_OUT_INFO = load(dir_route + 'trips_out_info.pkl')
+ODT_RATES_SCALED = np.load(dir_route + 'odt_rates_30_scaled.npy')
+ODT_STOP_IDS = list(np.load(dir_route + 'odt_stops.npy'))
 ODT_STOP_IDS = [str(int(s)) for s in ODT_STOP_IDS]
-DEP_DELAY_DIST_OUT = load('in/xtr/dep_delay_dist_out.pkl') # empirical delay data , including negative
-STOPS_OUT_FULL_PATT = load(path_stops_out_full_pattern)
-STOPS_OUT_ALL = load(path_stops_out_all)
-STOPS_OUT_INFO = load('in/xtr/stops_out_info.pkl')
+DEP_DELAY_DIST_OUT = load(dir_route + 'dep_delay_dist_out.pkl') # empirical delay data , including negative
+STOPS_OUT_FULL_PATT = load(dir_route + 'stops_out_full_patt.pkl')
+STOPS_OUT_ALL = load(dir_route + 'stops_out_all.pkl')
+STOPS_OUT_INFO = load(dir_route + 'stops_out_info.pkl')
 
 # INBOUND
-TRIPS_IN_INFO = load('in/xtr/trips_inbound_info.pkl')
-RUN_T_DIST_IN = load('in/xtr/run_times_in.pkl')
-DELAY_DIST_IN = load('in/xtr/delay_in.pkl')
+TRIPS_IN_INFO = load(dir_route + 'trips_in_info.pkl')
+RUN_T_DIST_IN = load(dir_route + 'run_times_in.pkl')
+DELAY_DIST_IN = load(dir_route + 'delay_in.pkl')
 
 LINK_TIMES_MEAN, LINK_TIMES_EXTREMES, LINK_TIMES_PARAMS = LINK_TIMES_INFO
 SCALED_ARR_RATES = np.sum(ODT_RATES_SCALED, axis=-1)
