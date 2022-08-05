@@ -1,34 +1,39 @@
 import numpy as np
 import pandas as pd
 from Input_Processor import extract_outbound_params, extract_inbound_params, extract_demand
-# from File_Paths import *
-from File_Paths import dir_route
 from datetime import datetime
 import math
 from Output_Processor import load
 from datetime import timedelta
 
-# SIMULATION
+# route
+FULL_PATTERN_HEADSIGN = 'Illinois Center'
+RT_NR = 20
+OB_DIRECTION = 'East'
+IB_DIRECTION = 'West'
+DIR_ROUTE = 'in/rt_20_2019-09/'
 
+# time period
 START_TIME = datetime.strptime('05:00:00', "%H:%M:%S")
 END_TIME = datetime.strptime('10:00:00', "%H:%M:%S")
-FOCUS_START_TIME = datetime.strptime('07:28:00', "%H:%M:%S")
-FOCUS_END_TIME = datetime.strptime('08:15:00', "%H:%M:%S")
+
+# dates for avl/apc data collection
+y_mo = '2019-09-'
+days = list(range(3, 7)) + list(range(9, 14)) + list(range(16, 21)) + list(range(23, 28))
+days_str = ['0' + str(d) if len(str(d)) == 1 else str(d) for d in days]
+DATES = [y_mo + d for d in days_str]
 
 START_TIME_SEC = (START_TIME - datetime(1900, 1, 1)).total_seconds()
 END_TIME_SEC = (END_TIME - datetime(1900, 1, 1)).total_seconds()
 TOTAL_MIN = (END_TIME - START_TIME).total_seconds() / 60
-FOCUS_START_TIME_SEC = (FOCUS_START_TIME - datetime(1900, 1, 1)).total_seconds()
-FOCUS_END_TIME_SEC = (FOCUS_END_TIME - datetime(1900, 1, 1)).total_seconds()
+
 DELAY_INTERVAL_LENGTH_MINS = 60
 DELAY_START_INTERVAL = int(START_TIME_SEC / (60 * DELAY_INTERVAL_LENGTH_MINS))
 TIME_INTERVAL_LENGTH_MINS = 30
 TIME_START_INTERVAL = int(START_TIME_SEC / (60 * TIME_INTERVAL_LENGTH_MINS))
 TIME_NR_INTERVALS = int(math.ceil(TOTAL_MIN / TIME_INTERVAL_LENGTH_MINS))
-DATES = ['2019-09-03', '2019-09-04', '2019-09-05', '2019-09-06',
-         '2019-09-09', '2019-09-10', '2019-09-11', '2019-09-12', '2019-09-13',
-         '2019-09-16', '2019-09-17', '2019-09-18', '2019-09-19', '2019-09-20',
-         '2019-09-23', '2019-09-24', '2019-09-25', '2019-09-26', '2019-09-27']
+
+
 # INBOUND TO OUTBOUND LAYOVER TIME
 MIN_LAYOVER_T = 50
 ERR_LAYOVER_TIME = 20
@@ -43,9 +48,6 @@ ALIGHTING_TIME = 1.2
 DWELL_TIME_ERROR = 3.0
 EXTREME_TT_BOUND = 1.0
 BOOST_SCHED_RUN_T = 1.3 # FOR THOSE PROBLEMATIC LINKS (FIRST AND LAST) INCREASE SCHED RUN TIME BY 30 PCT
-HIGH_CAPACITY = 80
-LOW_CAPACITY = 53
-DDD = 'UNIFORM'
 DEP_DELAY_FROM = -60
 DEP_DELAY_TO = 110
 
@@ -57,7 +59,8 @@ ODT_END_INTERVAL = int(END_TIME_SEC / (60 * ODT_INTERVAL_LEN_MIN))
 # OTHER SERVICE PARAMETERS: DWELL TIME, SIMULATION LENGTH
 [IDX_ARR_T, IDX_DEP_T, IDX_LOAD, IDX_PICK, IDX_DROP, IDX_DENIED, IDX_HOLD_TIME, IDX_SKIPPED, IDX_SCHED] = [i for i in
                                                                                                            range(1, 10)]
-NO_OVERTAKE_BUFFER = 5
+HIGH_CAPACITY = 80
+LOW_CAPACITY = 53
 
 # FOR RECORDS
 OUT_TRIP_RECORD_COLS = ['bus_id', 'trip_id', 'stop_id', 'arr_sec', 'dep_sec', 'pax_load', 'ons', 'offs', 'denied',
@@ -99,8 +102,7 @@ NR_STATE_D_RL = FUTURE_HW_HORIZON*2 + PAST_HW_HORIZON*2 + 1 # actual, scheduled 
 NR_ACTIONS_D_RL = int((IMPOSED_DELAY_LIMIT+EARLY_DEP_LIMIT_SEC)/HOLD_INTERVALS) + 1
 # PARAMS FOR AT-STOP CONTROL WITH RL
 
-CONTROLLED_STOPS = ['386', '409', '423', '16049', '3954']
-CONTROLLED_STOPS_ALTERNATIVE = ['386', '409', '428', '3954']
+
 N_STATE_PARAMS_RL = 6
 [IDX_RT_PROGRESS, IDX_LOAD_RL, IDX_FW_H, IDX_BW_H, IDX_PAX_AT_STOP, IDX_PREV_FW_H] = [i for i in
                                                                                       range(N_STATE_PARAMS_RL)]
@@ -109,10 +111,6 @@ ESTIMATED_PAX = False
 WEIGHT_RIDE_T = 0.0
 TT_FACTOR = 1.0
 HOLD_ADJ_FACTOR = 0.0
-FULL_PATTERN_HEADSIGN = 'Illinois Center'
-RT_NR = 20
-OB_DIRECTION = 'East'
-IB_DIRECTION = 'West'
 
 # EXTRACT FUNCTIONS
 # extract_demand(ODT_INTERVAL_LEN_MIN, DATES)
@@ -124,20 +122,20 @@ IB_DIRECTION = 'West'
 #                        IB_DIRECTION)
 
 # OUTBOUND
-LINK_TIMES_INFO = load(dir_route + 'link_times_info.pkl')
-TRIPS_OUT_INFO = load(dir_route + 'trips_out_info.pkl')
-ODT_RATES_SCALED = np.load(dir_route + 'odt_rates_30_scaled.npy')
-ODT_STOP_IDS = list(np.load(dir_route + 'odt_stops.npy'))
+LINK_TIMES_INFO = load(DIR_ROUTE + 'link_times_info.pkl')
+TRIPS_OUT_INFO = load(DIR_ROUTE + 'trips_out_info.pkl')
+ODT_RATES_SCALED = np.load(DIR_ROUTE + 'odt_rates_30_scaled.npy')
+ODT_STOP_IDS = list(np.load(DIR_ROUTE + 'odt_stops.npy'))
 ODT_STOP_IDS = [str(int(s)) for s in ODT_STOP_IDS]
-DEP_DELAY_DIST_OUT = load(dir_route + 'dep_delay_dist_out.pkl') # empirical delay data , including negative
-STOPS_OUT_FULL_PATT = load(dir_route + 'stops_out_full_patt.pkl')
-STOPS_OUT_ALL = load(dir_route + 'stops_out_all.pkl')
-STOPS_OUT_INFO = load(dir_route + 'stops_out_info.pkl')
+DEP_DELAY_DIST_OUT = load(DIR_ROUTE + 'dep_delay_dist_out.pkl') # empirical delay data , including negative
+STOPS_OUT_FULL_PATT = load(DIR_ROUTE + 'stops_out_full_patt.pkl')
+STOPS_OUT_ALL = load(DIR_ROUTE + 'stops_out_all.pkl')
+STOPS_OUT_INFO = load(DIR_ROUTE + 'stops_out_info.pkl')
 
 # INBOUND
-TRIPS_IN_INFO = load(dir_route + 'trips_in_info.pkl')
-RUN_T_DIST_IN = load(dir_route + 'run_times_in.pkl')
-DELAY_DIST_IN = load(dir_route + 'delay_in.pkl')
+TRIPS_IN_INFO = load(DIR_ROUTE + 'trips_in_info.pkl')
+RUN_T_DIST_IN = load(DIR_ROUTE + 'run_times_in.pkl')
+DELAY_DIST_IN = load(DIR_ROUTE + 'delay_in.pkl')
 
 LINK_TIMES_MEAN, LINK_TIMES_EXTREMES, LINK_TIMES_PARAMS = LINK_TIMES_INFO
 SCALED_ARR_RATES = np.sum(ODT_RATES_SCALED, axis=-1)
@@ -183,6 +181,10 @@ PAX_INIT_TIME = np.array(PAX_INIT_TIME).cumsum()
 PAX_INIT_TIME += SCHED_DEP_OUT[0] - ((SCHED_DEP_OUT[1] - SCHED_DEP_OUT[0]) / 2)
 
 # trip id focused for results
+FOCUS_START_TIME = datetime.strptime('07:28:00', "%H:%M:%S")
+FOCUS_END_TIME = datetime.strptime('08:15:00', "%H:%M:%S")
+FOCUS_START_TIME_SEC = (FOCUS_START_TIME - datetime(1900, 1, 1)).total_seconds()
+FOCUS_END_TIME_SEC = (FOCUS_END_TIME - datetime(1900, 1, 1)).total_seconds()
 ordered_trips_arr = np.array([TRIP_IDS_OUT])
 sched_deps_arr = np.array([SCHED_DEP_OUT])
 FOCUS_TRIPS = ordered_trips_arr[
@@ -205,6 +207,7 @@ BASE_HOLDING_TIME = 25
 MIN_HW_THRESHOLD = 0.4
 LIMIT_HOLDING = int(MIN_HW_THRESHOLD * CONTROL_MEAN_HW - MIN_HW_THRESHOLD * CONTROL_MEAN_HW % BASE_HOLDING_TIME)
 N_ACTIONS_RL = int(LIMIT_HOLDING / BASE_HOLDING_TIME) + 2
+CONTROLLED_STOPS = ['386', '409', '423', '16049', '3954']
 
 # FOR UNIFORM CONDITIONS: TO USE - SET TIME-DEPENDENT TRAVEL TIME AND DEMAND TO FALSE
 UNIFORM_INTERVAL = 1

@@ -1,24 +1,19 @@
-from datetime import datetime
-from datetime import timedelta
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.stats import lognorm
 import pickle
-from File_Paths import dir_route
-# from File_Paths import path_stops_out_full_pattern, path_apc_counts, path_avl, path_trips_gtfs, path_stop_times
-# from File_Paths import path_calendar, path_stops_out_all
+from Inputs import DIR_ROUTE
 
 
 def extract_demand(odt_interval_len_min, dates):
-    odt_stops = np.load(dir_route + 'odt_stops.npy')
-    odt_pred = np.load(dir_route + 'odt_rates_30.npy')
+    odt_stops = np.load(DIR_ROUTE + 'odt_stops.npy')
+    odt_pred = np.load(DIR_ROUTE + 'odt_rates_30.npy')
 
     nr_intervals = 24 / (odt_interval_len_min / 60)
-    apc_df = pd.read_csv(dir_route + 'apc_counts.csv')
+    apc_df = pd.read_csv(DIR_ROUTE + 'apc_counts.csv')
     apc_on_rates, apc_off_rates = extract_apc_counts(apc_df, int(nr_intervals), odt_stops, odt_interval_len_min,
                                                      dates)
-
 
     # DISCOVERED IN DINGYI'S OD MATRIX TIME SHIFT
     shifted_odt = np.concatenate((odt_pred[-6:], odt_pred[:-6]), axis=0)
@@ -28,7 +23,7 @@ def extract_demand(odt_interval_len_min, dates):
         print(f'interval {i}')
         scaled_odt[i] = bi_proportional_fitting(shifted_odt[i], apc_on_rates[i], apc_off_rates[i])
 
-    np.save(dir_route + 'odt_rates_30_scaled.npy', scaled_odt)
+    np.save(DIR_ROUTE + 'odt_rates_30_scaled.npy', scaled_odt)
     # stops_lst = list(odt_stops)
     # if wanted for comparison
     # full_pattern_stops = load(path_stops_out_full_pattern)
@@ -91,9 +86,9 @@ def remove_outliers(data, factor=1.4):
 def extract_outbound_params(start_time_sec, end_time_sec, nr_intervals, start_interval,
                             interval_length, dates, delay_interval_length, delay_start_interval, full_pattern_sign,
                             rt_nr, rt_direction):
-    stop_times_df = pd.read_csv(dir_route + 'gtfs_stop_times.txt')
-    trips_df = pd.read_csv(dir_route + 'gtfs_trips.txt')
-    calendar_df = pd.read_csv(dir_route + 'gtfs_calendar.txt')
+    stop_times_df = pd.read_csv(DIR_ROUTE + 'gtfs_stop_times.txt')
+    trips_df = pd.read_csv(DIR_ROUTE + 'gtfs_trips.txt')
+    calendar_df = pd.read_csv(DIR_ROUTE + 'gtfs_calendar.txt')
     rt_trips_df = trips_df[
         (trips_df['route_id'].astype(str) == str(rt_nr)) & (trips_df['direction'] == rt_direction)].copy()
     schd_trip_id_df = rt_trips_df[['trip_id', 'schd_trip_id', 'block_id']].copy()
@@ -131,7 +126,7 @@ def extract_outbound_params(start_time_sec, end_time_sec, nr_intervals, start_in
         stop_info[s] = focus_st_df[focus_st_df['stop_id'].astype(str) == s]['schd_sec'].tolist()
     # focus_st_df.to_csv('in/vis/stop_times_shrink.txt', index=False)
 
-    avl_df = pd.read_csv(dir_route + 'avl.csv')
+    avl_df = pd.read_csv(DIR_ROUTE + 'avl.csv')
     schedules_by_trip = []
     stops_by_trip = []
     dist_by_trip = []
@@ -151,23 +146,23 @@ def extract_outbound_params(start_time_sec, end_time_sec, nr_intervals, start_in
         trip_df = avl_df[avl_df['trip_id'] == t].copy()
 
         for d in dates:
-            temp = trip_df[trip_df['avl_arr_time'].astype(str).str[:10] == d].copy()
+            temp = trip_df[trip_df['arr_time'].astype(str).str[:10] == d].copy()
             temp = temp.sort_values(by='stop_sequence')
             temp['seq_diff'] = temp['stop_sequence'].diff().shift(-1)
             temp['next_stop_id'] = temp['stop_id'].astype(str).shift(-1)
-            temp['next_arr_sec'] = temp['avl_arr_sec'].shift(-1)
+            temp['next_arr_sec'] = temp['arr_sec'].shift(-1)
             temp = temp.dropna(subset=['seq_diff'])
             temp = temp[temp['seq_diff'] == 1.0]
             temp['link'] = temp['stop_id'].astype(str) + '-' + temp['next_stop_id']
-            temp['link_t'] = temp['next_arr_sec'] % 86400 - temp['avl_dep_sec'] % 86400
+            temp['link_t'] = temp['next_arr_sec'] % 86400 - temp['dep_sec'] % 86400
             temp = temp[temp['link_t'] > 0.0]
             temp_links = temp['link'].tolist()
             temp_link_t = temp['link_t'].tolist()
-            temp_start_sec = temp['avl_dep_sec'].tolist()
+            temp_start_sec = temp['dep_sec'].tolist()
             stop_2 = temp[temp['stop_sequence'] == 2]
             if not stop_2.empty:
                 stop_2_schd_sec = stop_2['schd_sec'].iloc[0]
-                stop_2_avl_sec = stop_2['avl_dep_sec'].iloc[0] % 86400
+                stop_2_avl_sec = stop_2['dep_sec'].iloc[0] % 86400
                 delay_interv_idx = get_interval(stop_2_schd_sec, delay_interval_length) - delay_start_interval
                 dep_delay_ahead_dist[delay_interv_idx].append(stop_2_avl_sec - stop_2_schd_sec)
             for i in range(len(temp_links)):
@@ -217,17 +212,17 @@ def extract_outbound_params(start_time_sec, end_time_sec, nr_intervals, start_in
     trips_info = [(v, w, x, y, z, u) for v, w, x, y, z, u in
                   zip(trip_ids, sched_dep, block_ids, schedules_by_trip, stops_by_trip, dist_by_trip)]
 
-    stop_df = pd.read_csv(dir_route + 'gtfs_stops.txt')
+    stop_df = pd.read_csv(DIR_ROUTE + 'gtfs_stops.txt')
     stop_df = stop_df[stop_df['stop_id'].isin([int(s) for s in all_stops])]
     stop_df = stop_df[['stop_id', 'stop_name', 'stop_lat', 'stop_lon']]
-    stop_df.to_csv(dir_route + 'gtfs_stops_route.txt', index=False)
+    stop_df.to_csv(DIR_ROUTE + 'gtfs_stops_route.txt', index=False)
 
-    save(dir_route + 'stops_out_full_patt.pkl', full_pattern_stops)
-    save(dir_route + 'stops_out_all.pkl', all_stops)
-    save(dir_route + 'link_times_info.pkl', link_times_info)
-    save(dir_route + 'trips_out_info.pkl', trips_info)
-    save(dir_route + 'dep_delay_dist_out.pkl', dep_delay_ahead_dist)
-    save(dir_route + 'stops_out_info.pkl', stop_info)
+    save(DIR_ROUTE + 'stops_out_full_patt.pkl', full_pattern_stops)
+    save(DIR_ROUTE + 'stops_out_all.pkl', all_stops)
+    save(DIR_ROUTE + 'link_times_info.pkl', link_times_info)
+    save(DIR_ROUTE + 'trips_out_info.pkl', trips_info)
+    save(DIR_ROUTE + 'dep_delay_dist_out.pkl', dep_delay_ahead_dist)
+    save(DIR_ROUTE + 'stops_out_info.pkl', stop_info)
     return
 
 
@@ -256,10 +251,10 @@ def bi_proportional_fitting(od, target_ons, target_offs):
 def extract_inbound_params(start_time, end_time, dates, nr_intervals,
                            start_interval, interval_length, delay_interval_length,
                            delay_start_interval, rt_nr, rt_direction):
-    stop_times_df = pd.read_csv(dir_route + 'gtfs_stop_times.txt')
-    trips_df = pd.read_csv(dir_route + 'gtfs_trips.txt')
-    calendar_df = pd.read_csv(dir_route + 'gtfs_calendar.txt')
-    avl_df = pd.read_csv(dir_route + 'avl.csv')
+    stop_times_df = pd.read_csv(DIR_ROUTE + 'gtfs_stop_times.txt')
+    trips_df = pd.read_csv(DIR_ROUTE + 'gtfs_trips.txt')
+    calendar_df = pd.read_csv(DIR_ROUTE + 'gtfs_calendar.txt')
+    avl_df = pd.read_csv(DIR_ROUTE + 'avl.csv')
 
     rt_trips_df = trips_df[
         (trips_df['route_id'].astype(str) == str(rt_nr)) & (trips_df['direction'] == rt_direction)].copy()
@@ -320,22 +315,22 @@ def extract_inbound_params(start_time, end_time, dates, nr_intervals,
         run_t_idx = get_interval(schd_sec[0], interval_length) - start_interval
 
         for d in dates:
-            df = temp_df[temp_df['avl_arr_time'].astype(str).str[:10] == d].copy()
+            df = temp_df[temp_df['arr_time'].astype(str).str[:10] == d].copy()
             s1 = df[df['stop_sequence'] == 1]
             sm = df[df['stop_sequence'] == 2]
             sm2 = df[df['stop_sequence'] == stop_seq[-2]]
             s2 = df[df['stop_sequence'] == stop_seq[-1]]
             if not s1.empty and not s2.empty:
-                t1 = s1['avl_dep_sec'].iloc[0] % 86400
-                t2 = s2['avl_arr_sec'].iloc[0] % 86400
+                t1 = s1['dep_sec'].iloc[0] % 86400
+                t2 = s2['arr_sec'].iloc[0] % 86400
                 diff_tt[trip_link].append(((t2 - t1) - sched_run_t) / sched_run_t)
 
             if not sm.empty and not sm2.empty:
                 sm1_id = sm['stop_id'].iloc[0].astype(str)
                 sm2_id = sm2['stop_id'].iloc[0].astype(str)
                 assert sm1_id + '-' + sm2_id == stop_ids[1] + '-' + stop_ids[-2]
-                tm = sm['avl_arr_sec'].iloc[0] % 86400
-                tm2 = sm2['avl_dep_sec'].iloc[0] % 86400
+                tm = sm['arr_sec'].iloc[0] % 86400
+                tm2 = sm2['dep_sec'].iloc[0] % 86400
                 dep_del = tm - schd_sec[1]
                 dep_delay_new[stop_ids[0]][delay_idx].append(dep_del)
                 run_t = (tm2 - tm) + (schd_sec[1] - schd_sec[0]) + (schd_sec[-1] - schd_sec[-2])
@@ -365,29 +360,10 @@ def extract_inbound_params(start_time, end_time, dates, nr_intervals,
     trips_info = [(x, y, z, w, v, u) for x, y, z, w, v, u in
                   zip(trip_ids, sched_dep, block_ids, sched_by_trip, stops_by_trip, dist_by_trip)]
 
-    save(dir_route + 'trips_in_info.pkl', trips_info)
-    save(dir_route + 'run_times_in.pkl', run_times)
-    save(dir_route + 'delay_in.pkl', dep_delay_new)
+    save(DIR_ROUTE + 'trips_in_info.pkl', trips_info)
+    save(DIR_ROUTE + 'run_times_in.pkl', run_times)
+    save(DIR_ROUTE + 'delay_in.pkl', dep_delay_new)
     return
-
-
-def get_load_profile(stop_times_path, focus_trips, stops):
-    lp = []
-    ons_set = []
-    offs_set = []
-    st_df = pd.read_csv(stop_times_path)
-    stop_times_df = st_df[st_df['trip_id'].isin(focus_trips)].copy()
-    for s in stops:
-        df = stop_times_df[stop_times_df['stop_id'] == int(s)]
-        ons_df = df['ron'] + df['fon']
-        ons = remove_outliers(ons_df.to_numpy())
-        ons_set.append(ons.mean())
-        offs_df = df['roff'] + df['foff']
-        offs = remove_outliers(offs_df.to_numpy())
-        offs_set.append(offs.mean())
-        lp_dataset = remove_outliers(df['passenger_load'].to_numpy())
-        lp.append(lp_dataset.mean())
-    return lp, ons_set, offs_set
 
 
 def extract_apc_counts(apc_df, nr_intervals, odt_ordered_stops, interval_len_min, dates):

@@ -38,10 +38,7 @@ def plot_pax_profile(df, stops, apc=False, path_savefig=None, path_savefig_max=N
     for n in range(n_intervals):
         tmp_t0 = t0 + n * interv_len
         tmp_t1 = t0 + (n + 1) * interv_len
-        if apc:
-            tmp_df = df[(df['avl_sec'] >= tmp_t0) & (df['avl_sec'] < tmp_t1)].copy()
-        else:
-            tmp_df = df[(df['arr_sec'] >= tmp_t0) & (df['arr_sec'] < tmp_t1)].copy()
+        tmp_df = df[(df['arr_sec'] >= tmp_t0) & (df['arr_sec'] < tmp_t1)].copy()
         avg_loads = []
         avg_ons = []
         avg_offs = []
@@ -366,10 +363,10 @@ def plot_learning(x, scores, filename, lines=None, epsilons=None):
 
 def validate_trip_t_outbound(avl_df, sim_df, start_time, end_time, stops, path_trip_t, path_dwell_t, dates,
                              ignore_terminals=False):
-    trip_t_avl = trip_t_outbound(avl_df, start_time, end_time, 60, stops, 'avl_arr_sec',
-                                 'avl_dep_sec', is_avl=True, dates=dates,
+    trip_t_avl = trip_t_outbound(avl_df, start_time, end_time, 60, stops, 'arr_sec',
+                                 'dep_sec', is_avl=True, dates=dates,
                                  ignore_terminals=ignore_terminals)
-    dwell_t_avl = dwell_t_outbound(avl_df, 2, 66, stops, 'avl_arr_sec', 'avl_dep_sec', 60, start_time, end_time,
+    dwell_t_avl = dwell_t_outbound(avl_df, 2, 66, stops, 'arr_sec', 'dep_sec', 60, start_time, end_time,
                                    is_avl=True, dates=dates)
     trip_t_sim = trip_t_outbound(sim_df, start_time, end_time, 60, stops, 'arr_sec',
                                  'dep_sec', ignore_terminals=ignore_terminals)
@@ -400,7 +397,7 @@ def trip_t_outbound(df_out, start_time, end_time, interval_length, stops_out, co
         nr_days = df_out['replication'].max()
     for i in range(nr_days):
         if is_avl:
-            day_df = df_out[df_out['avl_arr_time'].astype(str).str[:10] == dates[i]].copy()
+            day_df = df_out[df_out['arr_time'].astype(str).str[:10] == dates[i]].copy()
         else:
             day_df = df_out[df_out['replication'] == i + 1].copy()
         for trip in focus_trips:
@@ -445,7 +442,7 @@ def dwell_t_outbound(df_out, start_stop, end_stop, stops, col_arr_t, col_dep_t, 
         nr_days = df_out['replication'].max()
     for i in range(nr_days):
         if is_avl:
-            day_df = df_out[df_out['avl_arr_time'].astype(str).str[:10] == dates[i]].copy()
+            day_df = df_out[df_out['arr_time'].astype(str).str[:10] == dates[i]].copy()
         else:
             day_df = df_out[df_out['replication'] == i + 1].copy()
         for trip in focus_trips:
@@ -468,8 +465,8 @@ def validate_delay_inbound(avl_df, sim_df, start_t_sec, end_t_sec, start_interva
     arr_delays_long, arr_delays_short, dep_delays_long, dep_delays_short = delay_inbound(avl_df, start_t_sec,
                                                                                          end_t_sec,
                                                                                          interval_mins,
-                                                                                         'avl_arr_sec',
-                                                                                         'avl_dep_sec',
+                                                                                         'arr_sec',
+                                                                                         'dep_sec',
                                                                                          [('17164', 2),
                                                                                           ('14800', 22)],
                                                                                          [('6360', 2),
@@ -501,7 +498,7 @@ def validate_delay_inbound(avl_df, sim_df, start_t_sec, end_t_sec, start_interva
 def validate_delay_outbound(avl_df, sim_df, start_t_sec, end_t_sec, interval_mins=60):
     start_interval = 5
     arr_delays_out, dep_delays_out = delay_outbound(avl_df, start_t_sec, end_t_sec, interval_mins,
-                                                    'avl_arr_sec', 'avl_dep_sec', [('388', 2), ('3954', 66)],
+                                                    'arr_sec', 'dep_sec', [('388', 2), ('3954', 66)],
                                                     outlier_removal=True)
     arr_delays_out_sim, dep_delays_out_sim = delay_outbound(sim_df, start_t_sec, end_t_sec,
                                                             interval_mins, 'arr_sec', 'dep_sec',
@@ -734,15 +731,15 @@ def cv_hw_from_avl(avl_df, start_time, end_time, interval_length, stops, dates):
     interval1 = get_interval(end_time, interval_length)
     hws = [[[] for _ in range(len(stops))] for _ in range(interval0, interval1)]
     for d in dates:
-        date_df = avl_df2[avl_df2['avl_arr_time'].astype(str).str[:10] == d]
+        date_df = avl_df2[avl_df2['arr_time'].astype(str).str[:10] == d]
         for interval in range(interval0, interval1):
             temp_df = date_df[date_df['schd_sec'] >= interval * interval_length * 60]
             temp_df = temp_df[temp_df['schd_sec'] <= (interval + 1) * interval_length * 60]
             for j in range(len(stops)):
                 df = temp_df[temp_df['stop_id'] == stops[j]]
                 df = df[df['stop_sequence'] == j + 1]
-                df = df.sort_values(by='avl_arr_sec')
-                arr_sec = df['avl_arr_sec'].tolist()
+                df = df.sort_values(by='arr_sec')
+                arr_sec = df['arr_sec'].tolist()
                 if len(arr_sec) > 1:
                     for i in range(1, len(arr_sec)):
                         hws[interval - interval0][j].append(arr_sec[i] - arr_sec[i - 1])
@@ -919,23 +916,23 @@ def block_trajectories(focus_trip_ids):
         'route_type'].astype(str)
     terminals = ['8613_1', '386_1', '15136_2', '386_2', '386_0', '8613_0']
     trajectories_df = trajectories_df[trajectories_df['stop_direction'].isin(terminals)]
-    trajectories_df['date'] = trajectories_df['avl_arr_time'].str[8:10].astype(int)
+    trajectories_df['date'] = trajectories_df['arr_time'].str[8:10].astype(int)
     trajectories_df = trajectories_df[
-        ['date', 'trip_id', 'block_id', 'stop_sequence', 'stop_id', 'avl_arr_sec', 'avl_dep_sec', 'schd_sec',
+        ['date', 'trip_id', 'block_id', 'stop_sequence', 'stop_id', 'arr_sec', 'dep_sec', 'schd_sec',
          'route_type']]
     trajectories_df = trajectories_df.sort_values(by=['date', 'schd_sec'])
-    trajectories_df['avl_arr_sec'] = trajectories_df['avl_arr_sec'] % 86400
-    trajectories_df['avl_dep_sec'] = trajectories_df['avl_dep_sec'] % 86400
+    trajectories_df['arr_sec'] = trajectories_df['arr_sec'] % 86400
+    trajectories_df['dep_sec'] = trajectories_df['dep_sec'] % 86400
     unique_dates = trajectories_df['date'].unique()
     fig, axs = plt.subplots(ncols=3, sharex='all', sharey='all')
     i = 0
     for d in [3, 11, 16]:
         trajectories = trajectories_df[trajectories_df['date'] == d]
 
-        trajectories_arr_sec = trajectories[['block_id', 'stop_id', 'avl_arr_sec']]
-        trajectories_arr_sec = trajectories_arr_sec.rename(columns={'avl_arr_sec': 'avl_sec'})
-        trajectories_dep_sec = trajectories[['block_id', 'stop_id', 'avl_dep_sec']]
-        trajectories_dep_sec = trajectories_dep_sec.rename(columns={'avl_dep_sec': 'avl_sec'})
+        trajectories_arr_sec = trajectories[['block_id', 'stop_id', 'arr_sec']]
+        trajectories_arr_sec = trajectories_arr_sec.rename(columns={'arr_sec': 'avl_sec'})
+        trajectories_dep_sec = trajectories[['block_id', 'stop_id', 'dep_sec']]
+        trajectories_dep_sec = trajectories_dep_sec.rename(columns={'dep_sec': 'avl_sec'})
         trajectories_schd_sec = trajectories[['block_id', 'stop_id', 'schd_sec']]
         trajectories_schd_sec = trajectories_schd_sec.rename(columns={'schd_sec': 'avl_sec'})
         trajectories_schd_sec['block_id'] = trajectories_schd_sec['block_id'] * 10
