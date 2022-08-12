@@ -1,4 +1,4 @@
-from Inputs import *
+from Variable_Inputs import *
 import numpy as np
 from scipy.stats import lognorm
 import random
@@ -7,7 +7,7 @@ from Simulation_Classes import Passenger, Stop, Bus, TripLog
 
 
 def get_interval(t, interval_length):
-    # time in seconds, interval length in minutes
+    # time ins seconds, interval length ins minutes
     interval = int(t / (interval_length * 60))
     return interval
 
@@ -83,8 +83,7 @@ def load_pax(stop, t, bus, bus_cap, next_stops, trip_id, on_dwell=False):
 
 
 class SimulationEnv:
-    def __init__(self, time_dependent_travel_time=True, time_dependent_demand=True,
-                 tt_factor=1.0, hold_adj_factor=0.0, bus_capacity=HIGH_CAPACITY):
+    def __init__(self, tt_factor=1.0, hold_adj_factor=0.0, bus_capacity=HIGH_CAPACITY):
         self.stops = {}
         self.completed_pax = []
         self.buses = []
@@ -94,14 +93,12 @@ class SimulationEnv:
         self.completed_pax_record = []
         self.out_trip_record = []
         self.in_trip_record = []
-        self.time_dependent_travel_time = time_dependent_travel_time
-        self.time_dependent_demand = time_dependent_demand
         self.time = 0.0
         self.tt_factor = tt_factor
         self.hold_adj_factor = hold_adj_factor
         self.bus_capacity = bus_capacity
 
-    def estimate_arrival_time(self, start_time, start_stop, end_stop, time_dependent_tt, current_time):
+    def estimate_arrival_time(self, start_time, start_stop, end_stop, current_time):
         stops = self.bus.active_trip[0].stops
         temp_arr_t = start_time
         start_stop_idx = stops.index(start_stop)
@@ -109,14 +106,11 @@ class SimulationEnv:
         for i in range(start_stop_idx, end_stop_idx):
             stop0 = stops[i]
             stop1 = stops[i + 1]
-            if time_dependent_tt:
-                interv = get_interval(temp_arr_t, TIME_INTERVAL_LENGTH_MINS)
-                if temp_arr_t > END_TIME_SEC:
-                    return np.nan
-                interv_idx = interv - TIME_START_INTERVAL
-                mean_runtime = LINK_TIMES_MEAN[stop0 + '-' + stop1][interv_idx]
-            else:
-                mean_runtime = SINGLE_LINK_TIMES_MEAN[stop0 + '-' + stop1]
+            interv = get_interval(temp_arr_t, TIME_BIN_MINS)
+            if temp_arr_t > END_TIME_SEC:
+                return np.nan
+            interv_idx = interv - TIME_START_INTERVAL
+            mean_runtime = LINK_TIMES_MEAN[stop0 + '-' + stop1][interv_idx]
             temp_arr_t = max(temp_arr_t + mean_runtime, current_time)
             assert mean_runtime
         arrival_time = temp_arr_t
@@ -133,7 +127,7 @@ class SimulationEnv:
                 0].direction == 1 and bus.pending_trips and bus.bus_id != self.bus.bus_id:
                 assert bus.next_event_type == 4
                 prev_dep_t = bus.dep_t
-                interv_idx = get_interval(prev_dep_t, TRIP_TIME_INTERVAL_LENGTH_MINS) - TRIP_TIME_START_INTERVAL
+                interv_idx = get_interval(prev_dep_t, TRIP_TIME_BIN_MINS) - TRIP_TIME_START_INTERVAL
                 stops = bus.active_trip[0].stops
                 estimated_in_run_t = np.mean(RUN_T_DIST_IN[stops[0] + '-' + stops[-1]][interv_idx])
                 ready_time = prev_dep_t + estimated_in_run_t + MIN_LAYOVER_T
@@ -143,7 +137,7 @@ class SimulationEnv:
                 else:
                     terminal_dep_t = max(ready_time, next_sched_t)
                     arr_t = self.estimate_arrival_time(terminal_dep_t, STOPS_OUT_FULL_PATT[0], self.bus.last_stop_id,
-                                                       self.time_dependent_travel_time, self.time)
+                                                       self.time)
                     if not np.isnan(arr_t):
                         if arr_t - self.time < 0:
                             print(f'what? on buses on inbound')
@@ -157,13 +151,13 @@ class SimulationEnv:
                 else:
                     terminal_dep_t = max(bus.next_event_time, bus.pending_trips[0].schedule[0])
                     arr_t = self.estimate_arrival_time(terminal_dep_t, STOPS_OUT_FULL_PATT[0], self.bus.last_stop_id,
-                                                       self.time_dependent_travel_time, self.time)
+                                                       self.time)
                     if not np.isnan(arr_t):
                         if arr_t - self.time < 0:
                             print(f'what? on garaged buses')
                         expected_arr_t.append(arr_t)
 
-            # only for trips that are at a midpoint control route should check buses behind in the outbound direction
+            # only for trips that are at a midpoint control route should check buses behind ins the outbound direction
 
             if self.bus.last_stop_id != STOPS_OUT_FULL_PATT[0] and bus.active_trip and bus.active_trip[
                 0].direction == 0 and bus.next_event_type == 1:
@@ -173,8 +167,7 @@ class SimulationEnv:
                 if behind_last_stop_idx < curr_stop_idx:
                     stop0 = bus.last_stop_id
                     stop1 = self.bus.last_stop_id
-                    arr_t = self.estimate_arrival_time(bus.dep_t, stop0, stop1,
-                                                       self.time_dependent_travel_time, self.time)
+                    arr_t = self.estimate_arrival_time(bus.dep_t, stop0, stop1, self.time)
                     if not np.isnan(arr_t):
                         if arr_t - self.time < 0:
                             print(f'what? bus behind is {curr_stop_idx - behind_last_stop_idx} stops behind')
@@ -214,19 +207,15 @@ class SimulationEnv:
         link = str(stop0) + '-' + str(stop1)
         stops = bus.active_trip[0].stops
         stop_idx = stops.index(bus.last_stop_id)
-        interv = get_interval(self.time, TIME_INTERVAL_LENGTH_MINS)
+        interv = get_interval(self.time, TIME_BIN_MINS)
         interv_idx = interv - TIME_START_INTERVAL
         last_link = stops[-2] + '-' + stops[-1]
         first_link = stops[0] + '-' + stops[1]
         if link in [first_link, last_link]:
             # problematic
             return (bus.active_trip[0].schedule[stop_idx + 1] - bus.active_trip[0].schedule[stop_idx]) * 1.8
-        if self.time_dependent_travel_time:
-            link_time_params = LINK_TIMES_PARAMS[link][interv_idx]
-            link_time_extremes = LINK_TIMES_EXTREMES[link][interv_idx]
-        else:
-            link_time_params = SINGLE_LINK_TIMES_PARAMS[link]
-            link_time_extremes = SINGLE_LINK_TIMES_EXTREMES
+        link_time_params = LINK_TIMES_PARAMS[link][interv_idx]
+        link_time_extremes = LINK_TIMES_EXTREMES[link][interv_idx]
         if type(link_time_params) is not tuple and np.isnan(link_time_params):
             return bus.active_trip[0].schedule[stop_idx + 1] - bus.active_trip[0].schedule[stop_idx]
         try:
@@ -263,7 +252,7 @@ class SimulationEnv:
             for trip in bus.pending_trips:
                 self.trip_log.append(TripLog(trip.trip_id, trip.stops))
             trip = bus.pending_trips[0]
-            interval_idx = get_interval(trip.schedule[0], DELAY_INTERVAL_LENGTH_MINS) - DELAY_START_INTERVAL
+            interval_idx = get_interval(trip.schedule[0], DELAY_BIN_MINS) - DELAY_START_INTERVAL
             rand_percentile = np.random.uniform(0.0, 100.0)
             if trip.direction == 0:
                 delay_dist = DEP_DELAY_DIST_OUT[interval_idx]
@@ -284,13 +273,13 @@ class SimulationEnv:
             pax_info['d_id'] = []
             for dest in [stop for stop in STOPS_OUT_ALL if stop != orig]:
                 for interval_idx in range(ODT_START_INTERVAL, ODT_END_INTERVAL):
-                    start_edge_interval = interval_idx * ODT_INTERVAL_LEN_MIN * 60
-                    end_edge_interval = start_edge_interval + ODT_INTERVAL_LEN_MIN * 60
+                    start_edge_interval = interval_idx * ODT_BIN_MINS * 60
+                    end_edge_interval = start_edge_interval + ODT_BIN_MINS * 60
                     odt_orig_idx = ODT_STOP_IDS.index(orig)
                     odt_dest_idx = ODT_STOP_IDS.index(dest)
-                    od_rate = ODT_RATES_SCALED[interval_idx, odt_orig_idx, odt_dest_idx]
+                    od_rate = ODT_FLOWS[interval_idx, odt_orig_idx, odt_dest_idx]
                     if od_rate > 0:
-                        max_size = int(np.ceil(od_rate) * (ODT_INTERVAL_LEN_MIN / 60) * 10)
+                        max_size = int(np.ceil(od_rate) * (ODT_BIN_MINS / 60) * 10)
                         temp_pax_interarr_times = np.random.exponential(3600 / od_rate, size=max_size)
                         temp_pax_arr_times = np.cumsum(temp_pax_interarr_times)
                         sched_at_stop = self.stops[orig].sched_t
@@ -394,7 +383,7 @@ class SimulationEnv:
     def outbound_dispatch(self, hold=0):
         bus = self.bus
         stops = bus.active_trip[0].stops
-        idx_next_stop = stops.index(bus.next_stop_id)  # in case there is expressing
+        idx_next_stop = stops.index(bus.next_stop_id)  # ins case there is expressing
         next_stops = stops[idx_next_stop:]
 
         load_pax(self.stops[bus.last_stop_id], self.time, bus, self.bus_capacity, next_stops,
@@ -476,7 +465,7 @@ class SimulationEnv:
         bus.pending_trips.pop(0)
         trip = bus.active_trip[0]
         trip_id = trip.trip_id
-        interval_idx = get_interval(self.time, TRIP_TIME_INTERVAL_LENGTH_MINS) - TRIP_TIME_START_INTERVAL
+        interval_idx = get_interval(self.time, TRIP_TIME_BIN_MINS) - TRIP_TIME_START_INTERVAL
         rand_percentile = np.random.uniform(0.0, 100.0)
         run_time = np.percentile(RUN_T_DIST_IN[trip.stops[0] + '-' + trip.stops[-1]][interval_idx], rand_percentile)
         arr_time = self.time + run_time
@@ -581,7 +570,7 @@ class SimulationEnvWithHolding(SimulationEnv):
             stops = self.bus.pending_trips[0].stops
             trip_id = self.bus.pending_trips[0].trip_id
             if trip_id not in NO_CONTROL_TRIP_IDS and stops == STOPS_OUT_FULL_PATT:
-                if stops[0] in CONTROLLED_STOPS[:-1]:
+                if stops[0] in CONTROL_STOPS:
                     self.outbound_ready_to_dispatch()
                     self.decide_bus_holding()
                     return False
@@ -593,7 +582,7 @@ class SimulationEnvWithHolding(SimulationEnv):
             stops = self.bus.active_trip[0].stops
             trip_id = self.bus.active_trip[0].trip_id
             if trip_id not in NO_CONTROL_TRIP_IDS and stops == STOPS_OUT_FULL_PATT:
-                if self.bus.next_stop_id in CONTROLLED_STOPS[:-1]:
+                if self.bus.next_stop_id in CONTROL_STOPS:
                     self.fixed_stop_unload()
                     self.decide_bus_holding()
                     return False
@@ -721,9 +710,9 @@ class SimulationEnvWithRL(SimulationEnv):
 
         route_progress = curr_stop_idx / len(STOPS_OUT_FULL_PATT)
         if self.estimate_pax:
-            interval_idx = get_interval(self.time, ODT_INTERVAL_LEN_MIN)
+            interval_idx = get_interval(self.time, ODT_BIN_MINS)
             odt_stop_idx = ODT_STOP_IDS.index(bus.last_stop_id)
-            arr_rate = SCALED_ARR_RATES[interval_idx, odt_stop_idx]
+            arr_rate = ARR_RATES[interval_idx, odt_stop_idx]
             pax_at_stop = round(forward_headway * (arr_rate / 3600))
         else:
             pax_at_stop = 0
@@ -745,7 +734,7 @@ class SimulationEnvWithRL(SimulationEnv):
     def take_action(self, action):
         # i = self.bus_idx
         bus = self.bus
-        # record action in sars
+        # record action ins sars
         trip_id = bus.active_trip[0].trip_id
         self.trips_sars[trip_id][-1][1] = action
         if action:
@@ -776,9 +765,9 @@ class SimulationEnvWithRL(SimulationEnv):
         # FRONT NEIGHBOR'S REWARD
         agent_trip_idx = trip_idx - 1
         agent_trip_id = TRIP_IDS_OUT[agent_trip_idx]
-        # agent bus not considered responsible for the wait time impact in the control point upon arrival to it
+        # agent bus not considered responsible for the wait time impact ins the control point upon arrival to it
         # only responsible for the impact on wait time at the control point for the following trip
-        # and the riding time impact in case of holding which is accounted for later
+        # and the riding time impact ins case of holding which is accounted for later
         # for example if there was skipping at that stop previously the penalty would otherwise be tremendous
         # despite having nothing to do with that decision
         stop_id_before_set = STOPS_OUT_FULL_PATT[:s0_idx]
@@ -833,7 +822,7 @@ class SimulationEnvWithRL(SimulationEnv):
                     sum_rew_agent_ride_time += ride
 
         # CURRENT TRIP'S REWARD CONTRIBUTION
-        # stop_idx_set = [s for s in range(s0_idx, s1_idx)]
+        # stop_idx_set = [s for s ins range(s0_idx, s1_idx)]
         # +1 is to catch the index of the control point only if it will be used to update
         sum_rew_behind_wait_time = 0
         sum_rew_behind_ride_time = 0
@@ -872,16 +861,16 @@ class SimulationEnvWithRL(SimulationEnv):
         bus = self.bus
         trip_id = bus.active_trip[0].trip_id
 
-        if trip_id != CONTROL_TRIP_IDS[0] and bus.last_stop_id != CONTROLLED_STOPS[0]:
+        if trip_id != CONTROL_TRIP_IDS[0] and bus.last_stop_id != CONTROL_STOPS[0]:
             # KEY STEP: WE NEED TO DO TWO THINGS:
 
             # ONE IS TO FILL IN THE AGENT'S REWARD FOR THE PREVIOUS STEP (IF THERE IS A PREVIOUS STEP)
 
             # TWO IS TO FILL THE FRONT NEIGHBOR'S REWARD FOR ITS PREVIOUS STEP (IF THERE IS AN ACTIVE FRONT NEIGHBOR)
             # TWO ALSO TRIGGERS SENDING THE SARS TUPLE INTO THE POOL OF COMPLETED EXPERIENCES
-            k = CONTROLLED_STOPS.index(bus.last_stop_id)
-            curr_control_stop = CONTROLLED_STOPS[k]
-            prev_control_stop = CONTROLLED_STOPS[k - 1]
+            k = CONTROL_STOPS.index(bus.last_stop_id)
+            curr_control_stop = CONTROL_STOPS[k]
+            prev_control_stop = CONTROL_STOPS[k - 1]
             trip_idx = TRIP_IDS_OUT.index(trip_id)
             neighbor_trip_id = TRIP_IDS_OUT[trip_idx - 1]
             sars_idx = k - 1
@@ -923,7 +912,7 @@ class SimulationEnvWithRL(SimulationEnv):
             stops = self.bus.pending_trips[0].stops
             trip_id = self.bus.pending_trips[0].trip_id
             if trip_id not in NO_CONTROL_TRIP_IDS and stops == STOPS_OUT_FULL_PATT:
-                if stops[0] in CONTROLLED_STOPS[:-1]:
+                if stops[0] in CONTROL_STOPS[:-1]:
                     self.bool_terminal_state = False
                     self.outbound_ready_to_dispatch()
                     self._add_observations()
@@ -937,17 +926,17 @@ class SimulationEnvWithRL(SimulationEnv):
             stop = self.bus.next_stop_id
             trip_id = self.bus.active_trip[0].trip_id
             if trip_id not in NO_CONTROL_TRIP_IDS and stops == STOPS_OUT_FULL_PATT:
-                if stop in CONTROLLED_STOPS:
-                    if stop == CONTROLLED_STOPS[-1]:
-                        self.bool_terminal_state = True
-                        self.fixed_stop_unload()
-                        self._add_observations()
-                        self.fixed_stop_load()
-                        self.fixed_stop_depart()
-                    else:
-                        self.bool_terminal_state = False
-                        self.fixed_stop_unload()
-                        self._add_observations()
+                if stop in CONTROL_STOPS:
+                    self.bool_terminal_state = False
+                    self.fixed_stop_unload()
+                    self._add_observations()
+                    return False
+                elif stop == TERMINAL_STATE_STOP:
+                    self.bool_terminal_state = True
+                    self.fixed_stop_unload()
+                    self._add_observations()
+                    self.fixed_stop_load()
+                    self.fixed_stop_depart()
                     return False
             self.fixed_stop_unload()
             self.fixed_stop_load()
@@ -1016,7 +1005,7 @@ class SimulationEnvWithCancellations(SimulationEnv):
                 for trip in bus.pending_trips:
                     self.trip_log.append(TripLog(trip.trip_id, trip.stops))
                 first_trip = bus.pending_trips[0]
-                interval_idx = get_interval(first_trip.schedule[0], DELAY_INTERVAL_LENGTH_MINS) - DELAY_START_INTERVAL
+                interval_idx = get_interval(first_trip.schedule[0], DELAY_BIN_MINS) - DELAY_START_INTERVAL
                 rand_percentile = np.random.uniform(0.0, 100.0)
                 if first_trip.direction == 0:
                     delay_dist = DEP_DELAY_DIST_OUT[interval_idx]
@@ -1076,7 +1065,7 @@ class SimulationEnvWithCancellations(SimulationEnv):
         for bus in self.buses:
             if bus.active_trip and bus.active_trip[0].direction == 1 \
                     and bus.pending_trips and bus.bus_id != self.bus.bus_id:
-                interv_idx = get_interval(bus.dep_t, TRIP_TIME_INTERVAL_LENGTH_MINS) - TRIP_TIME_START_INTERVAL
+                interv_idx = get_interval(bus.dep_t, TRIP_TIME_BIN_MINS) - TRIP_TIME_START_INTERVAL
                 stops = bus.active_trip[0].stops
                 estimated_in_run_t = np.mean(RUN_T_DIST_IN[stops[0] + '-' + stops[-1]][interv_idx])
                 ready_time = bus.dep_t + estimated_in_run_t + MIN_LAYOVER_T
@@ -1090,7 +1079,7 @@ class SimulationEnvWithCancellations(SimulationEnv):
                         assert bus.next_event_time >= self.time
                     else:
                         if not bus.finished_trips:
-                            # pull-out trip
+                            # pull-outs trip
                             future_dep_t.append(bus.pending_trips[0].schedule[0])
                         else:
                             # bus layover at terminal without holding instruction
@@ -1117,7 +1106,7 @@ class SimulationEnvWithCancellations(SimulationEnv):
         past_actual_dep = deepcopy(self.stops[stops[0]].last_dep_t)
         past_actual_dep.append(self.time)
         past_actual_hw = [past_actual_dep[i] - past_actual_dep[i - 1] for i in range(1, len(past_actual_dep))]
-        # print([str(timedelta(seconds=round(past_actual_dep[i]))) for i in range(len(past_actual_dep))])
+        # print([str(timedelta(seconds=round(past_actual_dep[i]))) for i ins range(len(past_actual_dep))])
 
         future_sched_dep = np.sort(sched_deps_arr[sched_deps_arr >= sched_dep])[:FUTURE_HW_HORIZON + 1].tolist()
         future_sched_hw = [future_sched_dep[i] - future_sched_dep[i - 1] for i in range(1, len(future_sched_dep))]
@@ -1310,7 +1299,7 @@ class SimulationEnvWithCancellations(SimulationEnv):
             return self.prep()
 
         if self.bus.next_event_type == 1:
-            # conditions: strategy has MRH, bus is not expressed, bus has something behind (in function)
+            # conditions: strategy has MRH, bus is not expressed, bus has something behind (ins function)
             # and is a controlled stop
             self.fixed_stop_unload()
             if self.control_strategy and 'MRH' in self.control_strategy:

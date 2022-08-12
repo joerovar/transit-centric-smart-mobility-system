@@ -1,6 +1,6 @@
 from RL_Agents import DDQNAgent
 from Output_Processor import plot_learning
-from Inputs import *
+from Variable_Inputs import *
 import os
 import Simulation_Envs
 import random
@@ -14,9 +14,9 @@ def process_trip_record(record, record_col_names, rep_nr):
 
 
 def write_trip_records(scenario, t, out_record_set, in_record_set, pax_record_set):
-    path_out_trip_record = 'out/' + scenario + '/' + t + '-trip_record_ob.pkl'
-    path_in_trip_record = 'out/' + scenario + '/' + t + '-trip_record_ib.pkl'
-    path_pax_record = 'out/' + scenario + '/' + t + '-pax_record_ob.pkl'
+    path_out_trip_record = DIR_ROUTE_OUTS + scenario + '/' + t + '-trip_record_ob.pkl'
+    path_in_trip_record = DIR_ROUTE_OUTS + scenario + '/' + t + '-trip_record_ib.pkl'
+    path_pax_record = DIR_ROUTE_OUTS + scenario + '/' + t + '-pax_record_ob.pkl'
 
     out_trip_record = pd.concat(out_record_set, ignore_index=True)
     in_trip_record = pd.concat(in_record_set, ignore_index=True)
@@ -53,8 +53,8 @@ def run_base_dispatching(replications, capacity, prob_cancel=0.0, save_results=F
                 #       f'and next event time is {str(timedelta(seconds=round(env.bus.next_event_time)))}')
                 # print(f'trip {env.bus.pending_trips[0].trip_id}')
                 # print(f'schedule deviation {round(env.obs[-1])}')
-                # print(f'sched hw {[str(timedelta(seconds=round(hw))) for hw in past_sched_hw]} | {[str(timedelta(seconds=round(hw))) for hw in future_sched_hw]}')
-                # print(f'actual hw {[str(timedelta(seconds=round(hw))) for hw in past_actual_hw]} | {[str(timedelta(seconds=round(hw))) for hw in future_actual_hw]}')
+                # print(f'sched hw {[str(timedelta(seconds=round(hw))) for hw ins past_sched_hw]} | {[str(timedelta(seconds=round(hw))) for hw ins future_sched_hw]}')
+                # print(f'actual hw {[str(timedelta(seconds=round(hw))) for hw ins past_actual_hw]} | {[str(timedelta(seconds=round(hw))) for hw ins future_actual_hw]}')
                 env.dispatch_decision()
         if save_results:
             out_trip_record_set.append(process_trip_record(env.out_trip_record, OUT_TRIP_RECORD_COLS, i))
@@ -76,7 +76,7 @@ def run_base_dispatching(replications, capacity, prob_cancel=0.0, save_results=F
         else:
             key_params = {'prob_cancel': [prob_cancel], 'n_replications': [replications], 'capacity': [capacity],
                           'cancelled_blocks': [cancelled_blocks]}
-        pd.DataFrame(key_params).to_csv('out/' + save_folder + '/' + tstamp + '-key_params.csv', index=False)
+        pd.DataFrame(key_params).to_csv(DIR_ROUTE_OUTS + save_folder + '/' + tstamp + '-key_params.csv', index=False)
     return
 
 
@@ -86,7 +86,7 @@ def rl_dispatch(n_episodes, train=False, prob_cancel=0.0, weight_hold_t=0.0, sav
         assert train
         tstamp_policy = time.strftime("%m%d-%H%M")
     # agent_ = getattr(Agents, ALGO)
-    path_train_info = 'out/trained_nets/' + tstamp_policy + '_dispatch'
+    path_train_info = DIR_ROUTE_OUTS + 'trained_nets/' + tstamp_policy + '_dispatch'
     agent = DDQNAgent(gamma=DISCOUNT_FACTOR, epsilon=EPS, lr=LEARN_RATE, input_dims=[NR_STATE_D_RL],
                       n_actions=NR_ACTIONS_D_RL, mem_size=MAX_MEM, eps_min=EPS_MIN, batch_size=BATCH_SIZE,
                       replace=EPOCHS_REPLACE, eps_dec=EPS_DEC, chkpt_dir=path_train_info + '/',
@@ -152,8 +152,8 @@ def rl_dispatch(n_episodes, train=False, prob_cancel=0.0, weight_hold_t=0.0, sav
                 #       f'and next event time is {str(timedelta(seconds=round(env.bus.next_event_time)))}')
                 # print(f'trip {env.bus.pending_trips[0].trip_id}')
                 # print(f'schedule deviation {round(env.obs[-1])}')
-                # print(f'sched hw {[str(timedelta(seconds=round(hw))) for hw in past_sched_hw]} | {[str(timedelta(seconds=round(hw))) for hw in future_sched_hw]}')
-                # print(f'actual hw {[str(timedelta(seconds=round(hw))) for hw in past_actual_hw]} | {[str(timedelta(seconds=round(hw))) for hw in future_actual_hw]}')
+                # print(f'sched hw {[str(timedelta(seconds=round(hw))) for hw ins past_sched_hw]} | {[str(timedelta(seconds=round(hw))) for hw ins future_sched_hw]}')
+                # print(f'actual hw {[str(timedelta(seconds=round(hw))) for hw ins past_actual_hw]} | {[str(timedelta(seconds=round(hw))) for hw ins future_actual_hw]}')
                 # print(f'holding time {action*HOLD_INTERVALS}')
                 env.dispatch_decision(hold_time=action * HOLD_INTERVALS)
         if not train and save_results:
@@ -179,7 +179,7 @@ def rl_dispatch(n_episodes, train=False, prob_cancel=0.0, weight_hold_t=0.0, sav
         write_trip_records(save_folder, tstamp, out_trip_record_set, in_trip_record_set, pax_record_set)
         key_params = {'prob_cancel': [prob_cancel], 'n_replications': [n_episodes],
                       'cancelled_blocks': [cancelled_blocks]}
-        pd.DataFrame(key_params).to_csv('out/' + save_folder + '/' + tstamp + '-key_params.csv', index=False)
+        pd.DataFrame(key_params).to_csv(DIR_ROUTE_OUTS + save_folder + '/' + tstamp + '-key_params.csv', index=False)
     return
 
 
@@ -209,14 +209,14 @@ def run_base(replications=4, save_results=False, control_eh=False, hold_adj_fact
         if control_eh:
             params = {'param': ['control_strength'], 'value': [control_strength]}
             df_params = pd.DataFrame(params)
-            df_params.to_csv('out/EH/' + tstamp + '-params_used.pkl', index=False)
+            df_params.to_csv(DIR_ROUTE_OUTS + 'EH/' + tstamp + '-params_used.pkl', index=False)
     return
 
 
 def train_rl(n_episodes_train, simple_reward=False):
     tstamp_policy = time.strftime("%m%d-%H%M")
     # agent_ = getattr(Agents, ALGO)
-    path_train_info = 'out/trained_nets/' + tstamp_policy + '_at_stop'
+    path_train_info = DIR_ROUTE_OUTS + 'trained_nets/' + tstamp_policy + '_at_stop'
     agent = DDQNAgent(gamma=DISCOUNT_FACTOR, epsilon=EPS, lr=LEARN_RATE,
                       input_dims=[N_STATE_PARAMS_RL], n_actions=N_ACTIONS_RL,
                       mem_size=MAX_MEM, eps_min=EPS_MIN, batch_size=BATCH_SIZE, replace=EPOCHS_REPLACE, eps_dec=EPS_DEC,
@@ -303,7 +303,7 @@ def train_rl(n_episodes_train, simple_reward=False):
 
 def test_rl(n_episodes_test, tstamp_policy, save_results=False, simple_reward=False):
     # agent_ = getattr(Agents, ALGO)
-    path_train_info = 'out/trained_nets/' + tstamp_policy + '_at_stop'
+    path_train_info = DIR_ROUTE_OUTS + 'trained_nets/' + tstamp_policy + '_at_stop'
     agent = DDQNAgent(gamma=DISCOUNT_FACTOR, epsilon=EPS, lr=LEARN_RATE, input_dims=[N_STATE_PARAMS_RL],
                       n_actions=N_ACTIONS_RL, mem_size=MAX_MEM, eps_min=EPS_MIN, batch_size=BATCH_SIZE,
                       replace=EPOCHS_REPLACE, eps_dec=EPS_DEC, chkpt_dir=path_train_info + '/',
@@ -353,7 +353,7 @@ def test_rl(n_episodes_test, tstamp_policy, save_results=False, simple_reward=Fa
         scenario = 'DDQN-HA'
         write_trip_records(scenario, tstamp, out_trip_record_set, in_trip_record_set, pax_record_set)
 
-        with open('out/' + scenario + '/' + tstamp + '-net_used.csv', 'w') as f:
+        with open(DIR_ROUTE_OUTS + scenario + '/' + tstamp + '-net_used.csv', 'w') as f:
             f.write(str(tstamp_policy))
     return
 

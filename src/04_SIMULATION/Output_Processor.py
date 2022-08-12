@@ -6,6 +6,7 @@ from copy import deepcopy
 import seaborn as sns
 from datetime import timedelta
 from Input_Processor import get_interval, remove_outliers
+from ins.Fixed_Inputs_81 import DIR_ROUTE_OUTS
 
 
 def denied_count(scenarios, period, scenario_tags, method_tags):
@@ -15,7 +16,7 @@ def denied_count(scenarios, period, scenario_tags, method_tags):
         numer_results[m] = []
     for i in range(len(scenario_tags)):
         for j in range(len(method_tags)):
-            df = pd.read_pickle('out/' + scenarios[j][i] + '-pax_record_ob.pkl')
+            df = pd.read_pickle(DIR_ROUTE_OUTS + scenarios[j][i] + '-pax_record_ob.pkl')
             tmp_df = df[(df['arr_time'] <= period[1]) & (df['arr_time'] >= period[0])].copy()
             n_denied = tmp_df[tmp_df['denied'] == 1].shape[0]
             tot = tmp_df.shape[0]
@@ -24,17 +25,17 @@ def denied_count(scenarios, period, scenario_tags, method_tags):
     return df
 
 
-def plot_pax_profile(df, stops, apc=False, path_savefig=None, path_savefig_max=None):
+def plot_pax_profile(df, stops, apc=False, path_savefig=None, path_savefig_single=None):
     t0 = 6 * 60 * 60
     t1 = 10 * 60 * 60
     interv_len = 60 * 60
     n_intervals = int((t1 - t0) / interv_len)
-    fig, axs = plt.subplots(nrows=2, ncols=2, figsize=(13, 8), sharey='all')
+    fig, axs = plt.subplots(nrows=2, ncols=2, figsize=(12, 8), sharey='all', sharex='all')
     stops_x = np.arange(len(stops))
     w_bar = 0.6
-    max_loads = []
-    max_ons = []
-    max_offs = []
+    single_loads = []
+    single_ons = []
+    single_offs = []
     for n in range(n_intervals):
         tmp_t0 = t0 + n * interv_len
         tmp_t1 = t0 + (n + 1) * interv_len
@@ -66,43 +67,44 @@ def plot_pax_profile(df, stops, apc=False, path_savefig=None, path_savefig_max=N
         avg_ons[-1] = 0
         avg_offs[0] = 0
         if n == 2:
-            max_loads = deepcopy(avg_loads)
-            max_ons = deepcopy(avg_ons)
-            max_offs = deepcopy(avg_offs)
+            single_loads = deepcopy(avg_loads)
+            single_ons = deepcopy(avg_ons)
+            single_offs = deepcopy(avg_offs)
         axs2 = axs.flat[n].twinx()
         axs2.bar(stops_x - w_bar / 2, avg_ons, w_bar)
         axs2.bar(stops_x + w_bar / 2, avg_offs, w_bar)
-        axs2.set_ylim(0, 5)
+        axs2.set_ylim(0, 7)
         axs.flat[n].plot(avg_loads, color='black')
         axs.flat[n].set_ylim(0, 35)
         axs.flat[n].set_title(f'{int(tmp_t0 / 60 / 60)} AM')
         axs2.set_ylabel('ons/offs per trip')
         axs.flat[n].set_ylabel('average pax load')
+        axs.flat[n].set_xticks(np.arange(0, len(stops), 10), labels=np.arange(1, len(stops)+1, 10))
+        axs.flat[n].set_xlabel('stops')
+    plt.tight_layout()
     if path_savefig:
         plt.savefig(path_savefig)
     else:
         plt.show()
     plt.close()
-    fig, ax = plt.subplots(figsize=(8, 6))
-    ax2 = ax.twinx()
-    ax2.bar(stops_x - w_bar / 2, max_ons, w_bar, color='grey', label='ons')
-    ax2.bar(stops_x + w_bar / 2, max_offs, w_bar, color='black', label='offs')
-    ax2.set_ylabel('average ons/offs per trip')
-    ax.set_ylabel('average pax load')
-    ax.plot(max_loads, color='black', label='load')
-    ax.set_xlabel('stops')
-    ax.set_xticks(np.arange(0, len(stops), 10), labels=np.arange(1, len(stops)+1, 10))
-    ax.axvline(10, linestyle='dashed', label='express segment', color='black')
-    ax.axvline(0, linestyle='dashed', color='black')
-    ax.axvline(28, linestyle='dotted', label='mid holding stops', color='black')
-    ax.axvline(44, linestyle='dotted', color='black')
-    fig.legend(loc='upper center')
-    plt.tight_layout()
-    if path_savefig_max:
-        plt.savefig(path_savefig_max)
-    else:
-        plt.show()
-    plt.close()
+    if path_savefig_single:
+        fig, ax = plt.subplots(figsize=(8, 6))
+        ax2 = ax.twinx()
+        ax2.bar(stops_x - w_bar / 2, single_ons, w_bar, color='grey', label='ons')
+        ax2.bar(stops_x + w_bar / 2, single_offs, w_bar, color='black', label='offs')
+        ax2.set_ylabel('average ons/offs per trip')
+        ax.set_ylabel('average pax load')
+        ax.plot(single_loads, color='black', label='load')
+        ax.set_xlabel('stops')
+        ax.set_xticks(np.arange(0, len(stops), 10), labels=np.arange(1, len(stops)+1, 10))
+        ax.axvline(10, linestyle='dashed', label='express segment', color='black')
+        ax.axvline(0, linestyle='dashed', color='black')
+        ax.axvline(28, linestyle='dotted', label='mid holding stops', color='black')
+        ax.axvline(44, linestyle='dotted', color='black')
+        fig.legend(loc='upper center')
+        plt.tight_layout()
+        plt.savefig(path_savefig_single)
+        plt.close()
     return
 
 
@@ -120,7 +122,7 @@ def plot_run_times(scenarios, scenario_tags, method_tags, stops, fig_dir=None):
         data = pd.DataFrame(columns=['method', 'run_time', 'dep_t'])
         for j in range(len(method_tags)):
             d = pd.DataFrame(columns=['method', 'run_time', 'dep_t'])
-            df = pd.read_pickle('out/' + scenarios[j][i] + '-trip_record_ob.pkl')
+            df = pd.read_pickle(DIR_ROUTE_OUTS + scenarios[j][i] + '-trip_record_ob.pkl')
             run_ts = trip_t_outbound(df, 6*60*60, 9*60*60, 60, stops, 'arr_sec', 'dep_sec')
             numer_results[method_tags[j]].append(np.percentile(run_ts[1], 95))
             for k in range(len(intervals)):
@@ -155,7 +157,7 @@ def load_plots(scenarios, scenario_tags, method_tags, stops, period, fig_dir=Non
     for i in range(len(method_tags)):
         for j in range(len(scenario_tags)):
             load = []
-            df = pd.read_pickle('out/' + scenarios[i][j] + '-trip_record_ob.pkl')
+            df = pd.read_pickle(DIR_ROUTE_OUTS + scenarios[i][j] + '-trip_record_ob.pkl')
             for s in stops:
                 load_tmp = df[(df['stop_id'] == s) & (df['arr_sec'] <= period[1]) &
                               (df['arr_sec'] >= period[0])]['pax_load'].quantile(quantile)
@@ -188,7 +190,7 @@ def trajectory_plots(scenarios, scenario_titles, scheduled_trajectories, period,
         (df_sched_t_rep['schd_sec'] >= period[0]) & (df_sched_t_rep['schd_sec'] <= period[1])]
     df_sched_t_rep = df_sched_t_rep.set_index('schd_sec')
     for i in range(len(scenarios)):
-        df_out = pd.read_pickle('out/' + scenarios[i] + '-trip_record_ob.pkl')
+        df_out = pd.read_pickle(DIR_ROUTE_OUTS + scenarios[i] + '-trip_record_ob.pkl')
 
         df_arr_t = df_out[['trip_id', 'replication', 'dist_traveled', 'arr_sec', 'expressed']].copy()
         df_arr_t = df_arr_t.rename(columns={'arr_sec': 'seconds'})
@@ -238,7 +240,7 @@ def cv_hw_plot(scenarios, stops, period, scenario_tags, method_tags, fig_dir=Non
     fig, axs = plt.subplots(ncols=len(scenario_tags), figsize=(13, 8), sharey='all')
     for i in range(len(method_tags)):
         for j in range(len(scenario_tags)):
-            df_out = pd.read_pickle('out/' + scenarios[i][j] + '-trip_record_ob.pkl')
+            df_out = pd.read_pickle(DIR_ROUTE_OUTS + scenarios[i][j] + '-trip_record_ob.pkl')
             lbl = method_tags[i]
             cv = cv_hw_by_time(df_out, period[0], period[1], stops)
             axs[j].plot(np.arange(len(stops)), cv, label=lbl, color=colors[i])
@@ -275,7 +277,7 @@ def pax_times_plot(scenarios, boarding_stops, alighting_stops,
     for i in range(len(method_tags)):
         rbt = []
         for j in range(len(scenario_tags)):
-            df_pax = pd.read_pickle('out/' + scenarios[i][j] + '-pax_record_ob.pkl')
+            df_pax = pd.read_pickle(DIR_ROUTE_OUTS + scenarios[i][j] + '-pax_record_ob.pkl')
             df_p = df_pax[(df_pax['arr_time'] <= period[1]) & (df_pax['arr_time'] >= period[0])].copy()
             df_p = df_p[df_p['orig_idx'].isin(boarding_stops)].copy()
             df_p = df_p[df_p['dest_idx'].isin(alighting_stops)].copy()
@@ -366,12 +368,12 @@ def validate_trip_t_outbound(avl_df, sim_df, start_time, end_time, stops, path_t
     trip_t_avl = trip_t_outbound(avl_df, start_time, end_time, 60, stops, 'arr_sec',
                                  'dep_sec', is_avl=True, dates=dates,
                                  ignore_terminals=ignore_terminals)
-    dwell_t_avl = dwell_t_outbound(avl_df, 2, 66, stops, 'arr_sec', 'dep_sec', 60, start_time, end_time,
+    dwell_t_avl = dwell_t_outbound(avl_df, 2, stops, 'arr_sec', 'dep_sec', 60, start_time, end_time,
                                    is_avl=True, dates=dates)
     trip_t_sim = trip_t_outbound(sim_df, start_time, end_time, 60, stops, 'arr_sec',
                                  'dep_sec', ignore_terminals=ignore_terminals)
-    dwell_t_sim = dwell_t_outbound(sim_df, 2, 66, stops, 'arr_sec', 'dep_sec', 60, start_time, end_time)
-    plot_calib_hist(trip_t_avl, trip_t_sim, 5, path_trip_t, 'total trip time (seconds)')
+    dwell_t_sim = dwell_t_outbound(sim_df, 2, stops, 'arr_sec', 'dep_sec', 60, start_time, end_time)
+    plot_calib_hist(trip_t_avl, trip_t_sim, 5, path_trip_t, 'total trip time (minutes)')
     plot_calib_hist(dwell_t_avl, dwell_t_sim, 5, path_dwell_t, 'dwell time (seconds)')
     return
 
@@ -404,10 +406,10 @@ def trip_t_outbound(df_out, start_time, end_time, interval_length, stops_out, co
             trip_df = day_df[day_df['trip_id'] == trip].copy()
             if ignore_terminals:
                 t0 = trip_df[trip_df['stop_sequence'] == 2]
-                t1 = trip_df[trip_df['stop_sequence'] == 66]
+                t1 = trip_df[trip_df['stop_sequence'] == len(stops_out)-1]
             else:
                 t0 = trip_df[trip_df['stop_sequence'] == 1]
-                t1 = trip_df[trip_df['stop_sequence'] == 67]
+                t1 = trip_df[trip_df['stop_sequence'] == len(stops_out)]
             if not t0.empty and not t1.empty:
                 t0 = t0.iloc[0]
                 t1 = t1.iloc[0]
@@ -454,69 +456,58 @@ def dwell_t_outbound(df_out, start_stop, end_stop, stops, col_arr_t, col_dep_t, 
                     (trip_df['stop_sequence'] >= start_stop) & (trip_df['stop_sequence'] <= end_stop)].copy()
                 if is_avl:
                     mid_route_df = mid_route_df.drop_duplicates(subset='stop_sequence', keep='first')
-                if mid_route_df.shape[0] == end_stop - start_stop + 1:
+                if mid_route_df.shape[0] == len(stops) - start_stop:
                     mid_route_df.loc[:, 'dwell_t'] = mid_route_df[col_dep_t] - mid_route_df[col_arr_t]
                     dwell_t[interval - interval0].append(mid_route_df['dwell_t'].sum())
     return dwell_t
 
 
-def validate_delay_inbound(avl_df, sim_df, start_t_sec, end_t_sec, start_interval, interval_mins=60):
+def validate_delay_inbound(avl_df, sim_df, start_t_sec, end_t_sec, start_interval, interval_mins=60, short_patt=False):
     # start_interval = 5
-    arr_delays_long, arr_delays_short, dep_delays_long, dep_delays_short = delay_inbound(avl_df, start_t_sec,
-                                                                                         end_t_sec,
-                                                                                         interval_mins,
-                                                                                         'arr_sec',
-                                                                                         'dep_sec',
-                                                                                         [('17164', 2),
-                                                                                          ('14800', 22)],
-                                                                                         [('6360', 2),
-                                                                                          ('14800', 62)],
-                                                                                         outlier_removal=True)
+    arr_delays_long, dep_delays_long = delay_inbound(avl_df, start_t_sec, end_t_sec, interval_mins, 'arr_sec',
+                                                     'dep_sec', (['3774', 2], ['17038', 50]), outlier_removal=True)
+    arr_del_long_sim, dep_del_long_sim = delay_inbound(sim_df, start_t_sec, end_t_sec, interval_mins, 'arr_sec',
+                                                       'arr_sec', (['3773', 1], ['14102', 51]))
+    plot_calib_hist(dep_delays_long, dep_del_long_sim, start_interval,
+                    DIR_ROUTE_OUTS + 'compare/validate/dep_delays_in_long.png', 'dep delay (seconds)')
 
-    arr_del_long_sim, arr_del_short_sim, dep_del_long_sim, dep_del_short_sim = delay_inbound(sim_df,
-                                                                                             start_t_sec,
-                                                                                             end_t_sec,
-                                                                                             interval_mins,
-                                                                                             'arr_sec',
-                                                                                             'arr_sec',
-                                                                                             [('15136', 1),
-                                                                                              ('386', 23)],
-                                                                                             [('8613', 1),
-                                                                                              ('386', 63)])
+    plot_calib_hist(arr_delays_long, arr_del_long_sim, start_interval,
+                    DIR_ROUTE_OUTS + 'compare/validate/arr_delays_in_long.png', 'arr delay (seconds)')
 
-    plot_calib_hist(arr_delays_long, arr_del_long_sim, start_interval, 'out/compare/validate/arr_delays_in_long.png',
-                    'arr delay (seconds)')
-    plot_calib_hist(arr_delays_short, arr_del_short_sim, start_interval, 'out/compare/validate/arr_delays_in_short.png',
-                    'arr delay (seconds)')
-    plot_calib_hist(dep_delays_long, dep_del_long_sim, start_interval, 'out/compare/validate/dep_delays_in_long.png',
-                    'dep delay (seconds)')
-    plot_calib_hist(dep_delays_short, dep_del_short_sim, start_interval, 'out/compare/validate/dep_delays_in_short.png',
-                    'dep delay (seconds)')
+    if short_patt:
+        arr_delays_short, dep_delays_short = delay_inbound(avl_df, start_t_sec, end_t_sec, interval_mins, 'arr_sec',
+                                                           'dep_sec', [('17164', 2), ('14800', 22)], outlier_removal=True)
+        arr_del_short_sim, dep_del_short_sim = delay_inbound(sim_df, start_t_sec, end_t_sec, interval_mins, 'arr_sec',
+                                                             'arr_sec', [('15136', 1), ('386', 23)])
+        plot_calib_hist(arr_delays_short, arr_del_short_sim, start_interval,
+                        DIR_ROUTE_OUTS + 'compare/validate/arr_delays_in_short.png', 'arr delay (seconds)')
+        plot_calib_hist(dep_delays_short, dep_del_short_sim, start_interval,
+                        DIR_ROUTE_OUTS + 'compare/validate/dep_delays_in_short.png', 'dep delay (seconds)')
     return
 
 
-def validate_delay_outbound(avl_df, sim_df, start_t_sec, end_t_sec, interval_mins=60):
+def validate_delay_outbound(avl_df, sim_df, start_t_sec, end_t_sec, stops, interval_mins=60):
     start_interval = 5
     arr_delays_out, dep_delays_out = delay_outbound(avl_df, start_t_sec, end_t_sec, interval_mins,
-                                                    'arr_sec', 'dep_sec', [('388', 2), ('3954', 66)],
+                                                    'arr_sec', 'dep_sec', [(stops[1], 2), (stops[-2], len(stops) - 1)],
                                                     outlier_removal=True)
     arr_delays_out_sim, dep_delays_out_sim = delay_outbound(sim_df, start_t_sec, end_t_sec,
                                                             interval_mins, 'arr_sec', 'dep_sec',
-                                                            [('386', 1), ('8613', 67)])
-    plot_calib_hist(arr_delays_out, arr_delays_out_sim, start_interval, 'out/compare/validate/arr_delays_out.png',
-                    'arr delay (seconds)')
-    plot_calib_hist(dep_delays_out, dep_delays_out_sim, start_interval, 'out/compare/validate/dep_delays_out.png',
-                    'dep delay (seconds)')
+                                                            [(stops[0], 1), (stops[-1], len(stops))])
+    plot_calib_hist(arr_delays_out, arr_delays_out_sim, start_interval,
+                    DIR_ROUTE_OUTS + 'compare/validate/arr_delays_out.png', 'arr delay (seconds)')
+    plot_calib_hist(dep_delays_out, dep_delays_out_sim, start_interval,
+                    DIR_ROUTE_OUTS + 'compare/validate/dep_delays_out.png', 'dep delay (seconds)')
     return
 
 
 def plot_calib_hist(delay_avl, delay_sim, start_interval, filename, xlabel):
-    fig, ax = plt.subplots(nrows=2, ncols=2, sharex='all')
+    fig, ax = plt.subplots(nrows=2, ncols=2, sharex='all', figsize=(8, 6))
     for i in range(ax.size):
         ax.flat[i].hist([delay_avl[i], delay_sim[i]], density=True, label=['avl', 'sim'])
-        ax.flat[i].set_title(f'hour {start_interval + i}')
+        ax.flat[i].set_title(f'{start_interval + i} AM')
         ax.flat[i].set_yticks([])
-    plt.xlabel(xlabel)
+        ax.flat[i].set_xlabel(xlabel)
     plt.tight_layout()
     plt.legend()
     plt.savefig(filename)
@@ -527,99 +518,70 @@ def plot_calib_hist(delay_avl, delay_sim, start_interval, filename, xlabel):
 def validate_cv_hw_outbound(avl_df, sim_df, start_t_sec, end_t_sec, interval_min, stops, dates, start_interval=5):
     hw_out_cv = cv_hw_from_avl(avl_df, start_t_sec, end_t_sec, interval_min, stops, dates)
     hw_out_cv_sim = cv_hw_by_intervals(sim_df, start_t_sec, end_t_sec, interval_min, stops)
-    fig, ax = plt.subplots(nrows=2, ncols=2, sharey='all', sharex='all')
+    fig, ax = plt.subplots(nrows=2, ncols=2, sharey='all', sharex='all', figsize=(10, 8))
     for i in range(ax.size):
         ax.flat[i].plot(hw_out_cv[i], label='avl')
         ax.flat[i].plot(hw_out_cv_sim[i], label='sim')
         ax.flat[i].set_title(f'hour {start_interval + i}')
         ax.flat[i].set_xlabel('stop')
+        ax.flat[i].set_ylabel('cv headway')
+        ax.flat[i].set_xlabel('stop')
+        ax.flat[i].set_xticks(np.arange(0, len(stops), 10), labels=np.arange(1, len(stops)+1, 10))
     ax[0, 0].set_ylabel('c.v. headway')
     ax[1, 0].set_ylabel('c.v. headway')
     plt.legend()
     plt.tight_layout()
-    plt.savefig('out/compare/validate/cv_hw.png')
+    plt.savefig(DIR_ROUTE_OUTS + 'compare/validate/cv_hw.png')
     plt.close()
     return
 
 
-def delay_inbound(trips_df, start_time, end_time, delay_interval_length, col_arr_t, col_dep_t, terminals_short,
-                  terminals_long, outlier_removal=False):
+def delay_inbound(trips_df, start_time, end_time, delay_interval_length, col_arr_t, col_dep_t, terminals, outlier_removal=False):
     trips_df2 = trips_df.copy()
     trips_df2['stop_id'] = trips_df2['stop_id'].astype(str)
 
-    end_terminal_id = terminals_short[1][0]
-    terminal_seq_long = terminals_long[1][1]
-    terminal_seq_short = terminals_short[1][1]
+    end_terminal_id = terminals[1][0]
+    terminal_seq = terminals[1][1]
 
-    arr_delays_long = []
-    arr_delays_short = []
+    arr_delays = []
+    # arr_delays_short = []
     # arrivals
-    arr_long_df = trips_df2[trips_df2['stop_id'] == end_terminal_id].copy()
-    arr_long_df = arr_long_df[arr_long_df['stop_sequence'] == terminal_seq_long]
-    arr_long_df[col_arr_t] = arr_long_df[col_arr_t] % 86400
+    arr_df = trips_df2[trips_df2['stop_id'] == end_terminal_id].copy()
+    arr_df = arr_df[arr_df['stop_sequence'] == terminal_seq]
+    arr_df[col_arr_t] = arr_df[col_arr_t] % 86400
 
-    arr_short_df = trips_df2[trips_df2['stop_id'] == end_terminal_id].copy()
-    arr_short_df = arr_short_df[arr_short_df['stop_sequence'] == terminal_seq_short]
-    arr_short_df[col_arr_t] = arr_short_df[col_arr_t] % 86400
+    start_terminal_id = terminals[0][0]
+    start_terminal_seq = terminals[0][1]
 
-    start_terminal_id_long = terminals_long[0][0]
-    start_terminal_id_short = terminals_short[0][0]
-    start_terminal_seq_long = terminals_long[0][1]
-    start_terminal_seq_short = terminals_short[0][1]
-
-    dep_delays_long = []
-    dep_delays_short = []
-    # departures
-    dep_long_df = trips_df2[trips_df2['stop_id'] == start_terminal_id_long].copy()
-    dep_long_df = dep_long_df[dep_long_df['stop_sequence'] == start_terminal_seq_long]
-    dep_long_df[col_dep_t] = dep_long_df[col_dep_t] % 86400
-
-    dep_short_df = trips_df2[trips_df2['stop_id'] == start_terminal_id_short].copy()
-    dep_short_df = dep_short_df[dep_short_df['stop_sequence'] == start_terminal_seq_short]
-    dep_short_df[col_dep_t] = dep_short_df[col_dep_t] % 86400
+    dep_delays = []
+    dep_df = trips_df2[trips_df2['stop_id'] == start_terminal_id].copy()
+    dep_df = dep_df[dep_df['stop_sequence'] == start_terminal_seq]
+    dep_df[col_dep_t] = dep_df[col_dep_t] % 86400
 
     interval0 = get_interval(start_time, delay_interval_length)
     interval1 = get_interval(end_time, delay_interval_length)
 
     for interval in range(interval0, interval1):
         # arrivals
-        temp_df = arr_long_df[arr_long_df['schd_sec'] >= interval * delay_interval_length * 60].copy()
+        temp_df = arr_df[arr_df['schd_sec'] >= interval * delay_interval_length * 60].copy()
         temp_df = temp_df[temp_df['schd_sec'] <= (interval + 1) * delay_interval_length * 60]
         temp_df['delay'] = temp_df[col_arr_t] - temp_df['schd_sec']
         if outlier_removal:
             d = remove_outliers(temp_df['delay'].to_numpy())
         else:
             d = temp_df['delay']
-        arr_delays_long.append(d.tolist())
-
-        temp_df = arr_short_df[arr_short_df['schd_sec'] >= interval * delay_interval_length * 60].copy()
-        temp_df = temp_df[temp_df['schd_sec'] <= (interval + 1) * delay_interval_length * 60]
-        temp_df['delay'] = temp_df[col_arr_t] - temp_df['schd_sec']
-        if outlier_removal:
-            d = remove_outliers(temp_df['delay'].to_numpy())
-        else:
-            d = temp_df['delay']
-        arr_delays_short.append(d.tolist())
+        arr_delays.append(d.tolist())
 
         # departures
-        temp_df = dep_long_df[dep_long_df['schd_sec'] >= interval * delay_interval_length * 60].copy()
+        temp_df = dep_df[dep_df['schd_sec'] >= interval * delay_interval_length * 60].copy()
         temp_df = temp_df[temp_df['schd_sec'] <= (interval + 1) * delay_interval_length * 60]
         temp_df['delay'] = temp_df[col_dep_t] - temp_df['schd_sec']
         if outlier_removal:
             d = remove_outliers(temp_df['delay'].to_numpy())
         else:
             d = temp_df['delay']
-        dep_delays_long.append(d.tolist())
-
-        temp_df = dep_short_df[dep_short_df['schd_sec'] >= interval * delay_interval_length * 60].copy()
-        temp_df = temp_df[temp_df['schd_sec'] <= (interval + 1) * delay_interval_length * 60]
-        temp_df['delay'] = temp_df[col_dep_t] - temp_df['schd_sec']
-        if outlier_removal:
-            d = remove_outliers(temp_df['delay'].to_numpy())
-        else:
-            d = temp_df['delay']
-        dep_delays_short.append(d.tolist())
-    return arr_delays_long, arr_delays_short, dep_delays_long, dep_delays_short
+        dep_delays.append(d.tolist())
+    return arr_delays, dep_delays
 
 
 def delay_outbound(trips_df, start_time, end_time, delay_interval_length, col_arr_t, col_dep_t, terminals_info,
@@ -902,9 +864,9 @@ def plot_load_profile_benchmark(load_set, os, lbls, colors, load_sd_set=None, pa
 
 
 def block_trajectories(focus_trip_ids):
-    trajectories_in_df = pd.read_csv('in/vis/trajectories_inbound.csv')
-    trajectories_out_df = pd.read_csv('in/vis/trajectories_outbound.csv')
-    block_info = pd.read_csv('in/vis/block_info.csv')
+    trajectories_in_df = pd.read_csv('ins/vis/trajectories_inbound.csv')
+    trajectories_out_df = pd.read_csv('ins/vis/trajectories_outbound.csv')
+    block_info = pd.read_csv('ins/vis/block_info.csv')
 
     block_info = block_info[['trip_id', 'block_id', 'route_type']]
     trajectories_df = pd.concat([trajectories_out_df, trajectories_in_df], axis=0, ignore_index=True)
@@ -955,7 +917,7 @@ def block_trajectories(focus_trip_ids):
     plt.close()
 
     fig, axs = plt.subplots(ncols=3, sharex='all', sharey='all')
-    trajectories_sim = pd.read_csv('out/trajectories/NC.csv')
+    trajectories_sim = pd.read_csv('outs/trajectories/NC.csv')
     terminals = [386, 8613]
     i = 0
 

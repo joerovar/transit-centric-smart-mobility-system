@@ -60,7 +60,7 @@ d['date'] = pd.to_datetime(d['event_time']).dt.date
 for route in ['20']:
     # filter trips to route
     r_schd_trips = schd_trips[schd_trips['route_id']==route]
-    # merge in stop information
+    # merge ins stop information
     r_schd_trip_stops = pd.merge(r_schd_trips, st, on='trip_id')
 
     r_schd_trip_stops['schd_trip_id'] = r_schd_trip_stops['schd_trip_id'].astype(int)

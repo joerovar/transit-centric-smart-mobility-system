@@ -25,7 +25,7 @@ d = pd.concat(df_list)
 
 d.loc[:,'servicedate'] = pd.to_datetime(d['TRANSACTION_DTM']).dt.date
 
-# Take out observations where destination cannot be inferred
+# Take outs observations where destination cannot be inferred
 od = d.dropna()
 print("Caution: %.2f%% ridership left." % (len(od)/len(d)*100))
 
@@ -37,7 +37,7 @@ all_comb = pd.merge(all_od,all_dates,on='key')
 
 # count trips
 trip_cnt = od.groupby(['servicedate','BOARDING_STOP','INFERRED_ALIGHTING_GTFS_STOP','bin_5'], as_index=False).count()
-# fill in days where no trips recorded for the OD
+# fill ins days where no trips recorded for the OD
 trip_cnt = pd.merge(all_comb, trip_cnt, on=['servicedate','BOARDING_STOP','INFERRED_ALIGHTING_GTFS_STOP','bin_5'], how='left').fillna(0)
 # calculate mean and std
 trip_cnt = trip_cnt.groupby(['BOARDING_STOP','INFERRED_ALIGHTING_GTFS_STOP','bin_5'], as_index=False).agg({'TRANSACTION_DTM':['mean','std']})
