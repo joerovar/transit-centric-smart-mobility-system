@@ -1,6 +1,8 @@
 # transit-centric-smart-mobility-system
 ## rt_20_e_bound
 
+UPDATE ROUTE 81!
+
 Route 20 CTA
 
 Fall '21 and Spring '22 
