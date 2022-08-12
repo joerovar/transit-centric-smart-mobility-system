@@ -9,12 +9,12 @@ from Simulation_Processor import run_base_dispatching, rl_dispatch
 from Output_Processor import dwell_t_outbound
 
 
-avl_df = pd.read_csv('ins/rt_81_2022-05/avl.csv')
-sim_df = pd.read_pickle('outs/rt_81_2022-05/NC/0809-095540-trip_record_ob.pkl')
-dwell1 = dwell_t_outbound(avl_df, 2, 10, STOPS_OUT_FULL_PATT, 'arr_sec', 'dep_sec', 60, START_TIME_SEC,
-                          END_TIME_SEC, is_avl=True, dates=DATES)
+# avl_df = pd.read_csv('ins/rt_81_2022-05/avl.csv')
+# sim_df = pd.read_pickle('outs/rt_81_2022-05/NC/0809-095540-trip_record_ob.pkl')
+# dwell1 = dwell_t_outbound(avl_df, 2, 10, STOPS_OUT_FULL_PATT, 'arr_sec', 'dep_sec', 60, START_TIME_SEC,
+#                           END_TIME_SEC, is_avl=True, dates=DATES)
 # dwell2 = dwell_t_outbound(sim_df, 2, 10, STOPS_OUT_FULL_PATT, 'arr_sec', 'dep_sec', 60, START_TIME_SEC, END_TIME_SEC)
-print([np.round(np.nanmean(d)) for d in dwell1])
+# print([np.round(np.nanmean(d)) for d in dwell1])
 # print([np.round(np.mean(d)) for d in dwell2])
 
 # train RL
@@ -183,5 +183,5 @@ def plot_results2():
 # test_scenarios(nc=True, prob_cancel=[0.0], replications=15, save_results=True, limited_capacity=True)
 # test_scenarios(nc=True, ds=True, dsmrh=True, dsx=True, dsxmrh=True, prob_cancel=[0.0, 0.125, 0.25], replications=15,
 #                limited_capacity=True, save_results=True)
-# plot_results()
+plot_results()
 # plot_results2()
