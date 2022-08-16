@@ -1,3 +1,4 @@
+from tracemalloc import start
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -7,6 +8,37 @@ import seaborn as sns
 from datetime import timedelta
 from Input_Processor import get_interval, remove_outliers
 from ins.Fixed_Inputs_81 import DIR_ROUTE_OUTS, DIR_ROUTE
+
+def expressing_analysis(avl_df, sim_df, stops, start_time, end_time, dates, arr_rates, 
+                        dem_interval_length, odt_stops, last_stop=15):
+    dwell_t_avl = []
+    dwell_t_sim = []
+    expected_left_behind = []
+    bin_dem = get_interval(start_time, dem_interval_length)
+    idxs = np.nonzero(np.in1d(odt_stops, stops[:-1]))[0]
+    arrs_out = arr_rates[bin_dem, idxs]
+    for stop in range(3, last_stop):
+        dta = dwell_t_outbound(avl_df, 2, stop, stops, 60, start_time, end_time, is_avl=True, dates=dates)
+        dts = dwell_t_outbound(sim_df, 2, stop, stops, 60, start_time, end_time)
+        elb = arrs_out[1:stop]
+        dwell_t_avl.append(np.nanmean(dta)/60)
+        dwell_t_sim.append(np.nanmean(dts)/60)
+        expected_left_behind.append(elb.sum()*(8/60))
+    fig, ax = plt.subplots()
+    ax2 = ax.twinx()
+    ax.plot(np.arange(1, len(dwell_t_avl)+1), dwell_t_avl, label='dwell avl', marker='.')
+    ax.plot(np.arange(1, len(dwell_t_sim)+1), dwell_t_sim, label='dwell sim', marker='.')
+    ax2.plot(np.arange(1, len(expected_left_behind)+1), expected_left_behind, label='left behind', color='black', marker='.')
+    ax.set_ylabel('minutes')
+    ax.set_xlabel('express segment distance (# stops)')
+    ax2.set_ylabel('pax')
+    ax.grid()
+    fig.legend()
+    plt.tight_layout()
+    plt.savefig(DIR_ROUTE_OUTS + 'compare/validate/expressing_analysis.png')
+    plt.close()
+    return
+
 
 def compare_input_ons(odt_stops, stops):
     odf = np.load(DIR_ROUTE + 'odt_flows_30_scaled.npy')
@@ -393,11 +425,10 @@ def validate_trip_t_outbound(avl_df, sim_df, start_time, end_time, stops, path_t
     trip_t_avl = trip_t_outbound(avl_df, start_time, end_time, 60, stops, 'arr_sec',
                                  'dep_sec', is_avl=True, dates=dates,
                                  ignore_terminals=ignore_terminals)
-    dwell_t_avl = dwell_t_outbound(avl_df, 2, len(stops)-1, stops, 'arr_sec', 'dep_sec', 60, start_time, end_time,
-                                   is_avl=True, dates=dates)
+    dwell_t_avl = dwell_t_outbound(avl_df, 2, len(stops)-1, stops, 60, start_time, end_time, is_avl=True, dates=dates)
     trip_t_sim = trip_t_outbound(sim_df, start_time, end_time, 60, stops, 'arr_sec',
                                  'dep_sec', ignore_terminals=ignore_terminals)
-    dwell_t_sim = dwell_t_outbound(sim_df, 2, len(stops)-1, stops, 'arr_sec', 'dep_sec', 60, start_time, end_time)
+    dwell_t_sim = dwell_t_outbound(sim_df, 2, len(stops)-1, stops, 60, start_time, end_time)
     plot_calib_hist(trip_t_avl, trip_t_sim, 5, path_trip_t, 'total trip time (minutes)')
     plot_calib_hist(dwell_t_avl, dwell_t_sim, 5, path_dwell_t, 'dwell time (seconds)')
     return
@@ -449,7 +480,7 @@ def trip_t_outbound(df_out, start_time, end_time, interval_length, stops_out, co
     return trip_t
 
 
-def dwell_t_outbound(df_out, start_stop, end_stop, stops, col_arr_t, col_dep_t, interval_length,
+def dwell_t_outbound(df_out, start_stop, end_stop, stops, interval_length,
                      start_time, end_time, is_avl=False, dates=None):
     focus_df_out = df_out[df_out['stop_sequence'] == 1].copy()
     focus_df_out = focus_df_out[focus_df_out['schd_sec'] < end_time]
@@ -481,8 +512,8 @@ def dwell_t_outbound(df_out, start_stop, end_stop, stops, col_arr_t, col_dep_t, 
                     (trip_df['stop_sequence'] >= start_stop) & (trip_df['stop_sequence'] <= end_stop)].copy()
                 if is_avl:
                     mid_route_df = mid_route_df.drop_duplicates(subset='stop_sequence', keep='first')
-                if mid_route_df.shape[0] == len(stops) - start_stop:
-                    mid_route_df.loc[:, 'dwell_t'] = mid_route_df[col_dep_t] - mid_route_df[col_arr_t]
+                if mid_route_df.shape[0] == end_stop - start_stop + 1:
+                    mid_route_df.loc[:, 'dwell_t'] = mid_route_df['dep_sec'] - mid_route_df['arr_sec']
                     dwell_t[interval - interval0].append(mid_route_df['dwell_t'].sum())
     return dwell_t
 

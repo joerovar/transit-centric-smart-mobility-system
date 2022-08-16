@@ -215,6 +215,11 @@ def extract_outbound_params(start_time_sec, end_time_sec, nr_intervals, start_in
     stop_df = pd.read_csv(DIR_ROUTE + 'gtfs_stops.txt')
     stop_df = stop_df[stop_df['stop_id'].isin([int(s) for s in all_stops])]
     stop_df = stop_df[['stop_id', 'stop_name', 'stop_lat', 'stop_lon']]
+    stop_df['stop_id'] = stop_df['stop_id'].astype(str).astype('category')
+    stop_df['stop_id'].cat.set_categories(full_pattern_stops, inplace=True)
+    stop_df = stop_df.sort_values(by='stop_id')
+    stop_df['short_name'] = stop_df['stop_name'].str.split(' ', n=2, expand=True)[2].str.upper()
+    stop_df['stop_id'] = stop_df['stop_id'].astype(str)
     stop_df.to_csv(DIR_ROUTE + 'gtfs_stops_route.txt', index=False)
 
     save(DIR_ROUTE + 'stops_out_full_patt.pkl', full_pattern_stops)

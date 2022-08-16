@@ -367,8 +367,9 @@ class SimulationEnv:
         bus.active_trip.append(bus.pending_trips[0])
         bus.pending_trips.pop(0)
         bus.last_stop_id = bus.active_trip[0].stops[0]
+        idx_last_express_stop = STOPS_OUT_FULL_PATT.index(LAST_EXPRESS_STOP)
         if bus.expressed:
-            bus.next_stop_id = bus.active_trip[0].stops[EXPRESS_DIST + 1]
+            bus.next_stop_id = bus.active_trip[0].stops[idx_last_express_stop + 1]
         else:
             bus.next_stop_id = bus.active_trip[0].stops[1]
         bus.ons = 0

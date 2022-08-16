@@ -2,12 +2,12 @@ import pandas as pd
 import numpy as np
 from Variable_Inputs import DATES, START_TIME_SEC, END_TIME_SEC, STOPS_OUT_FULL_PATT, BLOCK_TRIPS_INFO, DIR_ROUTE_OUTS
 from Variable_Inputs import scheduled_trajectories_out, HIGH_CAPACITY, LOW_CAPACITY
-from Variable_Inputs import ODT_STOP_IDS
+from Variable_Inputs import ODT_STOP_IDS, ARR_RATES, ODT_BIN_MINS
 from Output_Processor import validate_delay_outbound, validate_delay_inbound, validate_cv_hw_outbound
 from Output_Processor import validate_trip_t_outbound, trajectory_plots, cv_hw_plot, pax_times_plot, load_plots
 from Output_Processor import plot_run_times, plot_pax_profile, denied_count, compare_input_ons
 from Simulation_Processor import run_base_dispatching, rl_dispatch
-from Output_Processor import dwell_t_outbound
+from Output_Processor import expressing_analysis
 
 
 # train RL
@@ -168,20 +168,14 @@ def plot_results2():
     df_results.to_csv(DIR_ROUTE_OUTS + 'compare/infinite capacity/numer_results.csv', index=False)
     return
 
-def analyze_expressing():
+def analyze_expressing(avl_path=None, sim_out_path=None):
     # expected dwell time savings
-    
-    # avl_df = pd.read_csv('ins/rt_81_2022-05/avl.csv')
-    # sim_df = pd.read_pickle('outs/rt_81_2022-05/NC/0809-095540-trip_record_ob.pkl')
-    # dwell1 = dwell_t_outbound(avl_df, 2, 10, STOPS_OUT_FULL_PATT, 'arr_sec', 'dep_sec', 60, START_TIME_SEC,
-    #                           END_TIME_SEC, is_avl=True, dates=DATES)
-    # dwell2 = dwell_t_outbound(sim_df, 2, 10, STOPS_OUT_FULL_PATT, 'arr_sec', 'dep_sec', 60, START_TIME_SEC, END_TIME_SEC)
-    # print([np.round(np.nanmean(d)) for d in dwell1])
-    # print([np.round(np.mean(d)) for d in dwell2])
-
-    # expected left behind at all times
+    avl_df, sim_df = pd.read_csv(avl_path), pd.read_pickle(sim_out_path)
+    expressing_analysis(avl_df, sim_df, STOPS_OUT_FULL_PATT, 7*60*60, 8*60*60, DATES,
+                        ARR_RATES, ODT_BIN_MINS, ODT_STOP_IDS)
     return
 
+analyze_expressing(avl_path='ins/rt_81_2022-05/avl.csv', sim_out_path='outs/rt_81_2022-05/NC/0815-213424-trip_record_ob.pkl')
 # validate(sim_out_path='outs/rt_81_2022-05/NC/0815-213424-trip_record_ob.pkl', sim_in_path='outs/rt_81_2022-05/NC/0815-213424-trip_record_ib.pkl',
 #          avl_path='ins/rt_81_2022-05/avl.csv', apc_path='ins/rt_81_2022-05/avl.csv')
 # test_scenarios(nc=True, prob_cancel=[0.0], replications=15, save_results=True, limited_capacity=True)

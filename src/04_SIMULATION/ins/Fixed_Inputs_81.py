@@ -63,7 +63,6 @@ FUTURE_HW_HORIZON = 2
 PAST_HW_HORIZON = 2
 END_TIME_SEC2 = END_TIME_SEC - 60*30
 WEIGHT_HOLD_T = 0.0
-EXPRESS_DIST = 11
 BW_H_LIMIT_EXPRESS = 0.5 # this is the limit over the scheduled backward headway to decide to express
 FW_H_LIMIT_EXPRESS = 1.7 # this is the limit over the scheduled forward headway to decide to express
 BF_H_LIMIT_EXPRESS = 1.6
@@ -101,6 +100,7 @@ HOLD_ADJ_FACTOR = 0.0
 
 # MID-ROUTE HOLDING STOPS
 MRH_STOPS = ['3747']
+LAST_EXPRESS_STOP = ['']
 
 # HOLDING AND STOP-SKIPPING EXPERIMENTS
 CONTROL_STOPS = ['386', '409', '423', '16049']
