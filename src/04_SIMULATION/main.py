@@ -2,25 +2,16 @@ import pandas as pd
 import numpy as np
 from Variable_Inputs import DATES, START_TIME_SEC, END_TIME_SEC, STOPS_OUT_FULL_PATT, BLOCK_TRIPS_INFO, DIR_ROUTE_OUTS
 from Variable_Inputs import scheduled_trajectories_out, HIGH_CAPACITY, LOW_CAPACITY
+from Variable_Inputs import ODT_STOP_IDS
 from Output_Processor import validate_delay_outbound, validate_delay_inbound, validate_cv_hw_outbound
 from Output_Processor import validate_trip_t_outbound, trajectory_plots, cv_hw_plot, pax_times_plot, load_plots
-from Output_Processor import plot_run_times, plot_pax_profile, denied_count
+from Output_Processor import plot_run_times, plot_pax_profile, denied_count, compare_input_ons
 from Simulation_Processor import run_base_dispatching, rl_dispatch
 from Output_Processor import dwell_t_outbound
 
 
-# avl_df = pd.read_csv('ins/rt_81_2022-05/avl.csv')
-# sim_df = pd.read_pickle('outs/rt_81_2022-05/NC/0809-095540-trip_record_ob.pkl')
-# dwell1 = dwell_t_outbound(avl_df, 2, 10, STOPS_OUT_FULL_PATT, 'arr_sec', 'dep_sec', 60, START_TIME_SEC,
-#                           END_TIME_SEC, is_avl=True, dates=DATES)
-# dwell2 = dwell_t_outbound(sim_df, 2, 10, STOPS_OUT_FULL_PATT, 'arr_sec', 'dep_sec', 60, START_TIME_SEC, END_TIME_SEC)
-# print([np.round(np.nanmean(d)) for d in dwell1])
-# print([np.round(np.mean(d)) for d in dwell2])
-
 # train RL
-# rl_dispatch(1000, train=True, prob_cancel=0.25)
-
-
+# # rl_dispatch(1000, train=True, prob_cancel=0.25)
 def test_scenarios(nc=False, ds=False, dsmrh=False, dsx=False, dsxmrh=False, rl=False,
                    prob_cancel=None, rl_policy=None, replications=None, save_results=False,
                    full_capacity=False, limited_capacity=False):
@@ -93,6 +84,7 @@ def validate(sim_out_path=None, sim_in_path=None, avl_path=None, apc_path=None):
                              DIR_ROUTE_OUTS + 'compare/validate/trip_t_dist_out.png',
                              DIR_ROUTE_OUTS + 'compare/validate/dwell_t_dist_out.png',
                              DATES, ignore_terminals=True)
+    compare_input_ons(ODT_STOP_IDS, STOPS_OUT_FULL_PATT)
     plot_pax_profile(sim_df_out, STOPS_OUT_FULL_PATT, path_savefig=DIR_ROUTE_OUTS + 'compare/validate/pax_profile.png')
     plot_pax_profile(apc_df, STOPS_OUT_FULL_PATT, path_savefig=DIR_ROUTE_OUTS + 'compare/validate/pax_profile_in.png',
                      apc=True)
@@ -176,12 +168,24 @@ def plot_results2():
     df_results.to_csv(DIR_ROUTE_OUTS + 'compare/infinite capacity/numer_results.csv', index=False)
     return
 
+def analyze_expressing():
+    # expected dwell time savings
+    
+    # avl_df = pd.read_csv('ins/rt_81_2022-05/avl.csv')
+    # sim_df = pd.read_pickle('outs/rt_81_2022-05/NC/0809-095540-trip_record_ob.pkl')
+    # dwell1 = dwell_t_outbound(avl_df, 2, 10, STOPS_OUT_FULL_PATT, 'arr_sec', 'dep_sec', 60, START_TIME_SEC,
+    #                           END_TIME_SEC, is_avl=True, dates=DATES)
+    # dwell2 = dwell_t_outbound(sim_df, 2, 10, STOPS_OUT_FULL_PATT, 'arr_sec', 'dep_sec', 60, START_TIME_SEC, END_TIME_SEC)
+    # print([np.round(np.nanmean(d)) for d in dwell1])
+    # print([np.round(np.mean(d)) for d in dwell2])
 
-# validate(sim_out_path='outs/rt_81_2022-05/NC/0809-095540-trip_record_ob.pkl',
-#          sim_in_path='outs/rt_81_2022-05/NC/0809-095540-trip_record_ib.pkl',
+    # expected left behind at all times
+    return
+
+# validate(sim_out_path='outs/rt_81_2022-05/NC/0815-213424-trip_record_ob.pkl', sim_in_path='outs/rt_81_2022-05/NC/0815-213424-trip_record_ib.pkl',
 #          avl_path='ins/rt_81_2022-05/avl.csv', apc_path='ins/rt_81_2022-05/avl.csv')
 # test_scenarios(nc=True, prob_cancel=[0.0], replications=15, save_results=True, limited_capacity=True)
 # test_scenarios(nc=True, ds=True, dsmrh=True, dsx=True, dsxmrh=True, prob_cancel=[0.0, 0.125, 0.25], replications=15,
 #                limited_capacity=True, save_results=True)
-plot_results()
+# plot_results()
 # plot_results2()

@@ -232,7 +232,7 @@ def bi_proportional_fitting(od, target_ons, target_offs):
     od_temp = od.copy()
     print('before')
     print(np.round(np.nansum(od)), np.round(np.nansum(target_ons)), np.round(np.nansum(od)))
-    for i in range(10):
+    for i in range(15):
         # balance rows
         actual_ons = np.nansum(od_temp, axis=1)
         factor_ons = np.divide(target_ons, actual_ons, out=np.zeros_like(target_ons), where=actual_ons != 0)
@@ -251,6 +251,7 @@ def bi_proportional_fitting(od, target_ons, target_offs):
         target = target_ons[actual_ons == 0]
     print('after')
     print(np.round(np.nansum(od_temp)), np.round(np.nansum(target_ons)), np.round(np.nansum(od)))
+    # print(factor_ons)
     scaled_od_set = np.array(od_temp)
     return scaled_od_set
 
@@ -405,3 +406,5 @@ def extract_apc_counts(apc_df, nr_intervals, odt_ordered_stops, interval_len_min
     np.save(DIR_ROUTE + 'apc_on_rates_30.npy', arr_rates)
     np.save(DIR_ROUTE + 'apc_off_rates_30.npy', drop_rates)
     return arr_rates, drop_rates
+
+

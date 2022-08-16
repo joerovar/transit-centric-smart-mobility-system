@@ -46,8 +46,8 @@ DEP_DELAY_TO = 110
 # OTHER SERVICE PARAMETERS: DWELL TIME, SIMULATION LENGTH
 [IDX_ARR_T, IDX_DEP_T, IDX_LOAD, IDX_PICK, IDX_DROP, IDX_DENIED, IDX_HOLD_TIME, IDX_SKIPPED, IDX_SCHED] = [i for i in
                                                                                                            range(1, 10)]
-HIGH_CAPACITY = 80
-LOW_CAPACITY = 53
+HIGH_CAPACITY = 1.2*80
+LOW_CAPACITY = 1.2*53
 
 # FOR RECORDS
 OUT_TRIP_RECORD_COLS = ['bus_id', 'trip_id', 'stop_id', 'arr_sec', 'dep_sec', 'pax_load', 'ons', 'offs', 'denied',

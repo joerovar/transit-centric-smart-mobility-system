@@ -5,6 +5,7 @@ from ins.Fixed_Inputs_81 import *
 # from ins.Fixed_Inputs_20 import *
 from Output_Processor import load
 from datetime import timedelta
+import matplotlib.pyplot as plt
 
 # EXTRACT FUNCTIONS
 # extract_outbound_params(START_TIME_SEC, END_TIME_SEC, TIME_NR_INTERVALS, TIME_START_INTERVAL, TIME_BIN_MINS,
@@ -29,14 +30,9 @@ TRIPS_IN_INFO = load(DIR_ROUTE + 'trips_in_info.pkl')
 RUN_T_DIST_IN = load(DIR_ROUTE + 'run_times_in.pkl')
 DELAY_DIST_IN = load(DIR_ROUTE + 'delay_in.pkl')
 STOPS_IN_FULL_PATT = TRIPS_IN_INFO[0][4]
-# print(STOPS_OUT_FULL_PATT[22], STOPS_OUT_FULL_PATT[12])
-LINK_TIMES_MEAN, LINK_TIMES_EXTREMES, LINK_TIMES_PARAMS = LINK_TIMES_INFO
-ARR_RATES = np.sum(ODT_FLOWS, axis=-1)
-# print(ARR_RATES[12:16, :].sum(axis=-1))
-# print(ODT_STOP_IDS)
-# print(STOPS_IN_FULL_PATT[1:10])
-# print(np.where(np.isin(ODT_STOP_IDS, STOPS_IN_FULL_PATT[1:10])))
+# print(np.array(ODT_STOP_IDS)[np.where(np.isin(ODT_STOP_IDS, STOPS_OUT_FULL_PATT[:-1]))])
 # print((ARR_RATES[13, 1:10]*(8/60)).sum())
+LINK_TIMES_MEAN, LINK_TIMES_EXTREMES, LINK_TIMES_PARAMS = LINK_TIMES_INFO
 TRIP_IDS_OUT, SCHED_DEP_OUT, BLOCK_IDS_OUT = [], [], []
 for item in TRIPS_OUT_INFO:
     TRIP_IDS_OUT.append(item[0]), SCHED_DEP_OUT.append(item[1]), BLOCK_IDS_OUT.append(item[2])

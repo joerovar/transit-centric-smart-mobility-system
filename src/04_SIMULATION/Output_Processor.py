@@ -6,7 +6,32 @@ from copy import deepcopy
 import seaborn as sns
 from datetime import timedelta
 from Input_Processor import get_interval, remove_outliers
-from ins.Fixed_Inputs_81 import DIR_ROUTE_OUTS
+from ins.Fixed_Inputs_81 import DIR_ROUTE_OUTS, DIR_ROUTE
+
+def compare_input_ons(odt_stops, stops):
+    odf = np.load(DIR_ROUTE + 'odt_flows_30_scaled.npy')
+    arrs_apc = np.load(DIR_ROUTE + 'apc_on_rates_30.npy')
+    arr_rates = np.sum(odf, axis=-1)
+    idxs = np.nonzero(np.in1d(odt_stops, stops[:-1]))[0]
+    arrs = arr_rates[:, idxs]
+    arrs_apc_ = arrs_apc[:,idxs]
+    fig, axs = plt.subplots(ncols=2, nrows=3, sharex='all', sharey='all', figsize=(10,10))
+    w = 0.4
+    bins = [i for i in range(12, 18)]
+    for i in range(len(bins)):
+        axs.flat[i].bar(np.arange(len(arrs[bins[i]]))-w/2, arrs[bins[i]], label='scaled input')
+        axs.flat[i].bar(np.arange(len(arrs_apc_[bins[i]]))+w/2, arrs_apc_[bins[i]], label='apc')
+        axs.flat[i].set_title(str(round(bins[i]/2,1)) + 'AM')
+        axs.flat[i].legend()
+        axs.flat[i].set_xlabel('stops')
+        axs.flat[i].set_xticks(np.arange(0, len(arrs[bins[i]]), 10))
+        axs.flat[i].set_xticklabels(np.arange(1, len(arrs[bins[i]])+1, 10))
+        axs.flat[i].set_ylabel('boardings per hour')
+    fig.suptitle('Boardings per hour')
+    plt.tight_layout()
+    plt.savefig(DIR_ROUTE_OUTS + 'compare/validate/ons_input_v_apc.png')
+    plt.close()
+    return
 
 
 def denied_count(scenarios, period, scenario_tags, method_tags):
@@ -368,11 +393,11 @@ def validate_trip_t_outbound(avl_df, sim_df, start_time, end_time, stops, path_t
     trip_t_avl = trip_t_outbound(avl_df, start_time, end_time, 60, stops, 'arr_sec',
                                  'dep_sec', is_avl=True, dates=dates,
                                  ignore_terminals=ignore_terminals)
-    dwell_t_avl = dwell_t_outbound(avl_df, 2, stops, 'arr_sec', 'dep_sec', 60, start_time, end_time,
+    dwell_t_avl = dwell_t_outbound(avl_df, 2, len(stops)-1, stops, 'arr_sec', 'dep_sec', 60, start_time, end_time,
                                    is_avl=True, dates=dates)
     trip_t_sim = trip_t_outbound(sim_df, start_time, end_time, 60, stops, 'arr_sec',
                                  'dep_sec', ignore_terminals=ignore_terminals)
-    dwell_t_sim = dwell_t_outbound(sim_df, 2, stops, 'arr_sec', 'dep_sec', 60, start_time, end_time)
+    dwell_t_sim = dwell_t_outbound(sim_df, 2, len(stops)-1, stops, 'arr_sec', 'dep_sec', 60, start_time, end_time)
     plot_calib_hist(trip_t_avl, trip_t_sim, 5, path_trip_t, 'total trip time (minutes)')
     plot_calib_hist(dwell_t_avl, dwell_t_sim, 5, path_dwell_t, 'dwell time (seconds)')
     return
