@@ -13,9 +13,7 @@ import matplotlib.pyplot as plt
 #                         DATES, DELAY_BIN_MINS, DELAY_START_INTERVAL, FULL_PATTERN_HEADSIGN, RT_NR, OB_DIRECTION)
 # extract_inbound_params(START_TIME_SEC, END_TIME_SEC, DATES, TRIP_TIME_NR_INTERVALS, TRIP_TIME_START_INTERVAL,
 #                        TRIP_TIME_BIN_MINS, DELAY_BIN_MINS, DELAY_START_INTERVAL, RT_NR, IB_DIRECTION)
-# extract_demand(ODT_BIN_MINS, DATES, 'avl.csv')
-# , apc_on_rates=np.load(DIR_ROUTE + 'apc_on_rates_30.npy'),
-#                apc_off_rates=np.load(DIR_ROUTE + 'apc_off_rates_30.npy')
+extract_demand(ODT_BIN_MINS, DATES, 'avl.csv')
 
 
 

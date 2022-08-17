@@ -15,7 +15,8 @@ def extract_demand(odt_interval_len_min, dates, apc_counts_file, apc_on_rates=No
     if apc_on_rates is None or apc_off_rates is None:
         apc_on_rates, apc_off_rates = extract_apc_counts(apc_df, int(nr_intervals), odt_stops, odt_interval_len_min,
                                                          dates)
-
+        print('resulting apc on')
+        print(apc_on_rates)
     scaled_odt = np.zeros_like(odt_pred)
 
     for i in range(odt_pred.shape[0]):
@@ -389,25 +390,37 @@ def extract_apc_counts(apc_df, nr_intervals, odt_ordered_stops, interval_len_min
             t_edge0 = interval_idx * interval_len_min * 60
             t_edge1 = (interval_idx + 1) * interval_len_min * 60
             pax_df = temp_df[temp_df['arr_sec'] % 86400 <= t_edge1].copy()
-            pax_df = pax_df[pax_df['arr_sec'] % 86400 >= t_edge0]
-            ons_rate_by_date = np.zeros(len(dates))
-            ons_rate_by_date[:] = np.nan
-            for k in range(len(dates)):
-                day_df = pax_df[pax_df['arr_time'].astype(str).str[:10] == dates[k]].copy()
-                if not day_df.empty:
-                    ons_rate_by_date[k] = (day_df['ron'].sum() + day_df['fon'].sum()) * 60 / interval_len_min
-            all_nan = True not in np.isfinite(ons_rate_by_date)
-            if not all_nan:
-                arr_rates[interval_idx, stop_idx] = np.nanmean(ons_rate_by_date)
-            offs_rate_by_date = np.zeros(len(dates))
-            offs_rate_by_date[:] = np.nan
-            for k in range(len(dates)):
-                day_df = pax_df[pax_df['arr_time'].astype(str).str[:10] == dates[k]]
-                if not day_df.empty:
-                    offs_rate_by_date[k] = (day_df['roff'].sum() + day_df['foff'].sum()) * 60 / interval_len_min
-            all_nan = True not in np.isfinite(offs_rate_by_date)
-            if not all_nan:
-                drop_rates[interval_idx, stop_idx] = np.nanmean(offs_rate_by_date)
+            pax_df = pax_df[pax_df['arr_sec'] % 86400 >= t_edge0].copy()
+            for pax_cols in [('ron', 'fon'), ('roff', 'foff')]:
+                daily_pax_rates = []
+                days_pax_rates = []
+                total_trips = []
+                # ons_rate_by_date[:] = np.nan
+                # print(len(dates))
+                for k in range(len(dates)):
+                    day_df = pax_df[pax_df['arr_time'].astype(str).str[:10] == dates[k]].copy()
+                    if not day_df.empty:
+                        days_pax_rates.append(k)
+                        total_trips.append(day_df.shape[0])
+                        daily_pax_rates.append((day_df[pax_cols[0]].sum() + day_df[pax_cols[1]].sum()) * 60 / interval_len_min)
+                # print(f'for {pax_cols}')
+                # print(dates)
+                # print(total_trips)
+                # all_nan = True not in np.isfinite(ons_rate_by_date)
+                if daily_pax_rates:
+                    if pax_cols == ('ron', 'fon'):
+                        arr_rates[interval_idx, stop_idx] = np.mean(daily_pax_rates)
+                    else:
+                        drop_rates[interval_idx, stop_idx] = np.mean(daily_pax_rates)
+            # offs_rate_by_date = np.zeros(len(dates))
+            # offs_rate_by_date[:] = np.nan
+            # for k in range(len(dates)):
+            #     day_df = pax_df[pax_df['arr_time'].astype(str).str[:10] == dates[k]]
+            #     if not day_df.empty:
+            #         offs_rate_by_date[k] = (day_df['roff'].sum() + day_df['foff'].sum()) * 60 / interval_len_min
+            # all_nan = True not in np.isfinite(offs_rate_by_date)
+            # if not all_nan:
+            #     drop_rates[interval_idx, stop_idx] = np.nanmean(offs_rate_by_date)
     np.save(DIR_ROUTE + 'apc_on_rates_30.npy', arr_rates)
     np.save(DIR_ROUTE + 'apc_off_rates_30.npy', drop_rates)
     return arr_rates, drop_rates
