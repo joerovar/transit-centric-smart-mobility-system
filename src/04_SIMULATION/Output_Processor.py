@@ -1,4 +1,3 @@
-from tracemalloc import start
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -10,7 +9,7 @@ from Input_Processor import get_interval, remove_outliers
 from ins.Fixed_Inputs_81 import DIR_ROUTE_OUTS, DIR_ROUTE
 
 def expressing_analysis(avl_df, sim_df, stops, start_time, end_time, dates, arr_rates, 
-                        dem_interval_length, odt_stops, last_stop=15):
+                        dem_interval_length, odt_stops, last_stop=16):
     dwell_t_avl = []
     dwell_t_sim = []
     expected_left_behind = []
@@ -65,6 +64,31 @@ def compare_input_ons(odt_stops, stops):
     plt.close()
     return
 
+def compare_input_offs(odt_stops, stops):
+    odf = np.load(DIR_ROUTE + 'odt_flows_30_scaled.npy')
+    offs_apc = np.load(DIR_ROUTE + 'apc_off_rates_30.npy')
+    off_rates = np.sum(odf, axis=-2)
+    idxs = np.nonzero(np.in1d(odt_stops, stops))[0]
+    offs = off_rates[:, idxs]
+    offs_apc_ = offs_apc[:,idxs]
+    fig, axs = plt.subplots(ncols=2, nrows=3, sharex='all', sharey='all', figsize=(10,10))
+    w = 0.4
+    bins = [i for i in range(12, 18)]
+    for i in range(len(bins)):
+        axs.flat[i].bar(np.arange(len(offs[bins[i]]))-w/2, offs[bins[i]], label='scaled input')
+        axs.flat[i].bar(np.arange(len(offs_apc_[bins[i]]))+w/2, offs_apc_[bins[i]], label='apc')
+        axs.flat[i].set_title(str(round(bins[i]/2,1)) + 'AM')
+        axs.flat[i].legend()
+        axs.flat[i].set_xlabel('stops')
+        axs.flat[i].set_xticks(np.arange(0, len(offs[bins[i]]), 10))
+        axs.flat[i].set_xticklabels(np.arange(1, len(offs[bins[i]])+1, 10))
+        axs.flat[i].set_ylabel('alightings per hour')
+    fig.suptitle('alightings per hour')
+    plt.tight_layout()
+    plt.savefig(DIR_ROUTE_OUTS + 'compare/validate/offs_input_v_apc.png')
+    plt.close()
+    return
+
 
 def denied_count(scenarios, period, scenario_tags, method_tags):
     numer_results = {'parameter': ['denied' for _ in range(len(scenario_tags))],
@@ -82,7 +106,9 @@ def denied_count(scenarios, period, scenario_tags, method_tags):
     return df
 
 
-def plot_pax_profile(df, stops, apc=False, path_savefig=None, path_savefig_single=None):
+def plot_pax_profile(df, stops, apc=False, path_savefig=None, path_savefig_single=None, 
+                    key_stops_idx=None, stop_names=None, mrh_hold_stops=None, 
+                    last_express_stop=None, ons_lims=(0,7), load_lims=(0,35)):
     t0 = 6 * 60 * 60
     t1 = 10 * 60 * 60
     interv_len = 60 * 60
@@ -128,16 +154,19 @@ def plot_pax_profile(df, stops, apc=False, path_savefig=None, path_savefig_singl
             single_ons = deepcopy(avg_ons)
             single_offs = deepcopy(avg_offs)
         axs2 = axs.flat[n].twinx()
-        axs2.bar(stops_x - w_bar / 2, avg_ons, w_bar)
-        axs2.bar(stops_x + w_bar / 2, avg_offs, w_bar)
-        axs2.set_ylim(0, 7)
+        axs2.bar(stops_x - w_bar / 2, avg_ons, w_bar, color='grey')
+        axs2.bar(stops_x + w_bar / 2, avg_offs, w_bar, color='black')
+        axs2.set_ylim(*ons_lims)
         axs.flat[n].plot(avg_loads, color='black')
-        axs.flat[n].set_ylim(0, 35)
+        axs.flat[n].set_ylim(*load_lims)
         axs.flat[n].set_title(f'{int(tmp_t0 / 60 / 60)} AM')
         axs2.set_ylabel('ons/offs per trip')
         axs.flat[n].set_ylabel('average pax load')
-        axs.flat[n].set_xticks(np.arange(0, len(stops), 10), labels=np.arange(1, len(stops)+1, 10))
+        if key_stops_idx:
+            axs.flat[n].set_xticks(key_stops_idx, labels=np.array(stop_names)[key_stops_idx],
+            rotation=60, fontsize=7)
         axs.flat[n].set_xlabel('stops')
+        axs.flat[n].grid()
     plt.tight_layout()
     if path_savefig:
         plt.savefig(path_savefig)
@@ -145,7 +174,7 @@ def plot_pax_profile(df, stops, apc=False, path_savefig=None, path_savefig_singl
         plt.show()
     plt.close()
     if path_savefig_single:
-        fig, ax = plt.subplots(figsize=(8, 6))
+        fig, ax = plt.subplots(figsize=(9, 7))
         ax2 = ax.twinx()
         ax2.bar(stops_x - w_bar / 2, single_ons, w_bar, color='grey', label='ons')
         ax2.bar(stops_x + w_bar / 2, single_offs, w_bar, color='black', label='offs')
@@ -153,12 +182,20 @@ def plot_pax_profile(df, stops, apc=False, path_savefig=None, path_savefig_singl
         ax.set_ylabel('average pax load')
         ax.plot(single_loads, color='black', label='load')
         ax.set_xlabel('stops')
-        ax.set_xticks(np.arange(0, len(stops), 10), labels=np.arange(1, len(stops)+1, 10))
-        ax.axvline(10, linestyle='dashed', label='express segment', color='black')
-        ax.axvline(0, linestyle='dashed', color='black')
-        ax.axvline(28, linestyle='dotted', label='mid holding stops', color='black')
-        ax.axvline(44, linestyle='dotted', color='black')
-        fig.legend(loc='upper center')
+        ax2.set_ylim(*ons_lims)
+        ax.set_ylim(*load_lims)
+        if key_stops_idx:
+            ax.set_xticks(key_stops_idx, labels=np.array(stop_names)[key_stops_idx],
+            rotation=60, fontsize=7)
+        if last_express_stop:
+            idx = stops.index(last_express_stop)
+            ax.axvline(idx, linestyle='dashed', label='express segment', color='black')
+        if mrh_hold_stops:
+            for m in mrh_hold_stops:
+                idx = stops.index(m)
+                ax.axvline(idx, linestyle='dotted', label='mid holding stops', color='black')
+        ax.grid()
+        fig.legend()
         plt.tight_layout()
         plt.savefig(path_savefig_single)
         plt.close()
@@ -571,7 +608,8 @@ def plot_calib_hist(delay_avl, delay_sim, start_interval, filename, xlabel):
     return
 
 
-def validate_cv_hw_outbound(avl_df, sim_df, start_t_sec, end_t_sec, interval_min, stops, dates, start_interval=5):
+def validate_cv_hw_outbound(avl_df, sim_df, start_t_sec, end_t_sec, interval_min, stops, dates, start_interval=5,
+                            key_stops_idx=None, stop_names=None):
     hw_out_cv = cv_hw_from_avl(avl_df, start_t_sec, end_t_sec, interval_min, stops, dates)
     hw_out_cv_sim = cv_hw_by_intervals(sim_df, start_t_sec, end_t_sec, interval_min, stops)
     fig, ax = plt.subplots(nrows=2, ncols=2, sharey='all', sharex='all', figsize=(10, 8))
@@ -582,7 +620,9 @@ def validate_cv_hw_outbound(avl_df, sim_df, start_t_sec, end_t_sec, interval_min
         ax.flat[i].set_xlabel('stop')
         ax.flat[i].set_ylabel('cv headway')
         ax.flat[i].set_xlabel('stop')
-        ax.flat[i].set_xticks(np.arange(0, len(stops), 10), labels=np.arange(1, len(stops)+1, 10))
+        if key_stops_idx:
+            ax.flat[i].set_xticks(key_stops_idx, labels=np.array(stop_names)[key_stops_idx],
+                                    rotation=60, fontsize=6)
     ax[0, 0].set_ylabel('c.v. headway')
     ax[1, 0].set_ylabel('c.v. headway')
     plt.legend()

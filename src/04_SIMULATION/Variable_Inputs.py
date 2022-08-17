@@ -1,3 +1,4 @@
+from typing import KeysView
 import numpy as np
 import pandas as pd
 from Input_Processor import extract_outbound_params, extract_inbound_params, extract_demand
@@ -12,8 +13,10 @@ import matplotlib.pyplot as plt
 #                         DATES, DELAY_BIN_MINS, DELAY_START_INTERVAL, FULL_PATTERN_HEADSIGN, RT_NR, OB_DIRECTION)
 # extract_inbound_params(START_TIME_SEC, END_TIME_SEC, DATES, TRIP_TIME_NR_INTERVALS, TRIP_TIME_START_INTERVAL,
 #                        TRIP_TIME_BIN_MINS, DELAY_BIN_MINS, DELAY_START_INTERVAL, RT_NR, IB_DIRECTION)
-# extract_demand(ODT_BIN_MINS, DATES, 'avl.csv', apc_on_rates=np.load(DIR_ROUTE + 'apc_on_rates_30.npy'),
-#                apc_off_rates=np.load(DIR_ROUTE + 'apc_off_rates_30.npy'))
+# extract_demand(ODT_BIN_MINS, DATES, 'avl.csv')
+# , apc_on_rates=np.load(DIR_ROUTE + 'apc_on_rates_30.npy'),
+#                apc_off_rates=np.load(DIR_ROUTE + 'apc_off_rates_30.npy')
+
 
 
 # OUTBOUND
@@ -25,6 +28,11 @@ DEP_DELAY_DIST_OUT = load(DIR_ROUTE + 'dep_delay_dist_out.pkl')  # empirical del
 STOPS_OUT_FULL_PATT = load(DIR_ROUTE + 'stops_out_full_patt.pkl')
 STOPS_OUT_ALL = load(DIR_ROUTE + 'stops_out_all.pkl')
 STOPS_OUT_INFO = load(DIR_ROUTE + 'stops_out_info.pkl')
+STOPS_OUT_NAMES = pd.read_csv(DIR_ROUTE + 'gtfs_stops_route.txt')['short_name'].tolist()
+KEY_STOPS_IDX = [STOPS_OUT_NAMES.index(s) for s in ['TRANSIT CENTER','CICERO', 
+                                                    'PULASKI', 'KIMBALL (BROWN LINE)', 'WESTERN', 
+                                                    'RAVENSWOOD', 'BROADWAY (RED LINE)', 'MARINE DRIVE']]
+
 # INBOUND
 TRIPS_IN_INFO = load(DIR_ROUTE + 'trips_in_info.pkl')
 RUN_T_DIST_IN = load(DIR_ROUTE + 'run_times_in.pkl')
@@ -98,22 +106,3 @@ CONTROL_MEAN_HW = sum(CONTROL_HW) / len(CONTROL_HW)
 
 LIMIT_HOLDING = int(MIN_HW_THRESHOLD * CONTROL_MEAN_HW - MIN_HW_THRESHOLD * CONTROL_MEAN_HW % BASE_HOLDING_TIME)
 N_ACTIONS_RL = int(LIMIT_HOLDING / BASE_HOLDING_TIME) + 2
-
-# p = 0.15
-# nr_iters = 30
-# cancelled = []
-# for i ins range(nr_iters):
-#     tmp_cancelled = 0
-#     trip_ids_cancelled = []
-#     for j ins range(len(BLOCK_TRIPS_INFO)):
-#         if np.random.uniform(0, 1) < p:
-#             tmp_cancelled += len([b for b ins BLOCK_TRIPS_INFO[j][1] if b[1]==0])
-#             trip_ids_cancelled += [b[0] for b ins BLOCK_TRIPS_INFO[j][1] if b[1]==0]
-#     remaining_sched = [SCHED_DEP_OUT[k] for k ins range(len(SCHED_DEP_OUT)) if TRIP_IDS_OUT[k] not ins trip_ids_cancelled]
-#     remaining_hw = [round((remaining_sched[k+1]-remaining_sched[k])/60,2) for k ins range(len(remaining_sched)-1)]
-#     true_hw = [round((SCHED_DEP_OUT[k+1]-SCHED_DEP_OUT[k])/60,2) for k ins range(len(SCHED_DEP_OUT)-1)]
-#     cancelled.append(tmp_cancelled)
-# total_trips = len(TRIP_IDS_OUT)
-# print(np.mean(cancelled)/total_trips)
-# print(np.mean(cancelled))
-# print(np.std(cancelled))

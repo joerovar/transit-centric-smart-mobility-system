@@ -1,11 +1,11 @@
 import pandas as pd
 import numpy as np
 from Variable_Inputs import DATES, START_TIME_SEC, END_TIME_SEC, STOPS_OUT_FULL_PATT, BLOCK_TRIPS_INFO, DIR_ROUTE_OUTS
-from Variable_Inputs import scheduled_trajectories_out, HIGH_CAPACITY, LOW_CAPACITY
-from Variable_Inputs import ODT_STOP_IDS, ARR_RATES, ODT_BIN_MINS
+from Variable_Inputs import scheduled_trajectories_out, HIGH_CAPACITY, LOW_CAPACITY, MRH_STOPS
+from Variable_Inputs import ODT_STOP_IDS, ARR_RATES, ODT_BIN_MINS, STOPS_OUT_NAMES, KEY_STOPS_IDX
 from Output_Processor import validate_delay_outbound, validate_delay_inbound, validate_cv_hw_outbound
 from Output_Processor import validate_trip_t_outbound, trajectory_plots, cv_hw_plot, pax_times_plot, load_plots
-from Output_Processor import plot_run_times, plot_pax_profile, denied_count, compare_input_ons
+from Output_Processor import plot_run_times, plot_pax_profile, denied_count, compare_input_ons, compare_input_offs
 from Simulation_Processor import run_base_dispatching, rl_dispatch
 from Output_Processor import expressing_analysis
 
@@ -79,15 +79,20 @@ def validate(sim_out_path=None, sim_in_path=None, avl_path=None, apc_path=None):
 
     validate_delay_outbound(avl_df, sim_df_out, START_TIME_SEC, END_TIME_SEC, STOPS_OUT_FULL_PATT)
     validate_delay_inbound(avl_df, sim_df_in, START_TIME_SEC, END_TIME_SEC, 5)
-    validate_cv_hw_outbound(avl_df, sim_df_out, START_TIME_SEC, END_TIME_SEC, 60, STOPS_OUT_FULL_PATT, DATES)
+    validate_cv_hw_outbound(avl_df, sim_df_out, START_TIME_SEC, END_TIME_SEC, 60, STOPS_OUT_FULL_PATT, DATES,
+                            key_stops_idx=KEY_STOPS_IDX, stop_names=STOPS_OUT_NAMES)
     validate_trip_t_outbound(avl_df, sim_df_out, START_TIME_SEC, END_TIME_SEC, STOPS_OUT_FULL_PATT,
                              DIR_ROUTE_OUTS + 'compare/validate/trip_t_dist_out.png',
                              DIR_ROUTE_OUTS + 'compare/validate/dwell_t_dist_out.png',
                              DATES, ignore_terminals=True)
     compare_input_ons(ODT_STOP_IDS, STOPS_OUT_FULL_PATT)
-    plot_pax_profile(sim_df_out, STOPS_OUT_FULL_PATT, path_savefig=DIR_ROUTE_OUTS + 'compare/validate/pax_profile.png')
+    compare_input_offs(ODT_STOP_IDS, STOPS_OUT_FULL_PATT)
+    plot_pax_profile(sim_df_out, STOPS_OUT_FULL_PATT, path_savefig=DIR_ROUTE_OUTS + 'compare/validate/pax_profile.png',
+                    path_savefig_single=DIR_ROUTE_OUTS + 'compare/validate/pax_profile_single.png', stop_names=STOPS_OUT_NAMES, 
+                    key_stops_idx=KEY_STOPS_IDX, mrh_hold_stops=MRH_STOPS)
     plot_pax_profile(apc_df, STOPS_OUT_FULL_PATT, path_savefig=DIR_ROUTE_OUTS + 'compare/validate/pax_profile_in.png',
-                     apc=True)
+                     apc=True, path_savefig_single=DIR_ROUTE_OUTS+'compare/validate/pax_profile_single_in.png', stop_names=STOPS_OUT_NAMES,
+                     key_stops_idx=KEY_STOPS_IDX, mrh_hold_stops=MRH_STOPS)
     return
 
 
@@ -175,10 +180,10 @@ def analyze_expressing(avl_path=None, sim_out_path=None):
                         ARR_RATES, ODT_BIN_MINS, ODT_STOP_IDS)
     return
 
-analyze_expressing(avl_path='ins/rt_81_2022-05/avl.csv', sim_out_path='outs/rt_81_2022-05/NC/0815-213424-trip_record_ob.pkl')
-# validate(sim_out_path='outs/rt_81_2022-05/NC/0815-213424-trip_record_ob.pkl', sim_in_path='outs/rt_81_2022-05/NC/0815-213424-trip_record_ib.pkl',
+# analyze_expressing(avl_path='ins/rt_81_2022-05/avl.csv', sim_out_path='outs/rt_81_2022-05/NC/0816-232944-trip_record_ob.pkl')
+# validate(sim_out_path='outs/rt_81_2022-05/NC/0816-232944-trip_record_ob.pkl', sim_in_path='outs/rt_81_2022-05/NC/0816-232944-trip_record_ib.pkl',
 #          avl_path='ins/rt_81_2022-05/avl.csv', apc_path='ins/rt_81_2022-05/avl.csv')
-# test_scenarios(nc=True, prob_cancel=[0.0], replications=15, save_results=True, limited_capacity=True)
+# test_scenarios(nc=True, prob_cancel=[0.0], replications=20, save_results=True, limited_capacity=True)
 # test_scenarios(nc=True, ds=True, dsmrh=True, dsx=True, dsxmrh=True, prob_cancel=[0.0, 0.125, 0.25], replications=15,
 #                limited_capacity=True, save_results=True)
 # plot_results()
