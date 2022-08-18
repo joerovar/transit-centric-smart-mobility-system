@@ -108,7 +108,7 @@ def denied_count(scenarios, period, scenario_tags, method_tags):
 
 def plot_pax_profile(df, stops, apc=False, path_savefig=None, path_savefig_single=None, 
                     key_stops_idx=None, stop_names=None, mrh_hold_stops=None, 
-                    last_express_stop=None, ons_lims=(0,7), load_lims=(0,35)):
+                    last_express_stop=None, ons_lims=(0,7), load_lims=(0,35), trip_ids=None):
     t0 = 6 * 60 * 60
     t1 = 10 * 60 * 60
     interv_len = 60 * 60
@@ -133,6 +133,8 @@ def plot_pax_profile(df, stops, apc=False, path_savefig=None, path_savefig_singl
                 stop_df = tmp_df[tmp_df['stop_id'] == str(s)].copy()
             if not stop_df.empty:
                 if apc:
+                    if trip_ids:
+                        stop_df = stop_df[stop_df['trip_id'].isin(trip_ids)]
                     avg_loads.append(stop_df['passenger_load'].mean())
                     stop_df['on'] = stop_df['ron'] + stop_df['fon']
                     stop_df['off'] = stop_df['roff'] + stop_df['foff']
@@ -608,9 +610,9 @@ def plot_calib_hist(delay_avl, delay_sim, start_interval, filename, xlabel):
     return
 
 
-def validate_cv_hw_outbound(avl_df, sim_df, start_t_sec, end_t_sec, interval_min, stops, dates, start_interval=5,
+def validate_cv_hw_outbound(avl_df, sim_df, start_t_sec, end_t_sec, interval_min, stops, dates, trip_ids, start_interval=5,
                             key_stops_idx=None, stop_names=None):
-    hw_out_cv = cv_hw_from_avl(avl_df, start_t_sec, end_t_sec, interval_min, stops, dates)
+    hw_out_cv = cv_hw_from_avl(avl_df, start_t_sec, end_t_sec, interval_min, stops, dates, trip_ids)
     hw_out_cv_sim = cv_hw_by_intervals(sim_df, start_t_sec, end_t_sec, interval_min, stops)
     fig, ax = plt.subplots(nrows=2, ncols=2, sharey='all', sharex='all', figsize=(10, 8))
     for i in range(ax.size):
@@ -782,20 +784,21 @@ def cv_hw_by_intervals(trip_record_df, start_time, end_time, interval_length, st
     return cv_hws
 
 
-def cv_hw_from_avl(avl_df, start_time, end_time, interval_length, stops, dates):
+def cv_hw_from_avl(avl_df, start_time, end_time, interval_length, stops, dates, trip_ids):
     avl_df2 = avl_df.copy()
     avl_df2['stop_id'] = avl_df2['stop_id'].astype(str)
+    avl_df2 = avl_df2[avl_df2['trip_id'].isin(trip_ids)]
     interval0 = get_interval(start_time, interval_length)
     interval1 = get_interval(end_time, interval_length)
     hws = [[[] for _ in range(len(stops))] for _ in range(interval0, interval1)]
     for d in dates:
-        date_df = avl_df2[avl_df2['arr_time'].astype(str).str[:10] == d]
+        date_df = avl_df2[avl_df2['arr_time'].astype(str).str[:10] == d].copy()
         for interval in range(interval0, interval1):
-            temp_df = date_df[date_df['schd_sec'] >= interval * interval_length * 60]
-            temp_df = temp_df[temp_df['schd_sec'] <= (interval + 1) * interval_length * 60]
+            temp_df = date_df[date_df['schd_sec'] >= interval * interval_length * 60].copy()
+            temp_df = temp_df[temp_df['schd_sec'] <= (interval + 1) * interval_length * 60].copy()
             for j in range(len(stops)):
-                df = temp_df[temp_df['stop_id'] == stops[j]]
-                df = df[df['stop_sequence'] == j + 1]
+                df = temp_df[temp_df['stop_id'] == stops[j]].copy()
+                df = df[df['stop_sequence'] == j + 1].copy()
                 df = df.sort_values(by='arr_sec')
                 arr_sec = df['arr_sec'].tolist()
                 if len(arr_sec) > 1:

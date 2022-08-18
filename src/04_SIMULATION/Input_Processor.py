@@ -100,8 +100,9 @@ def extract_outbound_params(start_time_sec, end_time_sec, nr_intervals, start_in
                               (calendar_df['wednesday'] == 1) & (calendar_df['thursday'] == 1) &
                               (calendar_df['friday'] == 1)]['service_id'].astype(str).tolist()
     wkday_trip_ids = rt_trips_df[rt_trips_df['service_id'].astype(str).isin(service_ids)]['trip_id'].tolist()
+    np.save(DIR_ROUTE + 'wkday_trip_ids_out.npy', wkday_trip_ids)
     wkday_st_df = stop_times_df[stop_times_df['trip_id'].isin(wkday_trip_ids)].copy()
-    wkday_st_df = wkday_st_df[wkday_st_df['departure_time'].str[:2] != '24']
+    wkday_st_df = wkday_st_df[wkday_st_df['departure_time'].str[:2] != '24'].copy()
     wkday_st_df['schd_sec'] = wkday_st_df['arrival_time'].astype('datetime64[ns]') - pd.to_datetime('00:00:00')
     wkday_st_df['schd_sec'] = wkday_st_df['schd_sec'].dt.total_seconds()
 
@@ -280,6 +281,7 @@ def extract_inbound_params(start_time, end_time, dates, nr_intervals,
                               (calendar_df['wednesday'] == 1) & (calendar_df['thursday'] == 1) &
                               (calendar_df['friday'] == 1)]['service_id'].astype(str).tolist()
     wkday_trip_ids = rt_trips_df[rt_trips_df['service_id'].astype(str).isin(service_ids)]['trip_id'].tolist()
+    np.save(DIR_ROUTE + 'wkday_trip_ids_in.npy', wkday_trip_ids)
     wkday_st_df = stop_times_df[stop_times_df['trip_id'].isin(wkday_trip_ids)].copy()
     wkday_st_df = wkday_st_df[wkday_st_df['departure_time'].str[:2] != '24']
     wkday_st_df['schd_sec'] = wkday_st_df['arrival_time'].astype('datetime64[ns]') - pd.to_datetime('00:00:00')
@@ -395,32 +397,22 @@ def extract_apc_counts(apc_df, nr_intervals, odt_ordered_stops, interval_len_min
                 daily_pax_rates = []
                 days_pax_rates = []
                 total_trips = []
-                # ons_rate_by_date[:] = np.nan
-                # print(len(dates))
                 for k in range(len(dates)):
                     day_df = pax_df[pax_df['arr_time'].astype(str).str[:10] == dates[k]].copy()
                     if not day_df.empty:
                         days_pax_rates.append(k)
                         total_trips.append(day_df.shape[0])
                         daily_pax_rates.append((day_df[pax_cols[0]].sum() + day_df[pax_cols[1]].sum()) * 60 / interval_len_min)
-                # print(f'for {pax_cols}')
-                # print(dates)
-                # print(total_trips)
-                # all_nan = True not in np.isfinite(ons_rate_by_date)
+                if interval_idx in [12, 13, 14, 15, 16, 30, 31, 32, 33]:
+                    if odt_ordered_stops[stop_idx] in ['14102', '3732', '18106', '3746', '3756', '3762', '18580', '2363']:
+                        print(f'for {pax_cols} in interval {interval_idx} for stop {odt_ordered_stops[stop_idx]}')
+                        print(days_pax_rates)
+                        print(total_trips)
                 if daily_pax_rates:
                     if pax_cols == ('ron', 'fon'):
                         arr_rates[interval_idx, stop_idx] = np.mean(daily_pax_rates)
                     else:
                         drop_rates[interval_idx, stop_idx] = np.mean(daily_pax_rates)
-            # offs_rate_by_date = np.zeros(len(dates))
-            # offs_rate_by_date[:] = np.nan
-            # for k in range(len(dates)):
-            #     day_df = pax_df[pax_df['arr_time'].astype(str).str[:10] == dates[k]]
-            #     if not day_df.empty:
-            #         offs_rate_by_date[k] = (day_df['roff'].sum() + day_df['foff'].sum()) * 60 / interval_len_min
-            # all_nan = True not in np.isfinite(offs_rate_by_date)
-            # if not all_nan:
-            #     drop_rates[interval_idx, stop_idx] = np.nanmean(offs_rate_by_date)
     np.save(DIR_ROUTE + 'apc_on_rates_30.npy', arr_rates)
     np.save(DIR_ROUTE + 'apc_off_rates_30.npy', drop_rates)
     return arr_rates, drop_rates

@@ -13,8 +13,7 @@ import matplotlib.pyplot as plt
 #                         DATES, DELAY_BIN_MINS, DELAY_START_INTERVAL, FULL_PATTERN_HEADSIGN, RT_NR, OB_DIRECTION)
 # extract_inbound_params(START_TIME_SEC, END_TIME_SEC, DATES, TRIP_TIME_NR_INTERVALS, TRIP_TIME_START_INTERVAL,
 #                        TRIP_TIME_BIN_MINS, DELAY_BIN_MINS, DELAY_START_INTERVAL, RT_NR, IB_DIRECTION)
-extract_demand(ODT_BIN_MINS, DATES, 'avl.csv')
-
+# extract_demand(ODT_BIN_MINS, DATES, 'avl.csv')
 
 
 # OUTBOUND
@@ -30,7 +29,7 @@ STOPS_OUT_NAMES = pd.read_csv(DIR_ROUTE + 'gtfs_stops_route.txt')['short_name'].
 KEY_STOPS_IDX = [STOPS_OUT_NAMES.index(s) for s in ['TRANSIT CENTER','CICERO', 
                                                     'PULASKI', 'KIMBALL (BROWN LINE)', 'WESTERN', 
                                                     'RAVENSWOOD', 'BROADWAY (RED LINE)', 'MARINE DRIVE']]
-
+# print(print(np.array(STOPS_OUT_FULL_PATT)[KEY_STOPS_IDX]))
 # INBOUND
 TRIPS_IN_INFO = load(DIR_ROUTE + 'trips_in_info.pkl')
 RUN_T_DIST_IN = load(DIR_ROUTE + 'run_times_in.pkl')

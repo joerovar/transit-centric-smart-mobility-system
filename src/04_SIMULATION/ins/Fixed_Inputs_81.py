@@ -15,7 +15,7 @@ END_TIME = datetime.strptime('10:00:00', "%H:%M:%S")
 
 # dates for avl/apc data collection
 y_mo = '2022-05-'
-days = list(range(2, 7)) + list(range(9, 14)) + list(range(16, 21)) + list(range(23, 28)) + list(range(30, 32))
+days = list(range(2, 7)) + list(range(9, 14)) + list(range(16, 21)) + list(range(23, 28)) + list(range(31, 32))
 days_str = ['0' + str(d) if len(str(d)) == 1 else str(d) for d in days]
 DATES = [y_mo + d for d in days_str]
 
