@@ -271,13 +271,21 @@ class SimulationEnv:
             pax_info['arr_t'] = []
             pax_info['o_id'] = []
             pax_info['d_id'] = []
+            odt_orig_idx = ODT_STOP_IDS.index(orig)
+            # stop_on_rates = 0
+            # stop_pax = 0
+            # if orig == '18106':
+            #     print(f'stop {odt_orig_idx}')
             for dest in [stop for stop in STOPS_OUT_ALL if stop != orig]:
+                odt_dest_idx = ODT_STOP_IDS.index(dest)
                 for interval_idx in range(ODT_START_INTERVAL, ODT_END_INTERVAL):
                     start_edge_interval = interval_idx * ODT_BIN_MINS * 60
                     end_edge_interval = start_edge_interval + ODT_BIN_MINS * 60
-                    odt_orig_idx = ODT_STOP_IDS.index(orig)
-                    odt_dest_idx = ODT_STOP_IDS.index(dest)
                     od_rate = ODT_FLOWS[interval_idx, odt_orig_idx, odt_dest_idx]
+                    # if orig == '18106' and interval_idx == 14:
+                    #     print('-----')
+                    #     print(f'to destination {dest}: {round(od_rate, 1)} per hour')
+                        # stop_on_rates += od_rate
                     if od_rate > 0:
                         max_size = int(np.ceil(od_rate) * (ODT_BIN_MINS / 60) * 10)
                         temp_pax_interarr_times = np.random.exponential(3600 / od_rate, size=max_size)
@@ -291,10 +299,15 @@ class SimulationEnv:
                         temp_pax_arr_times = temp_pax_arr_times[
                             temp_pax_arr_times <= min(END_TIME_SEC, end_edge_interval)]
                         temp_pax_arr_times = temp_pax_arr_times.tolist()
+                        # if orig == '18106' and interval_idx == 14:
+                        #     print(f'to destination {dest}: {round(len(temp_pax_arr_times), 1)} for 30 min')
+                        #     stop_pax += round(len(temp_pax_arr_times))
                         if len(temp_pax_arr_times):
                             pax_info['arr_t'] += temp_pax_arr_times
                             pax_info['o_id'] += [orig] * len(temp_pax_arr_times)
                             pax_info['d_id'] += [dest] * len(temp_pax_arr_times)
+            # if orig == '18106':
+                # print(f'total pax {stop_pax} with rates total {stop_on_rates}')
             df = pd.DataFrame(pax_info).sort_values(by='arr_t')
             pax_sorted_info = df.to_dict('list')
             for o, d, at in zip(pax_sorted_info['o_id'], pax_sorted_info['d_id'], pax_sorted_info['arr_t']):

@@ -25,12 +25,12 @@ def expressing_analysis(avl_df, sim_df, stops, start_time, end_time, dates, arr_
         expected_left_behind.append(elb.sum()*(8/60))
     fig, ax = plt.subplots()
     ax2 = ax.twinx()
-    ax.plot(np.arange(1, len(dwell_t_avl)+1), dwell_t_avl, label='dwell avl', marker='.')
-    ax.plot(np.arange(1, len(dwell_t_sim)+1), dwell_t_sim, label='dwell sim', marker='.')
-    ax2.plot(np.arange(1, len(expected_left_behind)+1), expected_left_behind, label='left behind', color='black', marker='.')
-    ax.set_ylabel('minutes')
+    ax.plot(np.arange(1, len(dwell_t_avl)+1), dwell_t_avl, label='avl', marker='.', color='grey')
+    ax.plot(np.arange(1, len(dwell_t_sim)+1), dwell_t_sim, label='sim', marker='.', color='black')
+    ax2.plot(np.arange(1, len(expected_left_behind)+1), expected_left_behind, label='pax', color='red', marker='.')
+    ax.set_ylabel('cumulative dwell time savings (min)')
     ax.set_xlabel('express segment distance (# stops)')
-    ax2.set_ylabel('pax')
+    ax2.set_ylabel('cumulative pax left behind')
     ax.grid()
     fig.legend()
     plt.tight_layout()
@@ -39,55 +39,35 @@ def expressing_analysis(avl_df, sim_df, stops, start_time, end_time, dates, arr_
     return
 
 
-def compare_input_ons(odt_stops, stops):
+def compare_input_pax_rates(odt_stops, stops, key_stops_idx, ons=True):
     odf = np.load(DIR_ROUTE + 'odt_flows_30_scaled.npy')
-    arrs_apc = np.load(DIR_ROUTE + 'apc_on_rates_30.npy')
-    arr_rates = np.sum(odf, axis=-1)
-    idxs = np.nonzero(np.in1d(odt_stops, stops[:-1]))[0]
-    arrs = arr_rates[:, idxs]
-    arrs_apc_ = arrs_apc[:,idxs]
+    pax_path = 'apc_on_rates_30.npy' if ons else 'apc_off_rates_30.npy'
+    pax_apc = np.load(DIR_ROUTE + pax_path)
+    axs = -1 if ons else -2
+    lbl = 'boardings per hour' if ons else 'alightings per hour'
+    pth = 'ons_input_v_apc.png' if ons else 'offs_input_v_apc.png'
+    pax_rates = np.sum(odf, axis=axs)
+    idx = []
+    for s in stops:
+        idx.append(odt_stops.index(s))
+    pax = pax_rates[:, idx]
+    pax_apc_ = pax_apc[:,idx]
     fig, axs = plt.subplots(ncols=2, nrows=3, sharex='all', sharey='all', figsize=(10,10))
     w = 0.4
     bins = [i for i in range(12, 18)]
     for i in range(len(bins)):
-        axs.flat[i].bar(np.arange(len(arrs[bins[i]]))-w/2, arrs[bins[i]], label='scaled input')
-        axs.flat[i].bar(np.arange(len(arrs_apc_[bins[i]]))+w/2, arrs_apc_[bins[i]], label='apc')
+        axs.flat[i].bar(np.arange(len(pax[bins[i]]))-w/2, pax[bins[i]], label='scaled input')
+        axs.flat[i].bar(np.arange(len(pax_apc_[bins[i]]))+w/2, pax_apc_[bins[i]], label='apc', alpha=0.4)
         axs.flat[i].set_title(str(round(bins[i]/2,1)) + 'AM')
         axs.flat[i].legend()
         axs.flat[i].set_xlabel('stops')
-        axs.flat[i].set_xticks(np.arange(0, len(arrs[bins[i]]), 10))
-        axs.flat[i].set_xticklabels(np.arange(1, len(arrs[bins[i]])+1, 10))
-        axs.flat[i].set_ylabel('boardings per hour')
-    fig.suptitle('Boardings per hour')
+        axs.flat[i].set_xticks(key_stops_idx)
+        axs.flat[i].set_xticklabels(np.array(key_stops_idx)+1)
+        axs.flat[i].set_ylabel(lbl)
     plt.tight_layout()
-    plt.savefig(DIR_ROUTE_OUTS + 'compare/validate/ons_input_v_apc.png')
+    plt.savefig(DIR_ROUTE_OUTS + 'compare/validate/' + pth)
     plt.close()
-    return
-
-def compare_input_offs(odt_stops, stops):
-    odf = np.load(DIR_ROUTE + 'odt_flows_30_scaled.npy')
-    offs_apc = np.load(DIR_ROUTE + 'apc_off_rates_30.npy')
-    off_rates = np.sum(odf, axis=-2)
-    idxs = np.nonzero(np.in1d(odt_stops, stops))[0]
-    offs = off_rates[:, idxs]
-    offs_apc_ = offs_apc[:,idxs]
-    fig, axs = plt.subplots(ncols=2, nrows=3, sharex='all', sharey='all', figsize=(10,10))
-    w = 0.4
-    bins = [i for i in range(12, 18)]
-    for i in range(len(bins)):
-        axs.flat[i].bar(np.arange(len(offs[bins[i]]))-w/2, offs[bins[i]], label='scaled input')
-        axs.flat[i].bar(np.arange(len(offs_apc_[bins[i]]))+w/2, offs_apc_[bins[i]], label='apc')
-        axs.flat[i].set_title(str(round(bins[i]/2,1)) + 'AM')
-        axs.flat[i].legend()
-        axs.flat[i].set_xlabel('stops')
-        axs.flat[i].set_xticks(np.arange(0, len(offs[bins[i]]), 10))
-        axs.flat[i].set_xticklabels(np.arange(1, len(offs[bins[i]])+1, 10))
-        axs.flat[i].set_ylabel('alightings per hour')
-    fig.suptitle('alightings per hour')
-    plt.tight_layout()
-    plt.savefig(DIR_ROUTE_OUTS + 'compare/validate/offs_input_v_apc.png')
-    plt.close()
-    return
+    return 
 
 
 def denied_count(scenarios, period, scenario_tags, method_tags):
@@ -108,11 +88,12 @@ def denied_count(scenarios, period, scenario_tags, method_tags):
 
 def plot_pax_profile(df, stops, apc=False, path_savefig=None, path_savefig_single=None, 
                     key_stops_idx=None, stop_names=None, mrh_hold_stops=None, 
-                    last_express_stop=None, ons_lims=(0,7), load_lims=(0,35), trip_ids=None):
+                    last_express_stop=None, ons_lims=(0,8), load_lims=(0,35), trip_ids=None,
+                    bin_single=2):
     t0 = 6 * 60 * 60
     t1 = 10 * 60 * 60
-    interv_len = 60 * 60
-    n_intervals = int((t1 - t0) / interv_len)
+    bin_len = 60 * 60
+    n_intervals = int((t1 - t0) / bin_len)
     fig, axs = plt.subplots(nrows=2, ncols=2, figsize=(12, 8), sharey='all', sharex='all')
     stops_x = np.arange(len(stops))
     w_bar = 0.6
@@ -120,8 +101,8 @@ def plot_pax_profile(df, stops, apc=False, path_savefig=None, path_savefig_singl
     single_ons = []
     single_offs = []
     for n in range(n_intervals):
-        tmp_t0 = t0 + n * interv_len
-        tmp_t1 = t0 + (n + 1) * interv_len
+        tmp_t0 = t0 + n * bin_len
+        tmp_t1 = t0 + (n + 1) * bin_len
         tmp_df = df[(df['arr_sec'] >= tmp_t0) & (df['arr_sec'] < tmp_t1)].copy()
         avg_loads = []
         avg_ons = []
@@ -148,10 +129,15 @@ def plot_pax_profile(df, stops, apc=False, path_savefig=None, path_savefig_singl
                 avg_loads.append(np.nan)
                 avg_ons.append(np.nan)
                 avg_offs.append(np.nan)
-        avg_loads[-1] = 0
         avg_ons[-1] = 0
         avg_offs[0] = 0
-        if n == 2:
+        avg_loads[-1] = 0
+        if apc:
+            pre_load = 0
+            for stop_idx in range(len(avg_ons)-1):
+                pre_load += avg_ons[stop_idx] - avg_offs[stop_idx]
+                avg_loads[stop_idx] = deepcopy(pre_load)
+        if n == bin_single:
             single_loads = deepcopy(avg_loads)
             single_ons = deepcopy(avg_ons)
             single_offs = deepcopy(avg_offs)
@@ -197,6 +183,7 @@ def plot_pax_profile(df, stops, apc=False, path_savefig=None, path_savefig_singl
                 idx = stops.index(m)
                 ax.axvline(idx, linestyle='dotted', label='mid holding stops', color='black')
         ax.grid()
+        ax.set_title(f'{int((t0 + bin_single*bin_len) / 60 / 60)} AM')
         fig.legend()
         plt.tight_layout()
         plt.savefig(path_savefig_single)
@@ -599,7 +586,7 @@ def validate_delay_outbound(avl_df, sim_df, start_t_sec, end_t_sec, stops, inter
 def plot_calib_hist(delay_avl, delay_sim, start_interval, filename, xlabel):
     fig, ax = plt.subplots(nrows=2, ncols=2, sharex='all', figsize=(8, 6))
     for i in range(ax.size):
-        ax.flat[i].hist([delay_avl[i], delay_sim[i]], density=True, label=['avl', 'sim'])
+        ax.flat[i].hist([delay_avl[i], delay_sim[i]], density=True, label=['avl', 'sim'], color=['grey', 'black'])
         ax.flat[i].set_title(f'{start_interval + i} AM')
         ax.flat[i].set_yticks([])
         ax.flat[i].set_xlabel(xlabel)
