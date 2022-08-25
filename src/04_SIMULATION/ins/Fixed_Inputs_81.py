@@ -28,7 +28,7 @@ ODT_BIN_MINS = 30
 TRIP_TIME_BIN_MINS = 60
 
 # INBOUND TO OUTBOUND LAYOVER TIME
-MIN_LAYOVER_T = 50
+MIN_LAYOVER_T = 40
 ERR_LAYOVER_TIME = 20
 # INBOUND TIME DEPENDENT TRIP TIME DISTRIBUTION
 
@@ -46,8 +46,8 @@ DEP_DELAY_TO = 110
 # OTHER SERVICE PARAMETERS: DWELL TIME, SIMULATION LENGTH
 [IDX_ARR_T, IDX_DEP_T, IDX_LOAD, IDX_PICK, IDX_DROP, IDX_DENIED, IDX_HOLD_TIME, IDX_SKIPPED, IDX_SCHED] = [i for i in
                                                                                                            range(1, 10)]
-HIGH_CAPACITY = 1.2*80
-LOW_CAPACITY = 1.2*53
+HIGH_CAPACITY = int(1.2*80)
+LOW_CAPACITY = int(1.2*53)
 
 # FOR RECORDS
 OUT_TRIP_RECORD_COLS = ['bus_id', 'trip_id', 'stop_id', 'arr_sec', 'dep_sec', 'pax_load', 'ons', 'offs', 'denied',
@@ -56,7 +56,7 @@ IN_TRIP_RECORD_COLS = ['trip_id', 'stop_id', 'arr_sec', 'schd_sec', 'stop_sequen
 PAX_RECORD_COLS = ['orig_idx', 'dest_idx', 'arr_time', 'board_time', 'alight_time', 'trip_id', 'denied']
 
 # TERMINAL DISPATCHING PARAMS
-EARLY_DEP_LIMIT_SEC = 120 # seconds
+EARLY_DEP_LIMIT_SEC = 180 # seconds
 IMPOSED_DELAY_LIMIT = 180
 HOLD_INTERVALS = 60
 FUTURE_HW_HORIZON = 2

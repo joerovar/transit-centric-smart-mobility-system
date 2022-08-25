@@ -1,0 +1,20 @@
+DIR_VALIDATE = 'outs/rt_20_2019-09/compare/validate/'
+BENCH_SCENARIOS = [['NC/0729-011225', 'NC/0729-011407', 'NC/0729-011546'],
+                 ['DS/0729-011235', 'DS/0729-011417', 'DS/0729-011555'],
+                 ['DS+MRH/0729-011245', 'DS+MRH/0729-011427', 'DS+MRH/0729-011604'],
+                 ['DSX/0729-011256', 'DSX/0729-011437', 'DSX/0729-011614'],
+                 ['DSX+MRH/0729-011306', 'DSX+MRH/0729-011447', 'DSX+MRH/0729-011623']]
+BENCH_METHOD_LBLS = ['NC', 'DS', 'DS+MRH', 'DSX', 'DSX+MRH']
+BENCH_SCENARIO_LBLS = [0, 12, 25]
+DIR_OUT_BENCH = 'outs/rt_20_2019-09/compare/benchmark/'
+
+CAP_SCENARIOS = [['NC/0729-011407', 'NC/0729-011546'],
+                ['NC/0729-011316', 'NC/0729-011457'],
+                ['DS+MRH/0729-011427', 'DS+MRH/0729-011604'],
+                ['DS+MRH/0729-011337', 'DS+MRH/0729-011517'],
+                ['DSX+MRH/0729-011447', 'DSX+MRH/0729-011623'],
+                ['DSX+MRH/0729-011357', 'DSX+MRH/0729-011536']]
+CAP_METHOD_LBLS = ['NC53', 'NC80', 'DS+MRH53', 'DS+MRH80', 'DSX+MRH53', 'DSX+MRH80']
+CAP_SCENARIO_LBLS = [12, 25]
+DIR_OUT_CAP = 'outs/rt_20_2019-09/compare/infinite capacity/'
+

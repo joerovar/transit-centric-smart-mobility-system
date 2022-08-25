@@ -43,7 +43,6 @@ for item in TRIPS_OUT_INFO:
     TRIP_IDS_OUT.append(item[0]), SCHED_DEP_OUT.append(item[1]), BLOCK_IDS_OUT.append(item[2])
 trips_out = [(x, y, str(timedelta(seconds=y)), z, 0, w, v, u) for x, y, z, w, v, u in TRIPS_OUT_INFO]
 trips_in = [(x, y, str(timedelta(seconds=y)), z, 1, w, v, u) for x, y, z, w, v, u in TRIPS_IN_INFO]
-
 trips_df = pd.DataFrame(trips_out + trips_in, columns=['trip_id', 'schd_sec', 'schd_time',
                                                        'block_id', 'route_type', 'schedule', 'stops', 'dist_traveled'])
 outbound_trips_df = trips_df[trips_df['route_type'] == 0]

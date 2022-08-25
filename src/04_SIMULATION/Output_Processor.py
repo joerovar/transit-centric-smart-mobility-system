@@ -7,6 +7,7 @@ import seaborn as sns
 from datetime import timedelta
 from Input_Processor import get_interval, remove_outliers
 from ins.Fixed_Inputs_81 import DIR_ROUTE_OUTS, DIR_ROUTE
+from ins.Scenarios_81 import DIR_VALIDATE
 
 def expressing_analysis(avl_df, sim_df, stops, start_time, end_time, dates, arr_rates, 
                         dem_interval_length, odt_stops, last_stop=16):
@@ -34,7 +35,7 @@ def expressing_analysis(avl_df, sim_df, stops, start_time, end_time, dates, arr_
     ax.grid()
     fig.legend()
     plt.tight_layout()
-    plt.savefig(DIR_ROUTE_OUTS + 'compare/validate/expressing_analysis.png')
+    plt.savefig(DIR_VALIDATE + 'expressing_analysis.png')
     plt.close()
     return
 
@@ -65,7 +66,7 @@ def compare_input_pax_rates(odt_stops, stops, key_stops_idx, ons=True):
         axs.flat[i].set_xticklabels(np.array(key_stops_idx)+1)
         axs.flat[i].set_ylabel(lbl)
     plt.tight_layout()
-    plt.savefig(DIR_ROUTE_OUTS + 'compare/validate/' + pth)
+    plt.savefig(DIR_VALIDATE + pth)
     plt.close()
     return 
 
@@ -264,7 +265,7 @@ def load_plots(scenarios, scenario_tags, method_tags, stops, period, fig_dir=Non
     return df
 
 
-def trajectory_plots(scenarios, scenario_titles, scheduled_trajectories, period, replication, fig_dir=None):
+def trajectory_plots(scenarios, scenario_titles, scheduled_trajectories, period, replication=1, fig_dir=None):
     fig, axs = plt.subplots(nrows=len(scenarios), sharex='all', figsize=(14, 10))
 
     df_sched_t_rep = pd.DataFrame(scheduled_trajectories, columns=['trip_id', 'schd_sec', 'dist_traveled'])
@@ -551,10 +552,10 @@ def validate_delay_inbound(avl_df, sim_df, start_t_sec, end_t_sec, start_interva
     arr_del_long_sim, dep_del_long_sim = delay_inbound(sim_df, start_t_sec, end_t_sec, interval_mins, 'arr_sec',
                                                        'arr_sec', (['3773', 1], ['14102', 51]))
     plot_calib_hist(dep_delays_long, dep_del_long_sim, start_interval,
-                    DIR_ROUTE_OUTS + 'compare/validate/dep_delays_in_long.png', 'dep delay (seconds)')
+                    DIR_VALIDATE + 'dep_delays_in_long.png', 'dep delay (seconds)')
 
     plot_calib_hist(arr_delays_long, arr_del_long_sim, start_interval,
-                    DIR_ROUTE_OUTS + 'compare/validate/arr_delays_in_long.png', 'arr delay (seconds)')
+                    DIR_VALIDATE + 'arr_delays_in_long.png', 'arr delay (seconds)')
 
     if short_patt:
         arr_delays_short, dep_delays_short = delay_inbound(avl_df, start_t_sec, end_t_sec, interval_mins, 'arr_sec',
@@ -562,9 +563,9 @@ def validate_delay_inbound(avl_df, sim_df, start_t_sec, end_t_sec, start_interva
         arr_del_short_sim, dep_del_short_sim = delay_inbound(sim_df, start_t_sec, end_t_sec, interval_mins, 'arr_sec',
                                                              'arr_sec', [('15136', 1), ('386', 23)])
         plot_calib_hist(arr_delays_short, arr_del_short_sim, start_interval,
-                        DIR_ROUTE_OUTS + 'compare/validate/arr_delays_in_short.png', 'arr delay (seconds)')
+                        DIR_VALIDATE + 'arr_delays_in_short.png', 'arr delay (seconds)')
         plot_calib_hist(dep_delays_short, dep_del_short_sim, start_interval,
-                        DIR_ROUTE_OUTS + 'compare/validate/dep_delays_in_short.png', 'dep delay (seconds)')
+                        DIR_VALIDATE + 'dep_delays_in_short.png', 'dep delay (seconds)')
     return
 
 
@@ -577,9 +578,9 @@ def validate_delay_outbound(avl_df, sim_df, start_t_sec, end_t_sec, stops, inter
                                                             interval_mins, 'arr_sec', 'dep_sec',
                                                             [(stops[0], 1), (stops[-1], len(stops))])
     plot_calib_hist(arr_delays_out, arr_delays_out_sim, start_interval,
-                    DIR_ROUTE_OUTS + 'compare/validate/arr_delays_out.png', 'arr delay (seconds)')
+                    DIR_VALIDATE + 'arr_delays_out.png', 'arr delay (seconds)')
     plot_calib_hist(dep_delays_out, dep_delays_out_sim, start_interval,
-                    DIR_ROUTE_OUTS + 'compare/validate/dep_delays_out.png', 'dep delay (seconds)')
+                    DIR_VALIDATE + 'dep_delays_out.png', 'dep delay (seconds)')
     return
 
 
@@ -616,7 +617,7 @@ def validate_cv_hw_outbound(avl_df, sim_df, start_t_sec, end_t_sec, interval_min
     ax[1, 0].set_ylabel('c.v. headway')
     plt.legend()
     plt.tight_layout()
-    plt.savefig(DIR_ROUTE_OUTS + 'compare/validate/cv_hw.png')
+    plt.savefig(DIR_VALIDATE + 'cv_hw.png')
     plt.close()
     return
 
