@@ -35,27 +35,6 @@ def test_scenarios(nc=False, eds=False, hds=False, hdsmrh=False, hdstx=False, rl
                 run_base_dispatching(replications=replications, save_results=save_results, save_folder=strat,
                                      control_strategy=strat,prob_cancel=p, cancelled_blocks=cancelled_blocks, 
                                      capacity=cap)
-            # if nc:
-            #     run_base_dispatching()
-            # if eds:
-            #     run_base_dispatching(replications=replications, save_results=save_results, save_folder='EDS',
-            #                          prob_cancel=p, cancelled_blocks=cancelled_blocks, control_strategy='EDS',
-            #                          capacity=HIGH_CAPACITY)
-            # if hds:
-            #     run_base_dispatching(replications=replications, save_results=save_results, save_folder='HDS',
-            #                          prob_cancel=p, cancelled_blocks=cancelled_blocks, control_strategy='HDS',
-            #                          capacity=HIGH_CAPACITY)
-            # if hdsmrh:
-            #     run_base_dispatching(replications=replications, save_results=save_results, save_folder='HDS+MRH',
-            #                          prob_cancel=p, cancelled_blocks=cancelled_blocks, control_strategy='HDS+MRH',
-            #                          capacity=HIGH_CAPACITY)
-            # if hdstx:
-            #     run_base_dispatching(replications=replications, save_results=save_results, save_folder='HDS+TX',
-            #                          prob_cancel=p, cancelled_blocks=cancelled_blocks, control_strategy='HDS+TX',
-            #                          capacity=HIGH_CAPACITY)
-            # if rl:
-            #     rl_dispatch(replications, save_results=save_results, save_folder='RL', prob_cancel=p,
-            #                 cancelled_blocks=cancelled_blocks, tstamp_policy=rl_policy)
     return
 
 
