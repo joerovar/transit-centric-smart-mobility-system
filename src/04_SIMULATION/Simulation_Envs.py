@@ -693,9 +693,6 @@ class SimulationEnvWithRL(SimulationEnv):
 
         last_stop = bus.active_trip[0].stops[-1]
         bus.next_event_type = 2 if bus.next_stop_id == last_stop else 1
-        if TRIP_IDS_OUT[trip_idx] == 911880020 and curr_stop_idx > 60:
-            print(f'for last stop id {last_stop} next stop is {bus.next_stop_id} '
-                  f'with index {curr_stop_idx} therefore next event type is {bus.next_event_type}')
         self.record_trajectories(pickups=bus.ons, offs=bus.offs, denied_board=bus.denied, hold=hold, skip=skip)
         return
 
@@ -1209,11 +1206,11 @@ class SimulationEnvWithCancellations(SimulationEnv):
                     hold_time = 0.0
                     sched_fw_h = obs[PAST_HW_HORIZON+FUTURE_HW_HORIZON+PAST_HW_HORIZON]
                     bus.next_event_time = max(self.time, sched_dep - sched_fw_h/2)
-                    print(f'----')
-                    print(f'{time_string(self.time)}')
-                    print(f'current headway {time_string(sched_fw_h)}')
-                    print(f'scheduled departure {time_string(sched_dep)}')
-                    print(f'departure {time_string(bus.next_event_time)}')
+                    # print(f'----')
+                    # print(f'{time_string(self.time)}')
+                    # print(f'current headway {time_string(sched_fw_h)}')
+                    # print(f'scheduled departure {time_string(sched_dep)}')
+                    # print(f'departure {time_string(bus.next_event_time)}')
                 else:
                     hold_time = 0.0
             if self.control_strategy in ['HDS', 'HDS+MRH']:

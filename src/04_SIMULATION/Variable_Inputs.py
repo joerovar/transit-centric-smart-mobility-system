@@ -1,4 +1,3 @@
-from typing import KeysView
 import numpy as np
 import pandas as pd
 from Input_Processor import extract_outbound_params, extract_inbound_params, extract_demand
@@ -28,7 +27,7 @@ STOPS_OUT_INFO = load(DIR_ROUTE + 'stops_out_info.pkl')
 STOPS_OUT_NAMES = pd.read_csv(DIR_ROUTE + 'gtfs_stops_route.txt')['short_name'].tolist()
 KEY_STOPS_IDX = [STOPS_OUT_NAMES.index(s) for s in ['TRANSIT CENTER','CICERO', 
                                                     'PULASKI', 'KIMBALL (BROWN LINE)', 'WESTERN', 
-                                                    'RAVENSWOOD', 'BROADWAY (RED LINE)', 'MARINE DRIVE']]
+                                                    'RAVENSWOOD', 'BROADWAY (RED LINE)', 'MARINE DRIVE']]                 
 
 # INBOUND
 TRIPS_IN_INFO = load(DIR_ROUTE + 'trips_in_info.pkl')

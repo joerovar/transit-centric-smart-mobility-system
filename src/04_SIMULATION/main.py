@@ -105,7 +105,6 @@ def analyze_expressing(avl_path=None, sim_out_path=None):
 #          avl_path='ins/rt_81_2022-05/avl.csv', apc_path='ins/rt_81_2022-05/avl.csv')
 # test_scenarios(eds=True, prob_cancel=[0.15], low_capacity=True, replications=1)
 # test_scenarios(nc=True, prob_cancel=[0.0], replications=20, save_results=True, limited_capacity=True)
-# test_scenarios(nc=True, ds=True, dsmrh=True, dsx=True, dsxmrh=True, prob_cancel=[0.0, 0.125, 0.25], replications=15,
-#                limited_capacity=True, save_results=True)
-# plot_results()
-# plot_results2()
+# test_scenarios(eds=True, hds=True, hdsmrh=True, hdstx=True, prob_cancel=[0.0, 0.15, 0.3], replications=20,
+#                low_capacity=True, save_results=True)
+plot_bench_results()
