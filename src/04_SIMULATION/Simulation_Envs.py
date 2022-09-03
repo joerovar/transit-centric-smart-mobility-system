@@ -957,10 +957,9 @@ class SimulationEnvWithRL(SimulationEnv):
 
 
 class SimulationEnvWithCancellations(SimulationEnv):
-    def __init__(self, prob_cancelled_block=0.0, weight_hold_t=0.0, control_strategy=None, cancelled_blocks=None,
+    def __init__(self, weight_hold_t=0.0, control_strategy=None, cancelled_blocks=None,
                  *args, **kwargs):
         super(SimulationEnvWithCancellations, self).__init__(*args, **kwargs)
-        self.prob_cancelled_block = prob_cancelled_block
         self.weight_hold_t = weight_hold_t
         self.control_strategy = control_strategy
         self.cancelled_blocks = cancelled_blocks
@@ -997,16 +996,13 @@ class SimulationEnvWithCancellations(SimulationEnv):
             if self.cancelled_blocks:
                 if bus.bus_id in self.cancelled_blocks:
                     bus.cancelled = True
-            else:
-                if random.uniform(0, 1) < self.prob_cancelled_block:
-                    bus.cancelled = True
             if bus.cancelled:
                 bus.cancelled_trips = deepcopy(bus.pending_trips)
                 if self.control_strategy == 'EDS':
                     # early dispatchiing strategy - depart early the follower of missing trip
                     # pre-planned therefore we add these trips to a list
-                    trip_ids = [t.trip_id for t in bus.cancelled_trips]
-                    for t in trip_ids:
+                    cancelled_trip_ids = [t.trip_id for t in bus.cancelled_trips]
+                    for t in cancelled_trip_ids:
                         if t in TRIP_IDS_OUT[:-1]:
                             self.moved_up_trips.append(TRIP_IDS_OUT[TRIP_IDS_OUT.index(t) + 1])
                 bus.pending_trips = []
@@ -1212,7 +1208,8 @@ class SimulationEnvWithCancellations(SimulationEnv):
                     # print(f'scheduled departure {time_string(sched_dep)}')
                     # print(f'departure {time_string(bus.next_event_time)}')
                 else:
-                    hold_time = 0.0
+                    hold_time = max(sched_dep-self.time, 0)
+                    bus.next_event_time = max(self.time, sched_dep)
             if self.control_strategy in ['HDS', 'HDS+MRH']:
                 bw_h = obs[PAST_HW_HORIZON]
                 hold_time = even_hw_decision(bw_h, fw_h, hold_time_max)

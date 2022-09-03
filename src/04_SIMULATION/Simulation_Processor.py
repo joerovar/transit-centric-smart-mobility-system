@@ -3,7 +3,6 @@ from Output_Processor import plot_learning
 from Variable_Inputs import *
 import os
 import Simulation_Envs
-import random
 import time
 
 
@@ -13,10 +12,11 @@ def process_trip_record(record, record_col_names, rep_nr):
     return df
 
 
-def write_trip_records(scenario, t, out_record_set, in_record_set, pax_record_set):
-    path_out_trip_record = DIR_ROUTE_OUTS + scenario + '/' + t + '-trip_record_ob.pkl'
-    path_in_trip_record = DIR_ROUTE_OUTS + scenario + '/' + t + '-trip_record_ib.pkl'
-    path_pax_record = DIR_ROUTE_OUTS + scenario + '/' + t + '-pax_record_ob.pkl'
+def write_trip_records(save_folder, out_record_set, in_record_set, pax_record_set):
+    os.mkdir(save_folder)
+    path_out_trip_record = save_folder + '/trip_record_ob.pkl'
+    path_in_trip_record = save_folder + '/trip_record_ib.pkl'
+    path_pax_record = save_folder + '/pax_record_ob.pkl'
 
     out_trip_record = pd.concat(out_record_set, ignore_index=True)
     in_trip_record = pd.concat(in_record_set, ignore_index=True)
@@ -28,33 +28,18 @@ def write_trip_records(scenario, t, out_record_set, in_record_set, pax_record_se
     return
 
 
-def run_base_dispatching(replications, capacity, prob_cancel=0.0, save_results=False, control_strategy=None, save_folder=None,
+def run_base_dispatching(replications, capacity, save_results=False, control_strategy=None, save_folder=None,
                          cancelled_blocks=None):
-    tstamp = datetime.now().strftime('%m%d-%H%M%S')
     out_trip_record_set = []
     in_trip_record_set = []
     pax_record_set = []
     for i in range(replications):
-        cancelled = cancelled_blocks[i] if cancelled_blocks else None
-        env = Simulation_Envs.SimulationEnvWithCancellations(prob_cancelled_block=prob_cancel,
-                                                             control_strategy=control_strategy,
-                                                             cancelled_blocks=cancelled, bus_capacity=capacity)
+        env = Simulation_Envs.SimulationEnvWithCancellations(control_strategy=control_strategy,
+                                                             cancelled_blocks=cancelled_blocks, bus_capacity=capacity)
         done = env.reset_simulation()
         while not done:
             done = env.prep()
             if env.obs and not done:
-                past_sched_hw = env.obs[PAST_HW_HORIZON + FUTURE_HW_HORIZON:PAST_HW_HORIZON * 2 + FUTURE_HW_HORIZON]
-                past_actual_hw = env.obs[:PAST_HW_HORIZON]
-                future_sched_hw = env.obs[
-                                  PAST_HW_HORIZON * 2 + FUTURE_HW_HORIZON:PAST_HW_HORIZON * 2 + FUTURE_HW_HORIZON * 2]
-                future_actual_hw = env.obs[PAST_HW_HORIZON:PAST_HW_HORIZON + FUTURE_HW_HORIZON]
-                sched_dev = env.obs[-1]
-                # print(f'current time is {str(timedelta(seconds=round(env.time)))} '
-                #       f'and next event time is {str(timedelta(seconds=round(env.bus.next_event_time)))}')
-                # print(f'trip {env.bus.pending_trips[0].trip_id}')
-                # print(f'schedule deviation {round(env.obs[-1])}')
-                # print(f'sched hw {[str(timedelta(seconds=round(hw))) for hw ins past_sched_hw]} | {[str(timedelta(seconds=round(hw))) for hw ins future_sched_hw]}')
-                # print(f'actual hw {[str(timedelta(seconds=round(hw))) for hw ins past_actual_hw]} | {[str(timedelta(seconds=round(hw))) for hw ins future_actual_hw]}')
                 env.dispatch_decision()
         if save_results:
             out_trip_record_set.append(process_trip_record(env.out_trip_record, OUT_TRIP_RECORD_COLS, i))
@@ -62,21 +47,7 @@ def run_base_dispatching(replications, capacity, prob_cancel=0.0, save_results=F
             pax_record_set.append(process_trip_record(env.completed_pax_record, PAX_RECORD_COLS, i))
 
     if save_results:
-        write_trip_records(save_folder, tstamp, out_trip_record_set, in_trip_record_set, pax_record_set)
-        if control_strategy in ['DS', 'DS-MRH']:
-            key_params = {'prob_cancel': [prob_cancel], 'n_replications': [replications],
-                          'early_limit': [EARLY_DEP_LIMIT_SEC], 'late_limit': [IMPOSED_DELAY_LIMIT],
-                          'capacity': [capacity], 'cancelled_blocks': [cancelled_blocks]}
-        elif control_strategy in ['DSX', 'DSX-MRH']:
-            key_params = {'prob_cancel': [prob_cancel], 'n_replications': [replications],
-                          'early_limit': [EARLY_DEP_LIMIT_SEC], 'late_limit': [IMPOSED_DELAY_LIMIT],
-                          'expres_dist': [EXPRESS_DIST], 'express_fh_limit': [FW_H_LIMIT_EXPRESS],
-                          'express_bh_limit': [BW_H_LIMIT_EXPRESS], 'express_fbh_limit': [BF_H_LIMIT_EXPRESS],
-                          'capacity': [capacity], 'cancelled_blocks': [cancelled_blocks]}
-        else:
-            key_params = {'prob_cancel': [prob_cancel], 'n_replications': [replications], 'capacity': [capacity],
-                          'cancelled_blocks': [cancelled_blocks]}
-        pd.DataFrame(key_params).to_csv(DIR_ROUTE_OUTS + save_folder + '/' + tstamp + '-key_params.csv', index=False)
+        write_trip_records(save_folder, out_trip_record_set, in_trip_record_set, pax_record_set)
     return
 
 
@@ -355,35 +326,4 @@ def test_rl(n_episodes_test, tstamp_policy, save_results=False, simple_reward=Fa
 
         with open(DIR_ROUTE_OUTS + scenario + '/' + tstamp + '-net_used.csv', 'w') as f:
             f.write(str(tstamp_policy))
-    return
-
-
-def run_sample_rl(episodes=1, simple_reward=False, weight_ride_t=0.0):
-    for _ in range(episodes):
-        env = Simulation_Envs.SimulationEnvWithRL(estimate_pax=True, weight_ride_t=weight_ride_t)
-        done = env.reset_simulation()
-        done = env.prep()
-        while not done:
-            trip_id = env.bus.active_trip[0].trip_id
-            all_sars = env.trips_sars[trip_id]
-            if not env.bool_terminal_state:
-                observation = np.array(all_sars[-1][0], dtype=np.float32)
-                route_progress = observation[IDX_RT_PROGRESS]
-                pax_at_stop = observation[IDX_PAX_AT_STOP]
-                curr_stop = [s for s in env.stops if s.stop_id == env.bus.last_stop_id]
-                previous_denied = False
-                for p in curr_stop[0].pax.copy():
-                    if p.arr_time <= env.time:
-                        if p.denied:
-                            previous_denied = True
-                            break
-                    else:
-                        break
-                if route_progress == 0.0 or pax_at_stop == 0 or previous_denied:
-                    action = random.randint(1, 4)
-                else:
-                    action = random.randint(0, 4)
-                env.take_action(action)
-            env.update_rewards(simple_reward=simple_reward)
-            done = env.prep()
     return
