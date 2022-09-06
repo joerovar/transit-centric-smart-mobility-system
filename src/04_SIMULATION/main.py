@@ -4,7 +4,7 @@ import numpy as np
 from Variable_Inputs import DATES, START_TIME_SEC, END_TIME_SEC, STOPS_OUT_FULL_PATT, BLOCK_TRIPS_INFO, DIR_ROUTE_OUTS
 from Variable_Inputs import scheduled_trajectories_out, MRH_STOPS, DIR_ROUTE, STOPS_IN_FULL_PATT
 from Variable_Inputs import ODT_STOP_IDS, ARR_RATES, ODT_BIN_MINS, STOPS_OUT_NAMES, KEY_STOPS_IDX
-from Variable_Inputs import TRIPS_OUT_INFO, LINK_TIMES_MEAN
+from Variable_Inputs import TRIPS_OUT_INFO, LINK_TIMES_MEAN, BLOCK_IDS
 from Output_Processor import validate_delay_outbound, validate_delay_inbound, validate_cv_hw_outbound
 from Output_Processor import validate_trip_t_outbound, trajectory_plots, cv_hw_plot, pax_times_plot, load_plots
 from Output_Processor import plot_run_times, plot_pax_profile, denied_count, compare_input_pax_rates
@@ -24,28 +24,29 @@ def run_scenarios(replications=1, save_results=False, single_scenario=None):
     if single_scenario:
         nr_scen = 1
         df = df[df['scenario'] == single_scenario].copy()
-        prc_cancel = df['prc_cancel'].iloc[0]
+        nr_cancel = df['nr_cancel'].iloc[0]
         lst_blocks_cancel = []
         tmp_cancel = []
-        if prc_cancel:
-            for j in range(len(BLOCK_TRIPS_INFO)):
-                    if np.random.uniform(0, 1) < p/100:
-                        tmp_cancel.append(BLOCK_TRIPS_INFO[j][0])
+        if nr_cancel:
+            tmp_cancel = np.random.choice(BLOCK_IDS, replace=False, size=nr_cancel).tolist()
+            # for j in range(len(BLOCK_TRIPS_INFO)):
+            #         if np.random.uniform(0, 1) < p/100:
+            #             tmp_cancel.append(BLOCK_TRIPS_INFO[j][0])
         lst_blocks_cancel.append(tmp_cancel)
         df['blocks_cancel'] = lst_blocks_cancel
     else:
         nr_scen = df['scenario'].max()
         # first assign cancelled blocks
-        prc_cancel = df['prc_cancel'].unique().tolist()
+        nr_cancel = df['nr_cancel'].unique().tolist()
         lst_blocks_cancel = []
-        for p in prc_cancel:
-            tmp_cancel = []
-            for j in range(len(BLOCK_TRIPS_INFO)):
-                    if np.random.uniform(0, 1) < p/100:
-                        tmp_cancel.append(BLOCK_TRIPS_INFO[j][0])
+        for n in nr_cancel:
+            tmp_cancel = np.random.choice(BLOCK_IDS, replace=False, size=n).tolist()
+            # for j in range(len(BLOCK_TRIPS_INFO)):
+            #         if np.random.uniform(0, 1) < p/100:
+            #             tmp_cancel.append(BLOCK_TRIPS_INFO[j][0])
             lst_blocks_cancel.append(tmp_cancel)
-        df2 = pd.DataFrame({'prc_cancel':prc_cancel, 'blocks_cancel':lst_blocks_cancel})
-        df = df.merge(df2, on='prc_cancel').sort_values(by='scenario')
+        df2 = pd.DataFrame({'nr_cancel':nr_cancel, 'blocks_cancel':lst_blocks_cancel})
+        df = df.merge(df2, on='nr_cancel').sort_values(by='scenario')
     if save_results:
         df.to_csv(DIR_ROUTE_OUTS + tstamp + '/scenarios.csv', index=False)
     if single_scenario:
@@ -103,9 +104,9 @@ def plot_bench_results(tstamp, hr_start_period=6.5, hr_end_period=8.0):
     time_period = (int(hr_start_period * 60 * 60), int(hr_end_period * 60 * 60))
 
     fig_dir = path_save + 'trajectories.png'
-    prc_cancel_max = df['prc_cancel'].max()
+    nr_cancel_max = df['nr_cancel'].max()
 
-    trajectory_plots(tstamp, df, prc_cancel_max, scheduled_trajectories_out, time_period, 
+    trajectory_plots(tstamp, df, nr_cancel_max, scheduled_trajectories_out, time_period, 
                     replication=2, fig_dir=fig_dir)
 
     fig_dir = path_save + 'run_times.png'
@@ -131,5 +132,5 @@ def plot_bench_results(tstamp, hr_start_period=6.5, hr_end_period=8.0):
 
 
 # run_scenarios(save_results=True,replications=15)
-# plot_bench_results('0905-2344')
-# validate('0905-2344', 1, avl_path='ins/rt_81_2022-05/avl.csv', apc_path='ins/rt_81_2022-05/avl.csv')
+plot_bench_results('0906-1346')
+validate('0906-1346', 1, avl_path='ins/rt_81_2022-05/avl.csv', apc_path='ins/rt_81_2022-05/avl.csv')

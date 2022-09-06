@@ -63,17 +63,18 @@ df_sched_t_rep = pd.DataFrame(scheduled_trajectories_out, columns=['trip_id', 's
 
 trips_df['block_id'] = trips_df['block_id'].astype(str).str[6:].astype(int)
 trips_df = trips_df.sort_values(by=['block_id', 'schd_sec'])
-block_ids = trips_df['block_id'].unique().tolist()
+BLOCK_IDS = trips_df['block_id'].unique().tolist()
 BLOCK_TRIPS_INFO = []
-
-for b in block_ids:
-    block_df = trips_df[trips_df['block_id'] == b]
+for b in BLOCK_IDS:
+    block_df = trips_df[trips_df['block_id'] == b].copy()
     trip_ids = block_df['trip_id'].tolist()
     lst_stops = block_df['stops'].tolist()
     lst_schedule = block_df['schedule'].tolist()
     route_types = block_df['route_type'].tolist()
     lst_dist_traveled = block_df['dist_traveled'].tolist()
     BLOCK_TRIPS_INFO.append((b, list(zip(trip_ids, route_types, lst_stops, lst_schedule, lst_dist_traveled))))
+
+
 PAX_INIT_TIME = [0]
 for s0, s1 in zip(STOPS_OUT_FULL_PATT, STOPS_OUT_FULL_PATT[1:]):
     ltimes = np.array(LINK_TIMES_MEAN[s0 + '-' + s1])
