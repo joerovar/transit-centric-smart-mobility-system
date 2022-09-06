@@ -1,3 +1,4 @@
+from typing import KeysView
 import numpy as np
 import pandas as pd
 from Input_Processor import extract_outbound_params, extract_inbound_params, extract_demand
@@ -20,7 +21,7 @@ LINK_TIMES_INFO = load(DIR_ROUTE + 'link_times_info.pkl')
 TRIPS_OUT_INFO = load(DIR_ROUTE + 'trips_out_info.pkl')
 ODT_FLOWS = np.load(DIR_ROUTE + 'odt_flows_30_scaled.npy')
 ODT_STOP_IDS = list(np.load(DIR_ROUTE + 'odt_stops.npy'))
-DEP_DELAY_DIST_OUT = load(DIR_ROUTE + 'dep_delay_dist_out.pkl')  # empirical delay data , including negative
+DELAY_DISTR_OUT = load(DIR_ROUTE + 'delay_distr_out.pkl')  # empirical delay data , including negative
 STOPS_OUT_FULL_PATT = load(DIR_ROUTE + 'stops_out_full_patt.pkl')
 STOPS_OUT_ALL = load(DIR_ROUTE + 'stops_out_all.pkl')
 STOPS_OUT_INFO = load(DIR_ROUTE + 'stops_out_info.pkl')
@@ -31,12 +32,16 @@ KEY_STOPS_IDX = [STOPS_OUT_NAMES.index(s) for s in ['TRANSIT CENTER','CICERO',
 
 # INBOUND
 TRIPS_IN_INFO = load(DIR_ROUTE + 'trips_in_info.pkl')
-RUN_T_DIST_IN = load(DIR_ROUTE + 'run_times_in.pkl')
-DELAY_DIST_IN = load(DIR_ROUTE + 'delay_in.pkl')
+RUN_T_DISTR_IN = load(DIR_ROUTE + 'run_t_distr_in.pkl')
+DELAY_DISTR_IN = load(DIR_ROUTE + 'delay_distr_in.pkl')
 STOPS_IN_FULL_PATT = TRIPS_IN_INFO[0][4]
 ARR_RATES = np.sum(ODT_FLOWS, axis=-1)
-# print(ARR_RATES[14:16, np.where(np.isin(ODT_STOP_IDS, ['18106']))])
 LINK_TIMES_MEAN, LINK_TIMES_EXTREMES, LINK_TIMES_PARAMS = LINK_TIMES_INFO
+# print(LINK_TIMES_MEAN['3764-3765'])
+# print(LINK_TIMES_MEAN['3765-4908'])
+# print(LINK_TIMES_EXTREMES['3764-3765'])
+# print(LINK_TIMES_EXTREMES['3765-4908'])
+
 TRIP_IDS_OUT, SCHED_DEP_OUT, BLOCK_IDS_OUT = [], [], []
 for item in TRIPS_OUT_INFO:
     TRIP_IDS_OUT.append(item[0]), SCHED_DEP_OUT.append(item[1]), BLOCK_IDS_OUT.append(item[2])
@@ -58,17 +63,18 @@ df_sched_t_rep = pd.DataFrame(scheduled_trajectories_out, columns=['trip_id', 's
 
 trips_df['block_id'] = trips_df['block_id'].astype(str).str[6:].astype(int)
 trips_df = trips_df.sort_values(by=['block_id', 'schd_sec'])
-block_ids = trips_df['block_id'].unique().tolist()
+BLOCK_IDS = trips_df['block_id'].unique().tolist()
 BLOCK_TRIPS_INFO = []
-
-for b in block_ids:
-    block_df = trips_df[trips_df['block_id'] == b]
+for b in BLOCK_IDS:
+    block_df = trips_df[trips_df['block_id'] == b].copy()
     trip_ids = block_df['trip_id'].tolist()
     lst_stops = block_df['stops'].tolist()
     lst_schedule = block_df['schedule'].tolist()
     route_types = block_df['route_type'].tolist()
     lst_dist_traveled = block_df['dist_traveled'].tolist()
     BLOCK_TRIPS_INFO.append((b, list(zip(trip_ids, route_types, lst_stops, lst_schedule, lst_dist_traveled))))
+
+
 PAX_INIT_TIME = [0]
 for s0, s1 in zip(STOPS_OUT_FULL_PATT, STOPS_OUT_FULL_PATT[1:]):
     ltimes = np.array(LINK_TIMES_MEAN[s0 + '-' + s1])
