@@ -7,10 +7,9 @@ import seaborn as sns
 from datetime import timedelta
 from Input_Processor import get_interval, remove_outliers
 from ins.Fixed_Inputs_81 import DIR_ROUTE_OUTS, DIR_ROUTE
-from ins.Scenarios_81 import DIR_VALIDATE
 
 def expressing_analysis(avl_df, sim_df, stops, start_time, end_time, dates, arr_rates, 
-                        dem_interval_length, odt_stops, last_stop=16):
+                        dem_interval_length, odt_stops, path_save, last_stop=12):
     dwell_t_avl = []
     dwell_t_sim = []
     expected_left_behind = []
@@ -35,12 +34,12 @@ def expressing_analysis(avl_df, sim_df, stops, start_time, end_time, dates, arr_
     ax.grid()
     fig.legend()
     plt.tight_layout()
-    plt.savefig(DIR_VALIDATE + 'expressing_analysis.png')
+    plt.savefig(path_save + 'expressing_analysis.png')
     plt.close()
     return
 
 
-def compare_input_pax_rates(odt_stops, stops, key_stops_idx, ons=True):
+def compare_input_pax_rates(odt_stops, stops, key_stops_idx, path_save, ons=True):
     odf = np.load(DIR_ROUTE + 'odt_flows_30_scaled.npy')
     pax_path = 'apc_on_rates_30.npy' if ons else 'apc_off_rates_30.npy'
     pax_apc = np.load(DIR_ROUTE + pax_path)
@@ -66,23 +65,27 @@ def compare_input_pax_rates(odt_stops, stops, key_stops_idx, ons=True):
         axs.flat[i].set_xticklabels(np.array(key_stops_idx)+1)
         axs.flat[i].set_ylabel(lbl)
     plt.tight_layout()
-    plt.savefig(DIR_VALIDATE + pth)
+    plt.savefig(path_save + pth)
     plt.close()
     return 
 
 
-def denied_count(scenarios, period, scenario_tags, method_tags):
-    numer_results = {'parameter': ['denied' for _ in range(len(scenario_tags))],
-                     'prc_cancel': scenario_tags}
-    for m in method_tags:
+def denied_count(tstamp, df_scenarios, period):
+    scenario_lbls = df_scenarios['prc_cancel'].unique().tolist()
+    strategy_lbls = df_scenarios['strategy'].unique().tolist()
+    numer_results = {'parameter': ['denied' for _ in range(len(scenario_lbls))],
+                     'prc_cancel': scenario_lbls}
+    for m in strategy_lbls:
         numer_results[m] = []
-    for i in range(len(scenario_tags)):
-        for j in range(len(method_tags)):
-            df = pd.read_pickle(DIR_ROUTE_OUTS + scenarios[j][i] + '-pax_record_ob.pkl')
+    for i in range(len(scenario_lbls)):
+        for j in range(len(strategy_lbls)):
+            scen_nr = df_scenarios.loc[(df_scenarios['prc_cancel'] == scenario_lbls[i]) & 
+                        (df_scenarios['strategy'] == strategy_lbls[j]), 'scenario'].iloc[0]
+            df = pd.read_pickle(DIR_ROUTE_OUTS + tstamp + '/' + str(scen_nr) + '/pax_record_ob.pkl')
             tmp_df = df[(df['arr_time'] <= period[1]) & (df['arr_time'] >= period[0])].copy()
             n_denied = tmp_df[tmp_df['denied'] == 1].shape[0]
             tot = tmp_df.shape[0]
-            numer_results[method_tags[j]].append(n_denied/tot * 1000)
+            numer_results[strategy_lbls[j]].append(n_denied/tot * 1000)
     df = pd.DataFrame(numer_results)
     return df
 
@@ -192,31 +195,36 @@ def plot_pax_profile(df, stops, apc=False, path_savefig=None, path_savefig_singl
     return
 
 
-def plot_run_times(scenarios, scenario_tags, method_tags, stops, fig_dir=None):
-    numer_results = {'parameter': ['95runt7' for _ in range(len(scenario_tags))],
-                     'prc_cancel': scenario_tags}
-    for m in method_tags:
+def plot_run_times(tstamp, df_scenarios, stops, fig_dir=None):
+    # scenarios = df_scenarios['scenarios'].tolist()
+    scenario_lbls = df_scenarios['prc_cancel'].unique().tolist()
+    strategy_lbls = df_scenarios['strategy'].unique().tolist()
+    numer_results = {'parameter': ['95runt7' for _ in range(len(scenario_lbls))],
+                     'prc_cancel': scenario_lbls}
+    for m in strategy_lbls:
         numer_results[m] = []
     intervals = [6, 7, 8]
-    fig, axs = plt.subplots(nrows=len(scenario_tags), sharey='all', figsize=(10, 10))
+    fig, axs = plt.subplots(nrows=len(scenario_lbls), sharey='all', figsize=(10, 10))
     for ax in axs.flat:
         ax.grid(axis='y')
         ax.set_axisbelow(True)
-    for i in range(len(scenario_tags)):
+    for i in range(len(scenario_lbls)):
         data = pd.DataFrame(columns=['method', 'run_time', 'dep_t'])
-        for j in range(len(method_tags)):
+        for j in range(len(strategy_lbls)):
             d = pd.DataFrame(columns=['method', 'run_time', 'dep_t'])
-            df = pd.read_pickle(DIR_ROUTE_OUTS + scenarios[j][i] + '-trip_record_ob.pkl')
+            scen_nr = df_scenarios.loc[(df_scenarios['prc_cancel'] == scenario_lbls[i]) & 
+                                    (df_scenarios['strategy'] == strategy_lbls[j]), 'scenario'].iloc[0]
+            df = pd.read_pickle(DIR_ROUTE_OUTS + tstamp + '/' + str(scen_nr) + '/trip_record_ob.pkl')
             run_ts = trip_t_outbound(df, 6*60*60, 9*60*60, 60, stops, 'arr_sec', 'dep_sec')
-            numer_results[method_tags[j]].append(np.percentile(run_ts[1], 95))
+            numer_results[strategy_lbls[j]].append(np.percentile(run_ts[1], 95))
             for k in range(len(intervals)):
-                method_rows = [method_tags[j]] * len(run_ts[k])
+                method_rows = [strategy_lbls[j]] * len(run_ts[k])
                 dep_t_rows = [intervals[k]] * len(run_ts[k])
                 tmp_d = pd.DataFrame(list(zip(method_rows, run_ts[k], dep_t_rows)), columns=['method', 'run_time', 'dep_t'])
                 d = pd.concat([d, tmp_d], ignore_index=True)
             data = pd.concat([data, d], ignore_index=True)
         sns.boxplot(x='dep_t', y='run_time', hue='method', data=data, ax=axs[i], showfliers=False)
-        axs[i].set_title(str(scenario_tags[i]) + '% cancelled')
+        axs[i].set_title(str(scenario_lbls[i]) + '% cancelled')
         axs[i].set_xlabel('departure time (h)')
         axs[i].set_ylabel('run time distribution (min)')
     plt.tight_layout()
@@ -229,30 +237,35 @@ def plot_run_times(scenarios, scenario_tags, method_tags, stops, fig_dir=None):
     return df
 
 
-def load_plots(scenarios, scenario_tags, method_tags, stops, period, fig_dir=None, quantile=0.5):
+def load_plots(tstamp, df_scenarios, stops, period, fig_dir=None, quantile=0.5):
     par_lbl = str(round(quantile*100)) + 'load'
     y_lbl = str(round(quantile*100)) + 'th percentile load'
-    numer_results = {'parameter': [par_lbl for _ in range(len(scenario_tags))],
-                     'prc_cancel': scenario_tags}
-    for m in method_tags:
+    scenario_lbls = df_scenarios['prc_cancel'].unique().tolist()
+    strategy_lbls = df_scenarios['strategy'].unique().tolist()
+    numer_results = {'parameter': [par_lbl for _ in range(len(scenario_lbls))],
+                     'prc_cancel': scenario_lbls}
+    for m in strategy_lbls:
         numer_results[m] = []
-    fig, axs = plt.subplots(ncols=len(scenario_tags), figsize=(13, 8), sharey='all')
+    fig, axs = plt.subplots(ncols=len(scenario_lbls), figsize=(13, 8), sharey='all')
     colors = ['black', 'green', 'blue', 'red', 'brown', 'turquoise']
-    for i in range(len(method_tags)):
-        for j in range(len(scenario_tags)):
+    for i in range(len(strategy_lbls)):
+        for j in range(len(scenario_lbls)):
             load = []
-            df = pd.read_pickle(DIR_ROUTE_OUTS + scenarios[i][j] + '-trip_record_ob.pkl')
+            scen_nr = df_scenarios.loc[(df_scenarios['strategy'] == strategy_lbls[i]) & 
+            (df_scenarios['prc_cancel'] == scenario_lbls[j]), 'scenario'].iloc[0]
+            df = pd.read_pickle(DIR_ROUTE_OUTS + tstamp + '/' + str(scen_nr) + '/trip_record_ob.pkl')
+            
+            # df = pd.read_pickle(DIR_ROUTE_OUTS + scenarios[i][j] + '-trip_record_ob.pkl')
             for s in stops:
                 load_tmp = df[(df['stop_id'] == s) & (df['arr_sec'] <= period[1]) &
                               (df['arr_sec'] >= period[0])]['pax_load'].quantile(quantile)
                 load.append(load_tmp)
-            numer_results[method_tags[i]].append(max(load))
-            axs[j].plot(load, label=method_tags[i], color=colors[i])
-
-    for j in range(len(scenario_tags)):
+            numer_results[strategy_lbls[i]].append(max(load))
+            axs[j].plot(load, label=strategy_lbls[i], color=colors[i])
+    for j in range(len(scenario_lbls)):
         axs[j].set_ylabel(y_lbl)
         axs[j].set_xlabel('stops')
-        axs[j].set_title(f'{scenario_tags[j]} % cancelled')
+        axs[j].set_title(f'{scenario_lbls[j]} % cancelled')
         axs[j].set_xticks(np.arange(0, len(stops), 10), labels=np.arange(1, len(stops) + 1, 10))
     axs[0].legend()
     plt.tight_layout()
@@ -265,31 +278,35 @@ def load_plots(scenarios, scenario_tags, method_tags, stops, period, fig_dir=Non
     return df
 
 
-def trajectory_plots(scenarios, scenario_titles, scheduled_trajectories, period, replication=1, fig_dir=None):
-    fig, axs = plt.subplots(nrows=len(scenarios), sharex='all', figsize=(14, 10))
+def trajectory_plots(tstamp, df_scenarios, prc_cancel, sched_trajectories, period, replication=1, fig_dir=None):
+    df_subscen = df_scenarios.loc[df_scenarios['prc_cancel']==prc_cancel].copy()
+    scenarios = df_subscen['scenario'].tolist()
+    strategy_lbls = df_subscen['strategy'].tolist()
+    fig, axs = plt.subplots(nrows=len(scenarios), sharex='all', figsize=(12, 12))
 
-    df_sched_t_rep = pd.DataFrame(scheduled_trajectories, columns=['trip_id', 'schd_sec', 'dist_traveled'])
+    df_sched_t_rep = pd.DataFrame(sched_trajectories, columns=['trip_id', 'schd_sec', 'dist_traveled'])
     df_sched_t_rep['dist_traveled'] = df_sched_t_rep['dist_traveled'] / 3281
     df_sched_t_rep = df_sched_t_rep[
         (df_sched_t_rep['schd_sec'] >= period[0]) & (df_sched_t_rep['schd_sec'] <= period[1])]
     df_sched_t_rep = df_sched_t_rep.set_index('schd_sec')
     for i in range(len(scenarios)):
-        df_out = pd.read_pickle(DIR_ROUTE_OUTS + scenarios[i] + '-trip_record_ob.pkl')
+        df_out = pd.read_pickle(DIR_ROUTE_OUTS + tstamp + '/' + str(scenarios[i]) + '/trip_record_ob.pkl')
 
         df_arr_t = df_out[['trip_id', 'replication', 'dist_traveled', 'arr_sec', 'expressed']].copy()
-        df_arr_t = df_arr_t.rename(columns={'arr_sec': 'seconds'})
+        df_arr_t = df_arr_t.rename(columns={'arr_sec': 'sec'})
         df_dep_t = df_out[['trip_id', 'replication', 'dist_traveled', 'dep_sec', 'expressed']].copy()
-        df_dep_t = df_dep_t.rename(columns={'dep_sec': 'seconds'})
+        df_dep_t = df_dep_t.rename(columns={'dep_sec': 'sec'})
 
         df_times = pd.concat([df_arr_t, df_dep_t], axis=0, ignore_index=True)
         df_times['dist_traveled'] = df_times['dist_traveled'] / 3281
-        df_times = df_times.sort_values(by=['trip_id', 'seconds'])
+        df_times = df_times.sort_values(by=['trip_id', 'sec'])
 
         df_times_rep = df_times[df_times['replication'] == replication].copy()
 
         df_times_rep = df_times_rep[
-            (df_times_rep['seconds'] >= period[0]) & (df_times_rep['seconds'] <= period[1])]
-        df_times_rep = df_times_rep.set_index('seconds')
+            (df_times_rep['sec'] >= period[0]) & (df_times_rep['sec'] <= period[1])].copy()
+        df_times_rep = df_times_rep.sort_values(by='sec')
+        df_times_rep = df_times_rep.set_index('sec')
 
         df_sched_t_rep.groupby('trip_id')['dist_traveled'].plot(color='silver', ax=axs[i])
         df_times_rep.groupby('trip_id')['dist_traveled'].plot(color='red', ax=axs[i])
@@ -301,11 +318,13 @@ def trajectory_plots(scenarios, scenario_titles, scheduled_trajectories, period,
         cancelled_sched_df = df_sched_t_rep[~df_sched_t_rep['trip_id'].isin(non_cancelled_trips)].copy()
         cancelled_sched_df.groupby('trip_id')['dist_traveled'].plot(color='black', ax=axs[i])
 
-        axs[i].set_title(scenario_titles[i])
+        axs[i].set_title(strategy_lbls[i])
         axs[i].set_ylabel('km')
+        axs[i].set_xlabel('departure time')
     x_ticks = [x for x in range(period[0], period[1] + 30 * 60, 30 * 60)]
     x_labels = [str(timedelta(seconds=round(x)))[:-3] for x in x_ticks]
     plt.xticks(ticks=x_ticks, labels=x_labels)
+    plt.minorticks_off()
     if fig_dir:
         plt.savefig(fig_dir)
     else:
@@ -314,28 +333,32 @@ def trajectory_plots(scenarios, scenario_titles, scheduled_trajectories, period,
     return
 
 
-def cv_hw_plot(scenarios, stops, period, scenario_tags, method_tags, fig_dir=None):
-    numer_results = {'parameter': ['cv_h' for _ in range(len(scenario_tags))],
-                     'prc_cancel': scenario_tags}
-    for m in method_tags:
+def cv_hw_plot(tstamp, df_scenarios, stops, period, fig_dir=None):
+    scenario_lbls = df_scenarios['prc_cancel'].unique().tolist()
+    strategy_lbls = df_scenarios['strategy'].unique().tolist()
+    numer_results = {'parameter': ['cv_h' for _ in range(len(scenario_lbls))],
+                     'prc_cancel': scenario_lbls}
+    for m in strategy_lbls:
         numer_results[m] = []
     # linestyles = ['solid', 'dashdot', 'dotted']
     colors = ['black', 'green', 'blue', 'red', 'brown', 'turquoise']
-    fig, axs = plt.subplots(ncols=len(scenario_tags), figsize=(13, 8), sharey='all')
-    for i in range(len(method_tags)):
-        for j in range(len(scenario_tags)):
-            df_out = pd.read_pickle(DIR_ROUTE_OUTS + scenarios[i][j] + '-trip_record_ob.pkl')
-            lbl = method_tags[i]
+    fig, axs = plt.subplots(ncols=len(scenario_lbls), figsize=(13, 8), sharey='all')
+    for i in range(len(strategy_lbls)):
+        for j in range(len(scenario_lbls)):
+            scen_nr = df_scenarios.loc[(df_scenarios['strategy'] == strategy_lbls[i]) & 
+            (df_scenarios['prc_cancel'] == scenario_lbls[j]), 'scenario'].iloc[0]
+            df_out = pd.read_pickle(DIR_ROUTE_OUTS + tstamp + '/' + str(scen_nr) + '/trip_record_ob.pkl')
+            # df_out = pd.read_pickle(DIR_ROUTE_OUTS + scenarios[i][j] + '-trip_record_ob.pkl')
+            lbl = strategy_lbls[i]
             cv = cv_hw_by_time(df_out, period[0], period[1], stops)
             axs[j].plot(np.arange(len(stops)), cv, label=lbl, color=colors[i])
-            numer_results[method_tags[i]].append(np.mean(cv))
-    for j in range(len(scenario_tags)):
+            numer_results[strategy_lbls[i]].append(np.mean(cv))
+    for j in range(len(scenario_lbls)):
         axs[j].set_ylabel('c.v. headway')
         axs[j].set_xlabel('stops')
-        axs[j].set_title(f'{scenario_tags[j]} % cancelled')
+        axs[j].set_title(f'{scenario_lbls[j]} % cancelled')
         axs[j].set_xticks(np.arange(0, len(stops), 10), labels=np.arange(1, len(stops) + 1, 10))
-    axs[0].legend()
-
+        axs[j].legend()
     plt.tight_layout()
     if fig_dir:
         plt.savefig(fig_dir)
@@ -346,30 +369,34 @@ def cv_hw_plot(scenarios, stops, period, scenario_tags, method_tags, fig_dir=Non
     return df
 
 
-def pax_times_plot(scenarios, boarding_stops, alighting_stops,
-                   period, method_tags, scenario_tags, fig_dir=None):
-    wt_numer = {'parameter': ['wt' for _ in range(len(scenario_tags))],
-                'prc_cancel': scenario_tags}
-    rbt_numer = {'parameter': ['rbt' for _ in range(len(scenario_tags))],
-                 'prc_cancel': scenario_tags}
-    for m in method_tags:
+def pax_times_plot(tstamp, df_scenarios, stops, period, fig_dir=None):
+    scenario_lbls = df_scenarios['prc_cancel'].unique().tolist()
+    strategy_lbls = df_scenarios['strategy'].unique().tolist()
+    wt_numer = {'parameter': ['wt' for _ in range(len(scenario_lbls))],
+                'prc_cancel': scenario_lbls}
+    rbt_numer = {'parameter': ['rbt' for _ in range(len(scenario_lbls))],
+                 'prc_cancel': scenario_lbls}
+    for m in strategy_lbls:
         wt_numer[m], rbt_numer[m] = [], []
     df_plot = pd.DataFrame({'method': [], 'cancelled': [], 'wt': []})
     fig, axs = plt.subplots(ncols=2, figsize=(12, 10))
     axs[0].grid(axis='y')
     axs[0].set_axisbelow(True)
-    for i in range(len(method_tags)):
+    for i in range(len(strategy_lbls)):
         rbt = []
-        for j in range(len(scenario_tags)):
-            df_pax = pd.read_pickle(DIR_ROUTE_OUTS + scenarios[i][j] + '-pax_record_ob.pkl')
+        for j in range(len(scenario_lbls)):
+            scen_nr = df_scenarios.loc[(df_scenarios['prc_cancel'] == scenario_lbls[j]) & 
+            (df_scenarios['strategy'] == strategy_lbls[i]), 'scenario'].iloc[0]
+            df_pax = pd.read_pickle(DIR_ROUTE_OUTS + tstamp + '/' + str(scen_nr) + '/pax_record_ob.pkl')
+            # df_pax = pd.read_pickle(DIR_ROUTE_OUTS + scenarios[i][j] + '-pax_record_ob.pkl')
             df_p = df_pax[(df_pax['arr_time'] <= period[1]) & (df_pax['arr_time'] >= period[0])].copy()
-            df_p = df_p[df_p['orig_idx'].isin(boarding_stops)].copy()
-            df_p = df_p[df_p['dest_idx'].isin(alighting_stops)].copy()
+            df_p = df_p[df_p['orig_idx'].isin(stops)].copy()
+            df_p = df_p[df_p['dest_idx'].isin(stops)].copy()
             df_p['wt'] = df_p['board_time'] - df_p['arr_time']
             wt_tmp = df_p['wt'].copy() / 60
-            wt_numer[method_tags[i]].append(wt_tmp.mean())
-            d = {'method': [method_tags[i]] * wt_tmp.shape[0],
-                 'cancelled': [int(scenario_tags[j])] * wt_tmp.shape[0],
+            wt_numer[strategy_lbls[i]].append(wt_tmp.mean())
+            d = {'method': [strategy_lbls[i]] * wt_tmp.shape[0],
+                 'cancelled': [int(scenario_lbls[j])] * wt_tmp.shape[0],
                  'wt': wt_tmp.tolist()}
             df_plot = pd.concat([df_plot, pd.DataFrame(d)], ignore_index=True)
 
@@ -377,10 +404,10 @@ def pax_times_plot(scenarios, boarding_stops, alighting_stops,
             rbt_sum = 0
             wt_counter = 0
             wt_sum = 0
-            for k in range(len(boarding_stops)):
-                for n in range(k, len(alighting_stops)):
-                    tmp_df = df_pax[(df_pax['orig_idx'] == boarding_stops[k]) &
-                                    (df_pax['dest_idx'] == alighting_stops[n])].copy()
+            for k in range(len(stops)-1):
+                for n in range(k+1, len(stops)):
+                    tmp_df = df_pax[(df_pax['orig_idx'] == stops[k]) &
+                                    (df_pax['dest_idx'] == stops[n])].copy()
                     if tmp_df.shape[0]:
                         tmp_df['jt'] = tmp_df['alight_time'] - tmp_df['arr_time']
                         tmp_df['wt'] = tmp_df['board_time'] - tmp_df['arr_time']
@@ -392,15 +419,15 @@ def pax_times_plot(scenarios, boarding_stops, alighting_stops,
                         wt_sum += tmp_df['wt'].mean() * tmp_df.shape[0]
                         wt_counter += tmp_df.shape[0]
             rbt_final = rbt_sum / rbt_counter / 60
-            rbt_numer[method_tags[i]].append(rbt_final)
+            rbt_numer[strategy_lbls[i]].append(rbt_final)
             rbt.append(rbt_final)
             wt_final = wt_sum / wt_counter / 60
             # wt_numer[method_tags[i]].append(wt_final)
-        axs[1].plot(scenario_tags, rbt, label=method_tags[i], marker='*')
+        axs[1].plot(scenario_lbls, rbt, label=strategy_lbls[i], marker='*')
     axs[1].legend()
     axs[1].set_ylabel('reliability buffer time (min)')
     axs[1].set_xlabel('% cancelled')
-    axs[1].set_xticks(scenario_tags)
+    axs[1].set_xticks(scenario_lbls)
     sns.boxplot(x='cancelled', y='wt', hue='method', data=df_plot, showfliers=False, ax=axs[0])
     axs[0].set_ylabel('wait time (min)')
     axs[0].set_xlabel('% cancelled')
@@ -545,17 +572,18 @@ def dwell_t_outbound(df_out, start_stop, end_stop, stops, interval_length,
     return dwell_t
 
 
-def validate_delay_inbound(avl_df, sim_df, start_t_sec, end_t_sec, start_interval, interval_mins=60, short_patt=False):
+def validate_delay_inbound(avl_df, sim_df, start_t_sec, end_t_sec, start_interval, path_save, stops, interval_mins=60,
+                            short_patt=False):
     # start_interval = 5
     arr_delays_long, dep_delays_long = delay_inbound(avl_df, start_t_sec, end_t_sec, interval_mins, 'arr_sec',
                                                      'dep_sec', (['3774', 2], ['17038', 50]), outlier_removal=True)
     arr_del_long_sim, dep_del_long_sim = delay_inbound(sim_df, start_t_sec, end_t_sec, interval_mins, 'arr_sec',
                                                        'arr_sec', (['3773', 1], ['14102', 51]))
     plot_calib_hist(dep_delays_long, dep_del_long_sim, start_interval,
-                    DIR_VALIDATE + 'dep_delays_in_long.png', 'dep delay (seconds)')
+                    path_save + 'dep_delays_in.png', 'dep delay (seconds)')
 
     plot_calib_hist(arr_delays_long, arr_del_long_sim, start_interval,
-                    DIR_VALIDATE + 'arr_delays_in_long.png', 'arr delay (seconds)')
+                    path_save + 'arr_delays_in.png', 'arr delay (seconds)')
 
     if short_patt:
         arr_delays_short, dep_delays_short = delay_inbound(avl_df, start_t_sec, end_t_sec, interval_mins, 'arr_sec',
@@ -563,13 +591,13 @@ def validate_delay_inbound(avl_df, sim_df, start_t_sec, end_t_sec, start_interva
         arr_del_short_sim, dep_del_short_sim = delay_inbound(sim_df, start_t_sec, end_t_sec, interval_mins, 'arr_sec',
                                                              'arr_sec', [('15136', 1), ('386', 23)])
         plot_calib_hist(arr_delays_short, arr_del_short_sim, start_interval,
-                        DIR_VALIDATE + 'arr_delays_in_short.png', 'arr delay (seconds)')
+                        path_save + 'arr_delays_in_patt2.png', 'arr delay (seconds)')
         plot_calib_hist(dep_delays_short, dep_del_short_sim, start_interval,
-                        DIR_VALIDATE + 'dep_delays_in_short.png', 'dep delay (seconds)')
+                        path_save + 'dep_delays_in_patt2.png', 'dep delay (seconds)')
     return
 
 
-def validate_delay_outbound(avl_df, sim_df, start_t_sec, end_t_sec, stops, interval_mins=60):
+def validate_delay_outbound(avl_df, sim_df, start_t_sec, end_t_sec, stops, path_save, interval_mins=60):
     start_interval = 5
     arr_delays_out, dep_delays_out = delay_outbound(avl_df, start_t_sec, end_t_sec, interval_mins,
                                                     'arr_sec', 'dep_sec', [(stops[1], 2), (stops[-2], len(stops) - 1)],
@@ -578,9 +606,9 @@ def validate_delay_outbound(avl_df, sim_df, start_t_sec, end_t_sec, stops, inter
                                                             interval_mins, 'arr_sec', 'dep_sec',
                                                             [(stops[0], 1), (stops[-1], len(stops))])
     plot_calib_hist(arr_delays_out, arr_delays_out_sim, start_interval,
-                    DIR_VALIDATE + 'arr_delays_out.png', 'arr delay (seconds)')
+                    path_save + 'arr_delays_out.png', 'arr delay (seconds)')
     plot_calib_hist(dep_delays_out, dep_delays_out_sim, start_interval,
-                    DIR_VALIDATE + 'dep_delays_out.png', 'dep delay (seconds)')
+                    path_save + 'dep_delays_out.png', 'dep delay (seconds)')
     return
 
 
@@ -597,8 +625,44 @@ def plot_calib_hist(delay_avl, delay_sim, start_interval, filename, xlabel):
     plt.close()
     return
 
+def check_bus_speeds(stops, trips_info, stop_names, key_stops_idx, link_times_mean, path_save):
+    link_t_check = {'stop': stops[:-1]}
+    bins = [i for i in range(6*2,8*2)]
+    for t in trips_info:
+        if t[1] >= bins[0]*30*60:
+            if 'dist' not in link_t_check:
+                link_t_check['dist'] = [t[-1][i+1] - t[-1][i] for i in range(len(t[-1])-1)]
+            sched_link_t = [t[3][i+1] - t[3][i] for i in range(len(t[3])-1)]
+            link_t_check['slt' + str(bins[0])] = sched_link_t
+            sched_speed = [link_t_check['dist'][i]/sched_link_t[i]*0.682 for i in range(len(sched_link_t))]
+            link_t_check['sspd' + str(bins[0])] = sched_speed
+            bins.pop(0)
+        if not len(bins):
+            break
+    bins = [i for i in range(6*2,8*2)]
+    for b in bins:
+        link_t_check['alt' + str(b)] = []
+        for k in range(len(stops)-1):
+            link_t = link_times_mean[stops[k] + '-' + stops[k+1]][b-int(5*2)]
+            link_t_check['alt' + str(b)].append(link_t)
+        act_speed = [link_t_check['dist'][i]/link_t_check['alt' + str(b)][i]*0.682 for i in range(len(link_t_check['alt' + str(b)]))]
+        link_t_check['aspd' + str(b)] = act_speed
+    df_link_t_check = pd.DataFrame(link_t_check)
+    fig, axs = plt.subplots(nrows=2, sharex='all', sharey='all', figsize=(10,8))
+    df_link_t_check.plot(y=['sspd' + str(b) for b in bins], use_index=True, ax=axs[0], marker='D', markersize=5)
+    df_link_t_check.plot(y=['aspd' + str(b) for b in bins], use_index=True, ax=axs[1], marker='D', markersize=5)
+    for ax in axs:
+        ax.set_xticks(key_stops_idx)
+        ax.set_xticklabels(np.array(stop_names)[key_stops_idx], rotation='60', fontsize=7)
+        ax.grid()
+        ax.set_ylabel('average speed (mph)')
+    plt.minorticks_off()
+    plt.tight_layout()
+    plt.savefig(path_save + 'avg_speed.png')
+    plt.close()
+    return
 
-def validate_cv_hw_outbound(avl_df, sim_df, start_t_sec, end_t_sec, interval_min, stops, dates, trip_ids, start_interval=5,
+def validate_cv_hw_outbound(avl_df, sim_df, start_t_sec, end_t_sec, interval_min, stops, dates, trip_ids, path_save, start_interval=5,
                             key_stops_idx=None, stop_names=None):
     hw_out_cv = cv_hw_from_avl(avl_df, start_t_sec, end_t_sec, interval_min, stops, dates, trip_ids)
     hw_out_cv_sim = cv_hw_by_intervals(sim_df, start_t_sec, end_t_sec, interval_min, stops)
@@ -617,7 +681,7 @@ def validate_cv_hw_outbound(avl_df, sim_df, start_t_sec, end_t_sec, interval_min
     ax[1, 0].set_ylabel('c.v. headway')
     plt.legend()
     plt.tight_layout()
-    plt.savefig(DIR_VALIDATE + 'cv_hw.png')
+    plt.savefig(path_save + 'cv_hw.png')
     plt.close()
     return
 

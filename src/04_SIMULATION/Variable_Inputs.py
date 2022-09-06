@@ -1,3 +1,4 @@
+from typing import KeysView
 import numpy as np
 import pandas as pd
 from Input_Processor import extract_outbound_params, extract_inbound_params, extract_demand
@@ -20,7 +21,7 @@ LINK_TIMES_INFO = load(DIR_ROUTE + 'link_times_info.pkl')
 TRIPS_OUT_INFO = load(DIR_ROUTE + 'trips_out_info.pkl')
 ODT_FLOWS = np.load(DIR_ROUTE + 'odt_flows_30_scaled.npy')
 ODT_STOP_IDS = list(np.load(DIR_ROUTE + 'odt_stops.npy'))
-DEP_DELAY_DIST_OUT = load(DIR_ROUTE + 'dep_delay_dist_out.pkl')  # empirical delay data , including negative
+DELAY_DISTR_OUT = load(DIR_ROUTE + 'delay_distr_out.pkl')  # empirical delay data , including negative
 STOPS_OUT_FULL_PATT = load(DIR_ROUTE + 'stops_out_full_patt.pkl')
 STOPS_OUT_ALL = load(DIR_ROUTE + 'stops_out_all.pkl')
 STOPS_OUT_INFO = load(DIR_ROUTE + 'stops_out_info.pkl')
@@ -31,12 +32,16 @@ KEY_STOPS_IDX = [STOPS_OUT_NAMES.index(s) for s in ['TRANSIT CENTER','CICERO',
 
 # INBOUND
 TRIPS_IN_INFO = load(DIR_ROUTE + 'trips_in_info.pkl')
-RUN_T_DIST_IN = load(DIR_ROUTE + 'run_times_in.pkl')
-DELAY_DIST_IN = load(DIR_ROUTE + 'delay_in.pkl')
+RUN_T_DISTR_IN = load(DIR_ROUTE + 'run_t_distr_in.pkl')
+DELAY_DISTR_IN = load(DIR_ROUTE + 'delay_distr_in.pkl')
 STOPS_IN_FULL_PATT = TRIPS_IN_INFO[0][4]
 ARR_RATES = np.sum(ODT_FLOWS, axis=-1)
-# print(ARR_RATES[14:16, np.where(np.isin(ODT_STOP_IDS, ['18106']))])
 LINK_TIMES_MEAN, LINK_TIMES_EXTREMES, LINK_TIMES_PARAMS = LINK_TIMES_INFO
+# print(LINK_TIMES_MEAN['3764-3765'])
+# print(LINK_TIMES_MEAN['3765-4908'])
+# print(LINK_TIMES_EXTREMES['3764-3765'])
+# print(LINK_TIMES_EXTREMES['3765-4908'])
+
 TRIP_IDS_OUT, SCHED_DEP_OUT, BLOCK_IDS_OUT = [], [], []
 for item in TRIPS_OUT_INFO:
     TRIP_IDS_OUT.append(item[0]), SCHED_DEP_OUT.append(item[1]), BLOCK_IDS_OUT.append(item[2])

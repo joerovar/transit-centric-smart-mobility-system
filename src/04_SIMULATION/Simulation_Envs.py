@@ -1,3 +1,4 @@
+from sqlite3 import TimestampFromTicks
 from Variable_Inputs import *
 import numpy as np
 from scipy.stats import lognorm
@@ -131,7 +132,7 @@ class SimulationEnv:
                 prev_dep_t = bus.dep_t
                 interv_idx = get_interval(prev_dep_t, TRIP_TIME_BIN_MINS) - TRIP_TIME_START_INTERVAL
                 stops = bus.active_trip[0].stops
-                estimated_in_run_t = np.mean(RUN_T_DIST_IN[stops[0] + '-' + stops[-1]][interv_idx])
+                estimated_in_run_t = np.mean(RUN_T_DISTR_IN[stops[0] + '-' + stops[-1]][interv_idx])
                 ready_time = prev_dep_t + estimated_in_run_t + MIN_LAYOVER_T
                 next_sched_t = bus.pending_trips[0].schedule[0]
                 if self.bus.last_stop_id == STOPS_OUT_FULL_PATT[0]:
@@ -257,9 +258,9 @@ class SimulationEnv:
             interval_idx = get_interval(trip.schedule[0], DELAY_BIN_MINS) - DELAY_START_INTERVAL
             rand_percentile = np.random.uniform(0.0, 100.0)
             if trip.direction == 0:
-                delay_dist = DEP_DELAY_DIST_OUT[interval_idx]
+                delay_dist = DELAY_DISTR_OUT[interval_idx]
             else:
-                delay_dist = DELAY_DIST_IN[trip.stops[0]][interval_idx]  # DICTIONARY TYPE
+                delay_dist = DELAY_DISTR_IN[trip.stops[0]][interval_idx]  # DICTIONARY TYPE
             delay = np.percentile(delay_dist, rand_percentile)
             bus.next_event_time = trip.schedule[0] + max(delay, 0)
             bus.next_event_type = 3 if trip.direction else 0
@@ -470,7 +471,7 @@ class SimulationEnv:
         trip_id = trip.trip_id
         interval_idx = get_interval(self.time, TRIP_TIME_BIN_MINS) - TRIP_TIME_START_INTERVAL
         rand_percentile = np.random.uniform(0.0, 100.0)
-        run_time = np.percentile(RUN_T_DIST_IN[trip.stops[0] + '-' + trip.stops[-1]][interval_idx], rand_percentile)
+        run_time = np.percentile(RUN_T_DISTR_IN[trip.stops[0] + '-' + trip.stops[-1]][interval_idx], rand_percentile)
         arr_time = self.time + run_time
         start_stop_id = bus.active_trip[0].stops[0]
         bus.dep_t = self.time
@@ -1014,9 +1015,9 @@ class SimulationEnvWithCancellations(SimulationEnv):
                 interval_idx = get_interval(first_trip.schedule[0], DELAY_BIN_MINS) - DELAY_START_INTERVAL
                 rand_percentile = np.random.uniform(0.0, 100.0)
                 if first_trip.direction == 0:
-                    delay_dist = DEP_DELAY_DIST_OUT[interval_idx]
+                    delay_dist = DELAY_DISTR_OUT[interval_idx]
                 else:
-                    delay_dist = DELAY_DIST_IN[first_trip.stops[0]][interval_idx]  # DICTIONARY TYPE
+                    delay_dist = DELAY_DISTR_IN[first_trip.stops[0]][interval_idx]  # DICTIONARY TYPE
                 delay = np.percentile(delay_dist, rand_percentile)
                 if first_trip.direction:
                     bus.next_event_time = first_trip.schedule[0] + max(delay, 0)  # delay can be negative
@@ -1062,6 +1063,7 @@ class SimulationEnvWithCancellations(SimulationEnv):
         else:
             bus.deactivate()
         return
+    
 
     def actual_future_headways(self):
         # terminal
@@ -1073,10 +1075,11 @@ class SimulationEnvWithCancellations(SimulationEnv):
                     and bus.pending_trips and bus.bus_id != self.bus.bus_id:
                 interv_idx = get_interval(bus.dep_t, TRIP_TIME_BIN_MINS) - TRIP_TIME_START_INTERVAL
                 stops = bus.active_trip[0].stops
-                estimated_in_run_t = np.mean(RUN_T_DIST_IN[stops[0] + '-' + stops[-1]][interv_idx])
+                estimated_in_run_t = np.mean(RUN_T_DISTR_IN[stops[0] + '-' + stops[-1]][interv_idx])
                 ready_time = bus.dep_t + estimated_in_run_t + MIN_LAYOVER_T
                 next_sched_t = bus.pending_trips[0].schedule[0]
-                future_dep_t.append(max(ready_time, next_sched_t))
+                t = max(ready_time, next_sched_t, self.time+5)
+                future_dep_t.append(t)
             if not bus.active_trip and bus.pending_trips and bus.bus_id != self.bus.bus_id:
                 if bus.pending_trips[0].direction == 0:
                     if bus.instructed_hold_time:
@@ -1085,11 +1088,13 @@ class SimulationEnvWithCancellations(SimulationEnv):
                         assert bus.next_event_time >= self.time
                     else:
                         if not bus.finished_trips:
-                            # pull-outs trip
-                            future_dep_t.append(bus.pending_trips[0].schedule[0])
+                            # pull-out trip
+                            future_dep_t.append(max(self.time+5,bus.pending_trips[0].schedule[0]))
                         else:
                             # bus layover at terminal without holding instruction
-                            future_dep_t.append(max(bus.next_event_time, bus.pending_trips[0].schedule[0]))
+                            t = max(bus.next_event_time, bus.pending_trips[0].schedule[0])
+
+                            future_dep_t.append(t)
                 elif len(bus.pending_trips) > 1:
                     assert bus.pending_trips[1].direction == 0
                     future_dep_t.append(bus.pending_trips[1].schedule[0])
@@ -1220,21 +1225,17 @@ class SimulationEnvWithCancellations(SimulationEnv):
                 sched_fw_h = obs[PAST_HW_HORIZON + FUTURE_HW_HORIZON + PAST_HW_HORIZON - 1]
                 bw_h = obs[PAST_HW_HORIZON]
                 sched_bw_h = obs[PAST_HW_HORIZON * 2 + FUTURE_HW_HORIZON]
-                statement1 = (bw_h <= sched_bw_h * BW_H_LIMIT_EXPRESS) or (fw_h >= sched_fw_h * FW_H_LIMIT_EXPRESS)
-                statement2 = (fw_h >= bw_h * BF_H_LIMIT_EXPRESS)
+                fw_h_condition = fw_h >= sched_fw_h * FW_H_LIMIT_EXPRESS
+                fw_bw_h_condition = (fw_h >= bw_h * BF_H_LIMIT_EXPRESS)
+                bw_h_condition = bw_h <= sched_bw_h * BW_H_LIMIT_EXPRESS
                 assert bus.expressed is False
-                if statement1 and statement2:
+                if (fw_h_condition or bw_h_condition) and fw_bw_h_condition:
                     hold_time = even_hw_decision(bw_h, fw_h, hold_time_max)
                     assert hold_time == 0
-                    # print('EXPRESSING DECISION')
                     bus.expressed = True
                 else:
                     hold_time = even_hw_decision(bw_h, fw_h, hold_time_max)
-                    # print('HOLDING DECISION')
-                    # print(f'Hold time of {round(hold_time)} <= {round(hold_time_max)}')
                     bus.next_event_time = self.time + hold_time
-
-                # hold_time = single_hw_decision(fw_h, sched_fw_h, hold_time_max)
                 bus.next_event_time = self.time + hold_time
             if self.control_strategy == 'RL':
                 bus.next_event_time = self.time + hold_time
@@ -1308,7 +1309,7 @@ class SimulationEnvWithCancellations(SimulationEnv):
 
     def prep(self):
         done = self.next_event()
-        if done or self.time >= END_TIME_SEC - 60 * 20:
+        if done or self.time >= END_TIME_SEC - 60 * 30:
             return True
 
         if self.bus.next_event_type == 0:
