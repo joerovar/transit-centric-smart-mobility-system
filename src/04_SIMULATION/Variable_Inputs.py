@@ -8,6 +8,9 @@ from Output_Processor import load
 from datetime import timedelta
 import matplotlib.pyplot as plt
 
+def time_string(secs):
+    return str(timedelta(seconds=round(secs)))
+
 # EXTRACT FUNCTIONS
 # extract_outbound_params(START_TIME_SEC, END_TIME_SEC, TIME_NR_INTERVALS, TIME_START_INTERVAL, TIME_BIN_MINS,
 #                         DATES, DELAY_BIN_MINS, DELAY_START_INTERVAL, FULL_PATTERN_HEADSIGN, RT_NR, OB_DIRECTION)
@@ -60,11 +63,11 @@ for i in range(len(trip_ids)):
         scheduled_trajectories_out.append([trip_ids[i], trip_schedules[i][j], trip_dist_traveled[i][j]])
 
 df_sched_t_rep = pd.DataFrame(scheduled_trajectories_out, columns=['trip_id', 'schd_sec', 'dist_traveled'])
-
 trips_df['block_id'] = trips_df['block_id'].astype(str).str[6:].astype(int)
 trips_df = trips_df.sort_values(by=['block_id', 'schd_sec'])
 BLOCK_IDS = trips_df['block_id'].unique().tolist()
 BLOCK_TRIPS_INFO = []
+
 for b in BLOCK_IDS:
     block_df = trips_df[trips_df['block_id'] == b].copy()
     trip_ids = block_df['trip_id'].tolist()
@@ -72,6 +75,10 @@ for b in BLOCK_IDS:
     lst_schedule = block_df['schedule'].tolist()
     route_types = block_df['route_type'].tolist()
     lst_dist_traveled = block_df['dist_traveled'].tolist()
+    # print(b)
+    # print(route_types)
+    # print(len(trip_ids))
+    # print([time_string(s[0]) for s in lst_schedule])
     BLOCK_TRIPS_INFO.append((b, list(zip(trip_ids, route_types, lst_stops, lst_schedule, lst_dist_traveled))))
 
 
