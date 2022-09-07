@@ -92,7 +92,7 @@ def remove_outliers(data, factor=1.4):
 
 def extract_outbound_params(start_time_sec, end_time_sec, nr_intervals, start_interval, interval_length, 
                             dates, delay_interval_length, delay_start_interval, full_pattern_sign,
-                            rt_nr, rt_direction):
+                            rt_nr, rt_direction, min_speed=3, max_speed=25):
     stop_times_df = pd.read_csv(DIR_ROUTE + 'gtfs_stop_times.txt')
     trips_df = pd.read_csv(DIR_ROUTE + 'gtfs_trips.txt')
     calendar_df = pd.read_csv(DIR_ROUTE + 'gtfs_calendar.txt')
@@ -118,6 +118,7 @@ def extract_outbound_params(start_time_sec, end_time_sec, nr_intervals, start_in
     wkday_st_df = wkday_st_df[wkday_st_df['departure_time'].str[:2] != '24'].copy()
     wkday_st_df['schd_sec'] = wkday_st_df['arrival_time'].astype('datetime64[ns]') - pd.to_datetime('00:00:00')
     wkday_st_df['schd_sec'] = wkday_st_df['schd_sec'].dt.total_seconds()
+    wkday_st_df.to_pickle(DIR_ROUTE + 'schedule_df.pkl')
 
     stop1_st_df = wkday_st_df[wkday_st_df['stop_sequence'] == 1].copy()
     stop1_st_df = stop1_st_df[(stop1_st_df['schd_sec'] >= start_time_sec) &
@@ -150,8 +151,7 @@ def extract_outbound_params(start_time_sec, end_time_sec, nr_intervals, start_in
 
     delay_nr_intervals = int(nr_intervals * interval_length / delay_interval_length)
     dep_delay_ahead_dist = [[] for _ in range(delay_nr_intervals)]
-    max_mph = 25
-    min_mph = 3
+
     for t in trip_ids:
         temp2 = focus_st_df[focus_st_df['schd_trip_id'] == t].copy()
         temp2 = temp2.sort_values(by='stop_sequence')
@@ -182,7 +182,7 @@ def extract_outbound_params(start_time_sec, end_time_sec, nr_intervals, start_in
             # if temp.shape[0]:
             #     print(f'---')
             #     print(f'before {temp.shape[0]}')
-            temp = temp[(temp['speed_mph'] <= max_mph) & (temp['speed_mph'] >= min_mph)].copy()
+            temp = temp[(temp['speed_mph'] <= max_speed) & (temp['speed_mph'] >= min_speed)].copy()
             # if temp.shape[0]:
             #     print(f'after {temp.shape[0]}')
             temp_links = temp['link'].tolist()
