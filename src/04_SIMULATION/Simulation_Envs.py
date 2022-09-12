@@ -1,4 +1,3 @@
-from sqlite3 import TimestampFromTicks
 from Variable_Inputs import *
 import numpy as np
 from scipy.stats import lognorm
@@ -230,6 +229,7 @@ class SimulationEnv:
         minim, maxim = link_time_extremes
         if runtime > maxim:
             runtime = min(EXTREME_TT_BOUND * maxim, runtime)
+            runtime = max(EXTREME_TT_BOUND * minim, runtime)
         return runtime
 
     def reset_simulation(self):

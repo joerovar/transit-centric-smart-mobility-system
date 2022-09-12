@@ -29,9 +29,6 @@ def run_scenarios(replications=1, save_results=False, single_scenario=None):
         tmp_cancel = []
         if nr_cancel:
             tmp_cancel = np.random.choice(BLOCK_IDS, replace=False, size=nr_cancel).tolist()
-            # for j in range(len(BLOCK_TRIPS_INFO)):
-            #         if np.random.uniform(0, 1) < p/100:
-            #             tmp_cancel.append(BLOCK_TRIPS_INFO[j][0])
         lst_blocks_cancel.append(tmp_cancel)
         df['blocks_cancel'] = lst_blocks_cancel
     else:
@@ -41,9 +38,6 @@ def run_scenarios(replications=1, save_results=False, single_scenario=None):
         lst_blocks_cancel = []
         for n in nr_cancel:
             tmp_cancel = np.random.choice(BLOCK_IDS, replace=False, size=n).tolist()
-            # for j in range(len(BLOCK_TRIPS_INFO)):
-            #         if np.random.uniform(0, 1) < p/100:
-            #             tmp_cancel.append(BLOCK_TRIPS_INFO[j][0])
             lst_blocks_cancel.append(tmp_cancel)
         df2 = pd.DataFrame({'nr_cancel':nr_cancel, 'blocks_cancel':lst_blocks_cancel})
         df = df.merge(df2, on='nr_cancel').sort_values(by='scenario')
@@ -131,6 +125,6 @@ def plot_bench_results(tstamp, hr_start_period=6.5, hr_end_period=8.0):
     return
 
 
-# run_scenarios(save_results=True,replications=15)
-plot_bench_results('0906-1346')
-validate('0906-1346', 1, avl_path='ins/rt_81_2022-05/avl.csv', apc_path='ins/rt_81_2022-05/avl.csv')
+# run_scenarios(save_results=True,replications=20)
+plot_bench_results('0907-0951')
+validate('0907-0951', 1, avl_path='ins/rt_81_2022-05/avl.csv', apc_path='ins/rt_81_2022-05/avl.csv')
