@@ -12,9 +12,9 @@ def time_string(secs):
     return str(timedelta(seconds=round(secs)))
 
 # EXTRACT FUNCTIONS
-extract_outbound_params(START_TIME_SEC, END_TIME_SEC, TIME_NR_INTERVALS, TIME_START_INTERVAL, TIME_BIN_MINS,
-                        DATES, DELAY_BIN_MINS, DELAY_START_INTERVAL, FULL_PATTERN_HEADSIGN, RT_NR, OB_DIRECTION,
-                        min_speed=3, max_speed=25)
+# extract_outbound_params(START_TIME_SEC, END_TIME_SEC, TIME_NR_INTERVALS, TIME_START_INTERVAL, TIME_BIN_MINS,
+#                         DATES, DELAY_BIN_MINS, DELAY_START_INTERVAL, FULL_PATTERN_HEADSIGN, RT_NR, OB_DIRECTION,
+#                         min_speed=3, max_speed=25)
 # extract_inbound_params(START_TIME_SEC, END_TIME_SEC, DATES, TRIP_TIME_NR_INTERVALS, TRIP_TIME_START_INTERVAL,
 #                        TRIP_TIME_BIN_MINS, DELAY_BIN_MINS, DELAY_START_INTERVAL, RT_NR, IB_DIRECTION)
 # extract_demand(ODT_BIN_MINS, DATES, 'avl.csv')

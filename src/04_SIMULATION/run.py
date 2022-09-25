@@ -1,18 +1,23 @@
 import numpy as np
+import os
 import gym
 from gym import spaces
 
-from Simulation_Processor import rl_dispatch
 from SimEnvs import SimulationEnvWithCancellations
 
 from stable_baselines3.common.env_checker import check_env
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import BaseCallback
 
+from sb3_contrib import TRPO
 
-N_EPISODES_TRAIN = 1
+# environment params
 DEFAULT_ACTION = 0
 HOLD_INTERVALS = 30
+
+# training params
+N_EPISODES_TRAIN = 10
+TIMESTEPS = 10000
 
 
 class CustomEnv(gym.Env):
@@ -53,8 +58,22 @@ class CustomEnv(gym.Env):
 
 
 if __name__ == "__main__":
+    # model_dir = "models/TRPO"
+    # logdir = "logs"
+    
+    # if not os.path.exists(model_dir):
+    #     os.makedirs(model_dir)
+    # if not os.path.exists(logdir):
+    #     os.makedirs(logdir)
+        
+    # config = {"HOLD_INTERVALS": 30}
+    # env = CustomEnv(config)
+    # # check_env(env)
+    # #model = PPO("MlpPolicy", env, verbose=1)
+    # model = TRPO("MlpPolicy", env, verbose=1, tensorboard_log=logdir)
+    
+    # for i in range(N_EPISODES_TRAIN):
+    #     model.learn(total_timesteps=TIMESTEPS, reset_num_timesteps=False, tb_log_name="TRPO")
+    #     # model.save(f"{model_dir}/{TIMESTEPS * (i+1)}")
     config = {"HOLD_INTERVALS": 30}
     env = CustomEnv(config)
-    # check_env(env)
-    model = PPO("MlpPolicy", env, verbose=1)
-    model.learn(total_timesteps=10_000)
