@@ -18,6 +18,7 @@ from datetime import datetime
 
 def run_scenarios(replications=1, save_results=False, single_scenario=None):
     tstamp = datetime.now().strftime('%m%d-%H%M')
+    print(tstamp)
     if save_results:
         os.mkdir(DIR_ROUTE_OUTS + tstamp)
     df = pd.read_csv('ins/Scenarios_81.csv')
@@ -126,5 +127,6 @@ def plot_bench_results(tstamp, hr_start_period=6.5, hr_end_period=8.0):
 
 
 # run_scenarios(save_results=True,replications=20)
-plot_bench_results('0907-0951')
-validate('0907-0951', 1, avl_path='ins/rt_81_2022-05/avl.csv', apc_path='ins/rt_81_2022-05/avl.csv')
+run_scenarios(single_scenario=7, replications=3)
+# plot_bench_results('0907-0951')
+# validate('0907-0951', 1, avl_path='ins/rt_81_2022-05/avl.csv', apc_path='ins/rt_81_2022-05/avl.csv')

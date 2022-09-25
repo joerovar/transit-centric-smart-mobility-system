@@ -1169,7 +1169,7 @@ class SimulationEnvWithCancellations(SimulationEnv):
                     self.prev_reward = 0.0
                 # print(f'BASELINE REWARD')
                 # print(
-                #     f'PREDICTED {(time_string(predicted_fw_h)), time_string(predicted_bw_h))}')
+                #     f'PREDICTED {(time_string(predicted_fw_h)), time_string(predicted_bw_h)}')
                 # print(
                 #     f'SCHEDULED {(str(timedelta(seconds=round(sched_fw_h))), str(timedelta(seconds=round(sched_bw_h))))}')
                 # print(f'baseline hold time {round(hold_t)}')
