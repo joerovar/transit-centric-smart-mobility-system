@@ -52,7 +52,7 @@ def run_base_dispatching(replications, capacity, save_results=False, control_str
 
 
 def rl_dispatch(n_episodes, train=False, prob_cancel=0.0, weight_hold_t=0.0, save_results=False, save_folder=None,
-                cancelled_blocks=None, tstamp_policy=None):
+                cancelled_blocks=None, tstamp_policy=None, default_action=None):
     if not tstamp_policy:
         assert train
         tstamp_policy = time.strftime("%m%d-%H%M")
@@ -85,12 +85,10 @@ def rl_dispatch(n_episodes, train=False, prob_cancel=0.0, weight_hold_t=0.0, sav
     scores, eps_history, steps = [], [], []
     n_steps = 0
 
+    env = Simulation_Envs.SimulationEnvWithCancellations(prob_cancelled_block=prob_cancel,
+                                                         control_strategy='RL', weight_hold_t=weight_hold_t)
     for j in range(n_episodes):
         score = 0
-        cancelled = cancelled_blocks[j] if cancelled_blocks else None
-        env = Simulation_Envs.SimulationEnvWithCancellations(prob_cancelled_block=prob_cancel,
-                                                             control_strategy='RL', weight_hold_t=weight_hold_t,
-                                                             cancelled_blocks=cancelled)
         done = env.reset_simulation()
         while not done:
             done = env.prep()
@@ -107,12 +105,15 @@ def rl_dispatch(n_episodes, train=False, prob_cancel=0.0, weight_hold_t=0.0, sav
                 obs_ = np.array(env.obs, dtype=np.float32)
                 hold_t_max = max(IMPOSED_DELAY_LIMIT - sched_dev, 0)
                 max_action = int(hold_t_max / HOLD_INTERVALS)
-                if max_action == 0:
-                    action = 0
-                elif max_action < NR_ACTIONS_D_RL - 1:
-                    action = agent.choose_action(obs_, mask_idx=[i for i in range(max_action + 1, NR_ACTIONS_D_RL)])
+                if default_action:
+                    action = default_action
                 else:
-                    action = agent.choose_action(obs_)
+                    if max_action == 0:
+                        action = 0
+                    elif max_action < NR_ACTIONS_D_RL - 1:
+                        action = agent.choose_action(obs_, mask_idx=[i for i in range(max_action + 1, NR_ACTIONS_D_RL)])
+                    else:
+                        action = agent.choose_action(obs_)
                 past_sched_hw = env.obs[PAST_HW_HORIZON + FUTURE_HW_HORIZON:PAST_HW_HORIZON * 2 + FUTURE_HW_HORIZON]
                 past_actual_hw = env.obs[:PAST_HW_HORIZON]
                 future_sched_hw = env.obs[
