@@ -114,27 +114,36 @@ def optimize_agent(trial):
 
 
 if __name__ == '__main__':
+    model_dir = "models/PPO"
+    logdir = "logs"
 
-    # model_params = {'learning_rate': 1.3746068495026539e-05,
-    #  'n_steps': 65,
-    #  'gamma': 0.9393151821741363,
-    #  'ent_coef': 0.002742217935067305,
-    #  'clip_range': 0.15313270781201221,
-    #  'gae_lambda': 0.8230239444550899}
-    # model_params = {'n_steps': 64,
-    #                 "batch_size": 64}
-    # # model_params = {}
-    # config = {"HOLD_INTERVALS": HOLD_INTERVALS,
-    #           "IMPOSED_DELAY_LIMIT": IMPOSED_DELAY_LIMIT}
-    # env = BusEnv(config)
-    # model = MaskablePPO(MaskableActorCriticPolicy, env, verbose=0, **model_params)
-    # model.learn(100)
+    if not os.path.exists(model_dir):
+        os.makedirs(model_dir)
+    if not os.path.exists(logdir):
+        os.makedirs(logdir)
 
-    study = optuna.create_study(direction="maximize", study_name="bus-control", storage="sqlite:///bus-control.db")
-    try:
-        study.optimize(optimize_agent, n_trials=200, n_jobs=4)
-    except KeyboardInterrupt:
-        print('Interrupted by keyboard.')
+    model_params={'clip_range': 0.3703600835330346,
+                  'ent_coef': 0.0002596976573399199,
+                  'gae_lambda': 0.8794093959952141,
+                  'gamma': 0.905537653956815,
+                  'learning_rate': 0.00013105202351342582,
+                  'n_steps': pow(2, 8)}
+    # model_params = {}
+    config = {"HOLD_INTERVALS": HOLD_INTERVALS,
+              "IMPOSED_DELAY_LIMIT": IMPOSED_DELAY_LIMIT}
+    env = BusEnv(config)
+    # model = MaskablePPO(MaskableActorCriticPolicy, env, verbose=0, **model_params, tensorboard_log=logdir)
+    # model.learn(20000, tb_log_name="Best")
+    model = MaskablePPO(MaskableActorCriticPolicy, env, verbose=0, tensorboard_log=logdir)
+    for i in range(N_EPISODES_TRAIN):
+        model.learn(total_timesteps=TIMESTEPS, reset_num_timesteps=False, tb_log_name="PPO(final)")
+        model.save(f"{model_dir}/{TIMESTEPS * (i+1)}")
+
+    # study = optuna.create_study(direction="maximize", study_name="bus-control", storage="sqlite:///bus-control.db")
+    # try:
+    #     study.optimize(optimize_agent, n_trials=200, n_jobs=4)
+    # except KeyboardInterrupt:
+    #     print('Interrupted by keyboard.')
 
 # if __name__ == "__main__":
 #     model_dir = "models/PPO"
