@@ -41,7 +41,11 @@ DELAY_DISTR_IN = load(DIR_ROUTE + 'delay_distr_in.pkl')
 STOPS_IN_FULL_PATT = TRIPS_IN_INFO[0][4]
 ARR_RATES = np.sum(ODT_FLOWS, axis=-1)
 LINK_TIMES_MEAN, LINK_TIMES_EXTREMES, LINK_TIMES_PARAMS = LINK_TIMES_INFO
-
+stops_out = np.array(STOPS_OUT_ALL)
+od_stops = np.array(ODT_STOP_IDS)
+out_arr_rates = ARR_RATES[:,np.isin(od_stops,stops_out)]
+tot_out_arr_rates = out_arr_rates.sum(axis=-1)
+np.save('eb_arr_rates_30.npy',tot_out_arr_rates)
 
 TRIP_IDS_OUT, SCHED_DEP_OUT, BLOCK_IDS_OUT = [], [], []
 for item in TRIPS_OUT_INFO:
