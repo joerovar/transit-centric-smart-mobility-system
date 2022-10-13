@@ -8,8 +8,9 @@ if __name__=="__main__":
     env = BusEnv(config)
     env.reset()
 
+    # load the trained model
     model_path = "models/PPO/200000.zip"
-    model = MaskablePPO.load(model_path, env=env)
+    model = MaskablePPO.load(model_path)
 
     episodes = 1
     all_rewards = []
@@ -20,6 +21,7 @@ if __name__=="__main__":
         cnt = 0
         rewards = []
         while not done:
+            # interact with env
             action, _ = model.predict(obs)
             print("Observation: ", obs)
             obs, reward, done, info = env.step(action)
