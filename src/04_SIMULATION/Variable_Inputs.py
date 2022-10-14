@@ -41,10 +41,7 @@ DELAY_DISTR_IN = load(DIR_ROUTE + 'delay_distr_in.pkl')
 STOPS_IN_FULL_PATT = TRIPS_IN_INFO[0][4]
 ARR_RATES = np.sum(ODT_FLOWS, axis=-1)
 LINK_TIMES_MEAN, LINK_TIMES_EXTREMES, LINK_TIMES_PARAMS = LINK_TIMES_INFO
-# print(LINK_TIMES_MEAN['3764-3765'])
-# print(LINK_TIMES_MEAN['3765-4908'])
-# print(LINK_TIMES_EXTREMES['3764-3765'])
-# print(LINK_TIMES_EXTREMES['3765-4908'])
+
 
 TRIP_IDS_OUT, SCHED_DEP_OUT, BLOCK_IDS_OUT = [], [], []
 for item in TRIPS_OUT_INFO:
@@ -53,6 +50,7 @@ trips_out = [(x, y, str(timedelta(seconds=y)), z, 0, w, v, u) for x, y, z, w, v,
 trips_in = [(x, y, str(timedelta(seconds=y)), z, 1, w, v, u) for x, y, z, w, v, u in TRIPS_IN_INFO]
 trips_df = pd.DataFrame(trips_out + trips_in, columns=['trip_id', 'schd_sec', 'schd_time',
                                                        'block_id', 'route_type', 'schedule', 'stops', 'dist_traveled'])
+
 trips_out_df = trips_df[trips_df['route_type'] == 0]
 trips_out_df = trips_out_df.sort_values(by='schd_sec')
 
@@ -68,6 +66,7 @@ df_sched_t_rep = pd.DataFrame(scheduled_trajectories_out, columns=['trip_id', 's
 trips_df['block_id'] = trips_df['block_id'].astype(str).str[6:].astype(int)
 trips_df = trips_df.sort_values(by=['block_id', 'schd_sec'])
 BLOCK_IDS = trips_df['block_id'].unique().tolist()
+
 BLOCK_TRIPS_INFO = []
 
 for b in BLOCK_IDS:
@@ -77,12 +76,7 @@ for b in BLOCK_IDS:
     lst_schedule = block_df['schedule'].tolist()
     route_types = block_df['route_type'].tolist()
     lst_dist_traveled = block_df['dist_traveled'].tolist()
-    # print(b)
-    # print(route_types)
-    # print(len(trip_ids))
-    # print([time_string(s[0]) for s in lst_schedule])
     BLOCK_TRIPS_INFO.append((b, list(zip(trip_ids, route_types, lst_stops, lst_schedule, lst_dist_traveled))))
-
 
 PAX_INIT_TIME = [0]
 for s0, s1 in zip(STOPS_OUT_FULL_PATT, STOPS_OUT_FULL_PATT[1:]):

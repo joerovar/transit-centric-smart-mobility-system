@@ -1,4 +1,3 @@
-from audioop import minmax
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -380,6 +379,7 @@ def extract_inbound_params(start_time, end_time, dates, nr_intervals,
                 dep_del = tm1 - schd_sec[1]
                 dep_delay[stop_ids[0]][delay_idx].append(dep_del)
                 run_t = (tm2 - tm1) + (schd_sec[1] - schd_sec[0]) + (schd_sec[-1] - schd_sec[-2])
+                run_times[trip_link][run_t_idx].append(run_t)
 
     for link in run_times:
         fig, axs = plt.subplots(nrows=nr_intervals, sharex='all', sharey='all')

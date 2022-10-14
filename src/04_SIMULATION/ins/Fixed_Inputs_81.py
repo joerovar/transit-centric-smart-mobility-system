@@ -6,12 +6,12 @@ FULL_PATTERN_HEADSIGN = 'Wilson/Marine'
 RT_NR = 81
 OB_DIRECTION = 'East'
 IB_DIRECTION = 'West'
-DIR_ROUTE = 'ins/rt_81_2022-05/'
-DIR_ROUTE_OUTS = 'outs/rt_81_2022-05/'
+DIR_ROUTE = 'ins/rt_81_2022-05_full/'
+DIR_ROUTE_OUTS = 'outs/rt_81_2022-05_full/'
 
 # time period
 START_TIME = datetime.strptime('05:00:00', "%H:%M:%S")
-END_TIME = datetime.strptime('10:00:00', "%H:%M:%S")
+END_TIME = datetime.strptime('18:00:00', "%H:%M:%S")
 
 # dates for avl/apc data collection
 y_mo = '2022-05-'
@@ -19,8 +19,10 @@ days = list(range(2, 7)) + list(range(9, 14)) + list(range(16, 21)) + list(range
 days_str = ['0' + str(d) if len(str(d)) == 1 else str(d) for d in days]
 DATES = [y_mo + d for d in days_str]
 
+
 START_TIME_SEC = (START_TIME - datetime(1900, 1, 1)).total_seconds()
 END_TIME_SEC = (END_TIME - datetime(1900, 1, 1)).total_seconds()
+
 TOTAL_MIN = (END_TIME - START_TIME).total_seconds() / 60
 DELAY_BIN_MINS = 60
 TIME_BIN_MINS = 30

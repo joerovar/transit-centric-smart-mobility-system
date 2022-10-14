@@ -14,7 +14,6 @@ from params import *
 from SimEnvs import SimulationEnvWithCancellations
 
 from stable_baselines3.common.env_checker import check_env
-from PPO.ppo import PPO
 from stable_baselines3 import PPO, DQN
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.env_util import make_vec_env
@@ -32,10 +31,11 @@ import optuna
 class BusEnv(gym.Env):
     """Custom Environment that follows gym interface"""
 
-    def __init__(self, config):
+    def __init__(self, config, cancelled_blocks=None):
         super(BusEnv, self).__init__()
         # wrap environment
-        self.env = SimulationEnvWithCancellations(control_strategy='RL', weight_hold_t=0)
+        self.env = SimulationEnvWithCancellations(control_strategy='RL', weight_hold_t=0,
+                                                    cancelled_blocks=cancelled_blocks)
         self.env.reset_simulation()
         self.env.prep()
 
@@ -111,6 +111,7 @@ def optimize_agent(trial):
     env.close()
 
     return mean_reward
+
 
 
 if __name__ == '__main__':

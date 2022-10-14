@@ -1,4 +1,3 @@
-from typing import KeysView
 import pandas as pd
 import numpy as np
 from Variable_Inputs import DATES, START_TIME_SEC, END_TIME_SEC, STOPS_OUT_FULL_PATT, BLOCK_TRIPS_INFO, DIR_ROUTE_OUTS
@@ -10,6 +9,7 @@ from Output_Processor import validate_trip_t_outbound, trajectory_plots, cv_hw_p
 from Output_Processor import plot_run_times, plot_pax_profile, denied_count, compare_input_pax_rates
 from Simulation_Processor import run_base_dispatching, rl_dispatch
 from Output_Processor import expressing_analysis, check_bus_speeds
+from eval import run_rl_scenario
 import os
 from datetime import datetime
 
@@ -24,38 +24,46 @@ def run_scenarios(replications=1, save_results=False, single_scenario=None):
     if single_scenario:
         nr_scen = 1
         df = df[df['scenario'] == single_scenario].copy()
-        nr_cancel = df['nr_cancel'].iloc[0]
+        p = df['p_cancel'].iloc[0]
         lst_blocks_cancel = []
         tmp_cancel = []
-        if nr_cancel:
-            tmp_cancel = np.random.choice(BLOCK_IDS, replace=False, size=nr_cancel).tolist()
+        if p>0.0:
+            tmp_cancel = np.random.choice(BLOCK_IDS, replace=False, size=int(p*len(BLOCK_IDS))).tolist()
         lst_blocks_cancel.append(tmp_cancel)
         df['blocks_cancel'] = lst_blocks_cancel
     else:
         nr_scen = df['scenario'].max()
         # first assign cancelled blocks
-        nr_cancel = df['nr_cancel'].unique().tolist()
+        p_cancel = df['p_cancel'].unique().tolist()
         lst_blocks_cancel = []
-        for n in nr_cancel:
-            tmp_cancel = np.random.choice(BLOCK_IDS, replace=False, size=n).tolist()
+        for p in p_cancel:
+            tmp_cancel = np.random.choice(BLOCK_IDS, replace=False, size=int(p*len(BLOCK_IDS))).tolist()
             lst_blocks_cancel.append(tmp_cancel)
-        df2 = pd.DataFrame({'nr_cancel':nr_cancel, 'blocks_cancel':lst_blocks_cancel})
-        df = df.merge(df2, on='nr_cancel').sort_values(by='scenario')
+        df2 = pd.DataFrame({'p_cancel':p_cancel, 'blocks_cancel':lst_blocks_cancel})
+        df = df.merge(df2, on='p_cancel').sort_values(by='scenario')
     if save_results:
         df.to_csv(DIR_ROUTE_OUTS + tstamp + '/scenarios.csv', index=False)
     if single_scenario:
         df_params = df.loc[df['scenario'] == single_scenario, ['strategy', 'capacity', 'blocks_cancel']].copy()
         strategy, capacity, blocks_cancel = df_params.values.tolist()[0]
         save_folder = DIR_ROUTE_OUTS + tstamp + '/' + str(single_scenario) if save_results else None
-        run_base_dispatching(replications=replications, save_results=save_results, save_folder=save_folder,
-                                control_strategy=strategy, cancelled_blocks=blocks_cancel, capacity=capacity)
+        if strategy == 'RL':
+            run_rl_scenario(episodes=replications, save_results=save_results, save_folder=save_folder,
+                                cancelled_blocks=blocks_cancel)
+        else:
+            run_base_dispatching(replications=replications, save_results=save_results, save_folder=save_folder,
+                                        control_strategy=strategy, cancelled_blocks=blocks_cancel, capacity=capacity)
     else:
         for n in range(1, nr_scen+1):
             df_params = df.loc[df['scenario'] == n, ['strategy', 'capacity', 'blocks_cancel']].copy()
             strategy, capacity, blocks_cancel = df_params.values.tolist()[0]
             save_folder = DIR_ROUTE_OUTS + tstamp + '/' + str(n) if save_results else None
-            run_base_dispatching(replications=replications, save_results=save_results, save_folder=save_folder,
-                                    control_strategy=strategy, cancelled_blocks=blocks_cancel, capacity=capacity)
+            if strategy == 'RL':
+                run_rl_scenario(episodes=replications, save_results=save_results, save_folder=save_folder,
+                                cancelled_blocks=blocks_cancel)
+            else:
+                run_base_dispatching(replications=replications, save_results=save_results, save_folder=save_folder,
+                                        control_strategy=strategy, cancelled_blocks=blocks_cancel, capacity=capacity)
     return
 
 def validate(tstamp, n_scenario, avl_path=None, apc_path=None):
@@ -126,6 +134,6 @@ def plot_bench_results(tstamp, hr_start_period=6.5, hr_end_period=8.0):
 
 
 if __name__ == "__main__":
-    # run_scenarios(save_results=True,replications=20)
-    plot_bench_results('0907-0951')
-    validate('0907-0951', 1, avl_path='ins/rt_81_2022-05/avl.csv', apc_path='ins/rt_81_2022-05/avl.csv')
+    run_scenarios(save_results=False,replications=1,single_scenario=10)
+    # plot_bench_results('0907-0951')
+    # validate('0907-0951', 1, avl_path='ins/rt_81_2022-05/avl.csv', apc_path='ins/rt_81_2022-05/avl.csv')
