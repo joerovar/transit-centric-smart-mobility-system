@@ -22,7 +22,7 @@ if __name__=="__main__":
         rewards = []
         while not done:
             # interact with env
-            action, _ = model.predict(obs)
+            action, _ = model.predict(obs, action_masks=env.action_masks())
             print("Observation: ", obs)
             obs, reward, done, info = env.step(action)
             print("Action: ", action)
