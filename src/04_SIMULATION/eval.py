@@ -25,14 +25,19 @@ def process_trip_record(record, record_col_names, rep_nr):
     df['replication'] = pd.Series([rep_nr + 1 for _ in range(len(df.index))])
     return df
 
-def run_rl_scenario(episodes=1, cancelled_blocks=None, save_results=False, save_folder=None, messages=False):
+def run_rl_scenario(episodes=1, cancelled_blocks=None, save_results=False, save_folder=None, messages=True, obs=None):
     config = {"HOLD_INTERVALS": 60,
               "IMPOSED_DELAY_LIMIT": 240}
     env = BusEnv(config, cancelled_blocks=cancelled_blocks)
     env.reset()
 
-    model_path = "models/PPO/200000.zip"
+    model_path = "models/PPO/20000.zip"
     model = MaskablePPO.load(model_path, env=env)
+
+    if obs:
+        obs = np.array(obs, dtype=np.float32)
+        action, _ = model.predict(obs)
+        return action
 
     # episodes = 1
     all_rewards = []
@@ -41,7 +46,7 @@ def run_rl_scenario(episodes=1, cancelled_blocks=None, save_results=False, save_
     out_trip_record_set = []
     in_trip_record_set = []
     pax_record_set = []
- 
+
     for ep in range(episodes):
         obs = env.reset()
         done = False
@@ -70,3 +75,5 @@ def run_rl_scenario(episodes=1, cancelled_blocks=None, save_results=False, save_
         write_trip_records(save_folder, out_trip_record_set, in_trip_record_set, pax_record_set)
     env.close()
     # print("Average reward: ", np.mean(reward_list))
+
+print(run_rl_scenario(obs=[5*60, 5*60, 5*60, 5*60, 5*60, 5*60, 5*60, 5*60, 0*60]))

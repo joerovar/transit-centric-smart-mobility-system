@@ -24,7 +24,7 @@ from sb3_contrib.common.wrappers import ActionMasker
 from sb3_contrib.ppo_mask import MaskablePPO
 
 from sb3_contrib import TRPO
-
+from Variable_Inputs import BLOCK_IDS
 import optuna
 
 
@@ -65,7 +65,12 @@ class BusEnv(gym.Env):
 
     def reset(self):
         self.invalid_actions = []
+        p = np.random.uniform(0.0,0.25)
+        cancelled_blocks = np.random.choice(BLOCK_IDS, replace=False, size=int(p*len(BLOCK_IDS))).tolist()
+        self.env = SimulationEnvWithCancellations(control_strategy='RL', weight_hold_t=0,
+                                            cancelled_blocks=cancelled_blocks)
         self.env.reset_simulation()
+        
         self.env.prep()
         return np.array(self.env.obs, dtype=np.float32)  # reward, done, info can't be included
 
@@ -115,7 +120,7 @@ def optimize_agent(trial):
 
 
 if __name__ == '__main__':
-    model_dir = "models/PPO"
+    model_dir = "models/PPO_haris"
     logdir = "logs"
 
     if not os.path.exists(model_dir):
@@ -123,12 +128,12 @@ if __name__ == '__main__':
     if not os.path.exists(logdir):
         os.makedirs(logdir)
 
-    model_params={'clip_range': 0.3703600835330346,
-                  'ent_coef': 0.0002596976573399199,
-                  'gae_lambda': 0.8794093959952141,
-                  'gamma': 0.905537653956815,
-                  'learning_rate': 0.00013105202351342582,
-                  'n_steps': pow(2, 8)}
+    # model_params={'clip_range': 0.3703600835330346,
+    #               'ent_coef': 0.0002596976573399199,
+    #               'gae_lambda': 0.8794093959952141,
+    #               'gamma': 0.905537653956815,
+    #               'learning_rate': 0.00013105202351342582,
+    #               'n_steps': pow(2, 8)}
     # model_params = {}
     config = {"HOLD_INTERVALS": HOLD_INTERVALS,
               "IMPOSED_DELAY_LIMIT": IMPOSED_DELAY_LIMIT}
