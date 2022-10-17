@@ -65,10 +65,10 @@ class BusEnv(gym.Env):
 
     def reset(self):
         self.invalid_actions = []
-        p = np.random.uniform(0.0,0.25)
-        cancelled_blocks = np.random.choice(BLOCK_IDS, replace=False, size=int(p*len(BLOCK_IDS))).tolist()
-        self.env = SimulationEnvWithCancellations(control_strategy='RL', weight_hold_t=0,
-                                            cancelled_blocks=cancelled_blocks)
+        # p = np.random.uniform(0.0,0.25)
+        # cancelled_blocks = np.random.choice(BLOCK_IDS, replace=False, size=int(p*len(BLOCK_IDS))).tolist()
+        # self.env = SimulationEnvWithCancellations(control_strategy='RL', weight_hold_t=0,
+        #                                     cancelled_blocks=cancelled_blocks)
         self.env.reset_simulation()
         
         self.env.prep()

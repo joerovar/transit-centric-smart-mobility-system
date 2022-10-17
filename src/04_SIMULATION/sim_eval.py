@@ -8,9 +8,9 @@ key_times = [pd.to_datetime('2022-10-16 06:00'),
 pd.to_datetime('2022-10-16 09:00'),
 pd.to_datetime('2022-10-16 14:00'),
 pd.to_datetime('2022-10-16 17:00')]
-tstamp_results = '1013-1804'
+tstamp_results = '1016-2326'
 
-scenarios = pd.read_csv(f'outs/rt_81_2022-05_full/{tstamp_results}/scenarios.csv')['scenario'].tolist()[:-3]
+scenarios = pd.read_csv(f'outs/rt_81_2022-05_full/{tstamp_results}/scenarios.csv')['scenario'].tolist()
 scenario_cv_results = []
 scenario_wt_results = []
 for s in scenarios:
