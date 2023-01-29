@@ -33,7 +33,7 @@ STOPS_OUT_NAMES = pd.read_csv(DIR_ROUTE + 'gtfs_stops_route.txt')['short_name'].
 KEY_STOPS_IDX = [STOPS_OUT_NAMES.index(s) for s in ['TRANSIT CENTER','CICERO', 
                                                     'PULASKI', 'KIMBALL (BROWN LINE)', 'WESTERN', 
                                                     'RAVENSWOOD', 'BROADWAY (RED LINE)', 'MARINE DRIVE']]                 
-
+# print(STOPS_OUT_FULL_PATT[KEY_STOPS_IDX[3]])
 # INBOUND
 TRIPS_IN_INFO = load(DIR_ROUTE + 'trips_in_info.pkl')
 RUN_T_DISTR_IN = load(DIR_ROUTE + 'run_t_distr_in.pkl')
@@ -41,7 +41,6 @@ DELAY_DISTR_IN = load(DIR_ROUTE + 'delay_distr_in.pkl')
 STOPS_IN_FULL_PATT = TRIPS_IN_INFO[0][4]
 ARR_RATES = np.sum(ODT_FLOWS, axis=-1)
 LINK_TIMES_MEAN, LINK_TIMES_EXTREMES, LINK_TIMES_PARAMS = LINK_TIMES_INFO
-
 
 TRIP_IDS_OUT, SCHED_DEP_OUT, BLOCK_IDS_OUT = [], [], []
 for item in TRIPS_OUT_INFO:

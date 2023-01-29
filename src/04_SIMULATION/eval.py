@@ -31,7 +31,7 @@ def run_rl_scenario(episodes=1, cancelled_blocks=None, save_results=False, save_
     env = BusEnv(config, cancelled_blocks=cancelled_blocks)
     env.reset()
 
-    model_path = "models/PPO_1pm6pm/100000.zip"
+    model_path = "models/PPO_5am6pm/100000.zip"
     model = MaskablePPO.load(model_path, env=env)
 
     if obs:
