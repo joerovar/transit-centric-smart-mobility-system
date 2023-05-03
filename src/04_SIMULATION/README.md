@@ -1,32 +1,24 @@
-# transit-centric-smart-mobility-system
-## rt_20_e_bound
+# flex-sim
+This bus route simulator was built with the following principles: 
+- compatibility with transit agency data feeds (GTFS, AVL, APC, ODX)
+- individual passenger journey modeling
+- modeling of uncertainty in service delivered (driver absenteeism)
+- operational analysis of control strategies (holding at stops, expressing, departure readjustments)
+- output of performance metrics such as service reliability, crowding, on-time performance
+- extendable to multiple inter-dependent bus lines and strategies such as inter-lining
 
-UPDATE ROUTE 81!
+Transit data must be in directory {PLACEHOLDER}:
+- GTFS zip file
+- AVL feed containing stop arrival information, including boardings/alightings
+- ODX (insert reference) with inferred destination stop IDs for fare card tap-ins (used in WMATA/CTA/MBTA/TfL)
 
-Route 20 CTA
+Dependencies are listed in requirements.txt
 
-Fall '21 and Spring '22 
+Steps:
+1. Run {PLACEHOLDER FUNCTION} in {PLACEHOLDER} to load simulation data
+2. Specify fixed inputs {PLACEHOLDER FOR FIXED INPUTS}
+3. Run {PLACEHOLDER FUNCTION} in main.py
+4. Run evaluator function {PLACEHOLDER FUNCTION} in 
 
-Simulation period 5-10 am including warm up/cool time
-
-Study period for trips departing between 7-8:20 (approx) followed until the end 
-
-Modeling of eastbound direction includes stochastic travel times from stop-to-stop and passenger activity
-
-Modeling of westbound direction simplified: stochastic total trip time 
-
-RL method: DDQN 
-
-In separate repo
-
-## rt_20_both_dir
-
-Route 20 CTA
-
-Spring '22 - onwards
-
-Modeling of east/west-bound directions includes stochastic travel times from stop-to-stop and passenger activity
-
-Flexible simulation period
-
-RL method: DDQN/PPO
+Secondary applications (future): 
+Based on fixed route layout (e.g., GTFS stop IDs and schedules), generate a flexible route system where passengers need to request a trip.

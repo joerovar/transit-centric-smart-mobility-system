@@ -1,0 +1,9 @@
+direction,parameter,value
+East,pearson_link_times_stops_2-16,0.19962723504982965
+East,pearson_link_times_stops_18-32,0.23367524728391198
+East,pearson_link_times_stops_34-46,0.10398953820901587
+West,pearson_link_times_stops_2-16,0.2541810269973802
+West,pearson_link_times_stops_18-32,0.2925415391533852
+West,pearson_link_times_stops_34-48,0.26856178473982517
+East,pearson_run_time,0.21925601241071613
+West,pearson_run_time,0.4024328707328966
