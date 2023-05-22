@@ -521,3 +521,41 @@ def run_time_correlation(df, directions, sched):
         correlations['value'].append(
             run_ts_dir[['run_time', 'next_run_time']].corr(method='pearson').loc['run_time', 'next_run_time']) 
     return correlations
+
+def evaluate_predictions():
+    var = np.load('data/odx/route_81_onboard_VAR_30min.npy')
+
+    pred_ons = list(var.flatten())
+    col_stops = (list(range(1,49)) + list(range(1,51)))*1156
+    col_direction = (['East']*48 + ['West']*50)*1156
+    col_bin = []
+    for i in range(1156):
+        col_bin += [i]*98
+    len(col_direction), len(col_stops), len(pred_ons), len(col_bin)
+    df_prd_ons = pd.DataFrame(zip(col_direction, col_stops, col_bin,pred_ons), columns=['direction', 'stop_sequence', 'bin','pred_ons'])
+
+    avl_handler = AVLHandler('data/avl/' + AVL_FILE)
+
+    # define line characteristics
+    gtfs_handler = GTFSHandler('data/gtfs/' + GTFS_ZIP_FILE, YEAR_MONTH)
+    gtfs_handler.load_network(START_DATE, 
+    END_DATE, ROUTE, OUTBOUND_DIRECTION_STR, INBOUND_DIRECTION_STR)
+    gtfs_handler.load_schedule(DATA_START_TIME, DATA_END_TIME, ('East', 'West'))
+
+    schedule = gtfs_handler.schedule
+    avl_handler.clean(schedule, holidays=HOLIDAYS)
+
+    apc  = avl_handler.avl.copy()
+    apc = apc[apc['event_time'] <= pd.to_datetime('2022-10-24 00:00')]
+    apc['bin'] = (
+                ((apc['event_time']-pd.to_datetime('2022-10-01 00:00')).dt.total_seconds())/(60*30)).astype(int)
+    apc['ons'] = apc['ron'] + apc['fon']
+
+
+    apc_ons = apc.groupby(by=['direction', 'stop_sequence', 'bin'])['ons'].sum().reset_index()
+    apc_ons = apc_ons.drop(apc_ons[(apc_ons['direction']=='East') & (apc_ons['stop_sequence']==49)].index)
+    apc_ons = apc_ons.drop(apc_ons[(apc_ons['direction']=='West') & (apc_ons['stop_sequence']==51)].index)
+
+    ons_compare = apc_ons.merge(df_prd_ons, on=['direction', 'stop_sequence', 'bin'])
+    ons_compare.to_csv('onboarding_compare.csv', index=False)
+    return

@@ -10,7 +10,6 @@ import numpy as np
 if __name__ == '__main__':
     # if not written yet
     # write_sim_data()
-
     
     tstamp = pd.Timestamp.today().strftime('%m%d-%H%M')
     path_from_cwd = 'data/sim_out/experiments_' + tstamp
