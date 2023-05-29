@@ -19,7 +19,7 @@ if __name__ == '__main__':
     # np.random.seed(0)
     env = FixedSimEnv()
     next_obs, rew, done, info = env.reset()
-    print(env.line.hist_date)
+    print(env.lines[ROUTES[0]].hist_date)
 
     i = 0
     while not done and i < 10000:
@@ -58,25 +58,28 @@ if __name__ == '__main__':
     # METHOD 2 DON'T RESET DATE
     # np.random.seed(0)
     next_obs, rew, done, info = env.reset(reset_date=False)
-    print(env.line.hist_date)
+    print(env.lines[ROUTES[0]].hist_date)
 
     while not done and i < 10000:
         next_obs, rew, done, info = env.step()
 
-        control_veh = flag_departure_event(info, 'East')
+        if not done:
+            control_veh = flag_departure_event(info, 'East')
 
-        if not control_veh.empty:
-            schd_dep_t = env.vehicles[control_veh.index[0]].next_trips[0].schedule['departure_time_sec'].values[0]
-            earliest_dep_t = max(schd_dep_t-MAX_EARLY_DEV*60, env.time)
-            pre_hw, next_hw = env.vehicles[control_veh.index[0]].compute_headways(env.line, earliest_dep_t, env.route, terminal=True)
-            if pre_hw is not None and next_hw is not None:
-                latest_dep_t = max(schd_dep_t+MAX_LATE_DEV*60, env.time)
-                dep_t = min(latest_dep_t, recommended_dep_t(pre_hw, next_hw, env.time))
+            if not control_veh.empty:
+                schd_dep_t = env.vehicles[control_veh.index[0]].next_trips[0].schedule['departure_time_sec'].values[0]
+                earliest_dep_t = max(schd_dep_t-MAX_EARLY_DEV*60, env.time)
+                pre_hw, next_hw = env.vehicles[control_veh.index[0]].compute_headways(
+                    env.lines[control_veh['route_id'].iloc[0]], earliest_dep_t, 
+                    env.routes[control_veh['route_id'].iloc[0]], terminal=True)
+                if pre_hw is not None and next_hw is not None:
+                    latest_dep_t = max(schd_dep_t+MAX_LATE_DEV*60, env.time)
+                    dep_t = min(latest_dep_t, recommended_dep_t(pre_hw, next_hw, env.time))
 
-                env.vehicles[control_veh.index[0]].next_event['t'] = deepcopy(dep_t)
-                new_df_info = env._get_info_vehicles()
-                new_df_info['nr_step'] = deepcopy(env.step_counter)
-                env.info_records[-1] = new_df_info.copy()
+                    env.vehicles[control_veh.index[0]].next_event['t'] = deepcopy(dep_t)
+                    new_df_info = env._get_info_vehicles()
+                    new_df_info['nr_step'] = deepcopy(env.step_counter)
+                    env.info_records[-1] = new_df_info.copy()
 
         i += 1
 

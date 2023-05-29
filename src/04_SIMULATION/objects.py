@@ -3,12 +3,13 @@ import pandas as pd
 from copy import deepcopy
 
 class Line:
-    def __init__(self, stops_outbound, stops_inbound, 
-                 link_times, interval_length_mins,
+    def __init__(self, line, stops, link_times, interval_length_mins,
                  outbound_direction, inbound_direction):
+        self.id = line
         self.stops = {
-            outbound_direction: stops_outbound, 
-            inbound_direction: stops_inbound} # Dataframe types, includes geo info, name
+            outbound_direction: stops[stops['direction']==outbound_direction].copy(), 
+            inbound_direction: stops[stops['direction']==inbound_direction].copy()} 
+        # Dataframe types, includes geo info, name
         # extract stop-to-stop times
         self.link_times = link_times
         self.link_t_interval_sec = int(interval_length_mins*60)
@@ -89,29 +90,29 @@ class Route:
         self.stops = []
 
 class FixedRoute(Route):
-    def __init__(self, schedule, outbound_direction, inbound_direction,
-                 stops_outbound, stops_inbound):
+    def __init__(self, route, schedule, outbound_direction, inbound_direction, stops):
         super().__init__()
-        self.schedule = schedule
+        self.id = route
+        self.schedule = schedule.copy()
         self.schedule['departure_time_td'] = pd.to_timedelta(
             self.schedule['departure_time'])
         self.schedule = self.schedule.sort_values(
             by='departure_time_td').reset_index(drop=True)
         self.schedule['departure_time_sec'] = self.schedule['departure_time_td'].dt.total_seconds()
+        stops_outbound = stops[stops['direction']==outbound_direction]
+        stops_inbound = stops[stops['direction']==inbound_direction]
         self.stops = {
-            outbound_direction: [Stop(si) for si in stops_outbound],
-            inbound_direction: [Stop(si) for si in stops_inbound]
+            outbound_direction: [Stop(si) for si in stops_outbound['stop_id'].tolist()],
+            inbound_direction: [Stop(si) for si in stops_inbound['stop_id'].tolist()]
         }
 
-    def update_schedule(self, confirmed_trips=None, random_cancels=False):
+    def update_schedule(self, confirmed_trips=None):
         # mark schedule for cancelled trips
         self.schedule['confirmed'] = 1
         if confirmed_trips:
             # if not all, type list with trip IDs
             self.schedule.loc[
                 ~self.schedule['schd_trip_id'].isin(confirmed_trips), 'confirmed'] = 0
-        if random_cancels:
-            None # To Be Updated with random cancellations according to run and not block
         return
     
 class Demand:
@@ -121,6 +122,14 @@ class Demand:
         self.pax_served = None
     
     def generate(self, interval_length_mins, start_time_sec, end_time_sec):
+        pax_at_stops = {
+            'boarding_stop': [],
+            'alighting_stop': [],
+            'arrival_time': [],
+            'times_denied': [],
+            'route_id': []
+        }
+
         bin_col_name = 'bin_' + str(interval_length_mins) + 'mins'
 
         interval = int(start_time_sec/interval_length_mins/60)
@@ -138,13 +147,8 @@ class Demand:
             avg_arrival_time, size=(avg_arrival_time.size,max_nr_pax))
         cu_samp_arrival_times = np.cumsum(sampled_arrival_times, axis=1)
 
-        stop_cols_od = bins_od[['boarding_stop', 'alighting_stop',bin_col_name]].copy()
-        pax_at_stops = {
-            'boarding_stop': [],
-            'alighting_stop': [],
-            'arrival_time': [],
-            'times_denied': []
-        }
+        stop_cols_od = bins_od[['boarding_stop', 'alighting_stop',bin_col_name, 'route_id']].copy()
+
         for i in stop_cols_od.index:
             arr_t_tmp = cu_samp_arrival_times[i]
             arr_t_valid = arr_t_tmp[arr_t_tmp<=interval_length_mins*60] 
@@ -156,15 +160,17 @@ class Demand:
                 pax_at_stops['alighting_stop'] += [tmp_stop_cols['alighting_stop']] * arr_t_valid.size
                 pax_at_stops['arrival_time'] += list(arr_t_valid)
                 pax_at_stops['times_denied'] += [0] * arr_t_valid.size
+                pax_at_stops['route_id'] += [tmp_stop_cols['route_id']] * arr_t_valid.size
 
         self.pax_at_stops = pd.DataFrame(pax_at_stops)
         self.pax_served = pd.DataFrame()
     
-    def get_pax_to_board(self, time, stop, capacity_avail):
+    def get_pax_to_board(self, time, stop, capacity_avail, route_id):
         pax_at_stops = self.pax_at_stops.copy()
 
         valid_pax = pax_at_stops[(pax_at_stops['boarding_stop']==stop) & 
-                                (pax_at_stops['arrival_time']<=time)].copy()
+                                (pax_at_stops['arrival_time']<=time) &
+                                (pax_at_stops['route_id']==route_id)].copy()
 
         if valid_pax.empty:
             return valid_pax
@@ -236,9 +242,9 @@ class Vehicle:
 
 
 class FixedVehicle(Vehicle):
-    def __init__(self, capacity, block_schedule, dwell_time_params, report_delays):
+    def __init__(self, capacity, block_schedule, dwell_time_params, report_delays, route_id):
         super().__init__(capacity)
-
+        self.route_id = route_id
         self.block_id = int(block_schedule['block_id'].iloc[0])
         self.past_trips = []
         self.next_trips = []
@@ -320,7 +326,7 @@ class FixedVehicle(Vehicle):
         # pax 
         capacity_avail = self.capacity - self.pax.shape[0]
         stop = self.curr_trip.stops[0]
-        pax2board = demand.get_pax_to_board(time, stop, capacity_avail)
+        pax2board = demand.get_pax_to_board(time, stop, capacity_avail, self.route_id)
         if not pax2board.empty:
             self._board_pax(time, pax2board)
         
@@ -342,7 +348,7 @@ class FixedVehicle(Vehicle):
         # if there was dwell time allow more pax to board
         capacity_avail = self.capacity - self.pax.shape[0]
         stop = self.curr_trip.stops[self.stop_idx]
-        pax2board = demand.get_pax_to_board(time, stop, capacity_avail)
+        pax2board = demand.get_pax_to_board(time, stop, capacity_avail, self.route_id)
         if not pax2board.empty:
             self._board_pax(time, pax2board)
 
@@ -384,7 +390,7 @@ class FixedVehicle(Vehicle):
         capacity_avail = self.capacity - self.pax.shape[0]
         stop = self.curr_trip.stops[self.stop_idx]
         
-        pax2board = demand.get_pax_to_board(time, stop, capacity_avail)
+        pax2board = demand.get_pax_to_board(time, stop, capacity_avail, self.route_id)
         if not pax2board.empty:
             self._board_pax(time, pax2board)
 
@@ -565,7 +571,8 @@ class FixedVehicle(Vehicle):
                 'trip_id': self.curr_trip.id,
                 'active': 1, 
                 't_since_last': time - self.last_event['t'],
-                'pax_load': self.pax.shape[0]
+                'pax_load': self.pax.shape[0],
+                'route_id': self.route_id
             }
             return message
         if self.status in [0,1,4]:
@@ -586,7 +593,8 @@ class FixedVehicle(Vehicle):
                 'trip_id': self.next_trips[0].id,
                 'active': 0,
                 't_since_last': self.last_event['t'] if self.last_event['t'] is None else time - self.last_event['t'],
-                'pax_load': self.pax.shape[0]
+                'pax_load': self.pax.shape[0],
+                'route_id': self.route_id
             }
             return message
         return None

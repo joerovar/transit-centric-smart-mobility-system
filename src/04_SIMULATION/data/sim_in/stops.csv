@@ -1,0 +1,101 @@
+route_id,direction,stop_id,stop_sequence,stop_name,stop_lat,stop_lon
+81,West,3773,1,Marine Drive & Wilson,41.96566508,-87.64858021
+81,East,3773,49,Marine Drive & Wilson,41.96566508,-87.64858021
+81,East,14102,1,Jefferson Park Transit Center,41.96984927,-87.76185025
+81,West,14102,51,Jefferson Park Transit Center,41.96984927,-87.76185025
+81,East,3725,2,Milwaukee & Higgins,41.96900846,-87.76184809
+81,West,3774,2,4646 N Marine Drive,41.966488,-87.648792
+81,West,3775,3,Marine Drive & Leland,41.96734713,-87.6490521
+81,East,3726,3,Lawrence & Milwaukee,41.9677904,-87.76028067
+81,West,3776,4,Lawrence & Clarendon,41.969192,-87.650351
+81,East,3728,4,Lawrence & Laramie/Avondale,41.96782509,-87.75775892
+81,West,3777,5,856 W Lawrence,41.96915392,-87.65301927
+81,East,3729,5,Lawrence & Leclaire,41.96783793,-87.75514647
+81,West,14582,6,Lawrence & Sheridan,41.96914505,-87.65503789
+81,East,3730,6,Lawrence & Lavergne,41.967911,-87.752732
+81,West,15461,7,Lawrence & Kenmore,41.9691222,-87.65654203
+81,East,3731,7,Lawrence & Lamon,41.967933,-87.750639
+81,West,18393,8,Broadway & Lawrence,41.96886619,-87.65976769
+81,East,3732,8,Lawrence & Cicero,41.96795547,-87.74795403
+81,East,3733,9,Lawrence & Kilpatrick,41.96798572,-87.74540135
+81,West,5348,9,Broadway & Leland,41.96733983,-87.65883504
+81,West,4941,10,Wilson & Broadway (Red Line),41.96545293,-87.6581643
+81,East,3734,10,Lawrence & Kenton,41.968024,-87.742962
+81,West,4943,11,Wilson & Magnolia,41.96539864,-87.66120358
+81,East,17475,11,Lawrence & Elston,41.96804378,-87.73950514
+81,West,4945,12,Wilson & Beacon,41.96535088,-87.66402943
+81,East,17476,12,Lawrence & Kostner,41.96806917,-87.73769488
+81,West,4947,13,Wilson & Clark,41.96532651,-87.66698252
+81,East,3737,13,Lawrence & Kildare,41.96807336,-87.73552925
+81,West,17247,14,Lawrence & Ashland,41.96895844,-87.66971304
+81,East,18607,14,Lawrence & Keeler,41.96810706,-87.73279418
+81,East,3739,15,Lawrence & Karlov,41.96811322,-87.73058165
+81,West,3787,15,Lawrence & Hermitage,41.96892754,-87.67246524
+81,East,18106,16,Lawrence & Pulaski,41.96817665,-87.72780483
+81,West,3788,16,Lawrence & Ravenswood,41.96890414,-87.67407125
+81,East,3741,17,Lawrence & Springfield,41.968148,-87.72569382
+81,West,17603,17,Lawrence & Wolcott,41.96887476,-87.67651845
+81,West,17604,18,Lawrence & Damen,41.96884119,-87.67946362
+81,East,3742,18,Lawrence & Hamlin,41.96819794,-87.72324927
+81,West,3791,19,Lawrence & Hoyne,41.96879634,-87.68147434
+81,East,3743,19,Lawrence & Lawndale,41.96821766,-87.72080234
+81,East,3744,20,Lawrence & Central Park,41.96826835,-87.71836379
+81,West,3792,20,Lawrence & Leavitt,41.96877551,-87.6839312
+81,West,17246,21,Lawrence & Oakley,41.96872976,-87.68671146
+81,East,3745,21,Lawrence & St. Louis,41.96829149,-87.71592025
+81,West,3794,22,Lawrence & Western,41.96870994,-87.68868597
+81,East,3746,22,Lawrence & Kimball (Brown Line),41.96833126,-87.7130492
+81,East,3747,23,Lawrence & Spaulding,41.96832686,-87.71102489
+81,West,3795,23,Lawrence & Campbell,41.96867087,-87.69134421
+81,West,17245,24,Lawrence & Rockwell,41.96864313,-87.69407677
+81,East,3748,24,Lawrence & Kedzie,41.9683548,-87.70861319
+81,West,18352,25,Lawrence & Washtenaw,41.96863828,-87.69648863
+81,East,3749,25,Lawrence & Albany,41.96839625,-87.70614168
+81,West,15931,26,Lawrence & California,41.96860122,-87.69888391
+81,East,3750,26,Lawrence & Sacramento,41.96843198,-87.70371655
+81,West,15948,27,Lawrence & Sacramento,41.96854818,-87.70386801
+81,East,3752,27,Lawrence & California,41.96844651,-87.69886939
+81,East,3753,28,Lawrence & Washtenaw,41.96845261,-87.69632581
+81,West,3801,28,Lawrence & Albany,41.96854375,-87.70591784
+81,East,17251,29,Lawrence & Rockwell,41.96850746,-87.69355012
+81,West,3802,29,Lawrence & Kedzie,41.96853249,-87.7082935
+81,East,3755,30,Lawrence & Campbell,41.96850046,-87.69148758
+81,West,3803,30,Lawrence & Spaulding,41.96848388,-87.71079556
+81,East,3756,31,Lawrence & Western,41.96853652,-87.68914186
+81,West,3804,31,Lawrence & Kimball (Brown Line),41.96848271,-87.7131984
+81,East,3757,32,Lawrence & Oakley,41.96856465,-87.6866286
+81,West,3805,32,Lawrence & St. Louis,41.96844318,-87.71570357
+81,East,17249,33,Lawrence & Leavitt,41.96860348,-87.68383575
+81,West,18107,33,Lawrence & Central Park,41.96841679,-87.71845733
+81,East,3759,34,Lawrence & Hoyne,41.96866125,-87.6816675
+81,West,3807,34,Lawrence & Lawndale,41.96839412,-87.72059215
+81,East,3760,35,Lawrence & Damen,41.96867195,-87.67934992
+81,West,3808,35,Lawrence & Hamlin,41.96837421,-87.72300478
+81,East,17606,36,Lawrence & Wolcott,41.9687203,-87.67595811
+81,West,3809,36,Lawrence & Springfield,41.9683661,-87.72550322
+81,East,3762,37,Lawrence & Ravenswood,41.96874279,-87.6739681
+81,West,3810,37,Lawrence & Pulaski,41.96831306,-87.72790766
+81,West,3811,38,Lawrence & Karlov,41.96829751,-87.73034544
+81,East,3764,38,Lawrence & Paulina,41.96877916,-87.67113116
+81,West,3812,39,Lawrence & Keeler,41.96826781,-87.73284107
+81,East,3765,39,Lawrence & Ashland,41.96879599,-87.66960361
+81,West,3813,40,Lawrence & Kildare,41.96823994,-87.73533817
+81,East,4908,40,Wilson & Clark,41.96520663,-87.66685693
+81,East,4910,41,Wilson & Beacon,41.96526301,-87.66370452
+81,West,3814,41,Lawrence & Kostner,41.96821309,-87.73772281
+81,West,3815,42,Lawrence & Elston,41.96819346,-87.7401262
+81,East,4912,42,Wilson & Magnolia,41.96529277,-87.66082211
+81,West,3816,43,Lawrence & Kenton,41.96818048,-87.74281933
+81,East,18580,43,Wilson & Broadway (Red Line),41.96532658,-87.65780757
+81,West,17133,44,Lawrence & Kilpatrick,41.96812253,-87.74553815
+81,East,15343,44,Broadway & Leland,41.96736103,-87.65860852
+81,West,3818,45,Lawrence & Cicero,41.96810746,-87.74752394
+81,East,5418,45,Broadway & Lawrence,41.96886522,-87.65955296
+81,East,3771,46,Lawrence & Kenmore,41.96901049,-87.65634454
+81,West,3819,46,Lawrence & Lamon,41.96807159,-87.74984673
+81,East,16192,47,Lawrence & Sheridan,41.96903357,-87.65459087
+81,West,3820,47,Lawrence & Lavergne,41.9680288,-87.75243653
+81,East,2363,48,Lawrence & Marine Drive,41.96909978,-87.64974426
+81,West,3821,48,Lawrence & Leclaire,41.96799979,-87.75487754
+81,West,3823,49,Lawrence & Lipps,41.96796488,-87.75922809
+81,West,17038,50,Jefferson Park Transit Center South Drop Off,41.96982527,-87.76112886

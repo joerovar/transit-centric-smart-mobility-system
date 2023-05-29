@@ -33,7 +33,6 @@ class SimEnv:
         self.time = None
         self.stops = []
         self.vehicles = []
-        self.served_pax = []
 
         self.step_counter = 0
 
@@ -49,21 +48,25 @@ class SimEnv:
 class FixedSimEnv(SimEnv):
     def __init__(self):
         super(FixedSimEnv, self).__init__()
-
-        stops_outbound = pd.read_csv(SIM_INPUTS_PATH + 'stops_outbound.csv')
-        stops_inbound = pd.read_csv(SIM_INPUTS_PATH + 'stops_inbound.csv')
+        stops = pd.read_csv(SIM_INPUTS_PATH + 'stops.csv')
         link_times = pd.read_csv(SIM_INPUTS_PATH + 'link_times.csv')
         schedule = pd.read_csv(SIM_INPUTS_PATH + 'schedule.csv')
         od = pd.read_csv(SIM_INPUTS_PATH + 'od.csv')
 
-        self.line = Line(
-            stops_outbound, stops_inbound, 
-            link_times, INTERVAL_LENGTH_MINS,
-            OUTBOUND_DIRECTION_STR, INBOUND_DIRECTION_STR) 
-        
-        self.route = FixedRoute(schedule, OUTBOUND_DIRECTION_STR,
-                                INBOUND_DIRECTION_STR, stops_outbound['stop_id'].tolist(),
-                                stops_inbound['stop_id'].tolist())
+        for df in (stops, link_times, schedule, od):
+            df['route_id'] = df['route_id'].astype(str)
+        self.routes = {}
+        self.lines = {}
+        for route in ROUTES:
+            rt_stops = stops[stops['route_id']==route].copy()
+            rt_link_times = link_times[link_times['route_id']==route].copy()
+            rt_schd = schedule[schedule['route_id']==route].copy()
+
+            self.lines[route] = Line(
+                route, rt_stops, rt_link_times, INTERVAL_LENGTH_MINS,
+                OUTBOUND_DIRECTIONS[route], INBOUND_DIRECTIONS[route]) 
+            self.routes[route] = FixedRoute(route, rt_schd, OUTBOUND_DIRECTIONS[route],
+                                    INBOUND_DIRECTIONS[route], rt_stops)
         self.demand = Demand(od)
 
         self.info_records = []
@@ -72,7 +75,7 @@ class FixedSimEnv(SimEnv):
         # get information on vehicles that indicates time until next event
         info_vehicles = []
         for v in self.vehicles:
-            v_status = v.get_info(self.line, self.time)
+            v_status = v.get_info(self.lines[v.route_id], self.time)
             if v_status is not None:
                 info_vehicles.append(v_status)
         df_info = pd.DataFrame.from_records(info_vehicles)
@@ -88,37 +91,36 @@ class FixedSimEnv(SimEnv):
         df_disp['t_since_last'] = pd.to_timedelta(df_disp['t_since_last'].round(), unit='S')
         disp_cols = ['time', 'nr_step', 'id','active', 'status', 'status_desc', 
          'next_event', 'next_event_t', 't_until_next', 'stop_sequence', 
-         'direction', 'pax_load', 't_since_last']
+         'direction', 'pax_load', 't_since_last', 'route_id']
         return df_disp[disp_cols]
 
 
-    def reset(self, reset_date=True, random_cancel=False):
+    def reset(self, reset_date=True):
         super().reset()
-        confirmed_trips = []
         self.info_records = []
 
         if reset_date:
-            hist_date = np.random.choice(self.line.link_times['date'].unique())
-            self.line.hist_date = hist_date if reset_date else None
-            confirmed_trips = self.line.link_times.loc[
-                self.line.link_times['date']==hist_date, 'trip_id'].tolist() # what was observed
-        if random_cancel:
-            None
-        
-        self.route.update_schedule(confirmed_trips=confirmed_trips) 
+            hist_date = np.random.choice(self.lines[ROUTES[0]].link_times['date'].unique())
+            for rt in ROUTES:
+                self.lines[rt].hist_date = hist_date
+                confirmed_trips = self.lines[rt].link_times.loc[
+                    self.lines[rt].link_times['date']==hist_date, 'trip_id'].tolist() # what was observed
+                self.routes[rt].update_schedule(confirmed_trips=confirmed_trips) 
+
         self.demand.generate(INTERVAL_LENGTH_MINS, self.start_time_sec, 
                              self.end_time_sec)
+        for rt in ROUTES:
+            schedule = self.routes[rt].schedule.copy()
+            blocks = schedule['block_id'].unique().tolist()
 
-        schedule = self.route.schedule.copy()
-        blocks = schedule['block_id'].unique().tolist()
-
-        for b in blocks: # Blocks may contain cancelled trips (based on runs)
-            block_schedule = schedule[(schedule['block_id']==b) & 
-                                      (schedule['confirmed']==1)].copy()
-            if not block_schedule.empty:
-                vehicle = FixedVehicle(CAPACITY, block_schedule, 
-                                       DWELL_TIME_PARAMS, TERMINAL_REPORT_DELAYS)
-                self.vehicles.append(vehicle)
+            for b in blocks: # Blocks may contain cancelled trips (based on runs)
+                block_schedule = schedule[(schedule['block_id']==b) & 
+                                        (schedule['confirmed']==1)].copy()
+                if not block_schedule.empty:
+                    vehicle = FixedVehicle(CAPACITY, block_schedule, 
+                                           DWELL_TIME_PARAMS, TERMINAL_REPORT_DELAYS,
+                                           rt)
+                    self.vehicles.append(vehicle)
 
         
         # process first event
@@ -130,7 +132,9 @@ class FixedSimEnv(SimEnv):
         idx_next = self.info_records[-1][['t_until_next']].idxmin().values[0]
         next_vehicle = self.vehicles[idx_next]
         self.time = deepcopy(next_vehicle.next_event['t'])
-        next_vehicle.process_event(self.time, self.demand, self.line, self.route)
+        route = next_vehicle.route_id
+        next_vehicle.process_event(self.time, self.demand, 
+                                   self.lines[route], self.routes[route])
 
         self.step_counter += 1
         df_info = self._get_info_vehicles()
@@ -148,7 +152,9 @@ class FixedSimEnv(SimEnv):
         idx_next = self.info_records[-1][['t_until_next']].idxmin().values[0]
         next_vehicle = self.vehicles[idx_next]
         self.time = deepcopy(next_vehicle.next_event['t'])
-        next_vehicle.process_event(self.time, self.demand, self.line, self.route)
+        route = next_vehicle.route_id
+        next_vehicle.process_event(self.time, self.demand, 
+                                   self.lines[route], self.routes[route])
 
         self.step_counter += 1
         df_info = self._get_info_vehicles()
