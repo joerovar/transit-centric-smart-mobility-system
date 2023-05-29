@@ -1,5 +1,2 @@
-src/04_SIMULATION/data/avl/2022-10_Route_81.csv filter=lfs diff=lfs merge=lfs -text
-src/04_SIMULATION/data/avl/2022-11_Route_81.csv filter=lfs diff=lfs merge=lfs -text
-src/04_SIMULATION/data/gtfs/2022-10.zip filter=lfs diff=lfs merge=lfs -text
-src/04_SIMULATION/data/gtfs/2022-11.zip filter=lfs diff=lfs merge=lfs -text
-src/04_SIMULATION/data/odx/2022-10_Route_81.csv filter=lfs diff=lfs merge=lfs -text
+*.zip filter=lfs diff=lfs merge=lfs -text
+*.csv filter=lfs diff=lfs merge=lfs -text
