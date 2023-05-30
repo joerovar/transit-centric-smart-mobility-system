@@ -2,3 +2,5 @@
 *.csv filter=lfs diff=lfs merge=lfs -text
 src/04_SIMULATION/data/avl/2022-1114-1209_JPark.csv filter=lfs diff=lfs merge=lfs -text
 src/04_SIMULATION/data/odx/2022-1114-1209_JPark.csv filter=lfs diff=lfs merge=lfs -text
+src/04_SIMULATION/data/cta/v651_Route_81.csv filter=lfs diff=lfs merge=lfs -text
+src/04_SIMULATION/data/cta/v652_JPark.csv filter=lfs diff=lfs merge=lfs -text

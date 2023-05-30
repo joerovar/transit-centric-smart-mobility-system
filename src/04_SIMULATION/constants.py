@@ -9,35 +9,38 @@ SIM_OUTPUTS_PATH = 'data/sim_out/'
 # SIMULATION DATA COLLECTION INPUTS
 DATA_START_TIME = '05:00:00' # NOT EARLIER THAN 4AM
 DATA_END_TIME = '21:00:00' # NOT LATER THAN 9PM
-GTFS_ZIP_FILE = '2022-10.zip'
-AVL_FILE = '2022-10_Route_81.csv'
-ODX_FILE = '2022-10_Route_81.csv'
-RUNS_FILE = 'Runs_81_2022-10.csv'
-YEAR_MONTH = '2022-10'
-START_DATE = '2022-10-03'
-END_DATE = '2022-10-28'
-HOLIDAYS = ['2022-10-10'] 
-# ROUTE = '81'
+# GTFS_ZIP_FILE = '2022-10.zip'
+# AVL_FILE = '2022-10_Route_81.csv'
+# ODX_FILE = '2022-10_Route_81.csv'
+# RUNS_FILE = 'v651_Route_81.csv'
+# YEAR_MONTH = '2022-10' # this is for zip file name (sometimes it doesn't have any name)
+# START_DATE = '2022-10-03'
+# END_DATE = '2022-10-28'
+# HOLIDAYS = ['2022-10-10'] 
+# ROUTES = ['81']
+GTFS_ZIP_FILE = '2022-11.zip'
+AVL_FILE = '2022-1114-1209_JPark.csv'
+ODX_FILE = '2022-1114-1209_JPark.csv'
+RUNS_FILE = 'v652_JPark.csv'
+START_DATE = '2022-11-14'
+END_DATE = '2022-12-09'
+HOLIDAYS = ['2022-11-24'] 
+
 OUTBOUND_DIRECTIONS = {'81': 'East',
-                       '85': 'South', 
                        '91': 'South',
                        '92': 'East'}
-INBOUND_DIRECTIONS = {'81':'West',
-                      '85': 'North', 
+INBOUND_DIRECTIONS = {'81': 'West',
                       '91': 'North',
-                      '92': 'East'}
+                      '92': 'West'}
 OUTBOUND_TERMINALS = {'81': (14102, 3773),
-                      '85': (),
-                      '91': (),
-                      '92': ()}
+                      '91': (14103, 9617),
+                      '92': (14108, 5425)}
 INBOUND_TERMINALS = {'81': (3773, 14102),
-                      '85': (),
-                      '91': (),
-                      '92': ()}
-INTERVAL_LENGTH_MINS = 30
-# ROUTES = ['81', '85', '91', '92']
-ROUTES = ['81']
+                      '91': (9617, 14103),
+                      '92': (1038, 14108)}
+ROUTES = ['81', '91', '92']
 
+INTERVAL_LENGTH_MINS = 30
 
 # SIMULATION FIXED INPUTS
 START_TIME = '05:00:00'
@@ -55,7 +58,6 @@ MAX_LATE_DEV = 5.0
 
 # FOR RESULTS
 KEY_STOP_NAMES = {'81': ['Jefferson Park', 'Cicero', 'Pulaski', 'Kimball','Western'],
-                  '85': [],
                   '91': [],
                   '92': []}
 

@@ -38,7 +38,7 @@ def bpf(od, target_ons, target_offs):
     scaled_od_set = np.array(od_temp)
     return scaled_od_set
 
-def link_times_from_avl(interval_mins, schedule, route_avl):
+def link_times_from_avl(interval_mins, schd, route_avl):
     df_avl = route_avl.copy()
     df_avl = df_avl.sort_values(by=['date','trip_id', 'stop_sequence'])
     df_avl['diff_stop_seq'] = df_avl['stop_sequence'].diff().shift(-1)
@@ -56,6 +56,7 @@ def link_times_from_avl(interval_mins, schedule, route_avl):
         interval_col_str, 'date', 'route_id', 'direction', 'trip_id',
         'stop_id', 'next_stop_id', 'stop_sequence', 'link_time']].copy()
     
+    schedule = schd.copy()
     schedule['arrival_time'] = pd.to_timedelta(schedule['arrival_time'])
     schedule = schedule.sort_values(by=['schd_trip_id', 'stop_sequence'])
     schedule['diff_stop_seq'] = schedule['stop_sequence'].diff().shift(-1)
@@ -75,21 +76,19 @@ def link_times_from_avl(interval_mins, schedule, route_avl):
 
 
 class GTFSHandler:
-    def __init__(self, zf_path, zf_folder):
+    def __init__(self, zf_path):
         self.zf = zipfile.ZipFile(zf_path)
 
-        self.stops = pd.read_csv(self.zf.open(zf_folder + '/stops.txt'))
-        self.stop_times = pd.read_csv(self.zf.open(zf_folder + '/stop_times.txt'))
-        self.calendar = pd.read_csv(self.zf.open(zf_folder + '/calendar.txt'))        
+        self.stops = pd.read_csv(self.zf.open('stops.txt'))
+        self.stop_times = pd.read_csv(self.zf.open('stop_times.txt'))
+        self.calendar = pd.read_csv(self.zf.open( 'calendar.txt'))        
         self.calendar['start_date_dt'] = pd.to_datetime(self.calendar['start_date'], format='%Y%m%d')
         self.calendar['end_date_dt'] = pd.to_datetime(self.calendar['end_date'], format='%Y%m%d')
-        self.trips = pd.read_csv(self.zf.open(zf_folder + '/trips.txt'))
+        self.trips = pd.read_csv(self.zf.open('trips.txt'))
 
         self.route_trips = None
         self.route_stop_times = None
         self.route_stops = None
-        # self.route_stops_outbound = None
-        # self.route_stops_inbound = None
         self.schedule = None
 
     def load_network(self, start_date, end_date, routes, weekdays_only=True):
@@ -119,7 +118,7 @@ class GTFSHandler:
             df_stop_times['trip_id'].isin(df_trips['trip_id'])].copy()
         df_stop_times = df_stop_times.merge(df_trips[
             ['trip_id', 'schd_trip_id', 
-             'direction', 'block_id', 'route_id']], on='trip_id')
+             'direction', 'block_id', 'route_id', 'shape_id']], on='trip_id')
         df_stop_times = df_stop_times.sort_values(by='stop_sequence')
         df_stop_times['block_id'] = df_stop_times['block_id'].astype(int)
         
@@ -127,7 +126,7 @@ class GTFSHandler:
 
         route_stops = df_stop_times[
             ['route_id', 'direction', 
-             'stop_id', 'stop_sequence']].copy().drop_duplicates()
+             'stop_id', 'stop_sequence', 'shape_id']].copy().drop_duplicates()
         self.route_stops = route_stops.merge(
             self.stops[['stop_id', 'stop_name', 'stop_lat', 'stop_lon']], on='stop_id').drop_duplicates().reset_index(drop=True)
     
@@ -226,6 +225,7 @@ class ODXHandler():
     def __init__(self, odx_file_path, apc_df, stops):
         # insert AVL of desired route
         self.odx = pd.read_csv(odx_file_path)
+        self.odx = self.odx.rename(columns={'avl_bus_route':'route_id'})
         self.odx['route_id'] = self.odx['route_id'].astype(str)
         self.apc = apc_df.copy()
         self.avg_apc_counts = None
@@ -271,13 +271,15 @@ class ODXHandler():
         self.avg_apc_counts = avg_apc_counts.copy()
 
     
-    def scaled_flows_by_dir(self, direction, all_pax_count, terminals):
-        stops = self.stops[self.stops['direction']==direction].copy()
+    def scaled_flows_by_dir(self, direction, all_pax_count, terminals, route):
+        stops = self.stops[(self.stops['direction']==direction) &
+                           (self.stops['route_id']==route)].copy()
         on_stops = stops.loc[stops['stop_sequence']<stops.shape[0], 'stop_id']
         off_stops = stops.loc[stops['stop_sequence']>1, 'stop_id']
         apc = self.avg_apc_counts.copy()
 
-        apc = apc[apc['boarding_stop'].isin(stops['stop_id'])]
+        apc = apc[(apc['boarding_stop'].isin(stops['stop_id'])) &
+                  (apc['route_id']==route)]
         apc.loc[apc['boarding_stop']==terminals[0], 'offs'] = 0.0
         apc.loc[apc['boarding_stop']==terminals[1], 'ons'] = 0.0
         apc = apc.merge(stops[['stop_id', 'stop_sequence']], left_on='boarding_stop', right_on='stop_id')
@@ -404,9 +406,9 @@ class ODXHandler():
         for r in routes:
             pax_count_r = pax_count[pax_count['route_id']==r].copy()
             scaled_od_o = self.scaled_flows_by_dir(
-                out_directions[r], pax_count_r, out_terminals[r])
+                out_directions[r], pax_count_r, out_terminals[r], r)
             scaled_od_i = self.scaled_flows_by_dir(
-                in_directions[r], pax_count_r, in_terminals[r])
+                in_directions[r], pax_count_r, in_terminals[r], r)
             scaled_od_i['route_id'] = r
             scaled_od_o['route_id'] = r
             lst_ods.append(scaled_od_o)
@@ -417,16 +419,13 @@ class ODXHandler():
 
 def write_sim_data():
     # define line characteristics
-    gtfs_handler = GTFSHandler('data/gtfs/' + GTFS_ZIP_FILE, YEAR_MONTH)
+    gtfs_handler = GTFSHandler('data/gtfs/' + GTFS_ZIP_FILE)
     gtfs_handler.load_network(START_DATE, END_DATE, ROUTES)
     gtfs_handler.load_schedule(DATA_START_TIME, DATA_END_TIME, 
                                OUTBOUND_DIRECTIONS, INBOUND_DIRECTIONS, ROUTES)
 
     schedule = gtfs_handler.schedule.copy()
-    # USED TO BE FOR ODX
-    # stops_outbound = gtfs_handler.route_stops_outbound
-    # stops_inbound = gtfs_handler.route_stops_inbound
-    stops = gtfs_handler.route_stops
+    stops = gtfs_handler.route_stops.copy()
 
     # NO NEED TO SPECIFY DATES SINCE THOSE COME FROM SCHEDULED TRIPS
     avl_handler = AVLHandler('data/avl/' + AVL_FILE)
