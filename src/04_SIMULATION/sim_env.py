@@ -13,9 +13,10 @@ def flag_holding_event(info, direction, stop_seq):
                             (tmp_info['t_since_last']==pd.to_timedelta(0, unit='S'))].copy()
     return flag_vehicle
     
-def flag_departure_event(info, direction):
+def flag_departure_event(info):
     tmp_info = info[info['t_since_last'].notna()].copy()
-    flag_vehicle = tmp_info[(tmp_info['direction']==direction) & 
+    outbound_terminals = [OUTBOUND_TERMINALS[rt][0] for rt in ROUTES]
+    flag_vehicle = tmp_info[(tmp_info['stop_id'].isin(outbound_terminals)) & 
                             (tmp_info['status'].isin([1,4])) & 
                             (tmp_info['t_since_last']==pd.to_timedelta(0, unit='S'))].copy()
     return flag_vehicle
@@ -90,7 +91,7 @@ class FixedSimEnv(SimEnv):
         df_disp['next_event_t'] = pd.to_timedelta(df_disp['next_event_t'].round(), unit='S')
         df_disp['t_since_last'] = pd.to_timedelta(df_disp['t_since_last'].round(), unit='S')
         disp_cols = ['time', 'nr_step', 'id','active', 'status', 'status_desc', 
-         'next_event', 'next_event_t', 't_until_next', 'stop_sequence', 
+         'next_event', 'next_event_t', 't_until_next', 'stop_id','stop_sequence', 
          'direction', 'pax_load', 't_since_last', 'route_id']
         return df_disp[disp_cols]
 

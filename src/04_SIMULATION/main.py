@@ -59,7 +59,8 @@ if __name__ == '__main__':
     # np.random.seed(0)
     next_obs, rew, done, info = env.reset(reset_date=False)
     print(env.lines[ROUTES[0]].hist_date)
-
+    
+    i = 0
     while not done and i < 10000:
         next_obs, rew, done, info = env.step()
 

@@ -17,16 +17,21 @@ class Line:
         self.hist_date = None # this will get updated by the user in reset fn
         
     def link_time_from_interval(self, stop_from, stop_to, 
-                                time_sec, sample=False):
+                                time_sec, route, sample=False,
+                                edge_link=False):
         link_times = self.link_times.copy()
         interval = int(time_sec/self.link_t_interval_sec)
 
         link_t = link_times.loc[
-            (link_times[self.interval_col_name]==interval) & 
+            (link_times['route_id']==route) &
+            (link_times[self.interval_col_name]==interval) &  
             (link_times['stop_id']==stop_from) & 
             (link_times['next_stop_id']==stop_to)]
         
-        if link_t['stop_sequence'].values[0]==1:
+        if link_t.empty:
+            print(route, stop_from, stop_to)
+
+        if edge_link:
             return link_t['schd_link_time'].values[0]*60
 
         if sample:
@@ -34,7 +39,7 @@ class Line:
         else:
             return link_t['link_time'].mean() * 60
     
-    def link_time_from_trip(self, time_sec, trip, stop_from, stop_to,
+    def link_time_from_trip(self, time_sec, trip, stop_from, stop_to, route_id,
                             edge_link=False):
         link_times = self.link_times.copy()
         
@@ -46,7 +51,8 @@ class Line:
             (link_times['next_stop_id']==stop_to)]
         
         if link_time.empty:
-            return self.link_time_from_interval(stop_from, stop_to, time_sec)
+            return self.link_time_from_interval(stop_from, stop_to, time_sec, route_id,
+                                                edge_link=edge_link)
         elif edge_link:
             return link_time['schd_link_time'].values[0] * 60 # in case edge link (unreliable AVL)
         else:
@@ -165,12 +171,14 @@ class Demand:
         self.pax_at_stops = pd.DataFrame(pax_at_stops)
         self.pax_served = pd.DataFrame()
     
-    def get_pax_to_board(self, time, stop, capacity_avail, route_id):
+    def get_pax_to_board(self, time, stop, capacity_avail, route_id,
+                         remaining_stops):
         pax_at_stops = self.pax_at_stops.copy()
 
         valid_pax = pax_at_stops[(pax_at_stops['boarding_stop']==stop) & 
                                 (pax_at_stops['arrival_time']<=time) &
-                                (pax_at_stops['route_id']==route_id)].copy()
+                                (pax_at_stops['route_id']==route_id) &
+                                (pax_at_stops['alighting_stop'].isin(remaining_stops))].copy()
 
         if valid_pax.empty:
             return valid_pax
@@ -326,7 +334,10 @@ class FixedVehicle(Vehicle):
         # pax 
         capacity_avail = self.capacity - self.pax.shape[0]
         stop = self.curr_trip.stops[0]
-        pax2board = demand.get_pax_to_board(time, stop, capacity_avail, self.route_id)
+        remaining_stops = self.curr_trip.stops[1:]
+        pax2board = demand.get_pax_to_board(time, stop, 
+                                            capacity_avail, self.route_id,
+                                            remaining_stops)
         if not pax2board.empty:
             self._board_pax(time, pax2board)
         
@@ -348,7 +359,10 @@ class FixedVehicle(Vehicle):
         # if there was dwell time allow more pax to board
         capacity_avail = self.capacity - self.pax.shape[0]
         stop = self.curr_trip.stops[self.stop_idx]
-        pax2board = demand.get_pax_to_board(time, stop, capacity_avail, self.route_id)
+        remaining_stops = self.curr_trip.stops[self.stop_idx+1:]
+        pax2board = demand.get_pax_to_board(time, stop, 
+                                            capacity_avail, self.route_id,
+                                            remaining_stops)
         if not pax2board.empty:
             self._board_pax(time, pax2board)
 
@@ -360,7 +374,8 @@ class FixedVehicle(Vehicle):
         stop0 = self.curr_trip.stops[self.stop_idx]
         stop1 = self.curr_trip.stops[self.stop_idx+1]
         link_time = line.link_time_from_trip(
-            time, self.curr_trip.id, stop0, stop1, edge_link=(first or last))
+            time, self.curr_trip.id, stop0, stop1, self.route_id, 
+            edge_link=(first or last))
         
         # update stop
         route.stops[
@@ -389,8 +404,10 @@ class FixedVehicle(Vehicle):
         # update pax
         capacity_avail = self.capacity - self.pax.shape[0]
         stop = self.curr_trip.stops[self.stop_idx]
-        
-        pax2board = demand.get_pax_to_board(time, stop, capacity_avail, self.route_id)
+        remaining_stops = self.curr_trip.stops[self.stop_idx+1:]
+        pax2board = demand.get_pax_to_board(time, stop, 
+                                            capacity_avail, self.route_id,
+                                            remaining_stops)
         if not pax2board.empty:
             self._board_pax(time, pax2board)
 
@@ -429,7 +446,9 @@ class FixedVehicle(Vehicle):
         else:
             pax2alight = pd.DataFrame()
         
-        assert self.pax.shape[0] == 0 # load at terminal should be zero
+        if self.pax.shape[0]:
+            print(f'load at terminal not zero instead {self.pax.shape[0]}')
+            print(self.pax.head()) # load at terminal should be zero
 
         self.curr_trip.record_arrival(self.stop_idx, time,
                                       0, pax2alight.shape[0])
@@ -531,7 +550,10 @@ class FixedVehicle(Vehicle):
             # compute travel times
             tot_travel_time = 0
             for i in range(stop_idx):
-                tot_travel_time += line.link_time_from_interval(stops[i], stops[i+1], time+tot_travel_time)
+                first = True if i == 0 else False
+                tot_travel_time += line.link_time_from_interval(stops[i], stops[i+1], 
+                                                                time+tot_travel_time, self.route_id,
+                                                                edge_link=first)
             next_hw = next_departure + tot_travel_time - time
             # print(f'from terminal to stop {stop_idx}')
             td = pd.to_timedelta(round(next_departure), unit='S')
@@ -540,7 +562,10 @@ class FixedVehicle(Vehicle):
         else:
             tot_travel_time = 0
             for i in range(last_dep_stop_idx,stop_idx):
-                tot_travel_time += line.link_time_from_interval(stops[i], stops[i+1], time+tot_travel_time)
+                first = True if i == 0 else False
+                tot_travel_time += line.link_time_from_interval(stops[i], stops[i+1], 
+                                                                time+tot_travel_time, self.route_id,
+                                                                edge_link=first)
             next_hw = last_dep_time + tot_travel_time - time
             # print(f'from terminal to stop {last_dep_stop_idx} to stop {stop_idx}')
             td = pd.to_timedelta(round(last_dep_time), unit='S')

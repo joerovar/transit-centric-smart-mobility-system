@@ -186,7 +186,7 @@ class AVLHandler():
     def clean(self, schedule, holidays=None):
         # trip stop sequence will be used as identified to merge the scheduled time
         schedule = schedule.copy()
-        schedule['trip_stop_seq'] = schedule['schd_trip_id'].astype(str) + schedule['stop_sequence'].astype(str)
+        schedule['trip_stop_id'] = schedule['schd_trip_id'].astype(str) + schedule['stop_id'].astype(str)
         # first clean up AVL from NaN trip IDs
         df_avl = self.avl[(self.avl['trip_id'].notna()) & (self.avl['stop_id'].notna())].copy()
         # clean up from those in the wee hours (12-1AM) which make it difficult to match to schedule
@@ -197,18 +197,18 @@ class AVLHandler():
             df_avl = df_avl[~pd.to_datetime(df_avl['date']).isin(pd.to_datetime(holidays))].copy()
 
         df_avl['trip_id'], df_avl['stop_id'] = df_avl['trip_id'].astype(int), df_avl['stop_id'].astype(int)
-        df_avl['trip_stop_seq'] = df_avl['trip_id'].astype(str) + df_avl['stop_sequence'].astype(str)
+        df_avl['trip_stop_id'] = df_avl['trip_id'].astype(str) + df_avl['stop_id'].astype(str)
 
         df_avl = df_avl.merge(
-            schedule[['trip_stop_seq','arrival_time', 'direction']], 
-            on='trip_stop_seq').drop_duplicates().reset_index(drop=True)
+            schedule[['trip_stop_id','arrival_time', 'direction']], 
+            on='trip_stop_id').drop_duplicates().reset_index(drop=True)
 
         # remove duplicates for same trip,stop,date
         print(f'With duplicates {df_avl.shape}')
-        df_avl = df_avl.drop_duplicates(subset=['trip_stop_seq','date'],keep='first').reset_index(drop=True)
+        df_avl = df_avl.drop_duplicates(subset=['trip_stop_id','date'],keep='first').reset_index(drop=True)
         print(f'Without duplicates {df_avl.shape}')
         df_avl['schd_time'] = df_avl['event_time'].dt.floor('D') + pd.to_timedelta(df_avl['arrival_time'])
-        df_avl = df_avl.drop(columns=['arrival_time', 'trip_stop_seq'])
+        df_avl = df_avl.drop(columns=['arrival_time', 'trip_stop_id'])
 
         self.avl = df_avl.copy()
 
