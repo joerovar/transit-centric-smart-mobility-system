@@ -53,8 +53,10 @@ DWELL_TIME_PARAMS = {
     'error': 1.5
 }
 TERMINAL_REPORT_DELAYS = (-4.0, 2.0)
+BREAK_THRESHOLD = 20.0 # past this, it is considered a bus is parked at terminal
 MAX_EARLY_DEV = 5.0
 MAX_LATE_DEV = 5.0
+MAX_STEPS = 12000
 
 # FOR RESULTS
 KEY_STOP_NAMES = {'81': ['Jefferson Park', 'Cicero', 'Pulaski', 'Kimball','Western'],

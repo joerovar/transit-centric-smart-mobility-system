@@ -105,11 +105,13 @@ class FixedRoute(Route):
         self.schedule = self.schedule.sort_values(
             by='departure_time_td').reset_index(drop=True)
         self.schedule['departure_time_sec'] = self.schedule['departure_time_td'].dt.total_seconds()
-        stops_outbound = stops[stops['direction']==outbound_direction]
-        stops_inbound = stops[stops['direction']==inbound_direction]
+        self.outbound_direction = outbound_direction
+        self.inbound_direction = inbound_direction
+        self.stops_outbound = stops[stops['direction']==outbound_direction].copy()
+        self.stops_inbound = stops[stops['direction']==inbound_direction].copy()
         self.stops = {
-            outbound_direction: [Stop(si) for si in stops_outbound['stop_id'].tolist()],
-            inbound_direction: [Stop(si) for si in stops_inbound['stop_id'].tolist()]
+            outbound_direction: [Stop(si) for si in self.stops_outbound['stop_id'].tolist()],
+            inbound_direction: [Stop(si) for si in self.stops_inbound['stop_id'].tolist()]
         }
 
     def update_schedule(self, confirmed_trips=None):
@@ -120,6 +122,12 @@ class FixedRoute(Route):
             self.schedule.loc[
                 ~self.schedule['schd_trip_id'].isin(confirmed_trips), 'confirmed'] = 0
         return
+    
+    def reset_stop_records(self):
+        self.stops = {
+            self.outbound_direction: [Stop(si) for si in self.stops_outbound['stop_id'].tolist()],
+            self.inbound_direction: [Stop(si) for si in self.stops_inbound['stop_id'].tolist()]
+        }
     
 class Demand:
     def __init__(self, od):
@@ -153,7 +161,8 @@ class Demand:
             avg_arrival_time, size=(avg_arrival_time.size,max_nr_pax))
         cu_samp_arrival_times = np.cumsum(sampled_arrival_times, axis=1)
 
-        stop_cols_od = bins_od[['boarding_stop', 'alighting_stop',bin_col_name, 'route_id']].copy()
+        stop_cols_od = bins_od[['boarding_stop', 'alighting_stop', 
+                                bin_col_name, 'route_id']].copy()
 
         for i in stop_cols_od.index:
             arr_t_tmp = cu_samp_arrival_times[i]
@@ -199,6 +208,7 @@ class Demand:
 class Trip:
     def __init__(self, trip_schd):
         self.id = trip_schd['schd_trip_id'].values[0]
+        self.route_id = trip_schd['route_id'].values[0]
         self.direction = trip_schd['direction'].values[0]
         self.schedule = trip_schd.copy()
         self.stops = trip_schd['stop_id'].tolist()
@@ -236,6 +246,7 @@ class Trip:
         df_rec['block_id'] = self.schedule['block_id'].values[0]
         df_rec['run_id'] = self.schedule['runid'].values[0]
         df_rec['direction'] = self.direction
+        df_rec['route_id'] = self.route_id
         return df_rec
 
 
@@ -250,7 +261,8 @@ class Vehicle:
 
 
 class FixedVehicle(Vehicle):
-    def __init__(self, capacity, block_schedule, dwell_time_params, report_delays, route_id):
+    def __init__(self, capacity, block_schedule, dwell_time_params, 
+                 report_delays, route_id, break_threshold, max_early_dev):
         super().__init__(capacity)
         self.route_id = route_id
         self.block_id = int(block_schedule['block_id'].iloc[0])
@@ -258,6 +270,8 @@ class FixedVehicle(Vehicle):
         self.next_trips = []
         self.curr_trip = None
         self.dwell_time_params = dwell_time_params
+        self.break_threshold = break_threshold
+        self.max_early_dev = max_early_dev
         self.trip_records = pd.DataFrame()
 
         # set status
@@ -267,7 +281,8 @@ class FixedVehicle(Vehicle):
             1: 'inactive - terminal turnaround',
             2: 'active - dwell at stops',
             3: 'active - between stops',
-            4: 'inactive - reported for first trip'
+            4: 'inactive - reported for first trip',
+            5: 'inactive - break between shifts'
         }
         self.status = 0
         self.stop_idx = 0
@@ -284,18 +299,19 @@ class FixedVehicle(Vehicle):
             1: 'arrive at stop',
             2: 'depart stop or terminal',
             3: 'arrive at terminal',
-            4: 'first report at terminal'
+            4: 'first report at terminal',
+            5: 'report after break'
         }
 
         first_schd_time = self.next_trips[0].schedule['departure_time_sec'].values[0]
-        report_delay = np.random.uniform(*report_delays)*60 # convert to seconds
+        self.report_delay = np.random.uniform(*report_delays)*60 # convert to seconds
         # print(f'BLOCK ------ {self.block_id}')
         # print(pd.to_timedelta(round(first_schd_time), unit='S'))
         # print(pd.to_timedelta(round(report_delay), unit='S'))
         # print(pd.to_timedelta(round(first_schd_time+report_delay), unit='S'))
 
         self.next_event = {
-            't': first_schd_time + report_delay,
+            't': first_schd_time + self.report_delay,
             'type': 4
         }
         self.last_event = {
@@ -305,6 +321,7 @@ class FixedVehicle(Vehicle):
     def _board_pax(self, time, pax2board):
         pax2board['boarding_time'] = time
         pax2board['trip_id'] = self.curr_trip.id
+        pax2board['direction'] = self.curr_trip.direction
         pax2board['alighting_time'] = 0.0
         self.pax = pd.concat([self.pax, pax2board]).reset_index(drop=True)
         return
@@ -471,19 +488,20 @@ class FixedVehicle(Vehicle):
 
         # update status
         if self.next_trips:
-            self.status = 1
             schd_time = self.next_trips[0].schedule['departure_time_sec'].values[0]
-            self.next_event['t'] = max(time + self._dwell_time(0, pax2alight.shape[0]), schd_time)
-            self.next_event['type'] = 0
+            if schd_time - time > self.break_threshold * 60:
+                self.status = 5
+                self.next_event['type'] = 5
+                self.next_event['t'] = schd_time - self.max_early_dev*60 # TO-DO randomize at some point!
+            else:
+                self.status = 1
+                self.next_event['type'] = 0
+                self.next_event['t'] = max(time + self._dwell_time(0, pax2alight.shape[0]), schd_time)
+
         else:
             self.status = -1
             self.next_event['t'] = -1
             self.next_event['type'] = -1
-        return
-
-
-    def hold_at_stop(self, duration):
-
         return
     
     def report_at_terminal(self, time):
@@ -507,12 +525,13 @@ class FixedVehicle(Vehicle):
         if self.next_event['type'] == 3:
             self.arrive_at_terminal(time, demand, route)
             return
-        if self.next_event['type'] == 4:
+        if self.next_event['type'] in [4, 5]:
             self.report_at_terminal(time)
             return
         
-    def compute_headways(self, line, time, route, terminal=False, 
-                         next_terminal_arrivals=None):
+    def compute_headways(self, line, earliest_dep_t, 
+                         route, terminal=False, 
+                         layover_bus_dep=None):
         if terminal:
             trip_id = self.next_trips[0].id
             direction = self.next_trips[0].direction
@@ -524,8 +543,22 @@ class FixedVehicle(Vehicle):
             stop_idx = self.stop_idx
             stops = self.curr_trip.stops
         # preceding headway (WATCH OUT FOR EXTREME BUNCHING CASES WITH ONE BUS AT THE STOP)
-        last_dep_time = route.stops[direction][stop_idx].last_dep_time
-        pre_hw = deepcopy(last_dep_time) if last_dep_time is None else time - last_dep_time
+        if layover_bus_dep is not None:
+            last_dep_time = deepcopy(layover_bus_dep)
+        else:
+            last_dep_time = route.stops[direction][stop_idx].last_dep_time # TO-DO fix the naming
+        
+        pre_hw = None 
+        true_earliest_dep_t = deepcopy(earliest_dep_t)
+        if last_dep_time is not None:
+            true_earliest_dep_t = max(earliest_dep_t, last_dep_time)
+            pre_hw = true_earliest_dep_t - last_dep_time
+            if pre_hw == 0:
+                print('almost a negative preceding headway')
+                print('earliest departure time ' + str(pd.to_timedelta(round(earliest_dep_t), unit='S')))
+                print('last departure time ' + str(pd.to_timedelta(round(last_dep_time), unit='S')))
+                print('true earliest ' + str(pd.to_timedelta(round(true_earliest_dep_t), unit='S')))
+                print('')
         
         # next headway
         last_dep_time = None
@@ -544,17 +577,18 @@ class FixedVehicle(Vehicle):
             schd_time = schd.loc[(schd['schd_trip_id']==trip_id) &
                                  (schd['stop_sequence']==1), 'departure_time_sec'].values[0]
             next_departure = schd.loc[(schd['confirmed']==1) & 
-                                    (schd['departure_time_sec']>max(schd_time, time)) & 
-                                    (schd['stop_sequence']==1), 'departure_time_sec'].iloc[0]
-            # print(next_departure, env.time)
+                                    (schd['departure_time_sec']>max(schd_time, true_earliest_dep_t)) & 
+                                    (schd['stop_sequence']==1) &
+                                    (schd['direction']==direction), 'departure_time_sec'].iloc[0]
+            # print(str(pd.to_timedelta(round(time), unit='S')))
             # compute travel times
             tot_travel_time = 0
             for i in range(stop_idx):
                 first = True if i == 0 else False
                 tot_travel_time += line.link_time_from_interval(stops[i], stops[i+1], 
-                                                                time+tot_travel_time, self.route_id,
+                                                                true_earliest_dep_t+tot_travel_time, self.route_id,
                                                                 edge_link=first)
-            next_hw = next_departure + tot_travel_time - time
+            next_hw = next_departure + tot_travel_time - true_earliest_dep_t
             # print(f'from terminal to stop {stop_idx}')
             td = pd.to_timedelta(round(next_departure), unit='S')
             td2 = pd.to_timedelta(round(tot_travel_time), unit='S')
@@ -564,9 +598,10 @@ class FixedVehicle(Vehicle):
             for i in range(last_dep_stop_idx,stop_idx):
                 first = True if i == 0 else False
                 tot_travel_time += line.link_time_from_interval(stops[i], stops[i+1], 
-                                                                time+tot_travel_time, self.route_id,
+                                                                true_earliest_dep_t+tot_travel_time, self.route_id,
                                                                 edge_link=first)
-            next_hw = last_dep_time + tot_travel_time - time
+            # print(str(pd.to_timedelta(round(time), unit='S')))
+            next_hw = last_dep_time + tot_travel_time - true_earliest_dep_t
             # print(f'from terminal to stop {last_dep_stop_idx} to stop {stop_idx}')
             td = pd.to_timedelta(round(last_dep_time), unit='S')
             td2 = pd.to_timedelta(round(tot_travel_time), unit='S')
@@ -597,10 +632,11 @@ class FixedVehicle(Vehicle):
                 'active': 1, 
                 't_since_last': time - self.last_event['t'],
                 'pax_load': self.pax.shape[0],
-                'route_id': self.route_id
+                'route_id': self.route_id,
+                'trip_sequence': self.curr_trip.schedule['trip_sequence'].iloc[0]
             }
             return message
-        if self.status in [0,1,4]:
+        if self.status in [0,1,4,5]:
             # trips awaiting departure
             message = {
                 'time': time,
@@ -619,7 +655,31 @@ class FixedVehicle(Vehicle):
                 'active': 0,
                 't_since_last': self.last_event['t'] if self.last_event['t'] is None else time - self.last_event['t'],
                 'pax_load': self.pax.shape[0],
-                'route_id': self.route_id
+                'route_id': self.route_id,
+                'trip_sequence': self.next_trips[0].schedule['trip_sequence'].iloc[0]
+            }
+            return message
+        if self.status == -1:
+            # trips awaiting departure
+            message = {
+                'time': time,
+                'id': self.block_id,
+                'status': self.status,
+                'status_desc': self.status_dict[self.status],
+                'next_event': None,
+                'next_event_t': None,
+                't_until_next': None,
+                'stop_id': None,
+                'stop_sequence': None,
+                'stop_lat': 0,
+                'stop_lon': 0,
+                'direction': None,
+                'trip_id': None,
+                'active': 0,
+                't_since_last': self.last_event['t'] if self.last_event['t'] is None else time - self.last_event['t'],
+                'pax_load': None,
+                'route_id': self.route_id,
+                'trip_sequence': None
             }
             return message
         return None

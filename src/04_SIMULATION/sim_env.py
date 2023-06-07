@@ -21,6 +21,23 @@ def flag_departure_event(info):
                             (tmp_info['t_since_last']==pd.to_timedelta(0, unit='S'))].copy()
     return flag_vehicle
 
+def relevant_schedule(routes, time, out_terminals):
+    # the point is to show from the schedule 
+    # the previous 2 trips and the next 2 trips for each route
+    lst_schds = []
+    for rt_id in routes.keys():
+        df = routes[rt_id].schedule.copy()
+        df = df[(df['stop_id']==out_terminals[rt_id][0]) &
+                (df['stop_sequence']==1)].reset_index(drop=True)
+        curr_idx = df[df['departure_time_sec']>time].index[0]
+        sub_cols = ['route_id', 'confirmed','runid', 'schd_trip_id', 
+                    'departure_time', 'departure_time_sec', 
+                    'trip_sequence', 'block_id']
+        idx_from = max(0, curr_idx-2)
+        idx_to = min(df.shape[0], curr_idx+3)
+        lst_schds.append(df.loc[idx_from:idx_to, sub_cols])
+    return pd.concat(lst_schds, ignore_index=True)
+
 def recommended_dep_t(pre_hw, next_hw, t):
     hw_diff = next_hw-pre_hw
     rec_dep_t = t + max(0,hw_diff/2)
@@ -82,31 +99,40 @@ class FixedSimEnv(SimEnv):
         df_info = pd.DataFrame.from_records(info_vehicles)
         return df_info
     
-    def _display_latest(self):
+    def _display_info(self, info=None):
         # display info 
-        df_disp = self.info_records[-1].copy()
+        df_disp = self.info_records[-1].copy() # if not specified, just grab latest
+
+        if info is not None:
+            df_disp = info.copy()
+
         df_disp = df_disp.sort_values(by='t_until_next')
-        df_disp['time'] = pd.to_timedelta(df_disp['time'].round(), unit='S')
-        df_disp['t_until_next'] = pd.to_timedelta(df_disp['t_until_next'].round(), unit='S')
-        df_disp['next_event_t'] = pd.to_timedelta(df_disp['next_event_t'].round(), unit='S')
-        df_disp['t_since_last'] = pd.to_timedelta(df_disp['t_since_last'].round(), unit='S')
+        df_disp['time'] = pd.to_timedelta(df_disp['time'].round(decimals=1), unit='S')
+        df_disp['t_until_next'] = pd.to_timedelta(df_disp['t_until_next'].round(decimals=1), unit='S')
+        df_disp['next_event_t'] = pd.to_timedelta(df_disp['next_event_t'].round(decimals=1), unit='S')
+        df_disp['t_since_last'] = pd.to_timedelta(df_disp['t_since_last'].round(decimals=1), unit='S')
         disp_cols = ['time', 'nr_step', 'id','active', 'status', 'status_desc', 
          'next_event', 'next_event_t', 't_until_next', 'stop_id','stop_sequence', 
-         'direction', 'pax_load', 't_since_last', 'route_id']
+         'direction', 'pax_load', 't_since_last', 'route_id', 'trip_id', 'trip_sequence']
         return df_disp[disp_cols]
 
 
-    def reset(self, reset_date=True):
+    def reset(self, random_date=True, hist_date=None):
         super().reset()
         self.info_records = []
 
-        if reset_date:
+        if not random_date and hist_date is None:
+            raise ImportError
+        
+        if random_date:
             hist_date = np.random.choice(self.lines[ROUTES[0]].link_times['date'].unique())
-            for rt in ROUTES:
-                self.lines[rt].hist_date = hist_date
-                confirmed_trips = self.lines[rt].link_times.loc[
-                    self.lines[rt].link_times['date']==hist_date, 'trip_id'].tolist() # what was observed
-                self.routes[rt].update_schedule(confirmed_trips=confirmed_trips) 
+
+        for rt in ROUTES:
+            self.lines[rt].hist_date = hist_date
+            confirmed_trips = self.lines[rt].link_times.loc[
+                self.lines[rt].link_times['date']==hist_date, 'trip_id'].tolist() # what was observed
+            self.routes[rt].update_schedule(confirmed_trips=confirmed_trips) 
+            self.routes[rt].reset_stop_records()
 
         self.demand.generate(INTERVAL_LENGTH_MINS, self.start_time_sec, 
                              self.end_time_sec)
@@ -120,7 +146,7 @@ class FixedSimEnv(SimEnv):
                 if not block_schedule.empty:
                     vehicle = FixedVehicle(CAPACITY, block_schedule, 
                                            DWELL_TIME_PARAMS, TERMINAL_REPORT_DELAYS,
-                                           rt)
+                                           rt, BREAK_THRESHOLD, MAX_EARLY_DEV)
                     self.vehicles.append(vehicle)
 
         
@@ -142,7 +168,7 @@ class FixedSimEnv(SimEnv):
         df_info['nr_step'] = deepcopy(self.step_counter)
         self.info_records.append(df_info)
 
-        df_disp = self._display_latest()
+        df_disp = self._display_info()
 
         return [], None, 0, df_disp
     
@@ -162,7 +188,7 @@ class FixedSimEnv(SimEnv):
         df_info['nr_step'] = deepcopy(self.step_counter)
         self.info_records.append(df_info)
 
-        df_disp = self._display_latest()
+        df_disp = self._display_info()
         
         return [], None, 0, df_disp
 
