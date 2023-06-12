@@ -204,6 +204,7 @@ class Demand:
         self.pax_served = pd.concat(
             [self.pax_served, pax_served]).reset_index(drop=True)
         return
+    
 
 class Trip:
     def __init__(self, trip_schd):

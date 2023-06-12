@@ -67,24 +67,27 @@ class FixedSimEnv(SimEnv):
     def __init__(self):
         super(FixedSimEnv, self).__init__()
         stops = pd.read_csv(SIM_INPUTS_PATH + 'stops.csv')
-        link_times = pd.read_csv(SIM_INPUTS_PATH + 'link_times.csv')
+        self.link_times = pd.read_csv(SIM_INPUTS_PATH + 'link_times.csv')
+        self.hist_date = None
         schedule = pd.read_csv(SIM_INPUTS_PATH + 'schedule.csv')
         od = pd.read_csv(SIM_INPUTS_PATH + 'od.csv')
 
-        for df in (stops, link_times, schedule, od):
+        for df in (stops, self.link_times, schedule, od):
             df['route_id'] = df['route_id'].astype(str)
         self.routes = {}
         self.lines = {}
         for route in ROUTES:
             rt_stops = stops[stops['route_id']==route].copy()
-            rt_link_times = link_times[link_times['route_id']==route].copy()
+            rt_link_times = self.link_times[
+                self.link_times['route_id']==route].copy()
             rt_schd = schedule[schedule['route_id']==route].copy()
 
             self.lines[route] = Line(
                 route, rt_stops, rt_link_times, INTERVAL_LENGTH_MINS,
                 OUTBOUND_DIRECTIONS[route], INBOUND_DIRECTIONS[route]) 
-            self.routes[route] = FixedRoute(route, rt_schd, OUTBOUND_DIRECTIONS[route],
-                                    INBOUND_DIRECTIONS[route], rt_stops)
+            self.routes[route] = FixedRoute(route, rt_schd, 
+                                            OUTBOUND_DIRECTIONS[route],
+                                            INBOUND_DIRECTIONS[route], rt_stops)
         self.demand = Demand(od)
 
         self.info_records = []
@@ -115,17 +118,43 @@ class FixedSimEnv(SimEnv):
          'next_event', 'next_event_t', 't_until_next', 'stop_id','stop_sequence', 
          'direction', 'pax_load', 't_since_last', 'route_id', 'trip_id', 'trip_sequence']
         return df_disp[disp_cols]
+    
+    def get_trip_records(self, scenario=None):
+        trip_records = []
+        for veh in self.vehicles:
+            if not veh.trip_records.empty:
+                trip_records.append(veh.trip_records)
+        df_trips = pd.concat(trip_records, ignore_index=True)
+        hist_date_dt = pd.to_datetime(self.hist_date)
+        for ky in ('arrival', 'departure', 'schd'):
+            full_ky = ky + '_time_sec'
+            df_trips[full_ky] = pd.to_timedelta(
+                df_trips[full_ky].round(), unit='S')
+            df_trips[full_ky] += hist_date_dt
+            df_trips.rename(columns={full_ky: ky + '_time'})
+        if scenario:
+            df_trips['scenario'] = scenario
+        return df_trips
+    
+    def get_pax_records(self, scenario=None):
+        pax_served = self.demand.pax_served.copy()
+        hist_date_dt = pd.to_datetime(self.hist_date)
+        for ky in ('arrival', 'alighting', 'boarding'):
+            full_ky = ky + '_time'
+            pax_served[full_ky] = pd.to_timedelta(
+                pax_served[full_ky].round(), unit='S')
+            pax_served[full_ky] += hist_date_dt
+        if scenario:
+            pax_served['scenario'] = scenario
+        return pax_served
 
-
-    def reset(self, random_date=True, hist_date=None):
+    def reset(self, hist_date=None):
         super().reset()
         self.info_records = []
+        self.hist_date = hist_date
 
-        if not random_date and hist_date is None:
+        if hist_date is None:
             raise ImportError
-        
-        if random_date:
-            hist_date = np.random.choice(self.lines[ROUTES[0]].link_times['date'].unique())
 
         for rt in ROUTES:
             self.lines[rt].hist_date = hist_date

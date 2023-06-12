@@ -85,7 +85,8 @@ class GTFSHandler:
         self.calendar['start_date_dt'] = pd.to_datetime(self.calendar['start_date'], format='%Y%m%d')
         self.calendar['end_date_dt'] = pd.to_datetime(self.calendar['end_date'], format='%Y%m%d')
         self.trips = pd.read_csv(self.zf.open('trips.txt'))
-
+        self.trips['service_id'] = self.trips['service_id'].astype(str)
+        self.calendar['service_id'] = self.calendar['service_id'].astype(str)
         self.route_trips = None
         self.route_stop_times = None
         self.route_stops = None
@@ -104,12 +105,16 @@ class GTFSHandler:
                 (df_cal['tuesday']==1) |
                 (df_cal['wednesday']==1) |
                 (df_cal['thursday']==1) |
-                (df_cal['friday']==1), 'service_id'].astype(str).tolist()
+                (df_cal['friday']==1), 'service_id'].tolist()
             
         df_trips = self.trips[
             (self.trips['route_id'].isin(routes)) & 
-            (self.trips['service_id'].astype(str).isin(service_ids))
+            (self.trips['service_id'].isin(service_ids))
         ].copy()
+
+        df_trips  = df_trips.merge(df_cal[[
+            'service_id', 'monday','tuesday', 
+            'wednesday', 'thursday','friday']], on='service_id')
         self.route_trips = df_trips.copy()
 
         df_stop_times = self.stop_times.copy()
@@ -118,7 +123,8 @@ class GTFSHandler:
             df_stop_times['trip_id'].isin(df_trips['trip_id'])].copy()
         df_stop_times = df_stop_times.merge(df_trips[
             ['trip_id', 'schd_trip_id', 
-             'direction', 'block_id', 'route_id', 'shape_id']], on='trip_id')
+             'direction', 'block_id', 'route_id', 'shape_id',
+             'monday', 'tuesday', 'wednesday', 'thursday', 'friday']], on='trip_id')
         df_stop_times = df_stop_times.sort_values(by='stop_sequence')
         df_stop_times['block_id'] = df_stop_times['block_id'].astype(int)
         
@@ -128,7 +134,8 @@ class GTFSHandler:
             ['route_id', 'direction', 
              'stop_id', 'stop_sequence', 'shape_id']].copy().drop_duplicates()
         self.route_stops = route_stops.merge(
-            self.stops[['stop_id', 'stop_name', 'stop_lat', 'stop_lon']], on='stop_id').drop_duplicates().reset_index(drop=True)
+            self.stops[['stop_id', 'stop_name', 
+                        'stop_lat', 'stop_lon']], on='stop_id').drop_duplicates().reset_index(drop=True)
     
 
     def load_schedule(self, data_start_time, data_end_time, 
