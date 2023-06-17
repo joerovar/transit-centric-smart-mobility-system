@@ -59,12 +59,12 @@ MAX_LATE_DEV = 5.0
 MAX_STEPS = 12000
 
 # FOR RESULTS
-KEY_STOP_NAMES = {'81': ['Jefferson Park', 'Cicero', 'Pulaski', 'Kimball','Western'],
-                  '91': [],
-                  '92': []}
+KEY_STOP_NAMES = {'81': ['Jefferson Park', 'Cicero', 'Pulaski', 'Kimball', 'Western'],
+                  '91': ['Irving Park', 'Belmont', 'Grand', 'Chicago', 'Madison'],
+                  '92': ['Cicero', 'Pulaski', 'Kimball', 'Western']}
 
 ANIMATION = {
     'y_lim': (41.952583,41.984450),
     'x_lim': (-87.768183,-87.642206),
-    'text_loc': (-87.769,41.953)
+    'text_loc': (-87.769,41.866)
 }

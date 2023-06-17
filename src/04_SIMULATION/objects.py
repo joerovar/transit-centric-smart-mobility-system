@@ -2,6 +2,10 @@ import numpy as np
 import pandas as pd
 from copy import deepcopy
 
+def td(t):
+    return pd.to_timedelta(round(t), unit='S')
+
+
 class Line:
     def __init__(self, line, stops, link_times, interval_length_mins,
                  outbound_direction, inbound_direction):
@@ -17,19 +21,18 @@ class Line:
         self.hist_date = None # this will get updated by the user in reset fn
         
     def link_time_from_interval(self, stop_from, stop_to, 
-                                time_sec, route, sample=False,
+                                time_sec, sample=False,
                                 edge_link=False):
         link_times = self.link_times.copy()
         interval = int(time_sec/self.link_t_interval_sec)
 
         link_t = link_times.loc[
-            (link_times['route_id']==route) &
             (link_times[self.interval_col_name]==interval) &  
             (link_times['stop_id']==stop_from) & 
             (link_times['next_stop_id']==stop_to)]
         
         if link_t.empty:
-            print(route, stop_from, stop_to)
+            print(self.id, stop_from, stop_to)
 
         if edge_link:
             return link_t['schd_link_time'].values[0]*60
@@ -38,6 +41,15 @@ class Line:
             return link_t['link_time'].sample().iloc[0] * 60
         else:
             return link_t['link_time'].mean() * 60
+    
+    def time_between_two_stops(self, stop0, stop1, stops, departs):
+        t = 0 # travel time accumulator
+        for i in range(stop0, stop1):
+            first = True if i == 0 else False
+            t += self.link_time_from_interval(stops[i], stops[i+1], 
+                                              departs+t,
+                                              edge_link=first)
+        return t
     
     def link_time_from_trip(self, time_sec, trip, stop_from, stop_to, route_id,
                             edge_link=False):
@@ -96,7 +108,9 @@ class Route:
         self.stops = []
 
 class FixedRoute(Route):
-    def __init__(self, route, schedule, outbound_direction, inbound_direction, stops):
+    def __init__(self, route, schedule, 
+                 outbound_direction, inbound_direction, 
+                 stops):
         super().__init__()
         self.id = route
         self.schedule = schedule.copy()
@@ -129,6 +143,39 @@ class FixedRoute(Route):
             self.inbound_direction: [Stop(si) for si in self.stops_inbound['stop_id'].tolist()]
         }
     
+    def next_terminal_departure(self, after, direction):
+        schd = self.schedule.copy()
+        next_schd = schd.loc[(schd['confirmed']==1) & 
+                             (schd['departure_time_sec']>after) & 
+                             (schd['stop_sequence']==1) &
+                             (schd['direction']==direction)]
+        return next_schd['departure_time_sec'].values[0]
+    
+    def find_next_trip(self, direction, 
+                       curr_stop_idx, curr_trip_id,
+                       min_dep_t):
+        dep_t = None
+        stop_idx = None
+        stops = self.stops[direction]
+        for i in range(curr_stop_idx-1, -1, -1):
+            stop = stops[i]
+            if stop.last_dep_trip != curr_trip_id:
+                dep_t = stop.last_dep_time
+                stop_idx = deepcopy(i)
+                break
+        if dep_t is None:
+            schd_dep_t = self.get_terminal_departure(curr_trip_id)
+            dep_t = self.next_terminal_departure(max(schd_dep_t, min_dep_t),
+                                                 direction)
+            stop_idx = 0
+        return dep_t, stop_idx
+    
+    def get_terminal_departure(self, trip_id):
+        schd = self.schedule.copy()
+        trip_schd = schd[(schd['schd_trip_id']==trip_id) & 
+                         (schd['stop_sequence']==1)].copy()
+        return trip_schd['departure_time_sec'].values[0]
+
 class Demand:
     def __init__(self, od):
         self.od = od
@@ -529,84 +576,34 @@ class FixedVehicle(Vehicle):
         if self.next_event['type'] in [4, 5]:
             self.report_at_terminal(time)
             return
-        
-    def compute_headways(self, line, earliest_dep_t, 
-                         route, terminal=False, 
-                         layover_bus_dep=None):
-        if terminal:
-            trip_id = self.next_trips[0].id
-            direction = self.next_trips[0].direction
-            stop_idx = 0
-            stops = self.next_trips[0].stops
-        else:
-            trip_id = self.curr_trip.id
-            direction = self.curr_trip.direction
-            stop_idx = self.stop_idx
-            stops = self.curr_trip.stops
-        # preceding headway (WATCH OUT FOR EXTREME BUNCHING CASES WITH ONE BUS AT THE STOP)
-        if layover_bus_dep is not None:
-            last_dep_time = deepcopy(layover_bus_dep)
-        else:
-            last_dep_time = route.stops[direction][stop_idx].last_dep_time # TO-DO fix the naming
-        
-        pre_hw = None 
-        true_earliest_dep_t = deepcopy(earliest_dep_t)
-        if last_dep_time is not None:
-            true_earliest_dep_t = max(earliest_dep_t, last_dep_time)
-            pre_hw = true_earliest_dep_t - last_dep_time
-            if pre_hw == 0:
-                print('almost a negative preceding headway')
-                print('earliest departure time ' + str(pd.to_timedelta(round(earliest_dep_t), unit='S')))
-                print('last departure time ' + str(pd.to_timedelta(round(last_dep_time), unit='S')))
-                print('true earliest ' + str(pd.to_timedelta(round(true_earliest_dep_t), unit='S')))
-                print('')
+
+    def compute_headways(self, line, min_dep_t, route, terminal=False):
+        # pre headway
+        trip = self.next_trips[0] if terminal else self.curr_trip
+        stop = route.stops[trip.direction][self.stop_idx]
+        if stop.last_dep_time is None:
+            return None, None
+        last_dep_t = stop.last_dep_time
+        min_dep_t = max(min_dep_t, last_dep_t)
+        pre_hw = min_dep_t - last_dep_t
+        if pre_hw == 0.0:
+                print('saved a negative headway')
+                print(f'earliest {td(min_dep_t)} last {td(last_dep_t)} true earliest {td(max(min_dep_t, last_dep_t))}')
         
         # next headway
-        last_dep_time = None
-        last_dep_stop_idx = None
-        for i in range(stop_idx-1, -1, -1):
-            # print('huh?')
-            last_dep_trip = route.stops[direction][i].last_dep_trip
-            if last_dep_trip is not None and last_dep_trip != trip_id:
-                last_dep_time = route.stops[direction][i].last_dep_time
-                last_dep_stop_idx = deepcopy(i)
-                break
+        # here we try to find the last stop that the next trip departed from
+        # next trip details
+        dep_t, stop_idx_from = route.find_next_trip(trip.direction,self.stop_idx, 
+                                                    trip.id, min_dep_t)
 
-        if last_dep_time is None:
-            # check schedules
-            schd = route.schedule.copy()
-            schd_time = schd.loc[(schd['schd_trip_id']==trip_id) &
-                                 (schd['stop_sequence']==1), 'departure_time_sec'].values[0]
-            next_departure = schd.loc[(schd['confirmed']==1) & 
-                                    (schd['departure_time_sec']>max(schd_time, true_earliest_dep_t)) & 
-                                    (schd['stop_sequence']==1) &
-                                    (schd['direction']==direction), 'departure_time_sec'].iloc[0]
-            # print(str(pd.to_timedelta(round(time), unit='S')))
-            # compute travel times
-            tot_travel_time = 0
-            for i in range(stop_idx):
-                first = True if i == 0 else False
-                tot_travel_time += line.link_time_from_interval(stops[i], stops[i+1], 
-                                                                true_earliest_dep_t+tot_travel_time, self.route_id,
-                                                                edge_link=first)
-            next_hw = next_departure + tot_travel_time - true_earliest_dep_t
-            # print(f'from terminal to stop {stop_idx}')
-            td = pd.to_timedelta(round(next_departure), unit='S')
-            td2 = pd.to_timedelta(round(tot_travel_time), unit='S')
-            # print(f'next departure {str(td)} and travel time {str(td2)}')
-        else:
-            tot_travel_time = 0
-            for i in range(last_dep_stop_idx,stop_idx):
-                first = True if i == 0 else False
-                tot_travel_time += line.link_time_from_interval(stops[i], stops[i+1], 
-                                                                true_earliest_dep_t+tot_travel_time, self.route_id,
-                                                                edge_link=first)
-            # print(str(pd.to_timedelta(round(time), unit='S')))
-            next_hw = last_dep_time + tot_travel_time - true_earliest_dep_t
-            # print(f'from terminal to stop {last_dep_stop_idx} to stop {stop_idx}')
-            td = pd.to_timedelta(round(last_dep_time), unit='S')
-            td2 = pd.to_timedelta(round(tot_travel_time), unit='S')
-            # print(f'departure {str(td)} and travel time {str(td2)}')
+        travel_time = line.time_between_two_stops(stop_idx_from, self.stop_idx, 
+                                                  dep_t, trip.stops)
+        next_arrives = dep_t + travel_time
+        next_hw = next_arrives - min_dep_t
+        
+        # print(f'from terminal or stop {stop_idx_from} to stop {self.stop_idx}')
+        # print(f'departure {td(dep_t)}')
+        # print(f'travel time {td(travel_time)}')
         return pre_hw, next_hw
 
     def get_info(self, line, time):
@@ -614,10 +611,11 @@ class FixedVehicle(Vehicle):
             # only active vehicles here
             stops = line.stops[self.curr_trip.direction]
             last_stop_id = self.curr_trip.stops[self.stop_idx]
-            stop_lat, stop_lon = stops.loc[
-                stops['stop_id']==last_stop_id, ['stop_lat', 'stop_lon']].values[0].tolist()
+            last_stop = stops.loc[stops['stop_id']==last_stop_id].copy()
+            stop_lat, stop_lon = last_stop[['stop_lat', 'stop_lon']].values[0].tolist()
             message = {
                 'time': time,
+                'route_id': self.route_id,
                 'id': self.block_id,
                 'status': self.status,
                 'status_desc': self.status_dict[self.status],
@@ -633,7 +631,6 @@ class FixedVehicle(Vehicle):
                 'active': 1, 
                 't_since_last': time - self.last_event['t'],
                 'pax_load': self.pax.shape[0],
-                'route_id': self.route_id,
                 'trip_sequence': self.curr_trip.schedule['trip_sequence'].iloc[0]
             }
             return message
@@ -641,6 +638,7 @@ class FixedVehicle(Vehicle):
             # trips awaiting departure
             message = {
                 'time': time,
+                'route_id': self.route_id,
                 'id': self.block_id,
                 'status': self.status,
                 'status_desc': self.status_dict[self.status],
@@ -656,7 +654,6 @@ class FixedVehicle(Vehicle):
                 'active': 0,
                 't_since_last': self.last_event['t'] if self.last_event['t'] is None else time - self.last_event['t'],
                 'pax_load': self.pax.shape[0],
-                'route_id': self.route_id,
                 'trip_sequence': self.next_trips[0].schedule['trip_sequence'].iloc[0]
             }
             return message
@@ -664,6 +661,7 @@ class FixedVehicle(Vehicle):
             # trips awaiting departure
             message = {
                 'time': time,
+                'route_id': self.route_id,
                 'id': self.block_id,
                 'status': self.status,
                 'status_desc': self.status_dict[self.status],
@@ -679,7 +677,6 @@ class FixedVehicle(Vehicle):
                 'active': 0,
                 't_since_last': self.last_event['t'] if self.last_event['t'] is None else time - self.last_event['t'],
                 'pax_load': None,
-                'route_id': self.route_id,
                 'trip_sequence': None
             }
             return message
