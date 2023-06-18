@@ -2,37 +2,60 @@ import matplotlib.pyplot as plt
 from constants import *
 import pandas as pd
 
-# Create a figure and axis object
-def plot_situation(situation_df, stops, key_stops):
+def get_geo_stops(stops, rt, direction):
+    rt_stops = stops[(stops['route_id']==rt) & 
+                     (stops['direction']==direction)].copy()
+    shapes = rt_stops.groupby('shape_id')['stop_sequence'].max().reset_index()
+    max_stops = shapes['stop_sequence'].max()
+    longest_shape = shapes.loc[shapes['stop_sequence']==max_stops, 'shape_id'].iloc[0]
+    rt_stops = rt_stops[rt_stops['shape_id']==longest_shape]
+    rt_stops = rt_stops.sort_values(by='stop_sequence').reset_index(drop=True)
 
-    lon = stops['stop_lon'].tolist()
-    lat = stops['stop_lat'].tolist()
+    lon, lat = rt_stops['stop_lon'].tolist(), rt_stops['stop_lat'].tolist()
 
-    key_lon = key_stops['stop_lon'].tolist()
-    key_lat = key_stops['stop_lat'].tolist()
-    key_stops_coord = list(zip(key_lon, key_lat))
+    key_stops = rt_stops[
+    (rt_stops['stop_name'].str.contains('|'.join(KEY_STOP_NAMES[rt])))
+    ].copy()
+    if rt == '92':
+        key_stops = key_stops[key_stops['stop_id']!=15120]
+    key_lon, key_lat = key_stops['stop_lon'].tolist(), key_stops['stop_lat'].tolist()
+    return  lon, lat, key_lon, key_lat
 
-    fig, ax = plt.subplots(figsize=(9,5))
-
+def plot_situation(situation_df, stops, day_str):
+    fig, ax = plt.subplots(figsize=(10,13))
     df = situation_df.copy()
-    east_df = df[df['direction']=='East'].copy()
-    west_df = df[df['direction']=='West'].copy()
-    if east_df.shape[0]:
-        scat = ax.scatter(east_df['stop_lon'], east_df['stop_lat'], color='black')
-    if west_df.shape[0]:
-        scat = ax.scatter(west_df['stop_lon'], west_df['stop_lat'], color='gray')
-    scat = ax.scatter(key_lon, key_lat, marker='|', color='darkcyan')
-    ax.plot(lon, lat, color='darkcyan')
-    ax.set_ylim(*ANIMATION['y_lim'])
-    ax.set_xlim(*ANIMATION['x_lim'])
-    t = (pd.Timestamp.today().floor('D') + pd.to_timedelta(df['time'].iloc[0], unit='s')).strftime('%H:%M')
+
+    for rt in ROUTES:
+        
+        lon, lat, ky_lon, ky_lat = get_geo_stops(stops, rt, OUTBOUND_DIRECTIONS[rt])
+        key_stops_coord = list(zip(ky_lon, ky_lat))
+        df_rt = df[df['route_id']==rt].copy()
+        
+        directions = (OUTBOUND_DIRECTIONS[rt], INBOUND_DIRECTIONS[rt])
+        colors = ('black', 'gray')
+        for direction, color in zip(directions, colors):
+            df_dir = df_rt[df_rt['direction']==direction].copy()
+
+            if df_dir.shape[0]:
+                scat = ax.scatter(df_dir['stop_lon'], 
+                                  df_dir['stop_lat'], color=color)
+        
+        scat = ax.scatter(ky_lon, ky_lat, marker='|', color='darkcyan')
+        ax.plot(lon, lat, color='darkcyan')
+        for i in range(len(KEY_STOP_NAMES[rt])):
+            plt.annotate(
+                KEY_STOP_NAMES[rt][i], key_stops_coord[i], 
+                xytext=(key_stops_coord[i][0], key_stops_coord[i][1]+0.001),
+                rotation=60, fontsize=10)
+        
+
+    # ax.set_ylim(*ANIMATION['y_lim'])
+    # ax.set_xlim(*ANIMATION['x_lim'])
+    day_ts = pd.Timestamp(day_str)
+    sim_time = df['time'].iloc[0]
+    t = (day_ts + pd.to_timedelta(round(sim_time), unit='s')).strftime('%H:%M')
     plt.text(*ANIMATION['text_loc'],t)
     plt.axis('off')
-    for i in range(len(KEY_STOP_NAMES)):
-        plt.annotate(
-            KEY_STOP_NAMES[i], key_stops_coord[i], 
-            xytext=(key_stops_coord[i][0], key_stops_coord[i][1]+0.001),
-            rotation=60, fontsize=10)
         
 def get_results(exp_tstamp, scenarios, start_t, end_t):
     exp_path = 'experiments_' + exp_tstamp
