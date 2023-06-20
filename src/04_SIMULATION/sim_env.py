@@ -4,6 +4,11 @@ import numpy as np
 from constants import *
 from copy import deepcopy
 
+def td(t):
+    return pd.to_timedelta(t, unit='S')
+
+def formatTime(t):
+    return t.dt.strftime('%H:%M:%S.%f').str[:-5]
 
 def flag_holding_event(info, direction, stop_seq):
     tmp_info = info[info['t_since_last'].notna()].copy()
@@ -20,23 +25,6 @@ def flag_departure_event(info):
                             (tmp_info['status'].isin([1,4])) & 
                             (tmp_info['t_since_last']==pd.to_timedelta(0, unit='S'))].copy()
     return flag_vehicle
-
-def relevant_schedule(routes, time, out_terminals):
-    # the point is to show from the schedule 
-    # the previous 2 trips and the next 2 trips for each route
-    lst_schds = []
-    for rt_id in routes.keys():
-        df = routes[rt_id].schedule.copy()
-        df = df[(df['stop_id']==out_terminals[rt_id][0]) &
-                (df['stop_sequence']==1)].reset_index(drop=True)
-        curr_idx = df[df['departure_time_sec']>time].index[0]
-        sub_cols = ['route_id', 'confirmed','runid', 'schd_trip_id', 
-                    'departure_time', 'departure_time_sec', 
-                    'trip_sequence', 'block_id']
-        idx_from = max(0, curr_idx-2)
-        idx_to = min(df.shape[0], curr_idx+3)
-        lst_schds.append(df.loc[idx_from:idx_to, sub_cols])
-    return pd.concat(lst_schds, ignore_index=True)
 
 def recommended_dep_t(pre_hw, next_hw, t):
     hw_diff = next_hw-pre_hw
@@ -55,6 +43,10 @@ def get_layover_bus_dep(info, control_vehs):
     if lay_buses.empty:
         return None
     return lay_buses['next_event_t'].max().total_seconds()
+
+def check_for_interlining(rt_status):
+
+    return
 
 class SimEnv:
     def __init__(self):
@@ -105,7 +97,7 @@ class FixedSimEnv(SimEnv):
 
         self.info_records = []
 
-    def _get_info_vehicles(self):
+    def _update_info(self):
         # get information on vehicles that indicates time until next event
         info_vehicles = []
         for v in self.vehicles:
@@ -113,24 +105,41 @@ class FixedSimEnv(SimEnv):
             if v_status is not None:
                 info_vehicles.append(v_status)
         df_info = pd.DataFrame.from_records(info_vehicles)
-        return df_info
+        df_info['nr_step'] = deepcopy(self.step_counter)
+        df_info['date'] = self.hist_date
+        self.info_records.append(df_info)
+        return
     
     def _display_info(self, info=None):
         # display info 
         df_disp = self.info_records[-1].copy() # if not specified, just grab latest
-
+        
         if info is not None:
             df_disp = info.copy()
-
+        
         df_disp = df_disp.sort_values(by='t_until_next')
-        df_disp['time'] = pd.to_timedelta(df_disp['time'].round(decimals=1), unit='S')
-        df_disp['t_until_next'] = pd.to_timedelta(df_disp['t_until_next'].round(decimals=1), unit='S')
-        df_disp['next_event_t'] = pd.to_timedelta(df_disp['next_event_t'].round(decimals=1), unit='S')
-        df_disp['t_since_last'] = pd.to_timedelta(df_disp['t_since_last'].round(decimals=1), unit='S')
-        disp_cols = ['time', 'nr_step', 'route_id', 'id','active', 'status', 'status_desc', 
-         'next_event', 'next_event_t', 't_until_next', 'stop_id','stop_sequence', 
-         'direction', 'pax_load', 't_since_last', 'trip_id', 'trip_sequence']
-        return df_disp[disp_cols]
+        df_obs = df_disp.copy()
+
+        for col in ('time', 't_until_next', 'next_event_t', 't_since_last'):
+            df_obs[col] = td(df_obs[col])
+
+        df_disp['date'] = pd.to_datetime(df_disp['date'])
+
+        df_disp['time'] = df_disp['date'] + td(df_disp['time'].round(decimals=1))
+        df_disp['time'] = formatTime(df_disp['time'])
+
+        df_disp['next_event_t'] = df_disp['date'] + td(df_disp['next_event_t'].round(decimals=1))
+        df_disp['next_event_t'] = formatTime(df_disp['next_event_t'])
+
+        df_disp['t_until_next'] = df_disp['t_until_next'].round(decimals=1)
+        df_disp['t_since_last'] = df_disp['t_since_last'].round(decimals=1)
+
+        disp_cols = ['time', 'nr_step', 'route_id', 'block_id', 'direction',
+                     'active', 'status', 'status_desc', 
+                     'next_event', 'next_event_t', 't_until_next', 
+                     'stop_id','stop_sequence', 'pax_load', 't_since_last', 
+                     'trip_id', 'trip_sequence']
+        return df_disp[disp_cols], df_obs[disp_cols]
     
     def get_trip_records(self, scenario=None):
         trip_records = []
@@ -194,9 +203,7 @@ class FixedSimEnv(SimEnv):
         
         # process first event
         self.step_counter += 1
-        df_info = self._get_info_vehicles()
-        df_info['nr_step'] = deepcopy(self.step_counter)
-        self.info_records.append(df_info)
+        self._update_info()
 
         idx_next = self.info_records[-1][['t_until_next']].idxmin().values[0]
         next_vehicle = self.vehicles[idx_next]
@@ -206,13 +213,11 @@ class FixedSimEnv(SimEnv):
                                    self.lines[route], self.routes[route])
 
         self.step_counter += 1
-        df_info = self._get_info_vehicles()
-        df_info['nr_step'] = deepcopy(self.step_counter)
-        self.info_records.append(df_info)
+        self._update_info()
 
-        df_disp = self._display_info()
+        info = self._display_info()
 
-        return [], None, 0, df_disp
+        return [], None, 0, info
     
     def step(self):
         if self.time >= self.end_time_sec:
@@ -226,37 +231,69 @@ class FixedSimEnv(SimEnv):
                                    self.lines[route], self.routes[route])
 
         self.step_counter += 1
-        df_info = self._get_info_vehicles()
-        df_info['nr_step'] = deepcopy(self.step_counter)
-        self.info_records.append(df_info)
 
-        df_disp = self._display_info()
+        self._update_info()
+
+        info = self._display_info()
         
-        return [], None, 0, df_disp
+        return [], None, 0, info
     
-    def get_headways(self, info, control_vehs, terminal=False):
+    def get_headway(self, info, control_vehs, min_dep_t, terminal=False):
         control_veh = self.vehicles[control_vehs.index[0]]
+        trip = control_veh.next_trips[0] if terminal else control_veh.curr_trip
+        expected_dep = max(self.time, min_dep_t)
 
-        if len(control_veh.next_trips) == 0:
-            print(control_vehs.iloc[0])
-            print(control_veh.past_trips, control_veh.curr_trip, 
-                  control_veh.next_trips)
+        if terminal: # adjust departure to schedule or possible layover
+            schd_dep_t = trip.schedule['departure_sec'].values[0]
+            expected_dep = max(expected_dep, schd_dep_t)
+            layover_bus_dep = get_layover_bus_dep(info, control_vehs)
+            if layover_bus_dep:
+                expected_dep = max(expected_dep, layover_bus_dep)
+                hw = expected_dep - layover_bus_dep
+                return hw, expected_dep
 
-        next_trip = control_veh.next_trips[0]
-        schd_dep_t = next_trip.schedule['departure_time_sec'].values[0]
+        route = self.routes[control_veh.route_id]
+        stop = route.stops[trip.direction][control_veh.stop_idx]
+        if not stop.last['departure_time']:
+            return None, None
+        last_dep = stop.last['departure_time'][-1]
+        hw = expected_dep - last_dep
+        return hw, expected_dep
+    
+    def get_next_headway(self, control_vehs, terminal=False,
+                         expected_dep=0):
+        control_veh = self.vehicles[control_vehs.index[0]]
+        trip = control_veh.next_trips[0] if terminal else control_veh.curr_trip
+        expected_dep = max(self.time, expected_dep)
 
+        route = self.routes[control_veh.route_id]
+        dep_t, stop_idx_from = route.find_next_trip(trip,control_veh.stop_idx, 
+                                                    expected_dep)
+
+        line = self.lines[control_veh.route_id]
+        travel_time = line.time_between_two_stops(stop_idx_from, control_veh.stop_idx, 
+                                                  dep_t, trip.stops)
+        next_arrives = dep_t + travel_time
+        hw = next_arrives - expected_dep        
+        return hw
+    
+    def terminal_dep_limits(self, route_id, trip_id):
+        route = self.routes[route_id]
+        schd_dep_t = route.get_terminal_departure(trip_id)
         earliest = max(schd_dep_t-MAX_EARLY_DEV*60, self.time)
         latest = max(schd_dep_t+MAX_LATE_DEV*60, self.time)
-
-        if terminal:
-            layover_bus_dep = get_layover_bus_dep(info, control_vehs)
-            if layover_bus_dep is not None:
-                earliest = max(earliest, layover_bus_dep)
-
-        pre_hw, next_hw = control_veh.compute_headways(
-            self.lines[control_veh.route_id], earliest, 
-            self.routes[control_veh.route_id], terminal=terminal)
-        return pre_hw, next_hw, earliest, latest
+        return earliest, latest
+    
+    def adjust_departure(self, control_vehs, new_dep_t):
+        control_veh = self.vehicles[control_vehs.index[0]]
+        control_veh.next_event['t'] = deepcopy(new_dep_t)
+        idx = control_vehs.index[0]
+        info_record = self.info_records[-1]
+        info_record.loc[idx, 'next_event_t'] = new_dep_t
+        info_record.loc[idx, 't_until_next'] = new_dep_t - self.time
+        updated_info = self._display_info()
+        return updated_info
+    
 
 class FlexSimEnv(SimEnv):
     """"""

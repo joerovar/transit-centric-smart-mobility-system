@@ -8,11 +8,12 @@ from copy import deepcopy
 import numpy as np
 
 def ehd_message(tim, pre_hw, nxt_hw, schd_dep, 
-                dtmax, dtmin, rec, act):
+                dtmax, dtmin, rec, act, exp_dep):
     print(f'----')
     print(f'Time {td(tim)}')
+    print(f'Expected: {td(exp_dep)}')
     print(f'Headways: {td(pre_hw)} -- {td(nxt_hw)}')
-    print(f'schedule: {td(schd_dep)}')
+    print(f'Schedule: {td(schd_dep)}')
     print(f'{td(dtmin)} < Departure < {td(dtmax)}')
     print(f'Recommended {td(rec)} ---> {td(act)}')
     return
@@ -36,43 +37,47 @@ def run_base(env, done, n_steps=0):
 def run_ehd(env, done, n_steps=0, debug=False):
     while not done and n_steps < MAX_STEPS:
         next_obs, rew, done, info = env.step()
-
+        n_steps += 1
         if done:
             continue
 
-        control_vehs = flag_departure_event(info)
+        control_vehs = flag_departure_event(info[1])
 
         if control_vehs.empty:
             continue
 
         control_veh = env.vehicles[control_vehs.index[0]]
-
-        pre_hw, next_hw, dt_min, dt_max = env.get_headways(info, 
-                                                           control_vehs,
-                                                           terminal=True)
+        rt_id, trip_id = control_veh.route_id, control_veh.curr_trip.id
+        min_dep_t, max_dep_t = env.terminal_dep_limits(rt_id, trip_id)
+        # new min dep t refers to the potential imposed minimum
+        # based on a layover bus that may be late
+        pre_hw, new_min_dep_t = env.get_headway(info[1], control_vehs,
+                                               min_dep_t, 
+                                               terminal=True)
         if pre_hw is None:
             continue
+
         if pre_hw < 0:
             continue
 
-        rec_dep_t = recommended_dep_t(pre_hw, next_hw, env.time)
-        dep_t = min(dt_max, rec_dep_t)
-        dep_t = max(dt_min, dep_t)
+        next_hw = env.get_next_headway(control_vehs, terminal=True,
+                                       expected_dep=new_min_dep_t)       
 
-        next_trip = control_veh.next_trips[0]
-        schd_dep_t = next_trip.schedule['departure_time_sec'].values[0]
-        
+        rec_dep_t = recommended_dep_t(pre_hw, next_hw, new_min_dep_t)
+        new_dep_t = min(max_dep_t, rec_dep_t)
+
+        if new_dep_t <= control_veh.next_event['t']:
+            continue
+
+        updated_info = env.adjust_departure(control_vehs, new_dep_t)
+
         if debug:
+            next_trip = control_veh.next_trips[0]
+            schd_dep_t = next_trip.schedule['departure_sec'].values[0]
             ehd_message(env.time, pre_hw, next_hw,
-            schd_dep_t, dt_max, dt_min, rec_dep_t, dep_t)
-            return env, info, n_steps
-
-        if dep_t > control_veh.next_event['t']:
-            control_veh.next_event['t'] = deepcopy(dep_t)
-            new_df_info = env._get_info_vehicles()
-            new_df_info['nr_step'] = deepcopy(env.step_counter)
-            env.info_records[-1] = new_df_info.copy()
-        n_steps += 1
+                        schd_dep_t, max_dep_t, min_dep_t, 
+                        rec_dep_t, new_dep_t, new_min_dep_t)
+            return env, info, n_steps, updated_info
     return env, n_steps
     
 

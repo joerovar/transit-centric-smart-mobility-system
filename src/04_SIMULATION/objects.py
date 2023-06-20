@@ -25,22 +25,22 @@ class Line:
                                 edge_link=False):
         link_times = self.link_times.copy()
         interval = int(time_sec/self.link_t_interval_sec)
-
-        link_t = link_times.loc[
-            (link_times[self.interval_col_name]==interval) &  
+        bin_col_name = self.interval_col_name
+        all_link_t = link_times[ 
             (link_times['stop_id']==stop_from) & 
-            (link_times['next_stop_id']==stop_to)]
-        
-        if link_t.empty:
-            print(self.id, stop_from, stop_to)
+            (link_times['next_stop_id']==stop_to)].copy()
+        bin_link_t = all_link_t[all_link_t[bin_col_name]==interval].copy()
+        if bin_link_t.empty:
+            # print(self.id, stop_from, stop_to)
+            return all_link_t['schd_link_time'].mean() * 60
 
         if edge_link:
-            return link_t['schd_link_time'].values[0]*60
+            return bin_link_t['schd_link_time'].values[0] * 60
 
         if sample:
-            return link_t['link_time'].sample().iloc[0] * 60
+            return bin_link_t['link_time'].sample().iloc[0] * 60
         else:
-            return link_t['link_time'].mean() * 60
+            return bin_link_t['link_time'].mean() * 60
     
     def time_between_two_stops(self, stop0, stop1, stops, departs):
         t = 0 # travel time accumulator
@@ -96,10 +96,23 @@ class Line:
 class Stop:
     def __init__(self, stop_id):
         self.stop_id = stop_id
+        self.last = {
+            'trip_id': [],
+            'arrival_time': [],
+            'departure_time': []
+        }
         self.last_arr_time = None
         self.last_dep_time = None
         self.last_arr_trip = None
         self.last_dep_trip = None
+    
+    def report_last(self, n=2):
+        # assuming the length has already been checked!
+        last = deepcopy(self.last)
+        if len(last['arrival_time']) > len(last['departure_time']):
+            last['departure_time'].append(np.nan)
+        return pd.DataFrame(last).iloc[-n:]
+
 
 class Route:
     def __init__(self):
@@ -118,7 +131,7 @@ class FixedRoute(Route):
             self.schedule['departure_time'])
         self.schedule = self.schedule.sort_values(
             by='departure_time_td').reset_index(drop=True)
-        self.schedule['departure_time_sec'] = self.schedule['departure_time_td'].dt.total_seconds()
+        self.schedule['departure_sec'] = self.schedule['departure_time_td'].dt.total_seconds()
         self.outbound_direction = outbound_direction
         self.inbound_direction = inbound_direction
         self.stops_outbound = stops[stops['direction']==outbound_direction].copy()
@@ -143,30 +156,69 @@ class FixedRoute(Route):
             self.inbound_direction: [Stop(si) for si in self.stops_inbound['stop_id'].tolist()]
         }
     
-    def next_terminal_departure(self, after, direction):
+    def next_terminal_departure(self, after, direction, stop_id):
         schd = self.schedule.copy()
         next_schd = schd.loc[(schd['confirmed']==1) & 
-                             (schd['departure_time_sec']>after) & 
+                             (schd['departure_sec']>after) & 
                              (schd['stop_sequence']==1) &
+                             (schd['stop_id']==stop_id) &
                              (schd['direction']==direction)]
-        return next_schd['departure_time_sec'].values[0]
+        return next_schd['departure_sec'].values[0]
     
-    def find_next_trip(self, direction, 
-                       curr_stop_idx, curr_trip_id,
-                       min_dep_t):
+    def get_status(self, terminal_id, 
+                   recent_trips=2, max_trips=7):
+        # we join the recent departure records with the next departures
+        # only outbound direction
+        direction = self.outbound_direction
+        stop = self.stops[direction][0]
+        if len(stop.last['arrival_time']) < recent_trips:
+            return None
+        recent = stop.report_last(n=recent_trips)
+        recent = recent.rename(
+            columns={'arrival_time':'AT',
+                     'departure_time': 'DT',
+                     'trip_id': 'schd_trip_id'})
+        schd = self.schedule.copy()
+        schd = schd[(schd['direction']==direction) &
+                    (schd['stop_sequence']==1) &
+                    (schd['stop_id']==terminal_id)]
+        schd = schd.sort_values(by='departure_sec')
+        sub_cols = ['route_id', 'trip_sequence',
+                    'runid', 'block_id', 'schd_trip_id', 'shape_id',
+                    'confirmed','departure_time', 'departure_sec']
+        schd = schd[sub_cols]
+        schd = schd.rename(columns={'departure_sec': 'ST',
+                                    'departure_time': 'ST_str'})
+        min_trip_id = recent['schd_trip_id'].iloc[0]
+        min_trip_seq = schd.loc[schd['schd_trip_id']==min_trip_id, 
+                                'trip_sequence'].iloc[0]
+        max_trip_id = recent['schd_trip_id'].iloc[-1]
+        max_trip_seq = schd.loc[schd['schd_trip_id']==max_trip_id, 
+                        'trip_sequence'].iloc[0]
+        schd = schd[schd['trip_sequence']>=min_trip_seq]
+        schd = schd[~((schd['trip_sequence']<max_trip_seq) &
+                      (schd['confirmed']==0))]
+        # ignore prior cancellations
+        schd = schd.iloc[:max_trips]
+        rt_status = schd.merge(recent, on='schd_trip_id', how='left')
+
+        rt_status = rt_status.rename(columns={'schd_trip_id': 'trip_id'})
+        return rt_status
+    
+    def find_next_trip(self, trip, curr_stop_idx, expected_dep):
         dep_t = None
         stop_idx = None
-        stops = self.stops[direction]
+        stops = self.stops[trip.direction]
         for i in range(curr_stop_idx-1, -1, -1):
             stop = stops[i]
-            if stop.last_dep_trip != curr_trip_id:
-                dep_t = stop.last_dep_time
+            # there should not be a case where there is no recording
+            if stop.last['trip_id'][-1] != trip.id:
+                dep_t = stop.last['arrival_time'][-1]
                 stop_idx = deepcopy(i)
                 break
         if dep_t is None:
-            schd_dep_t = self.get_terminal_departure(curr_trip_id)
-            dep_t = self.next_terminal_departure(max(schd_dep_t, min_dep_t),
-                                                 direction)
+            dep_t = self.next_terminal_departure(expected_dep,
+                                                 trip.direction, trip.stops[0])
             stop_idx = 0
         return dep_t, stop_idx
     
@@ -174,7 +226,7 @@ class FixedRoute(Route):
         schd = self.schedule.copy()
         trip_schd = schd[(schd['schd_trip_id']==trip_id) & 
                          (schd['stop_sequence']==1)].copy()
-        return trip_schd['departure_time_sec'].values[0]
+        return trip_schd['departure_sec'].values[0]
 
 class Demand:
     def __init__(self, od):
@@ -264,8 +316,8 @@ class Trip:
         self.records = {
             'stop_id': [],
             'stop_sequence': [],
-            'arrival_time_sec': [],
-            'departure_time_sec': [],
+            'arrival_sec': [],
+            'departure_sec': [],
             'passenger_load': [],
             'ons': [],
             'offs': [],
@@ -277,14 +329,14 @@ class Trip:
         self.records['stop_id'].append(
             stop_schd_info['stop_id'])
         self.records['schd_time_sec'].append(
-            stop_schd_info['departure_time_sec'])
-        self.records['arrival_time_sec'].append(time_sec)
+            stop_schd_info['departure_sec'])
+        self.records['arrival_sec'].append(time_sec)
         self.records['ons'].append(ons)
         self.records['offs'].append(offs)
         self.records['stop_sequence'].append(stop_idx+1)
 
     def record_departure(self, time_sec, ons, pax_load):
-        self.records['departure_time_sec'].append(time_sec)
+        self.records['departure_sec'].append(time_sec)
         self.records['ons'][-1] += ons
         self.records['passenger_load'].append(pax_load)
 
@@ -339,7 +391,7 @@ class FixedVehicle(Vehicle):
         for t in block_schedule['trip_id'].unique():
             trip_sched = block_schedule[block_schedule['trip_id']==t].copy()
             trip_sched = trip_sched.sort_values(
-                by='departure_time_sec').reset_index(drop=True)
+                by='departure_sec').reset_index(drop=True)
             self.next_trips.append(Trip(trip_sched))
         
         self.event_dict = {
@@ -351,7 +403,7 @@ class FixedVehicle(Vehicle):
             5: 'report after break'
         }
 
-        first_schd_time = self.next_trips[0].schedule['departure_time_sec'].values[0]
+        first_schd_time = self.next_trips[0].schedule['departure_sec'].values[0]
         self.report_delay = np.random.uniform(*report_delays)*60 # convert to seconds
         # print(f'BLOCK ------ {self.block_id}')
         # print(pd.to_timedelta(round(first_schd_time), unit='S'))
@@ -398,21 +450,23 @@ class FixedVehicle(Vehicle):
 
         # pax 
         capacity_avail = self.capacity - self.pax.shape[0]
-        stop = self.curr_trip.stops[0]
-        remaining_stops = self.curr_trip.stops[1:]
-        pax2board = demand.get_pax_to_board(time, stop, 
+        stop_id = self.curr_trip.stops[0]
+        trip = self.curr_trip
+        remaining_stops = trip.stops[1:]
+        pax2board = demand.get_pax_to_board(time, stop_id, 
                                             capacity_avail, self.route_id,
                                             remaining_stops)
         if not pax2board.empty:
             self._board_pax(time, pax2board)
         
-        self.curr_trip.record_arrival(0, time, pax2board.shape[0], 0) # record step
+        trip.record_arrival(0, time, pax2board.shape[0], 0) # record step
 
         # update stop
-        route.stops[
-            self.curr_trip.direction][self.stop_idx].last_arr_time = time
-        route.stops[
-            self.curr_trip.direction][self.stop_idx].last_arr_trip = self.curr_trip.id
+        stop = route.stops[trip.direction][self.stop_idx]
+        stop.last['arrival_time'].append(time)
+        stop.last['trip_id'].append(trip.id)
+        stop.last_arr_time = time
+        stop.last_arr_trip = trip.id
 
         # updates status and next event information
         self.status = 2
@@ -423,32 +477,33 @@ class FixedVehicle(Vehicle):
     def depart_stop(self, time, line, demand, route):
         # if there was dwell time allow more pax to board
         capacity_avail = self.capacity - self.pax.shape[0]
-        stop = self.curr_trip.stops[self.stop_idx]
-        remaining_stops = self.curr_trip.stops[self.stop_idx+1:]
-        pax2board = demand.get_pax_to_board(time, stop, 
+        trip = self.curr_trip
+        stop_id = trip.stops[self.stop_idx]
+        remaining_stops = trip.stops[self.stop_idx+1:]
+        pax2board = demand.get_pax_to_board(time, stop_id, 
                                             capacity_avail, self.route_id,
                                             remaining_stops)
         if not pax2board.empty:
             self._board_pax(time, pax2board)
 
         # if it's the first or last link -> link time must be the scheduled
-        nr_stops = len(self.curr_trip.stops)
+        nr_stops = len(trip.stops)
         first = True if self.stop_idx == 0 else False
         last = True if self.stop_idx + 1 == nr_stops-1 else False
 
-        stop0 = self.curr_trip.stops[self.stop_idx]
-        stop1 = self.curr_trip.stops[self.stop_idx+1]
+        stop0 = trip.stops[self.stop_idx]
+        stop1 = trip.stops[self.stop_idx+1]
         link_time = line.link_time_from_trip(
-            time, self.curr_trip.id, stop0, stop1, self.route_id, 
+            time, trip.id, stop0, stop1, self.route_id, 
             edge_link=(first or last))
         
         # update stop
-        route.stops[
-            self.curr_trip.direction][self.stop_idx].last_dep_time = time
-        route.stops[
-            self.curr_trip.direction][self.stop_idx].last_dep_trip = self.curr_trip.id
+        stop = route.stops[trip.direction][self.stop_idx]
+        stop.last['departure_time'].append(time)
+        stop.last_dep_time = time
+        stop.last_dep_trip = self.curr_trip.id
         
-        self.curr_trip.record_departure(time, pax2board.shape[0], self.pax.shape[0]) # record
+        trip.record_departure(time, pax2board.shape[0], self.pax.shape[0]) # record
         
         # update status and next event information
         self.status = 3 
@@ -457,20 +512,15 @@ class FixedVehicle(Vehicle):
 
         return
 
-    def adjust_departure(self, adjustment_mins=None, equal_headways=False):
-        if adjustment_mins: # can be negative for depart early
-            return
-        if equal_headways:
-            return
-
     def arrive_at_stop(self, time, demand, route):
         self.stop_idx += 1
         
         # update pax
         capacity_avail = self.capacity - self.pax.shape[0]
-        stop = self.curr_trip.stops[self.stop_idx]
-        remaining_stops = self.curr_trip.stops[self.stop_idx+1:]
-        pax2board = demand.get_pax_to_board(time, stop, 
+        trip = self.curr_trip
+        stop_id = trip.stops[self.stop_idx]
+        remaining_stops = trip.stops[self.stop_idx+1:]
+        pax2board = demand.get_pax_to_board(time, stop_id, 
                                             capacity_avail, self.route_id,
                                             remaining_stops)
         if not pax2board.empty:
@@ -484,14 +534,12 @@ class FixedVehicle(Vehicle):
             pax2alight = pd.DataFrame()
 
         # update stop
-        route.stops[
-            self.curr_trip.direction][self.stop_idx].last_arr_time = time
-        route.stops[
-            self.curr_trip.direction][self.stop_idx].last_arr_trip = self.curr_trip.id
-
+        stop = route.stops[trip.direction][self.stop_idx]
+        stop.last['arrival_time'].append(time)
+        stop.last['trip_id'].append(trip.id)
         # record step
-        self.curr_trip.record_arrival(self.stop_idx, time, 
-                                      pax2board.shape[0], pax2alight.shape[0])
+        trip.record_arrival(self.stop_idx, time, 
+                            pax2board.shape[0], pax2alight.shape[0])
 
         # update status and next event
         self.status = 2
@@ -515,18 +563,20 @@ class FixedVehicle(Vehicle):
             print(f'load at terminal not zero instead {self.pax.shape[0]}')
             print(self.pax.head()) # load at terminal should be zero
 
-        self.curr_trip.record_arrival(self.stop_idx, time,
-                                      0, pax2alight.shape[0])
-        self.curr_trip.record_departure(time, 0, 0)
+        trip = self.curr_trip
+        trip.record_arrival(self.stop_idx, time,
+                            0, pax2alight.shape[0])
+        trip.record_departure(time, 0, 0)
 
         # update stop
-        route.stops[
-            self.curr_trip.direction][self.stop_idx].last_arr_time = time
-        route.stops[
-            self.curr_trip.direction][self.stop_idx].last_arr_trip = self.curr_trip.id
+        stop = route.stops[self.curr_trip.direction][self.stop_idx]
+        stop.last['arrival_time'].append(time)
+        stop.last['trip_id'].append(trip.id)
+        stop.last_arr_time = time
+        stop.last_arr_trip = trip.id
 
         # record step     
-        trip_record = self.curr_trip.get_complete_records() 
+        trip_record = trip.get_complete_records() 
         self.trip_records = pd.concat(
             [self.trip_records, trip_record]).reset_index(drop=True)
 
@@ -536,7 +586,8 @@ class FixedVehicle(Vehicle):
 
         # update status
         if self.next_trips:
-            schd_time = self.next_trips[0].schedule['departure_time_sec'].values[0]
+            self.stop_idx = 0
+            schd_time = self.next_trips[0].schedule['departure_sec'].values[0]
             if schd_time - time > self.break_threshold * 60:
                 self.status = 5
                 self.next_event['type'] = 5
@@ -545,8 +596,8 @@ class FixedVehicle(Vehicle):
                 self.status = 1
                 self.next_event['type'] = 0
                 self.next_event['t'] = max(time + self._dwell_time(0, pax2alight.shape[0]), schd_time)
-
         else:
+            self.stop_idx = 0
             self.status = -1
             self.next_event['t'] = -1
             self.next_event['type'] = -1
@@ -554,7 +605,7 @@ class FixedVehicle(Vehicle):
     
     def report_at_terminal(self, time):
         self.status = 4
-        schd_time = self.next_trips[0].schedule['departure_time_sec'].values[0]
+        schd_time = self.next_trips[0].schedule['departure_sec'].values[0]
         self.next_event['t'] = max(time, schd_time)
         self.next_event['type'] = 0
         return
@@ -577,35 +628,6 @@ class FixedVehicle(Vehicle):
             self.report_at_terminal(time)
             return
 
-    def compute_headways(self, line, min_dep_t, route, terminal=False):
-        # pre headway
-        trip = self.next_trips[0] if terminal else self.curr_trip
-        stop = route.stops[trip.direction][self.stop_idx]
-        if stop.last_dep_time is None:
-            return None, None
-        last_dep_t = stop.last_dep_time
-        min_dep_t = max(min_dep_t, last_dep_t)
-        pre_hw = min_dep_t - last_dep_t
-        if pre_hw == 0.0:
-                print('saved a negative headway')
-                print(f'earliest {td(min_dep_t)} last {td(last_dep_t)} true earliest {td(max(min_dep_t, last_dep_t))}')
-        
-        # next headway
-        # here we try to find the last stop that the next trip departed from
-        # next trip details
-        dep_t, stop_idx_from = route.find_next_trip(trip.direction,self.stop_idx, 
-                                                    trip.id, min_dep_t)
-
-        travel_time = line.time_between_two_stops(stop_idx_from, self.stop_idx, 
-                                                  dep_t, trip.stops)
-        next_arrives = dep_t + travel_time
-        next_hw = next_arrives - min_dep_t
-        
-        # print(f'from terminal or stop {stop_idx_from} to stop {self.stop_idx}')
-        # print(f'departure {td(dep_t)}')
-        # print(f'travel time {td(travel_time)}')
-        return pre_hw, next_hw
-
     def get_info(self, line, time):
         if self.status in [2,3]:
             # only active vehicles here
@@ -616,7 +638,7 @@ class FixedVehicle(Vehicle):
             message = {
                 'time': time,
                 'route_id': self.route_id,
-                'id': self.block_id,
+                'block_id': self.block_id,
                 'status': self.status,
                 'status_desc': self.status_dict[self.status],
                 'next_event': self.event_dict[self.next_event['type']],
@@ -639,14 +661,14 @@ class FixedVehicle(Vehicle):
             message = {
                 'time': time,
                 'route_id': self.route_id,
-                'id': self.block_id,
+                'block_id': self.block_id,
                 'status': self.status,
                 'status_desc': self.status_dict[self.status],
                 'next_event': self.event_dict[self.next_event['type']],
                 'next_event_t': self.next_event['t'],
                 't_until_next': self.next_event['t'] - time,
                 'stop_id': self.next_trips[0].stops[0],
-                'stop_sequence': 1,
+                'stop_sequence': self.stop_idx+1,
                 'stop_lat': 0,
                 'stop_lon': 0,
                 'direction': self.next_trips[0].direction,
@@ -662,7 +684,7 @@ class FixedVehicle(Vehicle):
             message = {
                 'time': time,
                 'route_id': self.route_id,
-                'id': self.block_id,
+                'block_id': self.block_id,
                 'status': self.status,
                 'status_desc': self.status_dict[self.status],
                 'next_event': None,

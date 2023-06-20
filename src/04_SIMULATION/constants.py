@@ -52,7 +52,7 @@ DWELL_TIME_PARAMS = {
     'acc_dec': 4.0,
     'error': 1.5
 }
-TERMINAL_REPORT_DELAYS = (-4.0, 2.0)
+TERMINAL_REPORT_DELAYS = (-5.0, 2.5)
 BREAK_THRESHOLD = 20.0 # past this, it is considered a bus is parked at terminal
 MAX_EARLY_DEV = 5.0
 MAX_LATE_DEV = 5.0
