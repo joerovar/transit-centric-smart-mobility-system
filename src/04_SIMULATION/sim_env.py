@@ -149,7 +149,7 @@ class FixedSimEnv(SimEnv):
         df_trips = pd.concat(trip_records, ignore_index=True)
         hist_date_dt = pd.to_datetime(self.hist_date)
         for ky in ('arrival', 'departure', 'schd'):
-            full_ky = ky + '_time_sec'
+            full_ky = ky + '_sec'
             df_trips[full_ky] = pd.to_timedelta(
                 df_trips[full_ky].round(), unit='S')
             df_trips[full_ky] += hist_date_dt

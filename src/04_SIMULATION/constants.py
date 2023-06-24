@@ -66,5 +66,14 @@ KEY_STOP_NAMES = {'81': ['Jefferson Park', 'Cicero', 'Pulaski', 'Kimball', 'West
 ANIMATION = {
     'y_lim': (41.952583,41.984450),
     'x_lim': (-87.768183,-87.642206),
-    'text_loc': (-87.769,41.866)
+    'text_loc': (-87.769,41.866),
+    'start_time': 7.0*60*60,
+    'end_time': 7.5*60*60,
+    'load_bounds': [0, 10, 30, 70],
+    'load_marker_sizes': [30,40,50]
 }
+
+ANIMATION_COLS = ['date','nr_step', 'time', 'route_id', 'direction', 
+                  'pax_load', 'stop_sequence', 'stop_id']
+
+

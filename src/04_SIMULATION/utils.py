@@ -24,31 +24,38 @@ def get_geo_stops(stops, rt, direction):
 def plot_situation(situation_df, stops, day_str):
     fig, ax = plt.subplots(figsize=(10,13))
     df = situation_df.copy()
-
+    df = df.merge(stops[['stop_id', 'stop_lon', 'stop_lat']], on='stop_id')
+    dir_colors = ('black', 'gray')
+    load_bounds = ANIMATION['load_bounds']
+    load_alphas = ANIMATION['load_alphas']
+    load_markers = ANIMATION['load_marker_sizes']
     for rt in ROUTES:
-        
-        lon, lat, ky_lon, ky_lat = get_geo_stops(stops, rt, OUTBOUND_DIRECTIONS[rt])
-        key_stops_coord = list(zip(ky_lon, ky_lat))
         df_rt = df[df['route_id']==rt].copy()
-        
         directions = (OUTBOUND_DIRECTIONS[rt], INBOUND_DIRECTIONS[rt])
-        colors = ('black', 'gray')
-        for direction, color in zip(directions, colors):
+        x, y, ky_x, ky_y = get_geo_stops(stops, rt, OUTBOUND_DIRECTIONS[rt])
+        ky_stops_xy = {'x': ky_x, 'y': ky_y}
+        scat = ax.scatter(ky_x, ky_y, marker='+', color='darkcyan')
+        ax.plot(x, y, color='darkcyan')
+
+        for direction, color in zip(directions, dir_colors):
             df_dir = df_rt[df_rt['direction']==direction].copy()
 
             if df_dir.shape[0]:
-                scat = ax.scatter(df_dir['stop_lon'], 
-                                  df_dir['stop_lat'], color=color)
-        
-        scat = ax.scatter(ky_lon, ky_lat, marker='|', color='darkcyan')
-        ax.plot(lon, lat, color='darkcyan')
+                for i in range(len(load_alphas)):
+                    lmin, lmax = load_bounds[i], load_bounds[i+1]
+                    ldf = df_dir[
+                        df_dir['pax_load'].between(lmin, lmax, inclusive='left')].copy()
+                    if ldf.shape[0]:
+                        scat = ax.scatter(ldf['stop_lon'], ldf['stop_lat'],
+                                          color=color, s=load_markers[i],
+                                          zorder=3)
+
         for i in range(len(KEY_STOP_NAMES[rt])):
             plt.annotate(
-                KEY_STOP_NAMES[rt][i], key_stops_coord[i], 
-                xytext=(key_stops_coord[i][0], key_stops_coord[i][1]+0.001),
-                rotation=60, fontsize=10)
-        
-
+                KEY_STOP_NAMES[rt][i], (ky_stops_xy['x'][i], ky_stops_xy['y'][i]), 
+                xytext=(ky_stops_xy['x'][i], ky_stops_xy['y'][i]+0.001),
+                rotation=40, fontsize=10)
+            
     # ax.set_ylim(*ANIMATION['y_lim'])
     # ax.set_xlim(*ANIMATION['x_lim'])
     day_ts = pd.Timestamp(day_str)

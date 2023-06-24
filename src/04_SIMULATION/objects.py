@@ -321,14 +321,14 @@ class Trip:
             'passenger_load': [],
             'ons': [],
             'offs': [],
-            'schd_time_sec': []
+            'schd_sec': []
         }
     
     def record_arrival(self, stop_idx, time_sec, ons, offs):
         stop_schd_info = self.schedule.loc[stop_idx]
         self.records['stop_id'].append(
             stop_schd_info['stop_id'])
-        self.records['schd_time_sec'].append(
+        self.records['schd_sec'].append(
             stop_schd_info['departure_sec'])
         self.records['arrival_sec'].append(time_sec)
         self.records['ons'].append(ons)
@@ -631,10 +631,7 @@ class FixedVehicle(Vehicle):
     def get_info(self, line, time):
         if self.status in [2,3]:
             # only active vehicles here
-            stops = line.stops[self.curr_trip.direction]
             last_stop_id = self.curr_trip.stops[self.stop_idx]
-            last_stop = stops.loc[stops['stop_id']==last_stop_id].copy()
-            stop_lat, stop_lon = last_stop[['stop_lat', 'stop_lon']].values[0].tolist()
             message = {
                 'time': time,
                 'route_id': self.route_id,
@@ -646,8 +643,6 @@ class FixedVehicle(Vehicle):
                 't_until_next': self.next_event['t'] - time,
                 'stop_id': last_stop_id,
                 'stop_sequence': self.stop_idx+1,
-                'stop_lat': stop_lat,
-                'stop_lon': stop_lon, 
                 'direction': self.curr_trip.direction,
                 'trip_id': self.curr_trip.id,
                 'active': 1, 
@@ -669,8 +664,6 @@ class FixedVehicle(Vehicle):
                 't_until_next': self.next_event['t'] - time,
                 'stop_id': self.next_trips[0].stops[0],
                 'stop_sequence': self.stop_idx+1,
-                'stop_lat': 0,
-                'stop_lon': 0,
                 'direction': self.next_trips[0].direction,
                 'trip_id': self.next_trips[0].id,
                 'active': 0,
@@ -692,8 +685,6 @@ class FixedVehicle(Vehicle):
                 't_until_next': None,
                 'stop_id': None,
                 'stop_sequence': None,
-                'stop_lat': 0,
-                'stop_lon': 0,
                 'direction': None,
                 'trip_id': None,
                 'active': 0,
