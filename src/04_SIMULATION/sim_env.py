@@ -22,31 +22,48 @@ def flag_departure_event(info):
     tmp_info = info[info['t_since_last'].notna()].copy()
     outbound_terminals = [OUTBOUND_TERMINALS[rt][0] for rt in ROUTES]
     flag_vehicle = tmp_info[(tmp_info['stop_id'].isin(outbound_terminals)) & 
-                            (tmp_info['status'].isin([1,4])) & 
+                            (tmp_info['status'] == 4) & 
                             (tmp_info['t_since_last']==pd.to_timedelta(0, unit='S'))].copy()
     return flag_vehicle
 
-def recommended_dep_t(pre_hw, next_hw, t):
+def recommended_dep_t(pre_hw, next_hw, t, max_dep_t):
     hw_diff = next_hw-pre_hw
-    rec_dep_t = t + max(0,hw_diff/2)
-    return rec_dep_t
+    hold_wo_lim = max(0,hw_diff/2)
+    rec_wo_lim = t + hold_wo_lim # without limit
+    rec_dep_t = min(rec_wo_lim, max_dep_t)
+    true_hold = rec_dep_t - t
+    new_hws = pre_hw+true_hold, next_hw-true_hold
+    return rec_dep_t, new_hws, rec_dep_t
 
-def get_layover_bus_dep(info, control_vehs):
+def get_layover_bus_dep(info, control_vehs, schd):
     rt_id = control_vehs['route_id'].iloc[0]
     stop_id = control_vehs['stop_id'].iloc[0]
     trip_seq = control_vehs['trip_sequence'].iloc[0]
-    lay_buses = info[(info['route_id']==rt_id) & 
-                (info['stop_id']==stop_id) & 
-                (info['status'].isin([1,2,4])) & 
-                (info['stop_sequence']==1) & 
-                (info['trip_sequence'] < trip_seq)].copy()
-    if lay_buses.empty:
+    
+    # the last trip confirmed
+    last_trip = schd[(schd['stop_sequence']==1) &
+                     (schd['stop_id']==stop_id) &
+                     (schd['trip_sequence'] < trip_seq) &
+                     (schd['confirmed']==1)].copy()
+    if last_trip.empty:
         return None
-    return lay_buses['next_event_t'].max().total_seconds()
+    last_trip_id = last_trip['schd_trip_id'].iloc[-1]
 
-def check_for_interlining(rt_status):
-
-    return
+    lay_bus = info[(info['route_id']==rt_id) & 
+                (info['stop_id']==stop_id) &
+                (info['stop_sequence']==1) & 
+                (info['trip_id'] == last_trip_id) &
+                (info['status'].isin([1,2,4]))].copy()
+    if lay_bus.empty:
+        return None
+    assert lay_bus.shape[0]==1
+    # these are buses either in dwell or that reported and have an assigned departure
+    if lay_bus['status'].iloc[0] in (2,4):
+        return lay_bus['next_event_t'].iloc[0].total_seconds()
+    else:
+        assert lay_bus['status'].iloc[0] == 1
+        lay_bus_schd_dep = last_trip['departure_sec'].iloc[-1]
+        return max(lay_bus_schd_dep, lay_bus['next_event_t'].iloc[0].total_seconds())
 
 class SimEnv:
     def __init__(self):
@@ -242,17 +259,18 @@ class FixedSimEnv(SimEnv):
         control_veh = self.vehicles[control_vehs.index[0]]
         trip = control_veh.next_trips[0] if terminal else control_veh.curr_trip
         expected_dep = max(self.time, min_dep_t)
+        route = self.routes[control_veh.route_id]
 
         if terminal: # adjust departure to schedule or possible layover
-            schd_dep_t = trip.schedule['departure_sec'].values[0]
-            expected_dep = max(expected_dep, schd_dep_t)
-            layover_bus_dep = get_layover_bus_dep(info, control_vehs)
+            # schd_dep_t = trip.schedule['departure_sec'].values[0]
+            # expected_dep = max(expected_dep, schd_dep_t)
+            layover_bus_dep = get_layover_bus_dep(info, control_vehs, 
+                                                  route.schedule)
             if layover_bus_dep:
                 expected_dep = max(expected_dep, layover_bus_dep)
                 hw = expected_dep - layover_bus_dep
                 return hw, expected_dep
 
-        route = self.routes[control_veh.route_id]
         stop = route.stops[trip.direction][control_veh.stop_idx]
         if not stop.last['departure_time']:
             return None, None
@@ -267,8 +285,7 @@ class FixedSimEnv(SimEnv):
         expected_dep = max(self.time, expected_dep)
 
         route = self.routes[control_veh.route_id]
-        dep_t, stop_idx_from = route.find_next_trip(trip,control_veh.stop_idx, 
-                                                    expected_dep)
+        dep_t, stop_idx_from = route.find_next_trip(trip,control_veh.stop_idx)
 
         line = self.lines[control_veh.route_id]
         travel_time = line.time_between_two_stops(stop_idx_from, control_veh.stop_idx, 
@@ -294,6 +311,20 @@ class FixedSimEnv(SimEnv):
         updated_info = self._display_info()
         return updated_info
     
+    def adjust_route_and_departure(self, control_vehs, new_dep_t):
+        control_veh = self.vehicles[control_vehs.index[0]]
+        control_veh.next_event['t'] = deepcopy(new_dep_t)
+        idx = control_vehs.index[0]
+        info_record = self.info_records[-1]
+        info_record.loc[idx, 'next_event_t'] = new_dep_t
+        info_record.loc[idx, 't_until_next'] = new_dep_t - self.time
+        info_record.loc[idx, 'route_id'] = control_veh.route_id
+        info_record.loc[idx, 'stop_id'] = control_veh.next_trips[0].stops[0]
+        info_record.loc[idx, 'direction'] = control_veh.next_trips[0].direction
+        info_record.loc[idx, 'trip_id'] = control_veh.next_trips[0].id
+        info_record.loc[idx, 'trip_sequence'] = control_veh.next_trips[0].schedule['trip_sequence'].iloc[0]
+        updated_info = self._display_info()
+        return updated_info
 
 class FlexSimEnv(SimEnv):
     """"""

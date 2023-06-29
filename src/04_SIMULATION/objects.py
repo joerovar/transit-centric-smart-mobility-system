@@ -140,6 +140,7 @@ class FixedRoute(Route):
             outbound_direction: [Stop(si) for si in self.stops_outbound['stop_id'].tolist()],
             inbound_direction: [Stop(si) for si in self.stops_inbound['stop_id'].tolist()]
         }
+        self.worklog = pd.DataFrame()
 
     def update_schedule(self, confirmed_trips=None):
         # mark schedule for cancelled trips
@@ -148,6 +149,16 @@ class FixedRoute(Route):
             # if not all, type list with trip IDs
             self.schedule.loc[
                 ~self.schedule['schd_trip_id'].isin(confirmed_trips), 'confirmed'] = 0
+            
+        work_cols = ['route_id', 'block_id', 'trip_id', 
+                     'schd_trip_id', 'direction',
+                     'departure_time', 'confirmed']
+        work_schd = self.schedule.loc[
+            self.schedule['stop_sequence']==1, work_cols].copy()
+        work_schd['dropped'] = 0
+        work_schd['filled'] = 0
+        work_schd['by_block'] = np.nan
+        self.worklog = work_schd
         return
     
     def reset_stop_records(self):
@@ -205,7 +216,7 @@ class FixedRoute(Route):
         rt_status = rt_status.rename(columns={'schd_trip_id': 'trip_id'})
         return rt_status
     
-    def find_next_trip(self, trip, curr_stop_idx, expected_dep):
+    def find_next_trip(self, trip, curr_stop_idx):
         dep_t = None
         stop_idx = None
         stops = self.stops[trip.direction]
@@ -217,7 +228,7 @@ class FixedRoute(Route):
                 stop_idx = deepcopy(i)
                 break
         if dep_t is None:
-            dep_t = self.next_terminal_departure(expected_dep,
+            dep_t = self.next_terminal_departure(trip.schedule['departure_sec'].values[0],
                                                  trip.direction, trip.stops[0])
             stop_idx = 0
         return dep_t, stop_idx
@@ -340,10 +351,10 @@ class Trip:
         self.records['ons'][-1] += ons
         self.records['passenger_load'].append(pax_load)
 
-    def get_complete_records(self):
+    def get_complete_records(self, block_id):
         df_rec = pd.DataFrame(self.records)
         df_rec['trip_id'] = self.id
-        df_rec['block_id'] = self.schedule['block_id'].values[0]
+        df_rec['block_id'] = block_id
         df_rec['run_id'] = self.schedule['runid'].values[0]
         df_rec['direction'] = self.direction
         df_rec['route_id'] = self.route_id
@@ -378,11 +389,11 @@ class FixedVehicle(Vehicle):
         self.status_dict = {
             -1: 'inactive - finished all trips',
             0: 'inactive - yet to report for first trip',
-            1: 'inactive - terminal turnaround',
+            1: 'inactive - terminal layover',
             2: 'active - dwell at stops',
             3: 'active - between stops',
-            4: 'inactive - reported for first trip',
-            5: 'inactive - break between shifts'
+            4: 'inactive - reported for trip',
+            5: 'inactive - break between shifts',
         }
         self.status = 0
         self.stop_idx = 0
@@ -400,7 +411,8 @@ class FixedVehicle(Vehicle):
             2: 'depart stop or terminal',
             3: 'arrive at terminal',
             4: 'first report at terminal',
-            5: 'report after break'
+            5: 'report after break',
+            6: 'report after layover'
         }
 
         first_schd_time = self.next_trips[0].schedule['departure_sec'].values[0]
@@ -576,7 +588,7 @@ class FixedVehicle(Vehicle):
         stop.last_arr_trip = trip.id
 
         # record step     
-        trip_record = trip.get_complete_records() 
+        trip_record = trip.get_complete_records(self.block_id) 
         self.trip_records = pd.concat(
             [self.trip_records, trip_record]).reset_index(drop=True)
 
@@ -587,15 +599,18 @@ class FixedVehicle(Vehicle):
         # update status
         if self.next_trips:
             self.stop_idx = 0
+            self.route_id = self.next_trips[0].schedule['route_id'].values[0]
             schd_time = self.next_trips[0].schedule['departure_sec'].values[0]
+            finish_alighting_time = time + self._dwell_time(0, pax2alight.shape[0])
             if schd_time - time > self.break_threshold * 60:
                 self.status = 5
                 self.next_event['type'] = 5
                 self.next_event['t'] = schd_time - self.max_early_dev*60 # TO-DO randomize at some point!
             else:
                 self.status = 1
-                self.next_event['type'] = 0
-                self.next_event['t'] = max(time + self._dwell_time(0, pax2alight.shape[0]), schd_time)
+                self.next_event['type'] = 6
+                self.next_event['t'] = max(finish_alighting_time,
+                                           schd_time - self.max_early_dev*60)
         else:
             self.stop_idx = 0
             self.status = -1
@@ -624,9 +639,11 @@ class FixedVehicle(Vehicle):
         if self.next_event['type'] == 3:
             self.arrive_at_terminal(time, demand, route)
             return
-        if self.next_event['type'] in [4, 5]:
+        if self.next_event['type'] in [4, 5, 6]:
             self.report_at_terminal(time)
             return
+        if 1 == 1:
+            raise InterruptedError
 
     def get_info(self, line, time):
         if self.status in [2,3]:
