@@ -38,6 +38,12 @@ OUTBOUND_TERMINALS = {'81': (14102, 3773),
 INBOUND_TERMINALS = {'81': (3773, 14102),
                       '91': (9617, 14103),
                       '92': (1038, 14108)} #92 shows 18579 ASK!!
+
+WKDAY_RIDSHIP_REPORT = {'81': 7330, 
+                        '91': 4008,
+                        '92': 4653}
+
+
 ROUTES = ['81', '91', '92']
 
 INTERVAL_LENGTH_MINS = 30
@@ -54,8 +60,8 @@ DWELL_TIME_PARAMS = {
 }
 TERMINAL_REPORT_DELAYS = (-5.0, 2.5)
 BREAK_THRESHOLD = 20.0 # past this, it is considered a bus is parked at terminal
-MAX_EARLY_DEV = 5.0
-MAX_LATE_DEV = 5.0
+MAX_EARLY_DEV = 3.0 ## changing it up!!
+MAX_LATE_DEV = 4.0
 MAX_STEPS = 12000
 
 # FOR RESULTS

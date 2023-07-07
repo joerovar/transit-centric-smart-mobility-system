@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 from constants import *
 from copy import deepcopy
+from interlining import *
 
 def td(t):
     return pd.to_timedelta(t, unit='S')
@@ -315,16 +316,47 @@ class FixedSimEnv(SimEnv):
         control_veh = self.vehicles[control_vehs.index[0]]
         control_veh.next_event['t'] = deepcopy(new_dep_t)
         idx = control_vehs.index[0]
-        info_record = self.info_records[-1]
-        info_record.loc[idx, 'next_event_t'] = new_dep_t
-        info_record.loc[idx, 't_until_next'] = new_dep_t - self.time
-        info_record.loc[idx, 'route_id'] = control_veh.route_id
-        info_record.loc[idx, 'stop_id'] = control_veh.next_trips[0].stops[0]
-        info_record.loc[idx, 'direction'] = control_veh.next_trips[0].direction
-        info_record.loc[idx, 'trip_id'] = control_veh.next_trips[0].id
-        info_record.loc[idx, 'trip_sequence'] = control_veh.next_trips[0].schedule['trip_sequence'].iloc[0]
+        info = self.info_records[-1]
+        info.loc[idx, 'next_event_t'] = new_dep_t
+        info.loc[idx, 't_until_next'] = new_dep_t - self.time
+        info.loc[idx, 'route_id'] = control_veh.route_id
+        info.loc[idx, 'stop_id'] = control_veh.next_trips[0].stops[0]
+        info.loc[idx, 'direction'] = control_veh.next_trips[0].direction
+        info.loc[idx, 'trip_id'] = control_veh.next_trips[0].id
+        trip_seq = control_veh.next_trips[0].schedule['trip_sequence'].iloc[0]
+        info.loc[idx, 'trip_sequence'] = trip_seq
         updated_info = self._display_info()
         return updated_info
+    
+    def get_rts_info(self):
+        rts_info = {}
+        for r in ROUTES:
+            terminal_id = OUTBOUND_TERMINALS[r][0]
+            rts_info[r] = self.routes[r].get_status(terminal_id,
+                                                    recent_trips=2,
+                                                    max_trips=9)
+        return rts_info
+    
+    def get_borrow_rts(self, rts_info, lend_rt_id):
+        borrow_rts = []
+        for rt in rts_info:
+            if rts_info[rt] is None:
+                continue
+            if rt == lend_rt_id:
+                if not can_lender_interline(rts_info[rt]): ## TO-DO inefficient
+                    return []
+                continue
+            rt_info = rts_info[rt].copy()
+            can_rt_interline = check_for_interlining(rt_info, 
+                                                     self.time, 
+                                                     MAX_LATE_DEV*60)
+            if not can_rt_interline:
+                continue
+
+            ## only the candidate borrow routes survive
+            borrow_rts.append(rt)
+        return borrow_rts
+
 
 class FlexSimEnv(SimEnv):
     """"""

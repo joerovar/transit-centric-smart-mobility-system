@@ -4,10 +4,9 @@ from data_handlers import write_sim_data
 import pandas as pd
 import os
 from constants import *
-from copy import deepcopy
 import numpy as np
 from tqdm import tqdm
-from interlining import check_for_interlining, can_lender_interline, get_interlining_opp
+from interlining import eval_interlining
 from objects import Trip
 
 def ehd_message(tim, pre_hw, nxt_hw, schd_dep, 
@@ -49,17 +48,17 @@ def run_ehd(env, done, n_steps=0, debug=False):
         if done:
             continue
 
-        control_vehs = flag_departure_event(info[1])
+        ref_veh_df = flag_departure_event(info[1])
 
-        if control_vehs.empty:
+        if ref_veh_df.empty:
             continue
 
-        control_veh = env.vehicles[control_vehs.index[0]]
-        rt_id, trip_id = control_veh.route_id, control_veh.next_trips[0].id
+        ref_veh = env.vehicles[ref_veh_df.index[0]]
+        rt_id, trip_id = ref_veh.route_id, ref_veh.next_trips[0].id
         min_dep_t, max_dep_t = env.terminal_dep_limits(rt_id, trip_id)
         # new min dep t refers to the potential imposed minimum
         # based on a layover bus that may be late
-        pre_hw, new_min_dep_t = env.get_headway(info[1], control_vehs,
+        pre_hw, new_min_dep_t = env.get_headway(info[1], ref_veh_df,
                                                min_dep_t, 
                                                terminal=True)
         if pre_hw is None:
@@ -68,19 +67,19 @@ def run_ehd(env, done, n_steps=0, debug=False):
         if pre_hw < 0:
             continue
 
-        next_hw = env.get_next_headway(control_vehs, terminal=True,
+        next_hw = env.get_next_headway(ref_veh_df, terminal=True,
                                        expected_dep=new_min_dep_t)       
 
         new_dep_t, new_hws, rec_wo_lim = recommended_dep_t(pre_hw, next_hw, new_min_dep_t, max_dep_t)
         # new_dep_t = min(max_dep_t, rec_dep_t)
 
-        if new_dep_t <= control_veh.next_event['t']:
+        if new_dep_t <= ref_veh.next_event['t']:
             continue
 
-        updated_info = env.adjust_departure(control_vehs, new_dep_t)
+        updated_info = env.adjust_departure(ref_veh_df, new_dep_t)
 
         if debug:
-            next_trip = control_veh.next_trips[0]
+            next_trip = ref_veh.next_trips[0]
             schd_dep_t = next_trip.schedule['departure_sec'].values[0]
             ehd_message(env.time, pre_hw, next_hw,
                         schd_dep_t, max_dep_t, min_dep_t, 
@@ -89,7 +88,7 @@ def run_ehd(env, done, n_steps=0, debug=False):
     pbar.close()
     return env, n_steps
 
-def run_di(env, done, n_steps=0, debug=False, interlining_opps=0, debug_ehd=False):
+def run_di(env, done, n_steps=0, debug=False, debug_ehd=False):
     pbar = tqdm(desc='while loop', total=MAX_STEPS)
     while not done and n_steps < MAX_STEPS:
         next_obs, rew, done, info = env.step()
@@ -99,18 +98,18 @@ def run_di(env, done, n_steps=0, debug=False, interlining_opps=0, debug_ehd=Fals
         if done:
             continue
 
-        control_vehs = flag_departure_event(info[1])
+        ref_veh_df = flag_departure_event(info[1])
 
-        if control_vehs.empty:
+        if ref_veh_df.empty:
             continue
 
-        control_veh = env.vehicles[control_vehs.index[0]]
+        ref_veh = env.vehicles[ref_veh_df.index[0]]
 
-        rt_id, trip_id = control_veh.route_id, control_veh.next_trips[0].id
+        rt_id, trip_id = ref_veh.route_id, ref_veh.next_trips[0].id
         min_dep_t, max_dep_t = env.terminal_dep_limits(rt_id, trip_id)
         # new min dep t refers to the potential imposed minimum
         # based on a layover bus that may be late
-        pre_hw, new_min_dep_t = env.get_headway(info[1], control_vehs,
+        pre_hw, new_min_dep_t = env.get_headway(info[1], ref_veh_df,
                                                 min_dep_t, 
                                                 terminal=True)
         if pre_hw is None:
@@ -119,80 +118,51 @@ def run_di(env, done, n_steps=0, debug=False, interlining_opps=0, debug_ehd=Fals
         if pre_hw < 0:
             continue
 
-        next_hw = env.get_next_headway(control_vehs, terminal=True,
+        next_hw = env.get_next_headway(ref_veh_df, terminal=True,
                                        expected_dep=new_min_dep_t)       
 
-        rts_info = {}
-        for r in ROUTES:
-            terminal_id = OUTBOUND_TERMINALS[r][0]
-            # rt_infos[r] = env.routes[r].get_route_info(terminal_id)
-            rts_info[r] = env.routes[r].get_status(terminal_id,
-                                                   recent_trips=2,
-                                                   max_trips=9)
-        can_interline = False
-        borrow_rts = []
-        for rt in rts_info:
-            if rts_info[rt] is None:
-                continue
-            if rt == control_veh.route_id:
-                if not can_lender_interline(rts_info[rt]):
-                    can_interline = False
-                    borrow_rts = []
-                    break # hopefully break just this internal loop
-                continue
-            rt_info = rts_info[rt].copy()
-            if not check_for_interlining(rt_info, env.time, MAX_LATE_DEV*60):
-                continue
-            interlining_opps += 1
-            can_interline = True
-            borrow_rts.append(rt)
+        rts_info = env.get_rts_info()
 
-        if can_interline and rts_info[control_veh.route_id] is not None:
-            best_borrow_rt, next_scheds, next_dep_t, orig_trip_ids, best_bc_ratio = get_interlining_opp(info, control_vehs, rts_info, borrow_rts, env)
-            if best_borrow_rt:
-                if debug:
-                    return env, info, n_steps, control_vehs, rts_info, best_borrow_rt, next_dep_t
-                # switch!
-                veh = env.vehicles[control_vehs.index[0]]
+        lend_rt_id = ref_veh.route_id
+        borrow_rts = env.get_borrow_rts(rts_info, lend_rt_id) ## we include a check on lender
 
+        if borrow_rts and rts_info[lend_rt_id] is not None:
+            best_switch = eval_interlining(info, ref_veh_df, 
+                                           rts_info, borrow_rts, env,
+                                           debug=debug)
+            if debug:
+                return env, info, n_steps, ref_veh_df, rts_info, best_switch
+            if best_switch['route']:
+                ## switch!!
                 # mark in schedule and worklog the dropped trips
-                schd = env.routes[veh.route_id].schedule
-                worklog = env.routes[veh.route_id].worklog
-                for trip_id in orig_trip_ids:
-                    schd.loc[schd['schd_trip_id']==trip_id, 'confirmed'] = 0
-                    worklog.loc[worklog['schd_trip_id']==trip_id, 'confirmed'] = 0
-                    worklog.loc[worklog['schd_trip_id']==trip_id, 'dropped'] = 1
+                for trip_id in best_switch['lend_trip_ids']:
+                    env.routes[ref_veh.route_id].drop_trip(trip_id)
 
-                # change route
-                veh.route_id = best_borrow_rt
+                # switch route
+                ref_veh.route_id = best_switch['route']
 
                 # change next two trips
                 j = 0
-                for trip_id in next_scheds['trip_id'].unique():
+                next_schds = best_switch['schedules']
+                for trip_id in next_schds['trip_id'].unique():
                     # mark as confirmed in route schedule
-                    schd = env.routes[best_borrow_rt].schedule
-                    schd.loc[schd['trip_id']==trip_id, 'confirmed'] = 1
+                    env.routes[ref_veh.route_id].fill_trip(trip_id, ref_veh.block_id)
 
-                    # log what just happened in route worklog
-                    worklog = env.routes[best_borrow_rt].worklog
-                    worklog.loc[worklog['trip_id']==trip_id,['confirmed', 'filled']] = 1
-                    worklog.loc[worklog['trip_id']==trip_id, 'by_block'] = veh.block_id
-
-                    trip_sched = next_scheds[next_scheds['trip_id']==trip_id].copy()
+                    ## update in vehicle object
+                    trip_sched = next_schds[next_schds['trip_id']==trip_id].copy()
                     trip_sched = trip_sched.sort_values(
                         by='departure_sec').reset_index(drop=True)
-                    veh.next_trips[j] = Trip(trip_sched)
+                    ref_veh.next_trips[j] = Trip(trip_sched)
+
                     j += 1
 
                 # next event time and type
-                upd_info = env.adjust_route_and_departure(control_vehs, next_dep_t)
+                upd_info = env.adjust_route_and_departure(
+                    ref_veh_df, best_switch['departure'])
                 continue
 
-
-        # if debug and can_interline:
-        #     return env, info, n_steps, control_vehs, rts_info, borrow_rts
-
-        new_dep_t, new_hws, rec_wo_lim = recommended_dep_t(pre_hw, next_hw, new_min_dep_t, max_dep_t)
+        new_dep_t, new_hws, rec_wo_lim = recommended_dep_t(pre_hw, next_hw, 
+                                                           new_min_dep_t, max_dep_t)
         # new_dep_t = min(max_dep_t, rec_dep_t)
         # if debug_ehd:
         #     next_trip = control_veh.next_trips[0]
@@ -202,13 +172,13 @@ def run_di(env, done, n_steps=0, debug=False, interlining_opps=0, debug_ehd=Fals
         #                 rec_wo_lim, new_dep_t, new_min_dep_t)
         #     return env, info, n_steps, {}          
 
-        if new_dep_t <= control_veh.next_event['t']:
+        if new_dep_t <= ref_veh.next_event['t']:
             continue
 
-        updated_info = env.adjust_departure(control_vehs, new_dep_t)
+        updated_info = env.adjust_departure(ref_veh_df, new_dep_t)
 
         if debug_ehd:
-            next_trip = control_veh.next_trips[0]
+            next_trip = ref_veh.next_trips[0]
             schd_dep_t = next_trip.schedule['departure_sec'].values[0]
             ehd_message(env.time, pre_hw, next_hw,
                         schd_dep_t, max_dep_t, min_dep_t, 
@@ -217,15 +187,17 @@ def run_di(env, done, n_steps=0, debug=False, interlining_opps=0, debug_ehd=Fals
     pbar.close()
     return env, n_steps
 
+def process_results(env, scenario):
+    df_events = pd.concat(env.info_records, ignore_index=True) # for animations 
+    df_events = df_events[df_events['active']==1]
+    df_events = df_events[ANIMATION_COLS]
+    df_events['scenario'] = scenario
+    df_events['time'] = df_events['time'].round()
+    df_pax = env.get_pax_records(scenario=scenario) # for pax experience
+    df_trips = env.get_trip_records(scenario=scenario) # for trip experience
+    return df_events, df_pax, df_trips
 
-if __name__ == '__main__':
-    # if not written yet
-    # write_sim_data()
-    
-    tstamp = pd.Timestamp.today().strftime('%m%d-%H%M')
-    path_from_cwd = 'data/sim_out/experiments_' + tstamp
-    os.mkdir(os.path.join(SRC_PATH, path_from_cwd))
-
+def experiments():
     env = FixedSimEnv()
     unique_dates = env.link_times['date'].unique()
     dates = np.random.choice(unique_dates, replace=False, size=3)
@@ -235,6 +207,8 @@ if __name__ == '__main__':
     lst_events = []
     lst_worklogs = []
 
+    event_counter = 0 ## we don't want more than two episodes here
+
     for day in dates:
         # # METHOD 1
         # # np.random.seed(0)
@@ -242,15 +216,12 @@ if __name__ == '__main__':
         print(env.hist_date)
         env, n_steps = run_base(env, done, n_steps=0)
 
-        df_events = pd.concat(env.info_records, ignore_index=True) # for animations 
-        df_events = df_events[df_events['active']==1]
-        df_events = df_events[ANIMATION_COLS]
-        df_events['scenario'] = 'NC'
-        df_pax = env.get_pax_records(scenario='NC') # for pax experience
-        df_trips = env.get_trip_records(scenario='NC') # for trip experience
-        lst_pax.append(df_pax)
-        lst_trips.append(df_trips)
-        lst_events.append(df_events)
+        pax, trips, events = process_results(env, 'NC')
+        lst_pax.append(pax)
+        lst_trips.append(trips)
+        if event_counter < 2:
+            lst_events.append(events)
+            event_counter += 1
 
         # METHOD 2 DON'T RESET DATE
         # np.random.seed(0)
@@ -258,30 +229,22 @@ if __name__ == '__main__':
         print(env.hist_date)
         env, n_steps = run_ehd(env, done, n_steps=0)
 
-        df_events = pd.concat(env.info_records, ignore_index=True) # for animations 
-        df_events = df_events[df_events['active']==1]
-        df_events = df_events[ANIMATION_COLS]
-        df_events['scenario'] = 'EHD'
-        df_pax = env.get_pax_records(scenario='EHD') # for pax experience
-        df_trips = env.get_trip_records(scenario='EHD') # for trip experience
-        lst_pax.append(df_pax)
-        lst_trips.append(df_trips)
-        lst_events.append(df_events)
+        pax, trips, events = process_results(env, 'EHD')
+        lst_pax.append(pax)
+        lst_trips.append(trips)
+        ## no event
 
         # METHOD 3 INTERLINING!!!
         next_obs, rew, done, info = env.reset(hist_date=day)
         print(env.hist_date)
         env, n_steps = run_di(env, done, n_steps=0)
 
-        df_events = pd.concat(env.info_records, ignore_index=True) # for animations 
-        df_events = df_events[df_events['active']==1]
-        df_events = df_events[ANIMATION_COLS]
-        df_events['scenario'] = 'EHD-DI'
-        df_pax = env.get_pax_records(scenario='EHD-DI') # for pax experience
-        df_trips = env.get_trip_records(scenario='EHD-DI') # for trip experience
-        lst_pax.append(df_pax)
-        lst_trips.append(df_trips)
-        lst_events.append(df_events)
+        pax, trips, events = process_results(env, 'EHD-DI')
+        lst_pax.append(pax)
+        lst_trips.append(trips)
+        if event_counter < 2:
+            lst_events.append(events)
+            event_counter += 1
         
         rt_wlogs = []
         for rt in ROUTES:
@@ -295,7 +258,20 @@ if __name__ == '__main__':
     df_trips = pd.concat(lst_trips, ignore_index=True)
     df_events = pd.concat(lst_events, ignore_index=True)
     df_wlogs = pd.concat(lst_worklogs, ignore_index=True)
-    save_df(df_pax, path_from_cwd, 'pax.csv')
-    save_df(df_trips, path_from_cwd, 'trips.csv')
-    save_df(df_events, path_from_cwd, 'events.csv')
-    save_df(df_wlogs, path_from_cwd, 'worklog.csv')
+
+    return df_pax, df_trips, df_events, df_wlogs
+
+if __name__ == '__main__':
+    # if not written yet
+    # write_sim_data()
+    
+    tstamp = pd.Timestamp.today().strftime('%m%d-%H%M')
+    path_from_cwd = 'data/sim_out/experiments_' + tstamp
+    os.mkdir(os.path.join(SRC_PATH, path_from_cwd))
+
+    pax, trips, events, wlogs = experiments()
+
+    save_df(pax, path_from_cwd, 'pax.csv')
+    save_df(trips, path_from_cwd, 'trips.csv')
+    save_df(events, path_from_cwd, 'events.csv')
+    save_df(wlogs, path_from_cwd, 'worklog.csv')

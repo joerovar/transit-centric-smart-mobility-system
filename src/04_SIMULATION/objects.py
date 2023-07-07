@@ -238,7 +238,28 @@ class FixedRoute(Route):
         trip_schd = schd[(schd['schd_trip_id']==trip_id) & 
                          (schd['stop_sequence']==1)].copy()
         return trip_schd['departure_sec'].values[0]
+    
+    def drop_trip(self, trip_id):
+        schd = self.schedule
+        worklog = self.worklog
 
+        schd.loc[schd['schd_trip_id']==trip_id, 'confirmed'] = 0
+        worklog.loc[worklog['schd_trip_id']==trip_id, 'confirmed'] = 0
+        worklog.loc[worklog['schd_trip_id']==trip_id, 'dropped'] = 1
+        return
+    
+    def fill_trip(self, trip_id, block_id):
+        schd = self.schedule
+        worklog = self.worklog
+
+        schd.loc[schd['trip_id']==trip_id, 'confirmed'] = 1
+
+        # log what just happened in route worklog
+        worklog.loc[
+            worklog['trip_id']==trip_id,['confirmed', 'filled']] = 1
+        worklog.loc[
+            worklog['trip_id']==trip_id, 'by_block'] = block_id
+        return
 class Demand:
     def __init__(self, od):
         self.od = od

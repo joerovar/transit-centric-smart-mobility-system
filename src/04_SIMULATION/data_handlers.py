@@ -13,7 +13,8 @@ def get_ratio(od, apc, stop_ky, apc_ky, bin_ky='bin_30mins'):
     return tmp_tots
 
 def bpf(od, target_ons, target_offs):
-    balance_target_factor = np.nansum(target_ons) / np.nansum(target_offs)
+    sum_ons, sum_offs = np.nansum(target_ons), np.nansum(target_offs)
+    balance_target_factor = sum_ons / sum_offs if sum_offs else 0
     balanced_target_offs = target_offs * balance_target_factor
     od_temp = od.copy()
     # print('before')
@@ -74,19 +75,127 @@ def link_times_from_avl(interval_mins, schd, route_avl):
     
     return link_times
 
+def get_apc_idxs(df, stop_ids): ## from APC flows dataframe
+    df['bin_idx'] = df['bin_30mins'] + 1
+    stop_df = pd.DataFrame(stop_ids, columns=['stop_id'])
+    stop_df['stop_idx'] = stop_df.index + 1 ## this is to match the bin index logic
+    df = df.merge(stop_df, on='stop_id')
+    idxs = df[['bin_idx', 'stop_idx']].to_numpy().transpose()-1
+    return idxs, stop_df
+
+
+def get_odf_zeros(df, stop_ids): ## from OD flows dataframe
+    dates = df['date'].unique()
+    bins = df['bin_30mins'].unique()
+
+    ## aware that this can cause problems in the O-D where either
+    ## O or D are terminals 
+    od_zeros = pd.DataFrame(
+        list(product(bins, stop_ids, stop_ids, dates)), 
+        columns=['bin_30mins','boarding_stop', 'alighting_stop','date'])
+
+    od_zeros['date'] = pd.to_datetime(od_zeros['date'])
+
+    return od_zeros
+
+def get_od_numpy(df, stop_ids, idxs):
+    ## create numpy out of OD flows
+    od = np.zeros(
+        shape=(df['bin_30mins'].max()+1, 
+            stop_ids.shape[0], stop_ids.shape[0]))
+
+    od[idxs[0], idxs[1], idxs[2]] = df['pax'].tolist()
+    return od
+
+def get_apc_numpy(od_df, apc_df, stop_ids, idxs):
+    ## create numpy of APCs
+    ons = np.zeros(
+        shape=(od_df['bin_30mins'].max(), stop_ids.shape[0]))
+    offs = np.zeros(
+        shape=(od_df['bin_30mins'].max(), stop_ids.shape[0]))
+
+    ons[idxs[0], idxs[1]] = apc_df['ons'].tolist()
+    offs[idxs[0], idxs[1]] = apc_df['offs'].tolist()
+
+    return ons, offs
+
+def get_od_idxs(df, stop_df):
+    ## assign index according to stop and bin unique idx
+    for ss in ('boarding_stop', 'alighting_stop'):
+        df = df.merge(
+            stop_df, left_on=ss, right_on='stop_id')
+        df = df.rename(columns={'stop_idx': ss + '_idx'})
+    df = df.drop(['stop_id_x', 'stop_id_y'], axis=1)
+    df['bin_30mins'] = df['bin_30mins'].astype(int)
+
+    df['bin_idx'] = df['bin_30mins'] + 1
+    idxs = df[
+        ['bin_idx', 'boarding_stop_idx', 
+         'alighting_stop_idx']].to_numpy().transpose()-1
+    return idxs
+
+def get_od_and_idxs(df, stop_ids, stop_df):
+    odf = df[(df['boarding_stop'].isin(stop_ids)) &
+             (df['alighting_stop'].isin(stop_ids))].copy()
+    
+    ## OD flows with zeros so the mean is not distorted!
+    odf_zeros = get_odf_zeros(odf, stop_ids)
+
+    odf = odf_zeros.merge(
+        odf, how='left', 
+        on=['bin_30mins', 'boarding_stop', 
+            'alighting_stop', 'date']).fillna(0)
+    
+    odf_avg = odf.groupby(
+        by=['boarding_stop', 
+            'alighting_stop', 
+            'bin_30mins'])['pax'].mean().reset_index()
+
+    odf_avg = odf_avg[odf_avg['pax'] > 0].reset_index(drop=True)
+    od_idxs = get_od_idxs(odf_avg, stop_df)
+
+    return odf_avg, od_idxs
+
+def scale_od_npy(od, ons, offs, bins):
+    ## create numpy of soon-to-be scaled OD
+    od_scaled = np.zeros_like(od)
+    od_dict = {
+        'boarding_stop_idx': [],
+        'alighting_stop_idx': [],
+        'pax': [], 
+        'bin_30mins': []
+    }
+
+    for i in range(bins[0], bins[1]):
+        ## initialize with 0.01 wherever zero in the OD matrix
+        init_od = np.tri(od.shape[1], od.shape[1], -1)
+        init_od = init_od.transpose()*0.01 + od[i]
+        od_scaled[i] = bpf(init_od, ons[i], offs[i])
+
+        ## add elements to dictionary (later dataframe)
+        idxs = np.nonzero(od_scaled[i])
+        pax = od_scaled[i, idxs[0], idxs[1]]
+        od_dict['boarding_stop_idx'] += list(idxs[0] + 1)
+        od_dict['alighting_stop_idx'] += list(idxs[1] + 1)
+        od_dict['pax'] += list(pax)
+        od_dict['bin_30mins'] += [i]*pax.shape[0]
+    od_df = pd.DataFrame(od_dict)
+    return od_df
+
+
 
 class GTFSHandler:
     def __init__(self, zf_path):
         self.zf = zipfile.ZipFile(zf_path)
 
         self.stops = pd.read_csv(self.zf.open('stops.txt'))
-        self.stop_times = pd.read_csv(self.zf.open('stop_times.txt'))
-        self.calendar = pd.read_csv(self.zf.open( 'calendar.txt'))        
+        self.stop_times = pd.read_csv(self.zf.open('stop_times.txt'), dtype={'trip_id': str})
+        self.calendar = pd.read_csv(self.zf.open( 'calendar.txt'), dtype={'service_id': str})        
         self.calendar['start_date_dt'] = pd.to_datetime(self.calendar['start_date'], format='%Y%m%d')
         self.calendar['end_date_dt'] = pd.to_datetime(self.calendar['end_date'], format='%Y%m%d')
-        self.trips = pd.read_csv(self.zf.open('trips.txt'))
-        self.trips['service_id'] = self.trips['service_id'].astype(str)
-        self.calendar['service_id'] = self.calendar['service_id'].astype(str)
+        self.trips = pd.read_csv(self.zf.open('trips.txt'), 
+                                 dtype={'service_id': str, 'trip_id': str,
+                                        'shape_id': str, 'schd_trip_id': str})
         self.route_trips = None
         self.route_stop_times = None
         self.route_stops = None
@@ -118,7 +227,6 @@ class GTFSHandler:
         self.route_trips = df_trips.copy()
 
         df_stop_times = self.stop_times.copy()
-        df_stop_times['trip_id'] = df_stop_times['trip_id'].astype(str)
         df_stop_times = df_stop_times[
             df_stop_times['trip_id'].isin(df_trips['trip_id'])].copy()
         df_stop_times = df_stop_times.merge(df_trips[
@@ -138,11 +246,10 @@ class GTFSHandler:
                         'stop_lat', 'stop_lon']], on='stop_id').drop_duplicates().reset_index(drop=True)
     
 
-    def load_schedule(self, data_start_time, data_end_time, 
-                      out_directions, in_directions, routes):
+    def load_schedule(self):
         stop_times = self.route_stop_times.copy()
-        start_time_td = pd.to_timedelta(data_start_time)
-        end_time_td = pd.to_timedelta(data_end_time)
+        start_time_td = pd.to_timedelta(DATA_START_TIME)
+        end_time_td = pd.to_timedelta(DATA_END_TIME)
         stop_times['departure_time_td'] = pd.to_timedelta(stop_times['departure_time'])
         
         only_deps = stop_times[(stop_times['stop_sequence']==1) & 
@@ -152,11 +259,11 @@ class GTFSHandler:
 
         lst_dep_dfs = []
 
-        for r in routes:
+        for r in ROUTES:
             deps_out = only_deps[(only_deps['route_id']==r) & 
-                                 (only_deps['direction']==out_directions[r])].copy().reset_index(drop=True)
+                                 (only_deps['direction']==OUTBOUND_DIRECTIONS[r])].copy().reset_index(drop=True)
             deps_in = only_deps[(only_deps['route_id']==r) & 
-                                (only_deps['direction']==in_directions[r])].copy().reset_index(drop=True)
+                                (only_deps['direction']==INBOUND_DIRECTIONS[r])].copy().reset_index(drop=True)
 
             # first inbound departure to be of the block of the first outbound departure
             first_block_out = deps_out['block_id'].iloc[0]
@@ -183,9 +290,7 @@ class GTFSHandler:
 class AVLHandler():
     def __init__(self, file_path):
         # insert AVL of desired route
-        self.avl = pd.read_csv(file_path)
-        self.avl['event_time'] = pd.to_datetime(self.avl['event_time'])
-        self.avl['departure_time'] = pd.to_datetime(self.avl['departure_time'])
+        self.avl = pd.read_csv(file_path, parse_dates=['event_time', 'departure_time'])
         self.avl['date'] = self.avl['event_time'].dt.date
         self.avl['route_id'] = self.avl['route_id'].astype(int).astype(str)
         self.link_times = None
@@ -229,227 +334,152 @@ class AVLHandler():
     
 
 class ODXHandler():
-    def __init__(self, odx_file_path, apc_df, stops):
+    def __init__(self, odx_file_path, apc_df):
         # insert AVL of desired route
-        self.odx = pd.read_csv(odx_file_path)
+        self.odx = pd.read_csv(odx_file_path, dtype={'avl_bus_route': str})
         self.odx = self.odx.rename(columns={'avl_bus_route':'route_id'})
-        self.odx['route_id'] = self.odx['route_id'].astype(str)
+
         self.apc = apc_df.copy()
-        self.avg_apc_counts = None
-        self.avg_hist_od = None
+        
         self.scaled_od = None
-        self.stops = stops.copy()
-    
-    def get_apc(self):
+
+    def get_apc_flows(self):
         apc = self.apc.copy()
         # assign interval to each timestamp
-        interval_col_str = 'bin_' + str(30) +'mins'
-        apc[interval_col_str] = (
-            ((apc['event_time']-apc['event_time'].dt.floor('d')).dt.total_seconds())/(60*30)).astype(int)
+        bin_size_mins = 30
+        interval_col_str = 'bin_' + str(bin_size_mins) +'mins'
+        time_sec = (apc['event_time']-apc['event_time'].dt.floor('d')).dt.total_seconds()
+        apc[interval_col_str] = (time_sec/60/bin_size_mins).astype(int)
 
-        apc_counts = apc.groupby(
-            ['route_id','stop_id', 'date', 'bin_30mins'])[['ron', 'fon', 'roff', 'foff']].sum().reset_index()
+        apc['ons'] = apc['ron'] + apc['fon']
+        apc['offs'] = apc['roff'] + apc['foff']
+        apc = apc.drop(columns=['ron', 'fon', 'roff', 'foff'])
 
-        apc_counts['ons'] = apc_counts['ron'] + apc_counts['fon']
-        apc_counts['offs'] = apc_counts['roff'] + apc_counts['foff']
-        apc_counts = apc_counts.drop(columns=['ron', 'fon', 'roff', 'foff'])
+        apc_sum = apc.groupby(
+            ['route_id','stop_id', 
+            'date', 'bin_30mins', 
+            'direction'])[['ons', 'offs']].sum().reset_index()
 
-        routes = apc_counts['route_id'].unique()
-        dates = apc_counts['date'].unique()
-        stops = apc_counts['stop_id'].unique()
-        bins = apc_counts['bin_30mins'].unique()
-        apc_count_w_zeros = pd.DataFrame(list(product(routes, bins, stops, dates)), 
-                                        columns=['route_id','bin_30mins','stop_id', 'date'])
+        apc_flows = apc_sum.groupby(
+            ['route_id', 'stop_id', 
+            'bin_30mins', 
+            'direction'])[['ons', 'offs']].mean().reset_index()
+        return apc_flows
 
-        apc_count_w_zeros = apc_count_w_zeros.merge(
-            apc_counts, how='left', on=['route_id','bin_30mins', 'stop_id', 'date']).fillna(0)
+    ## get_scaled_od
+    def get_od_flows_per_day(self):
+        od = self.odx.copy()
+        od = od[od['inferred_alighting_gtfs_stop']!='None']
 
-        avg_apc_counts = apc_count_w_zeros.groupby(
-            ['route_id','stop_id', 'bin_30mins'])[['ons', 'offs']].mean().reset_index()
-        
-        avg_apc_counts['boarding_stop'] = avg_apc_counts['stop_id'].copy()
-        avg_apc_counts['alighting_stop'] = avg_apc_counts['stop_id'].copy()
-        avg_apc_counts = avg_apc_counts.drop(columns=['stop_id'])
-
-        # # balance ons and offs in APC
-        # ratio = avg_apc_counts['ons'].sum()/avg_apc_counts['offs'].sum()a
-        # avg_apc_counts['offs'] = avg_apc_counts['offs'] * ratio
-
-        self.avg_apc_counts = avg_apc_counts.copy()
-
-    
-    def scaled_flows_by_dir(self, direction, all_pax_count, terminals, route):
-        stops = self.stops[(self.stops['direction']==direction) &
-                           (self.stops['route_id']==route)].copy()
-        on_stops = stops.loc[stops['stop_sequence']<stops.shape[0], 'stop_id']
-        off_stops = stops.loc[stops['stop_sequence']>1, 'stop_id']
-        apc = self.avg_apc_counts.copy()
-
-        apc = apc[(apc['boarding_stop'].isin(stops['stop_id'])) &
-                  (apc['route_id']==route)]
-        apc.loc[apc['boarding_stop']==terminals[0], 'offs'] = 0.0
-        apc.loc[apc['boarding_stop']==terminals[1], 'ons'] = 0.0
-        apc = apc.merge(stops[['stop_id', 'stop_sequence']], left_on='boarding_stop', right_on='stop_id')
-        apc['bin_idx'] = apc['bin_30mins'] + 1
-
-        xy = apc[['bin_idx', 'stop_sequence']].to_numpy().transpose()-1
-
-        pax_count = all_pax_count[
-            (all_pax_count['boarding_stop'].isin(on_stops)) &
-            (all_pax_count['alighting_stop'].isin(off_stops))
-        ].copy()
-
-        dates = pax_count['date'].unique()
-        bins = pax_count['bin_30mins'].unique()
-        
-        pax_count_w_zeros = pd.DataFrame(
-            list(product(bins, on_stops, off_stops, dates)), 
-            columns=['bin_30mins','boarding_stop', 'alighting_stop','date'])
-        # print(pax_count_w_zeros.head())
-        pax_count_w_zeros['date'] = pd.to_datetime(pax_count_w_zeros['date'])
-        pax_count_w_zeros = pax_count_w_zeros.merge(
-            pax_count, how='left', 
-            on=['bin_30mins', 'boarding_stop', 'alighting_stop', 'date']).fillna(0)
-    
-
-        # # get avg pax counts for every interval (this is the non-scaled OD)
-        avg_pax_count = pax_count_w_zeros.groupby(
-            by=['boarding_stop', 'alighting_stop', 
-                'bin_30mins'])['pax'].mean().reset_index()
-
-        avg_pax_count = avg_pax_count[avg_pax_count['pax']>0].reset_index(drop=True)
-
-        for ss in ('boarding_stop', 'alighting_stop'):
-            avg_pax_count = avg_pax_count.merge(
-                stops[['stop_id', 'stop_sequence']], left_on=ss, right_on='stop_id')
-            avg_pax_count = avg_pax_count.rename(columns={'stop_sequence': ss + '_seq'})
-
-        avg_pax_count = avg_pax_count.drop(['stop_id_x', 'stop_id_y'], axis=1)
-        avg_pax_count['bin_30mins'] = avg_pax_count['bin_30mins'].astype(int)
-
-        od = np.zeros(
-            shape=(avg_pax_count['bin_30mins'].max()+1, stops.shape[0], stops.shape[0]))
-        avg_pax_count['bin_idx'] = avg_pax_count['bin_30mins'] + 1
-        xyz = avg_pax_count[
-            ['bin_idx', 'boarding_stop_seq', 'alighting_stop_seq']].to_numpy().transpose()-1
-        od[xyz[0], xyz[1], xyz[2]] = avg_pax_count['pax'].tolist()
-
-        ons = np.zeros(shape=(avg_pax_count['bin_30mins'].max(), stops.shape[0]))
-        offs = np.zeros(shape=(avg_pax_count['bin_30mins'].max(), stops.shape[0]))
-
-        ons[xy[0], xy[1]] = apc['ons'].tolist()
-        offs[xy[0], xy[1]] = apc['offs'].tolist()
-
-
-        bin1,bin2 = avg_pax_count['bin_30mins'].min(), avg_pax_count['bin_30mins'].max()
-        od_scaled = np.zeros_like(od)
-        od_dict = {
-            'boarding_stop_seq': [],
-            'alighting_stop_seq': [],
-            'pax': [], 
-            'bin_30mins': []
-        }
-
-        for i in range(bin1, bin2):
-            boost_od = np.tri(od.shape[1], od.shape[1], -1).transpose()*0.01 + od[i]
-            od_scaled[i] = bpf(boost_od, ons[i], offs[i])
-            idxs = np.nonzero(od_scaled[i])
-            pax = od_scaled[i, idxs[0], idxs[1]]
-            od_dict['boarding_stop_seq'] += list(idxs[0] + 1)
-            od_dict['alighting_stop_seq'] += list(idxs[1] + 1)
-            od_dict['pax'] += list(pax)
-            od_dict['bin_30mins'] += [i]*pax.shape[0]
-
-        od_df = pd.DataFrame(od_dict)
-        od_df = od_df.merge(
-            stops[['stop_sequence', 'stop_id']], 
-            left_on='boarding_stop_seq', right_on='stop_sequence')
-        od_df = od_df.rename(columns={'stop_id': 'boarding_stop'})
-        od_df = od_df.merge(
-            stops[['stop_sequence', 'stop_id']], 
-            left_on='alighting_stop_seq', right_on='stop_sequence')
-        od_df = od_df.rename(columns={'stop_id': 'alighting_stop'})
-        od_df = od_df.drop(
-            ['boarding_stop_seq', 'alighting_stop_seq', 
-             'stop_sequence_x', 'stop_sequence_y'], axis=1)
-        od_df['direction'] = direction
-        return od_df
-
-    def get_scaled_od(self, routes, out_directions, in_directions,
-                      out_terminals, in_terminals):
-        df = self.odx.copy()
-        df = df[df['inferred_alighting_gtfs_stop']!='None']
-
-        df['transaction_dtm'] = pd.to_datetime(df['transaction_dtm'])
-        df['date'] = df['transaction_dtm'].dt.normalize()
+        od['transaction_dtm'] = pd.to_datetime(od['transaction_dtm'])
+        od['date'] = od['transaction_dtm'].dt.normalize()
         # annoying long key
-        df = df.rename(columns={'inferred_alighting_gtfs_stop': 'alighting_stop'})
-        df['alighting_stop'] = df['alighting_stop'].astype(int)
-        df['boarding_stop'] = df['boarding_stop'].astype(int)
+        od = od.rename(
+            columns={'inferred_alighting_gtfs_stop': 'alighting_stop'})
+        od['alighting_stop'] = od['alighting_stop'].astype(int)
+        od['boarding_stop'] = od['boarding_stop'].astype(int)
         # remove holiday/weekend data and data between 11PM-5AM 
-        df = df[
-            (df['date'].dt.weekday < 5) &
-            (~df['date'].isin(pd.to_datetime(HOLIDAYS))) &
-            (df['transaction_dtm'].dt.hour < 23) &
-            (df['transaction_dtm'].dt.hour > 4)
+        od = od[
+            (od['date'].dt.weekday < 5) &
+            (~od['date'].isin(pd.to_datetime(HOLIDAYS))) &
+            (od['transaction_dtm'].dt.hour < 23) &
+            (od['transaction_dtm'].dt.hour > 4)
         ].copy()
 
         # assign interval to each timestamp
-        interval_col_str = 'bin_'+str(30)+'mins'
-        df[interval_col_str] = (
-            ((df['transaction_dtm']-df['transaction_dtm'].dt.floor('d')).dt.total_seconds())/(60*30)).astype(int)
+        bin_size_mins = 30
+        interval_col_str = 'bin_'+str(bin_size_mins)+'mins'
+        time_sec = (od['transaction_dtm']-od['transaction_dtm'].dt.floor('d')).dt.total_seconds()
+        od[interval_col_str] = (time_sec/60/bin_size_mins).astype(int)
 
         # get pax counts for every day and interval obtained in data (absences are zeroes)
-        pax_count = df.groupby(['route_id','boarding_stop', 'alighting_stop', 'date', 
+        od_flows = od.groupby(['route_id','boarding_stop', 
+                                'alighting_stop', 'date', 
                                 'bin_30mins'])['dw_transaction_id'].count().reset_index()
-        pax_count = pax_count.rename(columns={'dw_transaction_id':'pax'})
+        od_flows = od_flows.rename(columns={'dw_transaction_id':'pax'})
 
         # remove None stops
-        pax_count = pax_count.replace(
+        od_flows = od_flows.replace(
             to_replace='None', value=np.nan).dropna(subset=['boarding_stop', 
                                                             'alighting_stop'])
-        
-        lst_ods = []
-        for r in routes:
-            pax_count_r = pax_count[pax_count['route_id']==r].copy()
-            scaled_od_o = self.scaled_flows_by_dir(
-                out_directions[r], pax_count_r, out_terminals[r], r)
-            scaled_od_i = self.scaled_flows_by_dir(
-                in_directions[r], pax_count_r, in_terminals[r], r)
-            scaled_od_i['route_id'] = r
-            scaled_od_o['route_id'] = r
-            lst_ods.append(scaled_od_o)
-            lst_ods.append(scaled_od_i)
+        return od_flows
+    
+    def scale_od(self):
+        od_flows = self.get_od_flows_per_day()
+        apc_flows = self.get_apc_flows()
 
-        self.scaled_od = pd.concat(lst_ods, ignore_index=True)
+        lst_sc_ods = []
 
+        for r in ROUTES:
+            odf_r = od_flows[od_flows['route_id']==r].copy()
+            apcf_r = apc_flows[apc_flows['route_id']==r].copy()
+            for direct in apcf_r['direction'].unique():
+                ## get APC dataframe and indices
+                apcf = apcf_r[apcf_r['direction']==direct].copy()
+                stop_ids = apcf['stop_id'].unique()
+                apc_idxs, stop_df = get_apc_idxs(apcf, stop_ids)
 
-def write_sim_data():
+                ## get OD dataframe and indices
+                odf, od_idxs = get_od_and_idxs(odf_r, stop_ids, stop_df)
+
+                ## get arrays
+                od_npy = get_od_numpy(odf, stop_ids, od_idxs)
+                ons_npy, offs_npy = get_apc_numpy(odf, apcf, 
+                                                stop_ids, apc_idxs)
+                bin1,bin2 = odf['bin_30mins'].min(), odf['bin_30mins'].max()
+                scaled_od_df = scale_od_npy(od_npy, ons_npy, offs_npy, (bin1, bin2))
+
+                ## TO-DO make this more efficient
+                scaled_od_df = scaled_od_df.merge(
+                    stop_df, left_on='boarding_stop_idx', 
+                    right_on='stop_idx')
+                scaled_od_df = scaled_od_df.rename(
+                    columns={'stop_id': 'boarding_stop'})
+                scaled_od_df = scaled_od_df.merge(
+                    stop_df, left_on='alighting_stop_idx', 
+                    right_on='stop_idx')
+                scaled_od_df = scaled_od_df.rename(
+                    columns={'stop_id': 'alighting_stop'})
+                scaled_od_df = scaled_od_df.drop(
+                    ['boarding_stop_idx', 'alighting_stop_idx', 
+                    'stop_idx_x', 'stop_idx_y'], axis=1)
+                scaled_od_df['direction'] = direct
+                scaled_od_df['route_id'] = r
+                lst_sc_ods.append(scaled_od_df)
+
+        scaled_od = pd.concat(lst_sc_ods, ignore_index=True)
+        self.scaled_od = scaled_od
+
+def extract_sim_data():
     # define line characteristics
-    gtfs_handler = GTFSHandler('data/gtfs/' + GTFS_ZIP_FILE)
-    gtfs_handler.load_network(START_DATE, END_DATE, ROUTES)
-    gtfs_handler.load_schedule(DATA_START_TIME, DATA_END_TIME, 
-                               OUTBOUND_DIRECTIONS, INBOUND_DIRECTIONS, ROUTES)
+    gtfs = GTFSHandler('data/gtfs/' + GTFS_ZIP_FILE)
+    gtfs.load_network(START_DATE, END_DATE, ROUTES)
+    gtfs.load_schedule()
 
-    schedule = gtfs_handler.schedule.copy()
-    stops = gtfs_handler.route_stops.copy()
+    schedule = gtfs.schedule.copy()
+    stops = gtfs.route_stops.copy()
 
     # NO NEED TO SPECIFY DATES SINCE THOSE COME FROM SCHEDULED TRIPS
-    avl_handler = AVLHandler('data/avl/' + AVL_FILE)
-    avl_handler.clean(schedule, holidays=HOLIDAYS)
-    avl_handler.get_link_times(INTERVAL_LENGTH_MINS, schedule, ROUTES)
+    avl = AVLHandler('data/avl/' + AVL_FILE)
+    avl.clean(schedule, holidays=HOLIDAYS)
+    avl.get_link_times(INTERVAL_LENGTH_MINS, schedule, ROUTES)
 
     # demand data
-    odx_handler = ODXHandler('data/odx/' + ODX_FILE, avl_handler.avl, stops)
-    odx_handler.get_apc()
-    odx_handler.get_scaled_od(ROUTES, OUTBOUND_DIRECTIONS, INBOUND_DIRECTIONS,
-                              OUTBOUND_TERMINALS, INBOUND_TERMINALS)
-    # odx_handler.scale_od()
-    apc = odx_handler.avg_apc_counts.copy()
-    scaled_od = odx_handler.scaled_od.copy()
-    day_boards = scaled_od.groupby(['bin_30mins'])['pax'].sum().reset_index()
-    day_apc = apc.groupby(['bin_30mins'])['ons'].sum().reset_index()
-    day_boards = day_boards.merge(day_apc, on='bin_30mins')
+    odx = ODXHandler('data/odx/' + ODX_FILE, avl.avl)
+    odx.scale_od()
+    return gtfs, avl, odx
+
+
+def write_sim_data(gtfs, avl, odx):
+    schedule = gtfs.schedule.copy()
+    stops = gtfs.route_stops.copy()
+
+    # odx.scale_od()
+    # apc = odx.avg_apc_counts.copy()
+    # scaled_od = odx.scaled_od.copy()
+    # day_boards = scaled_od.groupby(['bin_30mins'])['pax'].sum().reset_index()
+    # day_apc = apc.groupby(['bin_30mins'])['ons'].sum().reset_index()
+    # day_boards = day_boards.merge(day_apc, on='bin_30mins')
 
     # fig, ax = plt.subplots()
     # ax.bar(day_boards['bin_30mins']-0.2, day_boards['pax'], 0.4, label='od')
@@ -459,7 +489,7 @@ def write_sim_data():
     # plt.savefig('data/sim_in/validate/od_vs_apc.png')
 
     # compute complimentary measures (correlations)
-    # df_link_times = get_full_length_trips(avl_handler.link_times, ['East', 'West'])
+    # df_link_times = get_full_length_trips(avl.link_times, ['East', 'West'])
     # correl_link_t = link_time_correlation(df_link_times, ['East', 'West'])
     # correl_run_t = run_time_correlation(df_link_times, ['East', 'West'], schedule)
     # df_lt = pd.DataFrame(correl_link_t)
@@ -476,11 +506,9 @@ def write_sim_data():
     sim_data_path = 'data/sim_in/'
     # network_info.to_csv(sim_data_path + 'network_info.csv', index=False)
     stops.to_csv(sim_data_path + 'stops.csv', index=False)
-    # stops_outbound.to_csv(sim_data_path + 'stops_outbound.csv', index=False)
-    # stops_inbound.to_csv(sim_data_path + 'stops_inbound.csv', index=False)
     schedule.to_csv(sim_data_path + 'schedule.csv', index=False)
-    avl_handler.link_times.to_csv(sim_data_path + 'link_times.csv', index=False)
-    scaled_od.to_csv(sim_data_path + 'od.csv', index=False)
+    avl.link_times.to_csv(sim_data_path + 'link_times.csv', index=False)
+    odx.scaled_od.to_csv(sim_data_path + 'od.csv', index=False)
     return
 
 
@@ -495,7 +523,6 @@ def get_full_length_trips(df, directions):
         counts = counts.rename(columns={'link_time':'count'})
         full_length = counts[counts['count']==counts['count'].max()].copy()
         dfs.append(df.merge(full_length, on=['date', 'trip_id']).drop(columns=['count']).copy())
-    # print(dfs[0].shape[0], dfs[1].shape[0])
     df2 = pd.concat(dfs).reset_index(drop=True)
     return df2
 
@@ -566,18 +593,18 @@ def run_time_correlation(df, directions, sched):
 #     len(col_direction), len(col_stops), len(pred_ons), len(col_bin)
 #     df_prd_ons = pd.DataFrame(zip(col_direction, col_stops, col_bin,pred_ons), columns=['direction', 'stop_sequence', 'bin','pred_ons'])
 
-#     avl_handler = AVLHandler('data/avl/' + AVL_FILE)
+#     avl = AVLHandler('data/avl/' + AVL_FILE)
 
 #     # define line characteristics
-#     gtfs_handler = GTFSHandler('data/gtfs/' + GTFS_ZIP_FILE, YEAR_MONTH)
-#     gtfs_handler.load_network(START_DATE, 
+#     gtfs = GTFSHandler('data/gtfs/' + GTFS_ZIP_FILE, YEAR_MONTH)
+#     gtfs.load_network(START_DATE, 
 #     END_DATE, ROUTE, OUTBOUND_DIRECTION_STR, INBOUND_DIRECTION_STR)
-#     gtfs_handler.load_schedule(DATA_START_TIME, DATA_END_TIME, ('East', 'West'))
+#     gtfs.load_schedule(DATA_START_TIME, DATA_END_TIME, ('East', 'West'))
 
-#     schedule = gtfs_handler.schedule
-#     avl_handler.clean(schedule, holidays=HOLIDAYS)
+#     schedule = gtfs.schedule
+#     avl.clean(schedule, holidays=HOLIDAYS)
 
-#     apc  = avl_handler.avl.copy()
+#     apc  = avl.avl.copy()
 #     apc = apc[apc['event_time'] <= pd.to_datetime('2022-10-24 00:00')]
 #     apc['bin'] = (
 #                 ((apc['event_time']-pd.to_datetime('2022-10-01 00:00')).dt.total_seconds())/(60*30)).astype(int)
