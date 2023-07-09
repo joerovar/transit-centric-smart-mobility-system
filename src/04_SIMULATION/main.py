@@ -10,9 +10,11 @@ from interlining import eval_interlining
 from objects import Trip
 
 def ehd_message(tim, pre_hw, nxt_hw, schd_dep, 
-                dtmax, dtmin, rec, act, exp_dep):
+                dtmax, dtmin, rec, act, exp_dep,
+                rt_id):
     print(f'----')
     print(f'Time {td(tim)}')
+    print(f'Route ID {rt_id}')
     print(f'Expected: {td(exp_dep)}')
     print(f'Headways: {td(pre_hw)} -- {td(nxt_hw)}')
     print(f'Schedule: {td(schd_dep)}')
@@ -83,7 +85,7 @@ def run_ehd(env, done, n_steps=0, debug=False):
             schd_dep_t = next_trip.schedule['departure_sec'].values[0]
             ehd_message(env.time, pre_hw, next_hw,
                         schd_dep_t, max_dep_t, min_dep_t, 
-                        rec_wo_lim, new_dep_t, new_min_dep_t)
+                        rec_wo_lim, new_dep_t, new_min_dep_t, ref_veh.route_id)
             return env, info, n_steps, updated_info
     pbar.close()
     return env, n_steps
@@ -126,12 +128,15 @@ def run_di(env, done, n_steps=0, debug=False, debug_ehd=False):
         lend_rt_id = ref_veh.route_id
         borrow_rts = env.get_borrow_rts(rts_info, lend_rt_id) ## we include a check on lender
 
+        if debug and '91' in borrow_rts:
+            return env, info, n_steps, ref_veh_df, rts_info, borrow_rts
+
         if borrow_rts and rts_info[lend_rt_id] is not None:
             best_switch = eval_interlining(info, ref_veh_df, 
                                            rts_info, borrow_rts, env,
                                            debug=debug)
-            if debug:
-                return env, info, n_steps, ref_veh_df, rts_info, best_switch
+            # if debug:
+            #     return env, info, n_steps, ref_veh_df, rts_info, best_switch
             if best_switch['route']:
                 ## switch!!
                 # mark in schedule and worklog the dropped trips
@@ -159,21 +164,21 @@ def run_di(env, done, n_steps=0, debug=False, debug_ehd=False):
                 # next event time and type
                 upd_info = env.adjust_route_and_departure(
                     ref_veh_df, best_switch['departure'])
+                
+                ## log in route supervisor report
+                date_dt = pd.to_datetime(env.hist_date)
+                req_return = best_switch['req_return']
+                req_return = date_dt + td(req_return) if req_return is not None else None
+                report = [date_dt+ td(env.time), 
+                          lend_rt_id, best_switch['route'],
+                          best_switch['ratio'], 
+                          date_dt + td(best_switch['est_return']),
+                          req_return]
+                env.superv.log.append(report)
                 continue
 
         new_dep_t, new_hws, rec_wo_lim = recommended_dep_t(pre_hw, next_hw, 
                                                            new_min_dep_t, max_dep_t)
-        # new_dep_t = min(max_dep_t, rec_dep_t)
-        # if debug_ehd:
-        #     next_trip = control_veh.next_trips[0]
-        #     schd_dep_t = next_trip.schedule['departure_sec'].values[0]
-        #     ehd_message(env.time, pre_hw, next_hw,
-        #                 schd_dep_t, max_dep_t, min_dep_t, 
-        #                 rec_wo_lim, new_dep_t, new_min_dep_t)
-        #     return env, info, n_steps, {}          
-
-        if new_dep_t <= ref_veh.next_event['t']:
-            continue
 
         updated_info = env.adjust_departure(ref_veh_df, new_dep_t)
 
@@ -182,7 +187,7 @@ def run_di(env, done, n_steps=0, debug=False, debug_ehd=False):
             schd_dep_t = next_trip.schedule['departure_sec'].values[0]
             ehd_message(env.time, pre_hw, next_hw,
                         schd_dep_t, max_dep_t, min_dep_t, 
-                        rec_wo_lim, new_dep_t, new_min_dep_t)
+                        rec_wo_lim, new_dep_t, new_min_dep_t, ref_veh.route_id)
             return env, info, n_steps, updated_info
     pbar.close()
     return env, n_steps
@@ -197,69 +202,80 @@ def process_results(env, scenario):
     df_trips = env.get_trip_records(scenario=scenario) # for trip experience
     return df_events, df_pax, df_trips
 
-def experiments():
+def experiments(n_days=4, dates=None, 
+                scenarios=('NC', 'EHD', 'EHD-DI')):
     env = FixedSimEnv()
-    unique_dates = env.link_times['date'].unique()
-    dates = np.random.choice(unique_dates, replace=False, size=3)
-
+    if dates is None:
+        unique_dates = env.link_times['date'].unique()
+        dates = np.random.choice(unique_dates, replace=False, size=n_days)
     lst_pax = []
     lst_trips = []
     lst_events = []
     lst_worklogs = []
+    lst_superlogs = []
 
     event_counter = 0 ## we don't want more than two episodes here
 
     for day in dates:
         # # METHOD 1
         # # np.random.seed(0)
-        next_obs, rew, done, info = env.reset(hist_date=day)
-        print(env.hist_date)
-        env, n_steps = run_base(env, done, n_steps=0)
+        scenario = 'NC'
+        if scenario in scenarios:
+            next_obs, rew, done, info = env.reset(hist_date=day)
+            print(env.hist_date, scenario)
+            env, n_steps = run_base(env, done, n_steps=0)
 
-        pax, trips, events = process_results(env, 'NC')
-        lst_pax.append(pax)
-        lst_trips.append(trips)
-        if event_counter < 2:
-            lst_events.append(events)
-            event_counter += 1
+            events, pax, trips = process_results(env, 'NC')
+            lst_pax.append(pax)
+            lst_trips.append(trips)
+            if event_counter < 2:
+                lst_events.append(events)
+                event_counter += 1
 
         # METHOD 2 DON'T RESET DATE
         # np.random.seed(0)
-        next_obs, rew, done, info = env.reset(hist_date=day)
-        print(env.hist_date)
-        env, n_steps = run_ehd(env, done, n_steps=0)
+        scenario = 'EHD'
+        if scenario in scenarios:
+            next_obs, rew, done, info = env.reset(hist_date=day)
+            print(env.hist_date, scenario)
+            env, n_steps = run_ehd(env, done, n_steps=0)
 
-        pax, trips, events = process_results(env, 'EHD')
-        lst_pax.append(pax)
-        lst_trips.append(trips)
+            events, pax, trips = process_results(env, 'EHD')
+            lst_pax.append(pax)
+            lst_trips.append(trips)
         ## no event
 
         # METHOD 3 INTERLINING!!!
-        next_obs, rew, done, info = env.reset(hist_date=day)
-        print(env.hist_date)
-        env, n_steps = run_di(env, done, n_steps=0)
+        scenario = 'EHD-DI'
+        if scenario in scenarios:
+            next_obs, rew, done, info = env.reset(hist_date=day)
+            print(env.hist_date, scenario)
+            env, n_steps = run_di(env, done, n_steps=0)
 
-        pax, trips, events = process_results(env, 'EHD-DI')
-        lst_pax.append(pax)
-        lst_trips.append(trips)
-        if event_counter < 2:
-            lst_events.append(events)
-            event_counter += 1
-        
-        rt_wlogs = []
-        for rt in ROUTES:
-            rt_wlogs.append(env.routes[rt].worklog)
-        wlog = pd.concat(rt_wlogs, ignore_index=True)
-        wlog['date'] = env.hist_date
-        lst_worklogs.append(wlog)
+            events, pax, trips = process_results(env, 'EHD-DI')
+            lst_pax.append(pax)
+            lst_trips.append(trips)
+            if event_counter < 2:
+                lst_events.append(events)
+                event_counter += 1
+            
+            rt_wlogs = []
+            for rt in ROUTES:
+                rt_wlogs.append(env.routes[rt].worklog)
+            wlog = pd.concat(rt_wlogs, ignore_index=True)
+            wlog = wlog[(wlog['dropped'] == 1) | (wlog['filled']==1)]
+            wlog['date'] = env.hist_date
+            lst_worklogs.append(wlog)
+            superlog = pd.DataFrame(env.superv.log, 
+                                    columns=env.superv.cols)
+            lst_superlogs.append(superlog)
 
-    # save_df(df_events, scenario, 'events.csv')
     df_pax = pd.concat(lst_pax, ignore_index=True)
     df_trips = pd.concat(lst_trips, ignore_index=True)
     df_events = pd.concat(lst_events, ignore_index=True)
     df_wlogs = pd.concat(lst_worklogs, ignore_index=True)
-
-    return df_pax, df_trips, df_events, df_wlogs
+    df_slogs = pd.concat(lst_superlogs, ignore_index=True)
+    return df_pax, df_trips, df_events, df_wlogs, df_slogs
 
 if __name__ == '__main__':
     # if not written yet

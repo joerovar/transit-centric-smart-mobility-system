@@ -15,12 +15,10 @@ def recommended_dep_t(pre_hw, next_hw, t, max_dep_t):
 
 def check_for_interlining(rt_info, time, max_delay):
     missing_trip_exists = rt_info.loc[2, 'confirmed'] == 0
+    # trip_id = rt_info.loc[2, 'schd_trip_id']
+    # not_dropped = wklog[wklog['schd_trip_id']==trip_id, 'dropped'] == 0
     within_otp_of_missing = rt_info.loc[2, 'ST'] + max_delay > time
     return missing_trip_exists and within_otp_of_missing
-
-def can_lender_interline(rt_info):
-    missing_trip_exists = rt_info.loc[2, 'confirmed'] == 0
-    return not missing_trip_exists
 
 def write_decision_vars(act_vars, counter_vars):
     decision_vars = {'var': [], 'actual': [], 'counter': []}
@@ -228,6 +226,16 @@ def change_in_hw(dec_vars):
         return 0
     return abs(act_ratio - counter_ratio)
 
+def pred_inbound_tt(veh, line, start_time):
+    # compute time until arrival at terminal
+    trip = veh.curr_trip
+    stop_idx_from = veh.stop_idx ## this is zero-starting
+    stop_idx_to = len(trip.stops) - 1
+    travel_time = line.time_between_two_stops(stop_idx_from, stop_idx_to, 
+                                                trip.stops, start_time)
+    return travel_time
+
+
 def pred_terminal_report_time(next_trips, idx, info_vehs, env):
     block_id = next_trips.loc[idx, 'block_id']
 
@@ -244,38 +252,41 @@ def pred_terminal_report_time(next_trips, idx, info_vehs, env):
     schd_dep = next_trips.loc[idx, 'ST']
 
     next_event_t = veh_info['next_event_t'].iloc[0].total_seconds()
-    veh_status = veh_info['status'].iloc[0]
-
-    assert veh_status in [0,1,2,3,4,5]
-
-    if veh_status in [0,5]: # yet to report
-        # the report time at initialization
-        # may or may not be within the OTP so
-        return max(next_event_t, schd_dep-MAX_EARLY_DEV*60)
+    status = veh_info['status'].iloc[0]
+    direct = veh_info['direction'].iloc[0]
+    rt = veh_info['route_id'].iloc[0]
+    earliest_dep = schd_dep-MAX_EARLY_DEV*60
     
-    if veh_status in [1,4]: # reported (and adjusted)
-        return next_event_t
+    assert status in [0,1,2,3,4,5]
+
+    if status in [0,5]: # yet to report
+        if direct == OUTBOUND_DIRECTIONS[rt]:
+            # the report time at initialization
+            # ensure next event is within OTP
+            return max(next_event_t, earliest_dep)
+        else:
+            return schd_dep
+    
+    if status in [1,4]: 
+        if direct == OUTBOUND_DIRECTIONS[rt]:
+            # reported (and adjusted)
+            return next_event_t
+        else:
+            return schd_dep # scheduled departure is as good a guess as it gets
     
     # dwell time status (2) at terminal is not considered
     # trips dwelling at terminal would have been flagged as
     # last trip in stop.report_last
 
-    if veh_status in [2,3]:
-        # this would only be opposite direction
-        rt = veh_info['route_id'].iloc[0]
-        direct = veh_info['direction'].iloc[0]
-        assert direct == INBOUND_DIRECTIONS[rt]
-        assert veh.stop_idx != 0
-        # compute time until arrival at terminal
-        trip = veh.curr_trip
-        stop_idx_from = veh.stop_idx - 1
-        stop_idx_to = len(trip.stops) - 1
-        travel_time = line.time_between_two_stops(stop_idx_from, stop_idx_to, 
-                                                  trip.stops, time)
-        # travel_time = time_between_two_stops(line, stop_idx_from, stop_idx_to, 
-        #                                           time, trip.stops, time)
-        arrives = time + travel_time
-        return max(schd_dep-MAX_EARLY_DEV*60, arrives)
+    if status in [2,3]:
+        if direct == OUTBOUND_DIRECTIONS[rt]:
+            return schd_dep # scheduled departure is as good a guess as it gets
+        else:
+            start_time = time
+            travel_time = pred_inbound_tt(veh, line, start_time)
+
+            arrives = time + travel_time
+            return max(arrives, earliest_dep)
     
 def get_next_schedules(rt_id, block_id, schd_trip_id, env):
     schd = env.routes[rt_id].schedule.copy()
@@ -315,7 +326,9 @@ def eval_interlining(info, control_vehs, rts_info, borrow_rts, env,
                    'departure': None,
                    'schedules': None,
                    'scenarios': {'lend': scenarios_L, 'borrow': None},
-                   'variables': {'lend': vars_L, 'borrow': None}}
+                   'variables': {'lend': vars_L, 'borrow': None},
+                   'est_return': None,
+                   'req_return': next_info_L['departure']}
 
     for rt in borrow_rts:
         rt_info = rts_info[rt].copy()
@@ -350,4 +363,6 @@ def eval_interlining(info, control_vehs, rts_info, borrow_rts, env,
                 best_switch['departure'] = next_dep
                 best_switch['scenarios']['borrow'] = scenarios_B
                 best_switch['variables']['borrow'] = vars_B
+                best_switch['est_return'] = est_return
+                best_switch['req_return'] = req_return
     return best_switch

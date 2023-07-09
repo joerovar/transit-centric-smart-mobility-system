@@ -1,4 +1,4 @@
-from objects import Line, FixedVehicle, FixedRoute, Demand
+from objects import Line, FixedVehicle, FixedRoute, Demand, Supervisor
 import pandas as pd
 import numpy as np
 from constants import *
@@ -103,8 +103,9 @@ class FixedSimEnv(SimEnv):
             rt_stops = stops[stops['route_id']==route].copy()
             rt_link_times = self.link_times[
                 self.link_times['route_id']==route].copy()
+            ## select only the day it should be
             rt_schd = schedule[schedule['route_id']==route].copy()
-
+            
             self.lines[route] = Line(
                 route, rt_stops, rt_link_times, INTERVAL_LENGTH_MINS,
                 OUTBOUND_DIRECTIONS[route], INBOUND_DIRECTIONS[route]) 
@@ -114,6 +115,7 @@ class FixedSimEnv(SimEnv):
         self.demand = Demand(od)
 
         self.info_records = []
+        self.superv = Supervisor()
 
     def _update_info(self):
         # get information on vehicles that indicates time until next event
@@ -200,7 +202,8 @@ class FixedSimEnv(SimEnv):
             self.lines[rt].hist_date = hist_date
             confirmed_trips = self.lines[rt].link_times.loc[
                 self.lines[rt].link_times['date']==hist_date, 'trip_id'].tolist() # what was observed
-            self.routes[rt].update_schedule(confirmed_trips=confirmed_trips) 
+            self.routes[rt].update_schedule(hist_date, 
+                                            confirmed_trips=confirmed_trips) 
             self.routes[rt].reset_stop_records()
 
         self.demand.generate(INTERVAL_LENGTH_MINS, self.start_time_sec, 
@@ -211,7 +214,7 @@ class FixedSimEnv(SimEnv):
 
             for b in blocks: # Blocks may contain cancelled trips (based on runs)
                 block_schedule = schedule[(schedule['block_id']==b) & 
-                                        (schedule['confirmed']==1)].copy()
+                                          (schedule['confirmed']==1)].copy()
                 if not block_schedule.empty:
                     vehicle = FixedVehicle(CAPACITY, block_schedule, 
                                            DWELL_TIME_PARAMS, TERMINAL_REPORT_DELAYS,
@@ -343,7 +346,10 @@ class FixedSimEnv(SimEnv):
             if rts_info[rt] is None:
                 continue
             if rt == lend_rt_id:
-                if not can_lender_interline(rts_info[rt]): ## TO-DO inefficient
+                ## check conditions for lending
+                missing_trip_exists = rts_info[rt].loc[2, 'confirmed'] == 0
+                ## also check if vehicle is filled
+                if missing_trip_exists: ## TO-DO inefficient
                     return []
                 continue
             rt_info = rts_info[rt].copy()

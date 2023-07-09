@@ -127,11 +127,10 @@ class FixedRoute(Route):
         super().__init__()
         self.id = route
         self.schedule = schedule.copy()
-        self.schedule['departure_time_td'] = pd.to_timedelta(
-            self.schedule['departure_time'])
+        dep_time_td = pd.to_timedelta(self.schedule['departure_time'])
+        self.schedule['departure_sec'] = dep_time_td.dt.total_seconds()
         self.schedule = self.schedule.sort_values(
-            by='departure_time_td').reset_index(drop=True)
-        self.schedule['departure_sec'] = self.schedule['departure_time_td'].dt.total_seconds()
+            by='departure_sec').reset_index(drop=True)
         self.outbound_direction = outbound_direction
         self.inbound_direction = inbound_direction
         self.stops_outbound = stops[stops['direction']==outbound_direction].copy()
@@ -141,15 +140,23 @@ class FixedRoute(Route):
             inbound_direction: [Stop(si) for si in self.stops_inbound['stop_id'].tolist()]
         }
         self.worklog = pd.DataFrame()
+        self.weird_trips = pd.DataFrame()
 
-    def update_schedule(self, confirmed_trips=None):
+    def update_schedule(self, hist_date, confirmed_trips=None):
         # mark schedule for cancelled trips
         self.schedule['confirmed'] = 1
         if confirmed_trips:
             # if not all, type list with trip IDs
             self.schedule.loc[
                 ~self.schedule['schd_trip_id'].isin(confirmed_trips), 'confirmed'] = 0
-            
+        
+        day_name = pd.to_datetime(hist_date).day_name().lower()
+        ## log those trips that are not scheduled for the day but somehow appear in AVL
+        self.weird_trips = self.schedule[(self.schedule[day_name]==0) &
+                                         (self.schedule['confirmed']==1)].copy()
+        ## keep only trips scheduled on the day
+        self.schedule = self.schedule[self.schedule[day_name]==1] 
+
         work_cols = ['route_id', 'block_id', 'trip_id', 
                      'schd_trip_id', 'direction',
                      'departure_time', 'confirmed']
@@ -160,7 +167,7 @@ class FixedRoute(Route):
         work_schd['by_block'] = np.nan
         self.worklog = work_schd
         return
-    
+
     def reset_stop_records(self):
         self.stops = {
             self.outbound_direction: [Stop(si) for si in self.stops_outbound['stop_id'].tolist()],
@@ -737,5 +744,9 @@ class FlexVehicle(Vehicle):
     def __init__(self, capacity):
         super().__init__(capacity)
 
-
+class Supervisor():
+    def __init__(self):
+        self.log = []
+        self.cols = ['time', 'lend_rt', 'borrow_rt', 
+                     'ratio', 'est_return', 'req_return']
 
