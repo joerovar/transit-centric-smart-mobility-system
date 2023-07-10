@@ -75,9 +75,6 @@ def run_ehd(env, done, n_steps=0, debug=False):
         new_dep_t, new_hws, rec_wo_lim = recommended_dep_t(pre_hw, next_hw, new_min_dep_t, max_dep_t)
         # new_dep_t = min(max_dep_t, rec_dep_t)
 
-        if new_dep_t <= ref_veh.next_event['t']:
-            continue
-
         updated_info = env.adjust_departure(ref_veh_df, new_dep_t)
 
         if debug:
